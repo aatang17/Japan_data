@@ -27,20 +27,25 @@
 <main class="container">
   <div id="stale-banner"></div>
 
-  <div class="page-head">
-    <h1>Japan Consumer Price Index</h1>
-    <p class="page-sub" id="page-sub"><span class="skeleton" style="display:inline-block;width:420px;height:14px"></span></p>
-  </div>
-
   <!-- The ask assistant mounts itself from assets/ask.js as a floating
        launcher; it stays absent unless the server reports it configured. -->
 
-  <div class="tiles" id="tiles">
-    <div class="tile skeleton" style="min-height:118px"></div>
-    <div class="tile skeleton" style="min-height:118px"></div>
-    <div class="tile skeleton" style="min-height:118px"></div>
-    <div class="tile skeleton" style="min-height:118px"></div>
-    <div class="tile skeleton" style="min-height:118px"></div>
+  <div class="metric-card">
+    <div class="metric-card-head">
+      <h1>Japan Consumer Price Index</h1>
+      <span class="metric-asof" id="page-asof"></span>
+      <p class="metric-sub" id="page-sub"><span class="skeleton" style="display:inline-block;width:420px;height:14px"></span></p>
+    </div>
+    <div class="strip">
+      <div class="strip-grid" id="tiles">
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+      </div>
+    </div>
+    <p class="strip-foot" id="strip-foot"></p>
   </div>
 
   <section aria-labelledby="h-main">
@@ -121,6 +126,12 @@
     <div class="chart" id="breadth-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
     <p class="source-line" id="breadth-source"></p>
     <details class="calc" id="breadth-calc"></details>
+  </section>
+
+  <!-- No h2 band here: the card carries its own "Data Source" head, and two
+       stacked headers saying the same thing read as a duplicate. -->
+  <section aria-label="Data source and provenance" class="prov">
+    <div id="prov-card"></div>
   </section>
 
 </main>

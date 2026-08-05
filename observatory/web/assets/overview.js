@@ -47,24 +47,77 @@ function sourceLine(rel, trust) {
     (label ? " · " + label : "");
 }
 
+/* The API label carries the full definition ("Core CPI (less fresh food) · YoY").
+   A strip cell is one line, so the parenthetical moves to the footnote and the
+   "CPI" that every cell repeats is dropped. Full label stays on the tooltip. */
+function shortLabel(label) {
+  return label
+    .replace(/\s*\([^)]*\)/g, "")
+    .replace(/\bCPI\b/g, "")
+    .replace("3m Annualized", "3m ann.")
+    .replace(/\s+/g, " ")
+    .replace(/\s+([,;:])/g, "$1")   // "Headline CPI, adjusted" must not leave " ,"
+    .trim();
+}
+
+/* What the cell labels drop when they abbreviate. Fixed copy for this dataset,
+   like the sub-line in renderHeader — the API sends the definitions inside the
+   labels, not as prose. */
+const STRIP_NOTE = "Core excludes fresh food; core-core also excludes energy";
+
 function renderTiles() {
-  const el = document.getElementById("tiles");
-  el.innerHTML = OV.tiles.map(t => {
-    const dp = 1;
-    const badge = trustBadge(t.trust);
-    const val = t.value === null ? MISSING : fmtNum(t.value, dp);
-    const delta = t.delta_pp === null ? MISSING
-      : fmtSigned(t.delta_pp, 1, "pp") + " " + t.comparison;
-    return '<div class="tile">' +
-      '<div class="tile-label">' + escapeHtml(t.label) + "</div>" +
-      '<div class="tile-value num">' + val +
-        (t.value === null ? "" : '<span class="unit">' + (t.unit === "%" ? "%" : "") + "</span>") +
-      "</div>" +
-      '<div class="tile-delta num">' + delta + "</div>" +
-      '<div class="tile-foot">' + fmtPeriodLong(OV.release.latest_period) +
-        (badge ? " " + badge : "") + "</div>" +
+  const tiles = OV.tiles;
+
+  // Every cell is a rate in the same unit, so one shared scale makes the bars
+  // comparable; the largest reading on the strip sets full width.
+  const scale = Math.max.apply(null,
+    tiles.map(t => (t.value === null ? 0 : Math.abs(t.value))).concat([0]));
+
+  // The delta baseline is the same month for every cell in practice; when it
+  // is, it belongs in the footnote rather than repeated five times.
+  const comparisons = [];
+  tiles.forEach(t => {
+    if (t.delta_pp !== null && comparisons.indexOf(t.comparison) === -1) {
+      comparisons.push(t.comparison);
+    }
+  });
+  const sharedComparison = comparisons.length === 1 ? comparisons[0] : null;
+
+  document.getElementById("tiles").innerHTML = tiles.map(t => {
+    const val = t.value === null ? MISSING : fmtNum(t.value, 1);
+    const unit = t.value === null || t.unit !== "%" ? ""
+      : '<span class="unit">%</span>';
+
+    // Direction reads off the arrow and the colour, which a screen reader gets
+    // neither of — the hidden word is the same fact in text.
+    let delta = MISSING;
+    let dir = "flat";
+    if (t.delta_pp !== null) {
+      const rounded = Number(t.delta_pp.toFixed(1));
+      dir = rounded > 0 ? "up" : rounded < 0 ? "down" : "flat";
+      const arrow = rounded === 0 ? ""
+        : '<span aria-hidden="true">' + (rounded > 0 ? "▲" : "▼") + "</span> " +
+          '<span class="visually-hidden">' + (rounded > 0 ? "up " : "down ") + "</span>";
+      delta = arrow + fmtNum(Math.abs(t.delta_pp), 1) + " pp" +
+        (sharedComparison ? "" : " " + escapeHtml(t.comparison));
+    }
+
+    const width = t.value === null || scale === 0 ? 0
+      : Math.abs(t.value) / scale * 100;
+
+    return '<div class="strip-cell">' +
+      '<div class="strip-label" title="' + escapeHtml(t.label) + '">' +
+        escapeHtml(shortLabel(t.label)) + "</div>" +
+      '<div class="strip-value num">' + val + unit + "</div>" +
+      '<div class="strip-delta num ' + dir + '">' + delta + "</div>" +
+      '<div class="strip-meter" aria-hidden="true"><i style="width:' +
+        width.toFixed(1) + '%"></i></div>' +
       "</div>";
   }).join("");
+
+  document.getElementById("strip-foot").textContent =
+    "Change " + (sharedComparison || "vs the prior month") +
+    ", in percentage points · " + STRIP_NOTE;
 }
 
 function renderStale() {
@@ -83,10 +136,9 @@ function renderHeader() {
   const rel = OV.release;
   document.getElementById("header-asof").textContent =
     "Data through " + fmtPeriod(rel.latest_period);
-  document.getElementById("page-sub").innerHTML =
-    "National, middle-class indices · 2020 = 100 · " + escapeHtml(rel.label) +
-    '<span class="sep">·</span>Statistics Bureau of Japan ' + trustBadge("official") +
-    '<span class="sep">·</span>Ingested ' + fmtStamp(rel.ingested_at);
+  document.getElementById("page-asof").textContent = "Ingested " + fmtStamp(rel.ingested_at);
+  document.getElementById("page-sub").textContent =
+    "National, middle-class indices · 2020 = 100 · Statistics Bureau of Japan";
 }
 
 function measureUnitName(measure) {
@@ -324,6 +376,45 @@ function renderBreadth() {
     ]);
 }
 
+function renderProvenance() {
+  const rel = OV.release;
+  const base = (rel.base || "").replace("=", " = ");
+  document.getElementById("prov-card").innerHTML =
+    '<div class="prov-card">' +
+      '<div class="prov-card-head">' +
+        '<div class="prov-card-title">Data Source</div>' +
+        '<div class="prov-card-id">' + escapeHtml(rel.source_id) + "</div>" +
+      "</div>" +
+      '<div class="prov-grid">' +
+
+        '<div class="prov-field full">' +
+          '<div class="prov-label">Official source</div>' +
+          '<div class="prov-value"><a href="' + escapeHtml(rel.source_page) +
+            '" rel="noopener">' + escapeHtml(rel.source_name) + "</a></div>" +
+          '<div class="prov-sub">Series coverage ' + fmtPeriodLong(rel.coverage_start) +
+            " – latest month" + (base ? " · " + escapeHtml(base) : "") + "</div>" +
+        "</div>" +
+
+        '<div class="prov-field">' +
+          '<div class="prov-label">Release</div>' +
+          '<div class="prov-value">Data through ' + fmtPeriodLong(rel.latest_period) + "</div>" +
+          '<div class="prov-sub">Published ' + escapeHtml(rel.frequency || "") + "</div>" +
+        "</div>" +
+        '<div class="prov-field">' +
+          '<div class="prov-label">Retrieved</div>' +
+          '<div class="prov-value num">' + fmtStamp(rel.retrieved_at) + "</div>" +
+          '<div class="prov-sub">Archived ' + fmtStamp(rel.ingested_at) + "</div>" +
+        "</div>" +
+
+        '<div class="prov-field full">' +
+          '<div class="prov-label">Archived checksum (SHA-256)</div>' +
+          '<div class="prov-hash">' + escapeHtml(rel.sha256) + "</div>" +
+        "</div>" +
+
+      "</div>" +
+    "</div>";
+}
+
 function wireSeg(segId, stateKey, current, onChange) {
   const seg = document.getElementById(segId);
   seg.querySelectorAll("button").forEach(b => {
@@ -388,6 +479,7 @@ async function init() {
   renderStale();
   renderTiles();
   renderGroups();
+  renderProvenance();
   wireControls();
 
   // analysis panels load independently — one failing must not blank the page

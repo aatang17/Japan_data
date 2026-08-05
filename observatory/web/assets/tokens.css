@@ -8,6 +8,9 @@
   --obs-ink: #0f172a;
   --obs-text: #334155;
   --obs-text-muted: #64748b;
+  /* one step quieter than muted — footnotes that sit under a block they
+     annotate, where muted would compete with the block's own labels */
+  --obs-text-faint: #94a3b8;
   --obs-border: #e2e8f0;
   --obs-grid: #eef2f7;
   --obs-surface: #ffffff;
@@ -59,6 +62,7 @@
   --obs-ink: #e2e8f0;
   --obs-text: #cbd5e1;
   --obs-text-muted: #94a3b8;
+  --obs-text-faint: #7c8ba3;
   --obs-border: #2b3a52;
   --obs-grid: #22304a;
   --obs-surface: #0f172a;
@@ -104,6 +108,7 @@
     --obs-ink: #e2e8f0;
     --obs-text: #cbd5e1;
     --obs-text-muted: #94a3b8;
+    --obs-text-faint: #7c8ba3;
     --obs-border: #2b3a52;
     --obs-grid: #22304a;
     --obs-surface: #0f172a;

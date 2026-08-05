@@ -161,31 +161,95 @@ h3 { font-size: 13.5px; color: var(--obs-ink); font-weight: 600; margin: 16px 0 
 .badge-model    { color: var(--obs-trust-model);    border-color: var(--obs-trust-model); }
 .badge-stale    { color: var(--obs-trust-stale);    border-color: var(--obs-trust-stale); }
 
-/* ---------- stat tiles ---------- */
+/* ---------- headline metric card ---------- */
 
-.tiles {
+.metric-card {
+  background: var(--obs-surface);
+  border: 1px solid var(--obs-border);
+  border-radius: 4px;
+  padding: 22px 24px 18px;
+  margin-top: 12px;
+}
+/* Title and ingest stamp share the top line; the sub-line is forced onto its
+   own row below both by the 100% basis. */
+.metric-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0 24px;
+}
+.metric-card-head h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.2px; color: var(--obs-ink); }
+.metric-asof {
+  font-family: "SF Mono", ui-monospace, "JetBrains Mono", Menlo, monospace;
+  font-size: 12px;
+  color: var(--obs-text-muted);
+  white-space: nowrap;
+}
+.metric-sub { flex: 1 0 100%; margin-top: 6px; font-size: 13px; color: var(--obs-text-muted); }
+
+/* One framed strip rather than five separate cards: the readings are one
+   family of measures on one reference month, and the shared frame says so.
+   The frame clips the trailing column and row rules (the grid is pulled 1px
+   past it), so cell dividers stay hairlines at any column count and a partly
+   filled last row leaves no orphaned rule. */
+.strip {
+  margin-top: 20px;
+  border: 1px solid var(--obs-border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.strip-grid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: 12px;
-  margin-top: 16px;
+  margin: 0 -1px -1px 0;
 }
-.tile {
-  border: 1px solid var(--obs-border);
-  border-radius: 3px;
-  padding: 12px 14px 10px;
-  display: flex;
-  flex-direction: column;
-  min-height: 118px;
+.strip-cell {
+  padding: 14px 16px 16px;
+  min-width: 0;
+  border-right: 1px solid var(--obs-border);
+  border-bottom: 1px solid var(--obs-border);
 }
-.tile-label { font-size: 12.5px; color: var(--obs-text-muted); font-weight: 500; min-height: 3em; }
-.tile-value { font-size: 29px; font-weight: 700; color: var(--obs-ink); line-height: 1.15; margin-top: 2px; }
-.tile-value .unit { font-size: 16px; font-weight: 500; color: var(--obs-text-muted); margin-left: 1px; }
-.tile-delta { font-size: 12.5px; color: var(--obs-text); margin-top: 2px; }
-.tile-foot {
-  margin-top: auto; padding-top: 8px;
-  font-size: 10.5px; color: var(--obs-text-muted);
-  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+/* Never wraps: a two-line label in one cell would drop that cell's value off
+   the baseline its neighbours share. The full label is on the title tooltip. */
+.strip-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: var(--obs-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+.strip-value {
+  margin-top: 8px;
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -1px;
+  color: var(--obs-ink);
+}
+.strip-value .unit {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--obs-text-muted);
+  margin-left: 2px;
+  letter-spacing: normal;
+}
+.strip-delta { margin-top: 8px; font-size: 13px; font-weight: 600; }
+.strip-delta.up { color: var(--obs-trust-model); }
+.strip-delta.down { color: var(--obs-trust-official); }
+.strip-delta.flat { color: var(--obs-text-muted); }
+.strip-meter {
+  margin-top: 8px;
+  height: 4px;
+  background: var(--obs-grid);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.strip-meter i { display: block; height: 100%; background: var(--obs-primary); border-radius: 2px; }
+.strip-foot { margin-top: 10px; font-size: 12px; color: var(--obs-text-faint); }
 
 /* ---------- controls ---------- */
 
@@ -285,6 +349,12 @@ input[type="search"] { width: 300px; max-width: 100%; }
   z-index: 940;
   background: rgba(15, 23, 42, 0.18);
 }
+
+/* An author `display` beats the UA stylesheet's [hidden] { display: none },
+   so the attribute has to be re-asserted here or the panel never hides —
+   it would sit over the page permanently and Close would appear dead. */
+.ask-panel[hidden],
+.ask-scrim[hidden] { display: none; }
 
 .ask-panel {
   position: fixed;
@@ -597,6 +667,55 @@ table.data tbody tr:hover .note-mark { color: var(--obs-ink); }
 .state-error { color: var(--obs-trust-stale); }
 .state-error details { margin-top: 8px; font-size: 12px; }
 
+/* ---------- provenance card ---------- */
+
+.prov-card { border: 1px solid var(--obs-border); border-radius: 3px; overflow: hidden; }
+.prov-card-head {
+  background: var(--obs-band-bg);
+  color: var(--obs-band-ink);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.prov-card-head .prov-card-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.prov-card-head .prov-card-id {
+  font-family: "SF Mono", ui-monospace, "JetBrains Mono", Menlo, monospace;
+  font-size: 12px;
+  color: var(--obs-band-muted);
+}
+.prov-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 28px; padding: 4px 20px; }
+.prov-field { grid-column: span 1; padding: 14px 0; border-bottom: 1px solid var(--obs-grid); }
+.prov-field.full { grid-column: 1 / -1; }
+.prov-field:last-child { border-bottom: none; }
+.prov-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--obs-text-muted);
+  margin-bottom: 5px;
+}
+/* prose must not split mid-word; only the checksum needs a hard break */
+.prov-value { font-size: 14px; color: var(--obs-text); line-height: 1.5; overflow-wrap: anywhere; }
+.prov-sub { font-size: 12.5px; color: var(--obs-text-muted); margin-top: 3px; }
+.prov-hash {
+  background: var(--obs-surface-subtle);
+  border: 1px solid var(--obs-border);
+  border-radius: 3px;
+  padding: 8px 12px;
+  font-family: "SF Mono", ui-monospace, "JetBrains Mono", Menlo, monospace;
+  font-size: 12.5px;
+  color: var(--obs-ink);
+  word-break: break-all;
+}
 
 .site-footer {
   border-top: 1px solid var(--obs-border);
@@ -627,18 +746,36 @@ table.data tbody tr:hover .note-mark { color: var(--obs-ink); }
 /* ---------- responsive ---------- */
 
 @media (max-width: 1024px) {
-  .tiles { grid-template-columns: repeat(3, 1fr); }
+  .strip-grid { grid-template-columns: repeat(3, 1fr); }
 }
 @media (max-width: 768px) {
-  .tiles { grid-template-columns: repeat(2, 1fr); }
+  .strip-grid { grid-template-columns: repeat(2, 1fr); }
+  .strip-value { font-size: 30px; }
   .site-header .inner { gap: 12px; }
   .header-asof { display: none; }
   .chart { height: 300px; }
   .chart-bars { height: 360px; }
   .cell-item { max-width: 200px; }
+  .prov-grid { grid-template-columns: 1fr; }
+}
+/* Once the strip wraps, a last row one cell short would leave a dead half-row
+   inside the frame and an orphaned divider; the final cell takes the slack so
+   every row reaches the frame edge. Bounded on both sides: a `span 2` that
+   leaked into the single-column layout would conjure a second column. */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .strip-cell:last-child:nth-child(3n + 2) { grid-column: span 2; }
+}
+@media (min-width: 481px) and (max-width: 768px) {
+  .strip-cell:last-child:nth-child(2n + 1) { grid-column: span 2; }
+}
+/* Below this the title and the stamp cannot share a line, and a stamp wrapped
+   between the title and the sub-line reads as a caption on the wrong text. */
+@media (max-width: 600px) {
+  .metric-asof { order: 3; margin-top: 2px; }
+  .metric-card { padding: 18px 16px 14px; }
 }
 @media (max-width: 480px) {
-  .tiles { grid-template-columns: 1fr; }
+  .strip-grid { grid-template-columns: 1fr; }
   /* A 420px panel inset from both edges leaves nothing on a phone — take the
      whole viewport instead, using dvh so the browser chrome can't clip the
      compose row. */
@@ -658,8 +795,6 @@ table.data tbody tr:hover .note-mark { color: var(--obs-ink); }
   /* two columns get cramped below ~480px — stack label over detail */
   .ask-lookups { grid-template-columns: 1fr; gap: 0; }
   .ask-lookup-detail { margin-bottom: 6px; }
-  .tile { min-height: 0; }
-  .tile-label { min-height: 0; }
   .site-header .inner {
     height: auto;
     min-height: 44px;
