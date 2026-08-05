@@ -324,21 +324,6 @@ function renderBreadth() {
     ]);
 }
 
-function renderProvenance() {
-  const rel = OV.release;
-  document.getElementById("prov-list").innerHTML =
-    "<dt>Official source</dt><dd><a href=\"" + escapeHtml(rel.source_page) +
-      '" rel="noopener">' + escapeHtml(rel.source_name) + "</a></dd>" +
-    "<dt>Source ID</dt><dd>" + escapeHtml(rel.source_id) + "</dd>" +
-    "<dt>Release</dt><dd>" + escapeHtml(rel.label) + " · published vintage, 2020 = 100</dd>" +
-    "<dt>Retrieved</dt><dd>" + fmtStamp(rel.retrieved_at) + "</dd>" +
-    "<dt>Archived checksum</dt><dd class=\"num\">sha256 " + escapeHtml(rel.sha256) + "</dd>" +
-    "<dt>Trust label</dt><dd>" + trustBadge("official") +
-      " value as published by the agency. Rates of change carry no badge — they are " +
-      "deterministic calculations from those official index values, with the formula " +
-      "shown under each chart.</dd>";
-}
-
 function wireSeg(segId, stateKey, current, onChange) {
   const seg = document.getElementById(segId);
   seg.querySelectorAll("button").forEach(b => {
@@ -403,7 +388,6 @@ async function init() {
   renderStale();
   renderTiles();
   renderGroups();
-  renderProvenance();
   wireControls();
 
   // analysis panels load independently — one failing must not blank the page

@@ -14,17 +14,17 @@
   --obs-surface-subtle: #f8fafc;
 
   /* site header — a filled navy bar, so its foregrounds are "on-primary"
-     values that cannot be derived from the body text tokens */
-  --obs-header-bg: #123a6d;
+     values that cannot be derived from the body text tokens. Same navy as the
+     section band: one platform blue, not two. */
+  --obs-header-bg: #1a4d8f;
   --obs-header-ink: #ffffff;
   --obs-header-text: #c5d7ec;
-  --obs-header-muted: #9db5d3;
+  --obs-header-muted: #aec6e1;
   --obs-header-accent: #8fbde8;
-  --obs-header-border: rgba(255, 255, 255, 0.24);
+  --obs-header-border: rgba(255, 255, 255, 0.28);
   --obs-header-focus: rgba(255, 255, 255, 0.75);
 
-  /* section header band — filled blue, one step lighter than the site header
-     so page chrome and content structure stay distinguishable */
+  /* section header band — same fill as the site header */
   --obs-band-bg: #1a4d8f;
   --obs-band-ink: #ffffff;
   --obs-band-muted: #c5d7ec;
@@ -64,10 +64,10 @@
   --obs-surface: #0f172a;
   --obs-surface-subtle: #1a2436;
 
-  --obs-header-bg: #0d2a4f;
+  --obs-header-bg: #16406f;
   --obs-header-ink: #f1f5f9;
   --obs-header-text: #aac3de;
-  --obs-header-muted: #8ba5c4;
+  --obs-header-muted: #a9c2dd;
   --obs-header-accent: #7fb3e3;
   --obs-header-border: rgba(255, 255, 255, 0.16);
   --obs-header-focus: rgba(255, 255, 255, 0.7);
@@ -109,10 +109,10 @@
     --obs-surface: #0f172a;
     --obs-surface-subtle: #1a2436;
 
-    --obs-header-bg: #0d2a4f;
+    --obs-header-bg: #16406f;
     --obs-header-ink: #f1f5f9;
     --obs-header-text: #aac3de;
-    --obs-header-muted: #8ba5c4;
+    --obs-header-muted: #a9c2dd;
     --obs-header-accent: #7fb3e3;
     --obs-header-border: rgba(255, 255, 255, 0.16);
     --obs-header-focus: rgba(255, 255, 255, 0.7);

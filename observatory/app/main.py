@@ -7,7 +7,12 @@ import pathlib
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from .api import router
+from . import env
+
+# Before .api, which resolves the /ask provider from the environment.
+env.load()
+
+from .api import router  # noqa: E402 — must follow env.load()
 
 WEB_DIR = pathlib.Path(__file__).resolve().parent.parent / "web"
 

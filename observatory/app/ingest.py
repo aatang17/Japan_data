@@ -38,16 +38,39 @@ def run(slug, from_file=None):
 
     con = db.connect()
     try:
-        con.execute(
-            "INSERT OR REPLACE INTO datasets VALUES (?,?,?,?,?,?,?,?)",
-            [adapter.DATASET[k] for k in
-             ("slug", "title", "country", "agency", "agency_ja", "base", "frequency", "description")],
-        )
-        con.execute(
-            "INSERT OR REPLACE INTO sources VALUES (?,?,?,?,?,?)",
-            [adapter.SOURCE["source_id"], slug, adapter.SOURCE["name"],
-             adapter.SOURCE["name_ja"], adapter.SOURCE["url"], adapter.SOURCE["license_note"]],
-        )
+        # Prefer UPDATE-then-INSERT over INSERT OR REPLACE / ON CONFLICT.
+        # DuckDB ≥1.4 rejects REPLACE (and some upserts) when child rows still
+        # reference the parent, and also rejects UPDATEs that touch a column
+        # that is itself a foreign key (sources.dataset → datasets.slug) while
+        # artifacts reference the source. Metadata that can change is updated;
+        # identity columns (slug, source_id, dataset) are left alone.
+        if con.execute("SELECT 1 FROM datasets WHERE slug=?", [slug]).fetchone():
+            con.execute(
+                "UPDATE datasets SET title=?, country=?, agency=?, agency_ja=?, "
+                "base=?, frequency=?, description=? WHERE slug=?",
+                [adapter.DATASET[k] for k in
+                 ("title", "country", "agency", "agency_ja", "base", "frequency", "description")]
+                + [slug],
+            )
+        else:
+            con.execute(
+                "INSERT INTO datasets VALUES (?,?,?,?,?,?,?,?)",
+                [adapter.DATASET[k] for k in
+                 ("slug", "title", "country", "agency", "agency_ja", "base", "frequency", "description")],
+            )
+        source_id = adapter.SOURCE["source_id"]
+        if con.execute("SELECT 1 FROM sources WHERE source_id=?", [source_id]).fetchone():
+            con.execute(
+                "UPDATE sources SET name=?, name_ja=?, url=?, license_note=? WHERE source_id=?",
+                [adapter.SOURCE["name"], adapter.SOURCE["name_ja"],
+                 adapter.SOURCE["url"], adapter.SOURCE["license_note"], source_id],
+            )
+        else:
+            con.execute(
+                "INSERT INTO sources VALUES (?,?,?,?,?,?)",
+                [source_id, slug, adapter.SOURCE["name"],
+                 adapter.SOURCE["name_ja"], adapter.SOURCE["url"], adapter.SOURCE["license_note"]],
+            )
 
         prior = con.execute(
             "SELECT a.sha256 FROM source_artifacts a "

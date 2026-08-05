@@ -11,7 +11,9 @@ the 'calc' field of the response).
 """
 import datetime
 import math
+import os
 import time
+from typing import List
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
@@ -19,12 +21,21 @@ from pydantic import BaseModel, Field
 from . import db
 from .adapters import cpi_jp, cpi_jp_items
 
-# The agent is optional: without the anthropic SDK installed the data API and
-# the site keep working, and /ask reports itself as unavailable.
+# The agent is optional: without the openai package installed the data API
+# and the site keep working, and /ask reports itself as unavailable.
 try:
     from . import agent
 except ImportError:  # pragma: no cover — depends on the install
     agent = None
+
+
+def _ask_enabled():
+    """Kill switch. Off unless ASK_ENABLED is an explicit truthy value.
+
+    Credentials alone are not enough: production ships with the ask box
+    hidden until we decide to turn it on.
+    """
+    return os.environ.get("ASK_ENABLED", "").strip().lower() in ("1", "true", "yes", "on")
 
 ADAPTERS = {"cpi-jp": cpi_jp, "cpi-jp-items": cpi_jp_items}
 
@@ -153,18 +164,25 @@ def _row_notes(values, as_of):
 def _release(con, dataset):
     row = con.execute(
         "SELECT r.release_id, r.label, r.latest_period, r.ingested_at, "
-        "       a.sha256, a.url, a.retrieved_at, s.name, s.url AS source_page, s.source_id "
+        "       a.sha256, a.url, a.retrieved_at, s.name, s.url AS source_page, s.source_id, "
+        "       d.base, d.frequency "
         "FROM releases r JOIN source_artifacts a USING(artifact_id) "
         "JOIN sources s ON s.source_id = a.source_id "
+        "JOIN datasets d ON d.slug = r.dataset "
         "WHERE r.dataset=? AND r.status='published'", [dataset]).fetchone()
     if row is None:
         raise HTTPException(503, "No published release for dataset '%s'" % dataset)
     keys = ("release_id", "label", "latest_period", "ingested_at", "sha256",
-            "download_url", "retrieved_at", "source_name", "source_page", "source_id")
+            "download_url", "retrieved_at", "source_name", "source_page", "source_id",
+            "base", "frequency")
     rel = dict(zip(keys, row))
     rel["latest_period"] = rel["latest_period"].isoformat()
     rel["ingested_at"] = rel["ingested_at"].isoformat() + "Z"
     rel["retrieved_at"] = rel["retrieved_at"].isoformat() + "Z"
+    coverage_start = con.execute(
+        "SELECT MIN(o.period) FROM observations o JOIN series s USING(series_id) "
+        "WHERE s.dataset=?", [dataset]).fetchone()[0]
+    rel["coverage_start"] = coverage_start.isoformat() if coverage_start else None
     return rel
 
 
@@ -206,19 +224,32 @@ def _rate_limited(client_ip):
     return False
 
 
+class AskTurn(BaseModel):
+    """One visible turn of the conversation, replayed by the browser."""
+    role: str
+    content: str
+
+
 class AskRequest(BaseModel):
     question: str = Field(..., min_length=3, max_length=500)
+    # The thread so far, oldest first. Validated and clamped in the handler
+    # rather than by field constraints, so the rules read the same on either
+    # pydantic major version.
+    history: List[AskTurn] = []
 
 
 @router.get("/agent/info")
 def agent_info():
     """Whether natural-language questions are available on this server."""
-    if agent is None:
-        return {"enabled": False, "reason": "The anthropic SDK is not installed."}
-    if not agent.available():
+    if not _ask_enabled():
         return {"enabled": False,
-                "reason": "No API credentials configured (ANTHROPIC_API_KEY)."}
-    return {"enabled": True, "model": agent.MODEL,
+                "reason": "Question answering is turned off on this server."}
+    if agent is None:
+        return {"enabled": False,
+                "reason": "Question answering is not installed on this server."}
+    if not agent.available():
+        return {"enabled": False, "reason": agent.unavailable_reason()}
+    return {"enabled": True, "model": agent.model_name(),
             "max_question_chars": 500,
             "rate_limit": "%d questions per %d seconds"
                           % (ASK_MAX_PER_WINDOW, ASK_WINDOW_SECONDS)}
@@ -228,6 +259,8 @@ def agent_info():
 def ask(dataset, body: AskRequest, request: Request):
     """Answer a question in prose, with the data lookups that produced it."""
     _dataset_or_404(dataset)
+    if not _ask_enabled():
+        raise HTTPException(503, "Question answering is turned off on this server.")
     if agent is None:
         raise HTTPException(503, "Question answering is not installed on this server.")
     client_ip = request.client.host if request.client else "unknown"
@@ -238,8 +271,10 @@ def ask(dataset, body: AskRequest, request: Request):
         release = _release(con, dataset)
     finally:
         con.close()
+    history = [{"role": t.role, "content": t.content} for t in body.history]
     try:
-        result = agent.ask(body.question.strip(), dataset=dataset)
+        result = agent.ask(body.question.strip(), dataset=dataset,
+                           history=history)
     except agent.AgentUnavailable as exc:
         raise HTTPException(503, str(exc))
     result.update({"dataset": dataset, "question": body.question.strip(),

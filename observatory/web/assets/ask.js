@@ -1,14 +1,23 @@
-/* Plain-language questions over the published series.
+/* Ask — a floating assistant over the published series.
 
-   The answer is prose, so it gets prose treatment — but it carries the same
-   provenance contract as every other number on the site: the release it was
-   answered from, and the exact lookups behind it, expandable in place.
+   A launcher in the corner opens a chat panel. Answers are prose, so they get
+   prose treatment, but each one carries the same provenance contract as every
+   other number on the site: the release it came from and the exact lookups
+   behind it, expandable in place.
 
-   The section stays hidden unless the server reports the feature configured;
-   an unconfigured deployment shows no broken affordance. */
+   Conversation state lives here, in the browser, and is replayed to the server
+   on each turn — the API keeps none. That is safe because every tool behind it
+   is read-only over already-published statistics.
+
+   The widget mounts itself on any page that loads this file, and stays absent
+   unless the server reports the feature configured — an unconfigured
+   deployment shows no broken affordance. */
 "use strict";
 
 const ASK_DATASET = "cpi-jp";
+/* Visible turns kept client-side. The server clamps too; this stops a long
+   session growing the request forever. */
+const ASK_MAX_HISTORY = 12;
 
 /* raw tool name -> what the reader sees; never render the raw value */
 const LOOKUP_LABELS = {
@@ -33,8 +42,20 @@ function fixMinus(text) {
   return text.replace(/(^|[\s(\[])-(?=\d)/g, "$1−");
 }
 
-/* Answers are plain prose with "- " bullets — no markdown beyond that.
-   Everything is escaped first; nothing from the model reaches innerHTML raw. */
+/* Inline markdown, applied to ALREADY-ESCAPED text so nothing from the model
+   can reach innerHTML raw. Only `**bold**` and `` `code` ``.
+
+   The prompt asks for no bold, and the model emits it anyway — a soft
+   formatting rule is not something a cheap model reliably honours, so the
+   renderer handles what arrives rather than leaving literal asterisks on
+   screen. Anything else degrades to plain text; it never breaks. */
+function inlineMd(escaped) {
+  return escaped
+    .replace(/`([^`\n]+)`/g, "<code>$1</code>")
+    .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
+}
+
+/* Answers are prose with "- " bullets, plus the inline marks above. */
 function renderAnswer(text) {
   const blocks = fixMinus(text).split(/\n\s*\n/);
   let html = "";
@@ -43,13 +64,13 @@ function renderAnswer(text) {
     if (!lines.length) continue;
     if (lines.every((l) => /^[-•*]\s+/.test(l))) {
       html += "<ul>" + lines
-        .map((l) => "<li>" + escapeHtml(l.replace(/^[-•*]\s+/, "")) + "</li>")
+        .map((l) => "<li>" + inlineMd(escapeHtml(l.replace(/^[-•*]\s+/, ""))) + "</li>")
         .join("") + "</ul>";
     } else {
-      html += "<p>" + escapeHtml(lines.join(" ")) + "</p>";
+      html += "<p>" + inlineMd(escapeHtml(lines.join(" "))) + "</p>";
     }
   }
-  return html || "<p>" + escapeHtml(text) + "</p>";
+  return html || "<p>" + inlineMd(escapeHtml(text)) + "</p>";
 }
 
 function lookupDetail(call) {
@@ -80,7 +101,13 @@ function sourcesUsed(calls, release) {
 }
 
 function renderLookups(calls, release) {
-  if (!calls.length) return "";
+  // A follow-up ("and core?") is often answered from figures already fetched
+  // earlier in the thread, with no new lookup. Saying so keeps the provenance
+  // contract intact — silence would read as a number from nowhere.
+  if (!calls.length) {
+    return '<p class="ask-foot ask-carried">Figures carried from earlier in '
+      + "this conversation.</p>";
+  }
   const rows = calls.map((c) =>
     '<span class="ask-lookup-what">'
     + escapeHtml(LOOKUP_LABELS[c.tool] || c.tool) + "</span>"
@@ -103,94 +130,194 @@ function renderLookups(calls, release) {
     + "</div></details>";
 }
 
-function renderResult(data) {
-  const rel = data.release || {};
-  const calls = data.tool_calls || [];
-  const months = new Set(calls.map((c) => c.latest_period).filter(Boolean));
-  const asOf = months.size ? fmtPeriodLong([...months].sort().pop())
-    : fmtPeriodLong(rel.latest_period);
-  return '<div class="ask-answer">'
-    + '<div class="ask-body">' + renderAnswer(data.answer) + "</div>"
-    + '<p class="ask-foot">Answered from published data through ' + escapeHtml(asOf)
-    + " · retrieved " + escapeHtml(fmtStamp(rel.retrieved_at)) + "</p>"
-    + renderLookups(calls, rel)
-    + "</div>";
-}
+/* ---- the widget ---- */
 
 function initAsk() {
-  const section = document.getElementById("ask");
-  if (!section) return;
-  const form = document.getElementById("ask-form");
-  const input = document.getElementById("ask-input");
-  const button = document.getElementById("ask-submit");
-  const out = document.getElementById("ask-out");
-  const hint = document.getElementById("ask-hint");
+  if (document.getElementById("ask-root")) return;
 
   fetch("/api/v1/agent/info")
     .then((r) => r.json())
-    .then((info) => {
-      if (!info.enabled) return; // stays hidden
-      section.hidden = false;
-      // the server owns the limit; the markup default is only a fallback
-      if (info.max_question_chars) input.maxLength = info.max_question_chars;
-    })
-    .catch(() => { /* leave hidden */ });
+    .then((info) => { if (info.enabled) mountAsk(info); })
+    .catch(() => { /* stay absent */ });
+}
 
-  // Separated by spacing rather than punctuation: the row wraps at narrow
-  // widths, and a wrapped delimiter always strands one at the end of a line.
-  const tryLabel = document.createElement("span");
-  tryLabel.className = "ask-try";
-  tryLabel.textContent = "Try:";
-  hint.appendChild(tryLabel);
-  for (const q of SUGGESTIONS) {
-    const b = document.createElement("button");
-    b.type = "button";
-    b.className = "ask-suggest";
-    b.textContent = q;
-    b.addEventListener("click", () => { input.value = q; submit(); });
-    hint.appendChild(b);
+function mountAsk(info) {
+  const root = document.createElement("div");
+  root.id = "ask-root";
+  root.innerHTML = [
+    '<button type="button" class="ask-launcher" id="ask-launcher"',
+    '        aria-expanded="false" aria-controls="ask-panel">Ask about this data</button>',
+    '<div class="ask-scrim" id="ask-scrim" hidden></div>',
+    '<section class="ask-panel" id="ask-panel" role="dialog" aria-modal="false"',
+    '         aria-labelledby="ask-title" hidden>',
+    '  <header class="ask-panel-head">',
+    '    <h2 id="ask-title">Ask about this data</h2>',
+    '    <button type="button" class="ask-close" id="ask-close"',
+    '            aria-label="Close">Close</button>',
+    "  </header>",
+    '  <div class="ask-thread" id="ask-thread" aria-live="polite"></div>',
+    '  <form class="ask-compose" id="ask-form">',
+    '    <label class="visually-hidden" for="ask-input">Your question</label>',
+    '    <input type="text" id="ask-input" autocomplete="off" maxlength="500"',
+    '           placeholder="Ask a question…">',
+    '    <button type="submit" class="btn btn-primary" id="ask-send">Send</button>',
+    "  </form>",
+    "</section>",
+  ].join("\n");
+  document.body.appendChild(root);
+
+  const launcher = root.querySelector("#ask-launcher");
+  const scrim = root.querySelector("#ask-scrim");
+  const panel = root.querySelector("#ask-panel");
+  const closeBtn = root.querySelector("#ask-close");
+  const thread = root.querySelector("#ask-thread");
+  const form = root.querySelector("#ask-form");
+  const input = root.querySelector("#ask-input");
+  const send = root.querySelector("#ask-send");
+
+  if (info.max_question_chars) input.maxLength = info.max_question_chars;
+
+  /* The visible conversation. Sent to the server each turn; it stores none. */
+  const history = [];
+  let inFlight = false;
+
+  function open() {
+    panel.hidden = false;
+    scrim.hidden = false;
+    launcher.setAttribute("aria-expanded", "true");
+    if (!thread.childElementCount) renderEmptyState();
+    input.focus();
   }
 
-  let inFlight = false;
+  function close() {
+    panel.hidden = true;
+    scrim.hidden = true;
+    launcher.setAttribute("aria-expanded", "false");
+    launcher.focus();
+  }
+
+  function scrollToEnd() { thread.scrollTop = thread.scrollHeight; }
+
+  function renderEmptyState() {
+    const el = document.createElement("div");
+    el.className = "ask-empty";
+    el.innerHTML = "<p>Answered from the series published here — every figure "
+      + "is looked up, never recalled.</p>";
+    const list = document.createElement("div");
+    list.className = "ask-suggestions";
+    for (const q of SUGGESTIONS) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "ask-suggest";
+      b.textContent = q;
+      b.addEventListener("click", () => { input.value = q; submit(); });
+      list.appendChild(b);
+    }
+    el.appendChild(list);
+    thread.appendChild(el);
+  }
+
+  function clearEmptyState() {
+    const el = thread.querySelector(".ask-empty");
+    if (el) el.remove();
+  }
+
+  function addUser(text) {
+    const el = document.createElement("div");
+    el.className = "ask-msg ask-msg-user";
+    el.textContent = text;
+    thread.appendChild(el);
+    scrollToEnd();
+  }
+
+  function addPending() {
+    const el = document.createElement("div");
+    el.className = "ask-msg ask-msg-agent ask-pending";
+    el.innerHTML = '<p class="ask-working">Looking up the data…</p>'
+      + '<div class="skeleton" style="height:52px"></div>';
+    thread.appendChild(el);
+    scrollToEnd();
+    return el;
+  }
+
+  function fillAnswer(el, data) {
+    const rel = data.release || {};
+    const calls = data.tool_calls || [];
+    const months = new Set(calls.map((c) => c.latest_period).filter(Boolean));
+    const asOf = months.size ? fmtPeriodLong([...months].sort().pop())
+      : fmtPeriodLong(rel.latest_period);
+    el.className = "ask-msg ask-msg-agent";
+    el.innerHTML = '<div class="ask-body">' + renderAnswer(data.answer) + "</div>"
+      + (calls.length
+        ? '<p class="ask-foot">Answered from published data through '
+          + escapeHtml(asOf) + "</p>"
+        : "")
+      + renderLookups(calls, rel);
+    scrollToEnd();
+  }
+
+  function fillError(el, status) {
+    // The server's own detail names server-side configuration; readers get
+    // what happened and what still works instead.
+    let msg = "The question could not be answered just now. Try again, or use "
+      + "the charts and tables on the page — they are unaffected.";
+    if (status === 429) {
+      msg = "Too many questions in the last minute. Try again shortly.";
+    } else if (status === 503) {
+      msg = "Question answering is unavailable right now. The charts and "
+        + "tables on the page are unaffected.";
+    }
+    el.className = "ask-msg ask-msg-agent";
+    el.innerHTML = '<p class="state-error">' + escapeHtml(msg) + "</p>";
+    scrollToEnd();
+  }
 
   function submit() {
     const question = input.value.trim();
     if (!question || inFlight) return;
     inFlight = true;
-    button.disabled = true;
-    out.innerHTML = '<p class="ask-working">Looking up the data…</p>'
-      + '<div class="skeleton" style="height:72px"></div>';
+    send.disabled = true;
+    input.value = "";
+    clearEmptyState();
+    addUser(question);
+    const pending = addPending();
 
     fetch("/api/v1/" + ASK_DATASET + "/ask", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question: question }),
+      body: JSON.stringify({
+        question: question,
+        history: history.slice(-ASK_MAX_HISTORY),
+      }),
     })
       .then((r) => r.json().then((body) => ({ ok: r.ok, status: r.status, body })))
       .then((res) => {
         if (res.ok) {
-          out.innerHTML = renderResult(res.body);
-          return;
+          fillAnswer(pending, res.body);
+          // Only successful exchanges enter the replayed thread; a failed turn
+          // would otherwise teach the model that an error was its own answer.
+          history.push({ role: "user", content: question });
+          history.push({ role: "assistant", content: res.body.answer || "" });
+          while (history.length > ASK_MAX_HISTORY) history.shift();
+        } else {
+          fillError(pending, res.status);
         }
-        // The server's own detail names server-side configuration; readers get
-        // what happened and what still works instead.
-        let msg = "The question could not be answered just now. Try again, or "
-          + "use the charts and tables below — they are unaffected.";
-        if (res.status === 429) {
-          msg = "Too many questions in the last minute. Try again shortly.";
-        } else if (res.status === 503) {
-          msg = "Question answering is unavailable right now. The charts and "
-            + "tables on this page are unaffected.";
-        }
-        out.innerHTML = '<p class="state-error">' + escapeHtml(msg) + "</p>";
       })
-      .catch(() => {
-        out.innerHTML = '<p class="state-error">Could not reach the server.</p>';
-      })
-      .finally(() => { inFlight = false; button.disabled = false; });
+      .catch(() => fillError(pending, 0))
+      .finally(() => {
+        inFlight = false;
+        send.disabled = false;
+        input.focus();
+      });
   }
 
+  launcher.addEventListener("click", open);
+  closeBtn.addEventListener("click", close);
+  scrim.addEventListener("click", close);
   form.addEventListener("submit", (e) => { e.preventDefault(); submit(); });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !panel.hidden) close();
+  });
 }
 
 initAsk();

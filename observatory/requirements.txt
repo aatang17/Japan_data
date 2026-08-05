@@ -1,6 +1,13 @@
-fastapi>=0.110
-uvicorn[standard]>=0.29
-duckdb>=0.10
+fastapi>=0.110,<1
+uvicorn[standard]>=0.29,<1
+# Pin DuckDB: INSERT OR REPLACE semantics around foreign keys changed between
+# 1.4 and 1.5, and an unpinned install made production diverge from local.
+duckdb>=1.4,<1.6
 # optional: only needed for /api/v1/{dataset}/ask — the rest of the app runs
-# without it, and the ask box stays hidden when it or the API key is absent
-anthropic>=0.120
+# without it, and the ask box stays hidden when ASK_ENABLED is unset/false
+# or when a provider key is absent.
+# `openai` is the client library for both providers this app supports:
+# DeepSeek (set DEEPSEEK_API_KEY) or OpenAI directly (set OPENAI_API_KEY) —
+# DeepSeek's API matches OpenAI's request/response shape. Override the model
+# with LLM_MODEL and, for any other OpenAI-compatible endpoint, LLM_BASE_URL.
+openai>=1.40,<2

@@ -4,3 +4,6 @@ __pycache__/
 # The database and the raw source archive are runtime state, not source.
 # In production they live on a persistent volume; ingest recreates them locally.
 data/
+
+# Local API credentials for /ask. Never commit; see .env.example for the shape.
+.env

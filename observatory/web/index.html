@@ -32,18 +32,8 @@
     <p class="page-sub" id="page-sub"><span class="skeleton" style="display:inline-block;width:420px;height:14px"></span></p>
   </div>
 
-  <!-- Hidden until the server reports question answering configured. -->
-  <section class="ask" id="ask" aria-labelledby="ask-label" hidden>
-    <form class="ask-form" id="ask-form" role="search">
-      <label for="ask-input" id="ask-label" class="visually-hidden">Ask a question about this data</label>
-      <input type="text" id="ask-input" autocomplete="off" maxlength="500"
-             placeholder="Ask about this data — what is driving inflation, how much has rice risen, is inflation broad …">
-      <button type="submit" class="btn btn-primary" id="ask-submit">Ask</button>
-    </form>
-    <p class="ask-hint" id="ask-hint"><span>Answered from the series published here — every
-    figure is looked up, never recalled.</span></p>
-    <div id="ask-out"></div>
-  </section>
+  <!-- The ask assistant mounts itself from assets/ask.js as a floating
+       launcher; it stays absent unless the server reports it configured. -->
 
   <div class="tiles" id="tiles">
     <div class="tile skeleton" style="min-height:118px"></div>
@@ -133,10 +123,6 @@
     <details class="calc" id="breadth-calc"></details>
   </section>
 
-  <section aria-labelledby="h-prov" class="prov">
-    <h2 id="h-prov">Data Source and Provenance</h2>
-    <dl id="prov-list"></dl>
-  </section>
 </main>
 
 <footer class="site-footer">
