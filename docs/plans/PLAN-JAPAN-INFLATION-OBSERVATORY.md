@@ -146,6 +146,20 @@ All charts expose agency, source table, series code, base, geography, unit, seas
 
 Story finder surfaces large positive/negative contributors, acceleration/deceleration, record and cumulative gains, breadth extremes, headline divergences, regional outliers, and everyday-price changes relative to wages. It must offer a neutral headline and supporting evidence, never automated causal copy.
 
+### 4.8 UI/UX design and accessibility standard
+
+Use the same trust-first, professional UI/UX standard used across the GSA projects. The visual system is part of the product's credibility contract, not a later styling pass.
+
+- **Design system first.** Define shared tokens for typography, spacing, color, borders, chart series, trust labels, table states, and responsive containers before building workspace-specific screens. Prefer a small reusable component set over bespoke page-level styling.
+- **Trust is visible.** Official, platform-derived, and model/estimate labels remain adjacent to the value or chart they qualify. Source, release vintage, base, and calculation affordances are readable at the point of use—not hidden only in a methodology page.
+- **Professional status language.** Use precise labels such as “Official,” “Derived,” “Estimate,” “Provisional,” “Final,” “Validated,” and “Quarantined.” Avoid casual or ambiguous status copy. Status badges are outline-oriented and do not rely on filled colored pills.
+- **Responsive by requirement.** Design and verify at 390px, 768px, 1280px, and 1440px widths. Dense tables scroll inside their own container on small screens; sticky headers, filters, tooltips, and chart legends must never cover content or create horizontal page overflow.
+- **Accessible by default.** Meet WCAG 2.2 AA intent for contrast, keyboard navigation, focus visibility, semantic headings, form labels, screen-reader names, reduced motion, and non-color encodings. Charts expose an equivalent table or textual summary; Japanese and English text must remain legible with appropriate font fallback.
+- **Data-dense interaction.** Every chart has explicit loading, empty, error, and unavailable states; tooltips are keyboard-reachable where practical; tables support column selection, sorting, pagination/virtualization, and export without losing the active filters or provenance context.
+- **Server-rendered and citable.** Public overview, item, release, and methodology pages render meaningful content on the server for SEO and academic citation. Client-side enhancement adds exploration but is not the only path to the data.
+- **Look-at-it gate.** Before a UI milestone is called complete, inspect the real rendered page at all four widths, verify exact URLs, check chart/table overflow and overlays, and test one keyboard-only and one screen-reader-oriented path. A mock or unrendered screenshot is not sufficient evidence.
+- **Bilingual consistency.** Japanese/English labels, aliases, dates, units, and number formatting are versioned content. Layout must tolerate longer translations, Japanese glyph metrics, and mixed-script item names without truncating the trust or provenance labels.
+
 ## 5. Data model
 
 Treat classifications as versioned records, not UI constants. All tables include ordinary audit fields; source identifiers and foreign keys below are required unless an observation genuinely lacks one.
@@ -252,6 +266,7 @@ Use existing platform conventions where they fit, while isolating inflation data
 | Charts/tables | ECharts or Plotly; virtualized tables | Supports dense time series and hundreds of items. |
 | Search | PostgreSQL full-text + trigram/aliases/transliterations first | Japanese/English search works without premature OpenSearch. |
 | Jobs | Scheduled idempotent release jobs with explicit manual approval | Reliable official-release processing and easy reruns. |
+| UI/UX system | Shared design tokens/components, ECharts or Plotly wrappers, accessible table primitives, and responsive visual QA | Keeps trust, density, bilingual layout, and accessibility consistent across seven workspaces. |
 
 Do not introduce a specialized time-series database, OpenSearch, or streaming platform in MVP. Metadata quality, official base changes, and traceability—not data volume—are the critical constraints.
 
@@ -327,6 +342,9 @@ Open decisions to close in M0:
 - The 2020/2025 UI never silently computes a published historical rate from a linked index. Discontinuous/low-confidence mappings are disclosed.
 - Tokyo/national comparisons and price-level views state their geography, measure type, and coverage; the UI cannot mix index changes and yen prices in one rank.
 - CSV/XLSX exports contain data dictionary fields, source/release identifiers, base, trust label, and retrieval date.
+- Overview, item, release, and methodology pages render meaningful server-side content, and every value keeps its trust label and provenance visible at the point of use.
+- UI verification passes at 390px, 768px, 1280px, and 1440px without page-level horizontal overflow, hidden sticky content, or inaccessible chart/table states.
+- Keyboard navigation, focus visibility, semantic headings/labels, contrast, reduced-motion behavior, and an equivalent non-visual chart representation meet the project's WCAG 2.2 AA target.
 
 ### Data and operational acceptance
 
@@ -349,6 +367,7 @@ Open decisions to close in M0:
 | P0 | Build Item Explorer search, filters, item pages, and permanent URLs. | Core user differentiator. |
 | P0 | Build overview, official/derived labels, release status, and calculation reveal. | Public landing experience. |
 | P0 | Build official contribution and weighted-breadth views with reconciliation. | Clearly label estimates. |
+| P0 | Establish shared UI/UX tokens, trust-label components, responsive layout primitives, and visual/accessibility QA gates. | Must precede workspace implementation; use the GSA-style design standard. |
 | P1 | Tokyo comparison and measure-type safeguards. | Complete MVP if source ready; otherwise staged. |
 | P1 | Journalist story cards, neutral headlines, citation/embed/image exports. | Uses MVP analysis/read models. |
 | P1 | Public API keys/rate limits, Parquet/JSON, Python/R snippets, BibTeX. | Data Lab expansion. |
