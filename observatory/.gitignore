@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+*.pyc
+# The database and the raw source archive are runtime state, not source.
+# In production they live on a persistent volume; ingest recreates them locally.
+data/

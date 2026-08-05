@@ -1,0 +1,144 @@
+/* Observatory design tokens — the single source of truth for colour.
+   Never hard-code a hex in app CSS, components, or chart configs:
+   read these via var(--obs-*) or getComputedStyle. */
+
+:root {
+  --obs-primary: #1a4d8f;
+  --obs-primary-dark: #123a6d;
+  --obs-ink: #0f172a;
+  --obs-text: #334155;
+  --obs-text-muted: #64748b;
+  --obs-border: #e2e8f0;
+  --obs-grid: #eef2f7;
+  --obs-surface: #ffffff;
+  --obs-surface-subtle: #f8fafc;
+
+  /* site header — a filled navy bar, so its foregrounds are "on-primary"
+     values that cannot be derived from the body text tokens */
+  --obs-header-bg: #123a6d;
+  --obs-header-ink: #ffffff;
+  --obs-header-text: #c5d7ec;
+  --obs-header-muted: #9db5d3;
+  --obs-header-accent: #8fbde8;
+  --obs-header-border: rgba(255, 255, 255, 0.24);
+  --obs-header-focus: rgba(255, 255, 255, 0.75);
+
+  /* section header band — filled blue, one step lighter than the site header
+     so page chrome and content structure stay distinguishable */
+  --obs-band-bg: #1a4d8f;
+  --obs-band-ink: #ffffff;
+  --obs-band-muted: #c5d7ec;
+
+  /* categorical series palette — assigned by stable series identity */
+  --obs-series-1: #1a4d8f;
+  --obs-series-2: #c2410c;
+  --obs-series-3: #0f766e;
+  --obs-series-4: #a16207;
+  --obs-series-5: #475569;
+  --obs-series-6: #9d174d;
+
+  /* diverging scale (cool = negative, warm = positive) */
+  --obs-diverge-neg: #1a4d8f;
+  --obs-diverge-neg-soft: #7ba7d4;
+  --obs-diverge-mid: #f1f5f9;
+  --obs-diverge-pos-soft: #e8a87c;
+  --obs-diverge-pos: #c2410c;
+
+  /* trust labels — outline-only badges */
+  --obs-trust-official: #15803d;
+  --obs-trust-model: #b45309;
+  --obs-trust-stale: #b91c1c;
+
+  --obs-focus: rgba(26, 77, 143, 0.35);
+  --obs-focus-soft: rgba(26, 77, 143, 0.15);
+}
+
+[data-theme="dark"] {
+  --obs-primary: #5b9bd8;
+  --obs-primary-dark: #7fb3e3;
+  --obs-ink: #e2e8f0;
+  --obs-text: #cbd5e1;
+  --obs-text-muted: #94a3b8;
+  --obs-border: #2b3a52;
+  --obs-grid: #22304a;
+  --obs-surface: #0f172a;
+  --obs-surface-subtle: #1a2436;
+
+  --obs-header-bg: #0d2a4f;
+  --obs-header-ink: #f1f5f9;
+  --obs-header-text: #aac3de;
+  --obs-header-muted: #8ba5c4;
+  --obs-header-accent: #7fb3e3;
+  --obs-header-border: rgba(255, 255, 255, 0.16);
+  --obs-header-focus: rgba(255, 255, 255, 0.7);
+
+  --obs-band-bg: #16406f;
+  --obs-band-ink: #f1f5f9;
+  --obs-band-muted: #a9c2dd;
+
+  --obs-series-1: #5b9bd8;
+  --obs-series-2: #e0794a;
+  --obs-series-3: #3fb3a2;
+  --obs-series-4: #cfa348;
+  --obs-series-5: #94a3b8;
+  --obs-series-6: #d1648f;
+
+  --obs-diverge-neg: #5b9bd8;
+  --obs-diverge-neg-soft: #3d6ea6;
+  --obs-diverge-mid: #1a2436;
+  --obs-diverge-pos-soft: #a65c33;
+  --obs-diverge-pos: #e0794a;
+
+  --obs-trust-official: #55b785;
+  --obs-trust-model: #daa353;
+  --obs-trust-stale: #e26d6d;
+
+  --obs-focus: rgba(91, 155, 216, 0.45);
+  --obs-focus-soft: rgba(91, 155, 216, 0.2);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --obs-primary: #5b9bd8;
+    --obs-primary-dark: #7fb3e3;
+    --obs-ink: #e2e8f0;
+    --obs-text: #cbd5e1;
+    --obs-text-muted: #94a3b8;
+    --obs-border: #2b3a52;
+    --obs-grid: #22304a;
+    --obs-surface: #0f172a;
+    --obs-surface-subtle: #1a2436;
+
+    --obs-header-bg: #0d2a4f;
+    --obs-header-ink: #f1f5f9;
+    --obs-header-text: #aac3de;
+    --obs-header-muted: #8ba5c4;
+    --obs-header-accent: #7fb3e3;
+    --obs-header-border: rgba(255, 255, 255, 0.16);
+    --obs-header-focus: rgba(255, 255, 255, 0.7);
+
+    --obs-band-bg: #16406f;
+    --obs-band-ink: #f1f5f9;
+    --obs-band-muted: #a9c2dd;
+
+    --obs-series-1: #5b9bd8;
+    --obs-series-2: #e0794a;
+    --obs-series-3: #3fb3a2;
+    --obs-series-4: #cfa348;
+    --obs-series-5: #94a3b8;
+    --obs-series-6: #d1648f;
+
+    --obs-diverge-neg: #5b9bd8;
+    --obs-diverge-neg-soft: #3d6ea6;
+    --obs-diverge-mid: #1a2436;
+    --obs-diverge-pos-soft: #a65c33;
+    --obs-diverge-pos: #e0794a;
+
+    --obs-trust-official: #55b785;
+    --obs-trust-model: #daa353;
+    --obs-trust-stale: #e26d6d;
+
+    --obs-focus: rgba(91, 155, 216, 0.45);
+    --obs-focus-soft: rgba(91, 155, 216, 0.2);
+  }
+}

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Japan CPI — Item Explorer · Observatory</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="inner">
+    <span class="brand">Observatory <span class="ds">/ Japan CPI</span></span>
+    <nav class="site-nav" aria-label="Main">
+      <a href="index.html">Overview</a>
+      <a href="explorer.html" aria-current="page">Item Explorer</a>
+      <a href="methodology.html">Methodology</a>
+    </nav>
+    <div class="header-right">
+      <span class="header-asof" id="header-asof"></span>
+      <button class="theme-toggle" type="button">Dark Mode</button>
+    </div>
+  </div>
+</header>
+
+<main class="container">
+  <div class="page-head">
+    <h1>Item Explorer</h1>
+    <p class="page-sub" id="page-sub">Every series in the national CPI, searchable in English and
+    Japanese. Click a row for its full history and provenance.</p>
+  </div>
+
+  <div id="detail-slot"></div>
+
+  <div class="controls">
+    <div class="seg" role="group" aria-label="Table depth" id="dataset-seg">
+      <button type="button" data-dataset="cpi-jp" aria-pressed="true"
+              title="The ~80 published category aggregates (middle-class indices)">Categories</button>
+      <button type="button" data-dataset="cpi-jp-items"
+              title="All ~740 series at full item depth — individual goods and services">Detailed items</button>
+    </div>
+    <input type="search" id="q" placeholder="Search items — electricity, 電気代, rent, 0001 …"
+           aria-label="Search items">
+    <span class="spacer"></span>
+    <button type="button" class="btn" id="export-csv"
+            title="Exports the rows currently shown, with source and vintage metadata">Download CSV (filtered)</button>
+  </div>
+
+  <p class="table-meta">
+    <span id="row-count" class="num"></span>
+    <span id="filter-note"></span>
+    <span>Index values are <b>official statistics</b>; YoY and MoM are <b>calculated</b> from
+    published index values. <a href="methodology.html#trust">Definitions</a></span>
+  </p>
+
+  <div class="table-wrap" id="table-wrap">
+    <div class="skeleton" style="height:400px"></div>
+  </div>
+
+  <div class="table-notes" id="table-notes"></div>
+</main>
+
+<footer class="site-footer">
+  <div class="inner">
+    Source: Statistics Bureau of Japan, via e-Stat.
+    <a href="methodology.html">Methodology</a>
+  </div>
+</footer>
+
+<script src="assets/echarts.min.js"></script>
+<script src="assets/format.js"></script>
+<script src="assets/charts.js"></script>
+<script src="assets/explorer.js"></script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+fastapi>=0.110
+uvicorn[standard]>=0.29
+duckdb>=0.10
+# optional: only needed for /api/v1/{dataset}/ask — the rest of the app runs
+# without it, and the ask box stays hidden when it or the API key is absent
+anthropic>=0.120

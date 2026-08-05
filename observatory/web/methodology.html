@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Japan CPI — Methodology · Observatory</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="inner">
+    <span class="brand">Observatory <span class="ds">/ Japan CPI</span></span>
+    <nav class="site-nav" aria-label="Main">
+      <a href="index.html">Overview</a>
+      <a href="explorer.html">Item Explorer</a>
+      <a href="methodology.html" aria-current="page">Methodology</a>
+    </nav>
+    <div class="header-right">
+      <button class="theme-toggle" type="button">Dark Mode</button>
+    </div>
+  </div>
+</header>
+
+<main class="container">
+  <div class="page-head">
+    <h1>Methodology and How to Use</h1>
+    <p class="page-sub">What this product shows, where every number comes from, and how each figure is calculated.</p>
+  </div>
+
+  <div class="prose">
+
+  <h2 id="what">What this is</h2>
+  <p>This site tracks the Japanese Consumer Price Index using two official national tables
+  published by the Statistics Bureau of Japan (総務省統計局): the <b>middle-class indices</b>
+  (headline and exclusion-based aggregates, the ten major expenditure groups, and the ~80
+  category series beneath them) and the <b>detailed item indices</b> (~740 series down to
+  individual goods and services — rice, electricity, mobile phone charges). Both are monthly
+  from January 1970 to the latest published month, on the 2020&nbsp;=&nbsp;100 base.</p>
+  <p>Every number on the site is traceable to the official source file it came from. Nothing is
+  smoothed, seasonally adjusted, or modelled.</p>
+
+  <h2 id="howto">How to use it</h2>
+  <h3>Read the current state of inflation</h3>
+  <ol>
+    <li>Open the <a href="index.html">Overview</a>. The first tile is headline CPI year-over-year
+    for the latest published month; the next tiles show the two standard core measures, the
+    month-over-month change, and the 3-month annualized rate.</li>
+    <li>The main chart compares headline, core, and core-core. Switch the measure
+    (YoY / MoM / 3-month annualized / index level) and the date range with the controls above the
+    chart. Hover for exact values across all series.</li>
+    <li>The <b>What Is Driving Inflation</b> chart splits headline YoY into the
+    percentage-point contribution of each major group — how much of today's inflation each
+    group is responsible for, which is different from each group's own inflation rate. The
+    group bar chart below it can show either view.</li>
+    <li>The <b>How Broad Is Inflation</b> chart shows what share of the ~580 individually
+    priced items are rising at least 2% and what share are falling — whether inflation is
+    everywhere or concentrated in a few items.</li>
+  </ol>
+  <h3>Find a specific item</h3>
+  <ol>
+    <li>Open the <a href="explorer.html">Item Explorer</a> and search in English
+    (<i>electricity</i>), Japanese (<i>電気代</i>), or by item code (<i>0001</i>). The
+    <b>Categories</b> view shows the ~80 published category aggregates; switch to
+    <b>Detailed items</b> for all ~740 series down to individual goods
+    (<i>rice</i>, <i>米類</i>, <i>mobile phone charges</i>).</li>
+    <li>Sort any numeric column by clicking its header. Missing values always sort last.</li>
+    <li>Click a row for the item's full history since 1970, with measure controls, a chart, and
+    its calculation and source.</li>
+  </ol>
+  <h3>Cite or export a number</h3>
+  <ul>
+    <li>The page URL always encodes the current view (measure, range, search, selected item) —
+    copy it and a colleague sees exactly the same numbers.</li>
+    <li>Every chart has <b>Download PNG</b> (with the source line embedded) and
+    <b>Download CSV</b>. CSV exports begin with a metadata block: provenance, formula, source ID,
+    vintage, retrieval time, and permalink.</li>
+    <li>Cite the underlying data as: Statistics Bureau of Japan, Consumer Price Index,
+    2020-base national indices, via e-Stat (middle-class table statInfId 000032103842;
+    detailed-item table statInfId 000032103844).</li>
+  </ul>
+
+  <h2 id="trust">Trust labels</h2>
+  <p>Every metric, chart, and export says where its number came from:</p>
+  <ul>
+    <li><span class="badge badge-official">Official Statistic</span> — the value exactly as
+    published by the agency. On this site: the monthly index levels.</li>
+    <li><b>Calculated rates</b> carry no badge — instead they carry their formula, shown next to
+    the number under "Show calculation" and in every CSV export header. On this site: YoY, MoM,
+    and 3-month annualized rates, each a deterministic calculation from the official index
+    levels above.</li>
+    <li><span class="badge badge-model">Model Estimate</span> — not used anywhere on this site
+    today. Reserved for nowcasts or estimates, which will ship only with a published method and
+    error history.</li>
+  </ul>
+
+  <h2 id="calc">Calculations</h2>
+  <ul>
+    <li>Year over year: <code>(index[t] / index[t−12 months] − 1) × 100</code></li>
+    <li>Month over month: <code>(index[t] / index[t−1 month] − 1) × 100</code></li>
+    <li>3-month annualized: <code>((index[t] / index[t−3 months]) ^ 4 − 1) × 100</code></li>
+    <li>Contribution of group g to headline YoY, in percentage points:
+    <code>weight[g] × (index[g,t] − index[g,t−12]) / (10000 × headline_index[t−12]) × 100</code>.
+    The ten group contributions sum to headline YoY up to a small residual caused by the
+    rounding of the published indices and weights; the chart bundles that residual with the
+    smallest groups so the bars always sum exactly to the headline line.</li>
+    <li>Breadth: over the individually priced items of the detailed-item table
+    (aggregates excluded), the share of items with YoY at or above 2% and the share with
+    falling prices, as % of items that have an index value in both t and t−12.</li>
+  </ul>
+  <p>Rates are computed from the published index values, which the agency releases rounded to one
+  decimal. The officially published change rates are computed the same way, so the figures here
+  normally match them exactly; in edge cases the rounding of the inputs can shift a rate by
+  ±0.1 percentage points. Where that distinction matters, use the official release — the source
+  link is on every surface. Displayed rates are rounded to one decimal; chart tooltips and CSV
+  exports carry more precision.</p>
+  <p>Percentage-point differences (for example a tile's "vs prior month" delta) are written
+  <code>pp</code>, never <code>%</code> — a change <i>of</i> a percentage is not a percentage
+  <i>of</i> a level.</p>
+
+  <h2 id="flags">Footnote flags</h2>
+  <p>Two flags mark readings whose headline rate is easy to misread. Both are calculated here
+  from published index values and are <b>not</b> published by the agency. Thresholds are fixed
+  constants, so a marker means the same thing on every row.</p>
+  <ul>
+    <li><b>† One-month step change.</b> The 12-month move is decomposed into its twelve monthly
+    log changes, which sum exactly to the 12-month log change. The flag is raised when the
+    largest single month is at least 70% of the summed absolute change
+    (<code>max |Δln| / Σ |Δln| ≥ 0.70</code>) <i>and</i> that month moved the index by at least
+    10%. The share test is what separates a level shift from a move that accumulated over the
+    year: a spike that later reverts — fresh food, most commonly — puts its reversion into the
+    denominator and falls below the threshold. Typical of an administered price, subsidy or tax
+    that changes on a set date.</li>
+    <li><b>‡ Index near zero.</b> The latest index level is below 5.0 (2020 = 100). A percent
+    change on a base that small is arithmetically unstable — a one-tenth move in the published
+    index can read as a double-digit rate — so the rate is shown for completeness only.</li>
+  </ul>
+  <p>A flag describes the <i>shape</i> of the series and nothing else. It does not assert a
+  cause, and its absence does not mean a reading is unremarkable: a large move spread evenly
+  across the year is not flagged, because no single month dominates it. The month and size
+  behind each marker are in its tooltip, in the item's detail panel, and in the
+  <code>flags</code> column of the filtered CSV export.</p>
+
+  <h2 id="source">Source and provenance</h2>
+  <ul>
+    <li><b>Source tables:</b> 消費者物価指数 全国 1 中分類指数（1970年1月〜最新月） — middle-class
+    indices (<a href="https://www.e-stat.go.jp/stat-search/files?stat_infid=000032103842" rel="noopener">e-Stat page</a>)
+    and 全国 品目別価格指数（1970年1月〜最新月） — detailed item indices
+    (<a href="https://www.e-stat.go.jp/stat-search/files?stat_infid=000032103844" rel="noopener">e-Stat page</a>),
+    both national, monthly. Each is ingested, validated, and versioned independently.</li>
+    <li><b>Pipeline:</b> the raw CSV is downloaded from e-Stat, archived unmodified with its
+    SHA-256 checksum, parsed, and passed through validation gates (structure, required aggregates,
+    plausible latest period and headline level) before anything is published. A file that fails
+    validation publishes nothing — the previous release stays live.</li>
+    <li><b>Vintages:</b> this version of the site keeps one live vintage — the latest accepted
+    release — plus the archived raw file for every ingestion run. Full side-by-side vintage
+    history is on the roadmap.</li>
+    <li><b>Missing values:</b> months where an item was not collected are shown as
+    <code>—</code> and rendered as gaps in charts. A missing value is never displayed or exported
+    as zero. Items with no value for the latest month are marked with the month their series
+    ends.</li>
+  </ul>
+
+  <h2 id="cadence">Update cadence and staleness</h2>
+  <p>The Statistics Bureau publishes national CPI roughly three weeks after the end of the
+  reference month. Each page shows the month its data runs through and when it was ingested. If
+  the data on screen is more than three months behind, a red banner says so — a stale surface
+  never presents itself as current.</p>
+
+  <h2 id="limits">Known limitations of this version</h2>
+  <ul>
+    <li>The Tokyo flash index, regional indices, seasonally adjusted series, and goods/services
+    splits are not yet ingested. The Overview page reads the middle-class table only.</li>
+    <li>Rates of change are calculated here rather than ingested from the official
+    change-rate tables (see Calculations above for the rounding consequence).</li>
+    <li>One live vintage; no side-by-side base-revision comparison yet. The 2025-base transition
+    will be handled with an explicit item mapping table before any cross-base series is shown.</li>
+    <li>Group contributions are computed with fixed 2020-base weights (the Laspeyres
+    approximation the official decomposition also uses); they are not chain-linked across
+    base revisions.</li>
+  </ul>
+
+  <h2 id="license">Attribution</h2>
+  <p>Underlying data © Statistics Bureau of Japan, republished under the
+  <a href="https://www.e-stat.go.jp/terms-of-use" rel="noopener">e-Stat terms of use</a> with
+  attribution. The rates of change calculated on this site are not official statistics; each is
+  shown with the formula and the official inputs it was computed from.</p>
+
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="inner">
+    Source: Statistics Bureau of Japan, via e-Stat.
+  </div>
+</footer>
+
+<script src="assets/format.js"></script>
+<script>initThemeToggle();</script>
+</body>
+</html>

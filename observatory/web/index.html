@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Japan CPI — Overview · Observatory</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="inner">
+    <span class="brand">Observatory <span class="ds">/ Japan CPI</span></span>
+    <nav class="site-nav" aria-label="Main">
+      <a href="index.html" aria-current="page">Overview</a>
+      <a href="explorer.html">Item Explorer</a>
+      <a href="methodology.html">Methodology</a>
+    </nav>
+    <div class="header-right">
+      <span class="header-asof" id="header-asof"></span>
+      <button class="theme-toggle" type="button">Dark Mode</button>
+    </div>
+  </div>
+</header>
+
+<main class="container">
+  <div id="stale-banner"></div>
+
+  <div class="page-head">
+    <h1>Japan Consumer Price Index</h1>
+    <p class="page-sub" id="page-sub"><span class="skeleton" style="display:inline-block;width:420px;height:14px"></span></p>
+  </div>
+
+  <!-- Hidden until the server reports question answering configured. -->
+  <section class="ask" id="ask" aria-labelledby="ask-label" hidden>
+    <form class="ask-form" id="ask-form" role="search">
+      <label for="ask-input" id="ask-label" class="visually-hidden">Ask a question about this data</label>
+      <input type="text" id="ask-input" autocomplete="off" maxlength="500"
+             placeholder="Ask about this data — what is driving inflation, how much has rice risen, is inflation broad …">
+      <button type="submit" class="btn btn-primary" id="ask-submit">Ask</button>
+    </form>
+    <p class="ask-hint" id="ask-hint"><span>Answered from the series published here — every
+    figure is looked up, never recalled.</span></p>
+    <div id="ask-out"></div>
+  </section>
+
+  <div class="tiles" id="tiles">
+    <div class="tile skeleton" style="min-height:118px"></div>
+    <div class="tile skeleton" style="min-height:118px"></div>
+    <div class="tile skeleton" style="min-height:118px"></div>
+    <div class="tile skeleton" style="min-height:118px"></div>
+    <div class="tile skeleton" style="min-height:118px"></div>
+  </div>
+
+  <section aria-labelledby="h-main">
+    <h2 id="h-main">Inflation Over Time</h2>
+    <div class="controls">
+      <label for="measure-select">Measure</label>
+      <select id="measure-select" aria-label="Transformation">
+        <option value="yoy">Year over Year (%)</option>
+        <option value="mom">Month over Month (%)</option>
+        <option value="ann3m">3-Month Annualized (%)</option>
+        <option value="index">Index Level (2020 = 100)</option>
+      </select>
+      <div class="seg" role="group" aria-label="Date range" id="range-seg">
+        <button type="button" data-range="1">1Y</button>
+        <button type="button" data-range="3">3Y</button>
+        <button type="button" data-range="5" aria-pressed="true">5Y</button>
+        <button type="button" data-range="10">10Y</button>
+        <button type="button" data-range="max">Max</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="main-png">Download PNG</button>
+      <button type="button" class="btn" id="main-csv">Download CSV</button>
+    </div>
+    <div class="chart" id="main-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="main-source"></p>
+    <details class="calc" id="main-calc"></details>
+  </section>
+
+  <section aria-labelledby="h-contrib">
+    <h2 id="h-contrib">What Is Driving Inflation</h2>
+    <p class="section-sub">Each bar splits headline year-over-year inflation into the
+    percentage-point contribution of the major expenditure groups; the line is headline CPI
+    itself. The five largest current contributors are shown separately, the rest are bundled.</p>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Contribution date range" id="contrib-seg">
+        <button type="button" data-range="1">1Y</button>
+        <button type="button" data-range="3" aria-pressed="true">3Y</button>
+        <button type="button" data-range="5">5Y</button>
+        <button type="button" data-range="10">10Y</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="contrib-png">Download PNG</button>
+      <button type="button" class="btn" id="contrib-csv">Download CSV</button>
+    </div>
+    <div class="chart" id="contrib-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="contrib-source"></p>
+    <details class="calc" id="contrib-calc"></details>
+  </section>
+
+  <section aria-labelledby="h-groups">
+    <h2 id="h-groups">Major Expenditure Groups <span class="h2-note" id="groups-note"></span></h2>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Group metric" id="groups-seg">
+        <button type="button" data-view="yoy" aria-pressed="true">Group inflation (%)</button>
+        <button type="button" data-view="contrib">Contribution to headline (pp)</button>
+      </div>
+    </div>
+    <div class="chart-bars" id="groups-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="groups-source"></p>
+  </section>
+
+  <section aria-labelledby="h-breadth">
+    <h2 id="h-breadth">How Broad Is Inflation <span class="h2-note" id="breadth-note"></span></h2>
+    <p class="section-sub">Computed over the individually priced items of the detailed-item
+    table: the share whose price is up at least 2% on a year earlier, and the share falling.
+    Broad inflation means most items rising, not a few large movers.</p>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Breadth date range" id="breadth-seg">
+        <button type="button" data-range="5">5Y</button>
+        <button type="button" data-range="10" aria-pressed="true">10Y</button>
+        <button type="button" data-range="25">25Y</button>
+        <button type="button" data-range="max">Max</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="breadth-png">Download PNG</button>
+      <button type="button" class="btn" id="breadth-csv">Download CSV</button>
+    </div>
+    <div class="chart" id="breadth-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="breadth-source"></p>
+    <details class="calc" id="breadth-calc"></details>
+  </section>
+
+  <section aria-labelledby="h-prov" class="prov">
+    <h2 id="h-prov">Data Source and Provenance</h2>
+    <dl id="prov-list"></dl>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="inner">
+    Source: Statistics Bureau of Japan, via e-Stat. Index values are official statistics;
+    rates of change are calculated from published index values.
+    <a href="methodology.html">Methodology</a>
+  </div>
+</footer>
+
+<script src="assets/echarts.min.js"></script>
+<script src="assets/format.js"></script>
+<script src="assets/charts.js"></script>
+<script src="assets/ask.js"></script>
+<script src="assets/overview.js"></script>
+</body>
+</html>
