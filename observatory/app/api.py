@@ -41,6 +41,16 @@ ADAPTERS = {"cpi-jp": cpi_jp, "cpi-jp-items": cpi_jp_items}
 
 router = APIRouter(prefix="/api/v1")
 
+# What the two pages fetch on load, primed at startup. Not every dataset serves
+# every one of these — the misses 404 harmlessly and simply aren't cached.
+WARM_ENDPOINTS = ("overview", "series", "contributions", "breadth")
+
+
+def warm_paths():
+    return ["/api/v1/%s/%s" % (slug, endpoint)
+            for slug in ADAPTERS for endpoint in WARM_ENDPOINTS]
+
+
 CALC = {
     "index": "Published index value (2020 = 100), as released.",
     "yoy": "(index[t] / index[t−12 months] − 1) × 100, from published index values.",
@@ -52,7 +62,8 @@ UNIT = {"index": "index", "yoy": "%", "mom": "%", "ann3m": "%"}
 
 
 def _con():
-    return db.connect(read_only=True)
+    """A cursor on the shared reader; closing it releases the cursor only."""
+    return db.read_cursor()
 
 
 def _dataset_or_404(slug):
@@ -364,54 +375,66 @@ def overview(dataset):
         con.close()
 
 
-# The unfiltered series list is identical for everyone until a new release
-# publishes, and it is the explorer's first fetch — cache it per release.
-_SERIES_CACHE = {}
-
-
+# This is the explorer's first fetch and the largest payload the API serves;
+# repeat hits are absorbed by the release cache in app/cache.py, which stores
+# the encoded body rather than re-running the work below.
 @router.get("/{dataset}/series")
 def series_list(dataset, q: str = Query("", max_length=200)):
-    _dataset_or_404(dataset)
+    adapter = _dataset_or_404(dataset)
     con = _con()
     try:
         rel = _release(con, dataset)
-        cache_key = (dataset, rel["release_id"])
-        if not q.strip() and cache_key in _SERIES_CACHE:
-            return _SERIES_CACHE[cache_key]
         latest = datetime.date.fromisoformat(rel["latest_period"])
         needle = q.strip().lower()
-        matched = [s for s in _series_map(con, dataset)
+        smap = _series_map(con, dataset)
+        matched = [s for s in smap
                    if not needle
                    or needle in s["name_en"].lower()
                    or needle in (s["name_ja"] or "").lower()
                    or needle == s["code"]]
         all_vals = _values_bulk(con, [s["series_id"] for s in matched])
+
+        # Denominator for the per-row contribution column. Same formula as
+        # /contributions — the headline index a year before the row's own
+        # reference month — so the two surfaces can never disagree.
+        head_ja = adapter.PRESENTATION["main_series"][0]["name_ja"]
+        head = next((s for s in smap if s["name_ja"] == head_ja), None)
+        head_vals = {}
+        if head is not None:
+            head_vals = all_vals.get(head["series_id"]) or _values(con, head["series_id"])
+        total_w = (head["weight"] if head and head["weight"] else 10000.0)
+
         out = []
         for s in matched:
             vals = all_vals.get(s["series_id"])
             if not vals:
                 continue
             as_of = max(vals)
+            year_ago = _months_ago(as_of, 12)
             yoy = dict(_measure_points(vals, "yoy"))
             mom = dict(_measure_points(vals, "mom"))
+            ann = dict(_measure_points(vals, "ann3m"))
+            # None, never 0: a series with no year-ago base has no contribution
+            base = head_vals.get(year_ago)
+            prior_index = vals.get(year_ago)
+            contrib = None
+            if (s["weight"] is not None and base and prior_index is not None
+                    and vals.get(as_of) is not None):
+                contrib = s["weight"] * (vals[as_of] - prior_index) / (total_w * base) * 100
             spark_from = _months_ago(latest, 60)
             spark = [[p.isoformat(), round(v, 4)] for p, v in sorted(vals.items())
                      if p >= spark_from]
             out.append({
                 "code": s["code"], "name_en": s["name_en"], "name_ja": s["name_ja"],
                 "weight": s["weight"], "as_of": as_of.isoformat(),
-                "index": vals.get(as_of), "yoy": yoy.get(as_of), "mom": mom.get(as_of),
+                "index": vals.get(as_of), "prev_index": vals.get(_months_ago(as_of, 1)),
+                "yoy": yoy.get(as_of), "mom": mom.get(as_of), "ann3m": ann.get(as_of),
+                "yoy_prior": yoy.get(year_ago), "contrib_pp": contrib,
                 "discontinued": as_of < latest, "spark": spark,
                 "notes": _row_notes(vals, as_of),
             })
-        resp = {"dataset": dataset, "release": rel, "count": len(out), "query": q,
-                "notes_calc": NOTES_CALC, "series": out}
-        if not q.strip():
-            # one live vintage per dataset — drop superseded entries only
-            for k in [k for k in _SERIES_CACHE if k[0] == dataset]:
-                del _SERIES_CACHE[k]
-            _SERIES_CACHE[cache_key] = resp
-        return resp
+        return {"dataset": dataset, "release": rel, "count": len(out), "query": q,
+                "notes_calc": NOTES_CALC, "contrib_calc": CONTRIB_CALC, "series": out}
     finally:
         con.close()
 
@@ -489,9 +512,6 @@ def contributions(dataset, start: str = Query(None), end: str = Query(None)):
         con.close()
 
 
-_BREADTH_CACHE = {}
-
-
 @router.get("/{dataset}/breadth")
 def breadth(dataset, threshold: float = Query(2.0, ge=0.0, le=50.0)):
     """Share of individually priced items rising/falling year over year."""
@@ -502,9 +522,6 @@ def breadth(dataset, threshold: float = Query(2.0, ge=0.0, le=50.0)):
     con = _con()
     try:
         rel = _release(con, dataset)
-        cache_key = (dataset, rel["release_id"], threshold)
-        if cache_key in _BREADTH_CACHE:
-            return _BREADTH_CACHE[cache_key]
         prefix = cfg["exclude_code_prefix"]
         leaves = [s for s in _series_map(con, dataset) if not s["code"].startswith(prefix)]
         vals = _values_bulk(con, [s["series_id"] for s in leaves])
@@ -529,13 +546,9 @@ def breadth(dataset, threshold: float = Query(2.0, ge=0.0, le=50.0)):
                 "falling_pct": round(sum(1 for y in yoys if y < 0) / n * 100, 4),
             })
 
-        resp = {"dataset": dataset, "release": rel, "unit": "%", "trust": "derived",
+        return {"dataset": dataset, "release": rel, "unit": "%", "trust": "derived",
                 "calc": BREADTH_CALC, "threshold": threshold,
                 "item_universe": len(leaves), "points": points}
-        for k in [k for k in _BREADTH_CACHE if k[0] == dataset and k[1] != rel["release_id"]]:
-            del _BREADTH_CACHE[k]
-        _BREADTH_CACHE[cache_key] = resp
-        return resp
     finally:
         con.close()
 

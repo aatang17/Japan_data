@@ -92,6 +92,13 @@ a:hover { text-decoration: underline; }
 
 .container { max-width: 1240px; margin: 0 auto; padding: 20px 20px 56px; }
 
+/* The Item Explorer's table is eleven columns wide by design; at the standard
+   measure it would clip its last column at 1440. The header and footer widen
+   with it so the page still reads as one column of content. */
+body.page-wide .container,
+body.page-wide .site-header .inner,
+body.page-wide .site-footer .inner { max-width: 1360px; }
+
 .page-head { margin: 12px 0 8px; }
 h1 { font-size: 22px; color: var(--obs-ink); font-weight: 700; }
 .page-sub { font-size: 13px; color: var(--obs-text-muted); margin-top: 4px; }
@@ -625,6 +632,211 @@ table.data tbody tr:hover .note-mark { color: var(--obs-ink); }
 .spark { display: block; }
 .spark polyline { fill: none; stroke: var(--obs-series-1); stroke-width: 1.5; }
 
+/* ---------- item explorer: search rail ---------- */
+
+/* Scope switch, query box and scope hints are one control, not three: the two
+   tabs change what the same query searches, so they share one frame. */
+.explorer-controls { display: flex; align-items: stretch; gap: 16px; margin-bottom: 14px; }
+
+.search-rail {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: stretch;
+  background: var(--obs-surface);
+  border: 1px solid var(--obs-border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+/* the ring lives on the frame, so the borderless input still shows focus */
+.search-rail:focus-within { border-color: var(--obs-primary); box-shadow: 0 0 0 2px var(--obs-focus-soft); }
+.search-rail :focus-visible { box-shadow: none; }
+
+.seg-flush {
+  flex: 0 0 auto;
+  border: 0;
+  border-right: 1px solid var(--obs-border);
+  border-radius: 0;
+  background: var(--obs-surface-subtle);
+}
+.seg-flush button {
+  padding: 0 18px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--obs-text-muted);
+  background: transparent;
+  border-right: 0;
+  border-bottom: 3px solid transparent;
+}
+.seg-flush button:hover { background: transparent; color: var(--obs-ink); }
+.seg-flush button[aria-pressed="true"] {
+  background: var(--obs-surface);
+  color: var(--obs-primary);
+  font-weight: 600;
+  border-bottom-color: var(--obs-primary);
+}
+
+.search-field {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  min-height: 44px;
+}
+.search-icon { flex: 0 0 auto; stroke: var(--obs-primary); stroke-width: 1.8; fill: none; }
+.search-field input[type="search"] {
+  flex: 1;
+  width: auto;
+  min-width: 60px;
+  font-size: 15px;
+  color: var(--obs-ink);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+}
+.search-field input[type="search"]:focus { border: 0; box-shadow: none; }
+
+.search-scope {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--obs-text-muted);
+  cursor: help;
+}
+.search-scope i { display: block; width: 1px; height: 11px; background: var(--obs-border); }
+.search-scope .mono { font-family: "SF Mono", ui-monospace, "JetBrains Mono", Menlo, monospace; }
+
+.btn-tall { min-height: 44px; padding: 0 16px; white-space: nowrap; }
+
+.meta-rule { width: 1px; height: 12px; background: var(--obs-border); }
+.table-meta b { color: var(--obs-ink); font-weight: 600; }
+
+/* ---------- item explorer: column bands ---------- */
+
+.band-toggles {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+  background: var(--obs-surface-subtle);
+  border: 1px solid var(--obs-border);
+  border-radius: 4px;
+}
+.band-toggles-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--obs-text-muted);
+}
+.band-toggles label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  color: var(--obs-text);
+  cursor: pointer;
+}
+.band-toggles input { width: 14px; height: 14px; margin: 0; accent-color: var(--obs-primary); cursor: pointer; }
+
+/* Two header rows: the upper one names what a group of columns means, the lower
+   one names the columns. Both stay put while the body scrolls, so the second
+   row's offset is pinned to the first row's exact height (15 + 7 + 7). */
+/* The fixed columns come to 1,034px; the rest is the item name's designed
+   minimum. Past that the wrap scrolls — eleven columns of a dense table is
+   wider than the page, and squeezing the names instead makes every long one
+   wrap to three lines. */
+.tbl-bands { min-width: 1260px; }
+.tbl-bands th, .tbl-bands td { padding: 12px 14px; }
+
+.tbl-bands thead .band-row th {
+  top: 0;
+  padding: 7px 14px;
+  line-height: 15px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--obs-primary);
+  background: var(--obs-surface-subtle);
+  white-space: nowrap;
+}
+.tbl-bands thead .band-row th.band-accent { background: var(--obs-grid); }
+
+.tbl-bands thead .col-row th {
+  top: 29px;
+  padding: 9px 14px;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  background: var(--obs-surface);
+  border-bottom: 1px solid var(--obs-border);
+}
+.tbl-bands thead .col-row th.has-lane { padding-right: 33px; } /* 14px cell padding + 19px lane */
+
+/* A band's first column carries the rule that separates it from the band
+   before it; columns inside a band are separated by alignment alone. */
+.tbl-bands .band-start { border-left: 1px solid var(--obs-border); }
+.tbl-bands .band-start-soft { border-left: 1px solid var(--obs-grid); }
+
+.tbl-bands tbody td { font-size: 14px; border-bottom: 1px solid var(--obs-grid); }
+.tbl-bands tbody tr:last-child td { border-bottom: none; }
+
+.tbl-bands .col-code { width: 74px; padding-right: 0; }
+.tbl-bands td.col-code {
+  font-size: 13px;
+  color: var(--obs-text-muted);
+  font-family: "SF Mono", ui-monospace, "JetBrains Mono", Menlo, monospace;
+}
+.tbl-bands .col-item { min-width: 226px; padding-left: 0; }
+.tbl-bands .cell-item { max-width: none; overflow: visible; text-wrap: pretty; }
+.tbl-bands .cell-item .en { font-size: 14px; font-weight: 600; line-height: 1.3; }
+.tbl-bands .cell-item .ja { margin-top: 2px; font-size: 13px; }
+
+.tbl-bands .col-weight { width: 112px; }
+.tbl-bands .col-index { width: 104px; }
+.tbl-bands .col-prev { width: 104px; }
+.tbl-bands .col-mom { width: 88px; }
+.tbl-bands .col-yoy { width: 86px; }
+.tbl-bands .col-yoyprior { width: 104px; }
+.tbl-bands .col-contrib { width: 118px; }
+.tbl-bands .col-ann { width: 104px; }
+.tbl-bands .col-spark { width: 140px; }
+
+/* These carry `table.data` because `table.data td.num` also sets a colour and
+   would otherwise win on specificity — the prior-month and prior-year columns
+   would come out at full ink and stop reading as the quieter comparison. */
+.tbl-bands td.col-index, .tbl-bands td.col-yoy { font-weight: 600; }
+table.data.tbl-bands td.col-prev,
+table.data.tbl-bands td.col-yoyprior { color: var(--obs-text-faint); }
+table.data.tbl-bands td.col-mom,
+table.data.tbl-bands td.col-ann { color: var(--obs-text); }
+/* Same amber-up / green-down reading as the overview strip, and never the only
+   carrier of direction — the sign is printed beside it. */
+table.data.tbl-bands td.trend-accel { color: var(--obs-trust-model); }
+table.data.tbl-bands td.trend-decel { color: var(--obs-trust-official); }
+
+.contrib-cell { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.contrib-track {
+  flex: 1;
+  min-width: 20px;
+  height: 5px;
+  background: var(--obs-grid);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.contrib-track i { display: block; height: 100%; background: var(--obs-primary); border-radius: 2px; }
+.contrib-val { flex: 0 0 auto; min-width: 34px; text-align: right; font-size: 13px; color: var(--obs-text); }
+
+.table-foot { margin-top: 14px; max-width: 92ch; font-size: 12px; color: var(--obs-text-muted); }
+.table-foot:empty { margin-top: 0; }
+
 /* ---------- detail panel (explorer) ---------- */
 
 .detail {
@@ -646,6 +858,17 @@ table.data tbody tr:hover .note-mark { color: var(--obs-ink); }
 .detail-head .ja { color: var(--obs-text-muted); font-size: 13px; }
 .detail-close { margin-left: auto; }
 .detail-meta { font-size: 12.5px; color: var(--obs-text-muted); margin: 6px 0 12px; }
+
+/* Range sits on its own row under the measure row: it is a control on the
+   chart, not on the download buttons it would otherwise crowd. */
+.range-row { gap: 6px; }
+.range-row .seg { margin-right: 4px; }
+.range-row select { padding: 4px 6px; font-size: 12.5px; }
+.range-row .range-note {
+  font-size: 11.5px;
+  color: var(--obs-text-muted);
+  margin-left: 4px;
+}
 
 /* ---------- states ---------- */
 
@@ -747,6 +970,27 @@ table.data tbody tr:hover .note-mark { color: var(--obs-ink); }
 
 @media (max-width: 1024px) {
   .strip-grid { grid-template-columns: repeat(3, 1fr); }
+}
+/* The scope hints are a legend for the search box; once the box is narrow
+   enough that they crowd the query, the title tooltip carries them instead. */
+@media (max-width: 860px) {
+  .search-scope { display: none; }
+}
+@media (max-width: 700px) {
+  .explorer-controls { flex-wrap: wrap; }
+  .search-rail { flex: 1 0 100%; flex-wrap: wrap; }
+  .seg-flush {
+    flex: 1 0 100%;
+    border-right: 0;
+    border-bottom: 1px solid var(--obs-border);
+  }
+  .seg-flush button { flex: 1; }
+  .search-field { flex: 1 0 100%; }
+  .btn-tall { flex: 1; }
+  .band-toggles { gap: 10px 18px; }
+  /* the count and the trust sentence are on separate lines here, so the rule
+     that separated them would be left hanging off the end of the first one */
+  .meta-rule { display: none; }
 }
 @media (max-width: 768px) {
   .strip-grid { grid-template-columns: repeat(2, 1fr); }

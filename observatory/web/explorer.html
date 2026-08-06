@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="assets/tokens.css">
 <link rel="stylesheet" href="assets/app.css">
 </head>
-<body>
+<body class="page-wide">
 
 <header class="site-header">
   <div class="inner">
@@ -33,30 +33,49 @@
 
   <div id="detail-slot"></div>
 
-  <div class="controls">
-    <div class="seg" role="group" aria-label="Table depth" id="dataset-seg">
-      <button type="button" data-dataset="cpi-jp" aria-pressed="true"
-              title="The ~80 published category aggregates (middle-class indices)">Categories</button>
-      <button type="button" data-dataset="cpi-jp-items"
-              title="All ~740 series at full item depth — individual goods and services">Detailed items</button>
+  <div class="explorer-controls">
+    <div class="search-rail">
+      <div class="seg seg-flush" role="group" aria-label="Table depth" id="dataset-seg">
+        <button type="button" data-dataset="cpi-jp" aria-pressed="true"
+                title="The ~80 published category aggregates (middle-class indices)">Categories</button>
+        <button type="button" data-dataset="cpi-jp-items"
+                title="All ~740 series at full item depth — individual goods and services">Detailed items</button>
+      </div>
+      <div class="search-field">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"
+             class="search-icon"><circle cx="7" cy="7" r="4.6"></circle><path d="M10.4 10.4 14 14"></path></svg>
+        <input type="search" id="q" placeholder="Search items. E.g. Electricity, 電気代, 0001"
+               aria-label="Search items">
+        <span class="search-scope" title="Search matches the English name, the Japanese name, or an exact series code">
+          <span>Name</span><i></i><span>かな</span><i></i><span class="mono">Code</span>
+        </span>
+      </div>
     </div>
-    <input type="search" id="q" placeholder="Search items — electricity, 電気代, rent, 0001 …"
-           aria-label="Search items">
-    <span class="spacer"></span>
-    <button type="button" class="btn" id="export-csv"
+    <button type="button" class="btn btn-tall" id="export-csv"
             title="Exports the rows currently shown, with source and vintage metadata">Download CSV (filtered)</button>
   </div>
 
   <p class="table-meta">
-    <span id="row-count" class="num"></span>
+    <span><b id="row-count" class="num"></b> series</span>
     <span id="filter-note"></span>
-    <span>Index values are <b>official statistics</b>; YoY and MoM are <b>calculated</b> from
-    published index values. <a href="methodology.html#trust">Definitions</a></span>
+    <span class="meta-rule" aria-hidden="true"></span>
+    <span>Index values are <b>official statistics</b>; YoY, MoM, contribution and 3-month
+    annualised rates are <b>calculated</b> from published index values.
+    <a href="methodology.html#calc">Definitions</a></span>
   </p>
+
+  <div class="band-toggles" id="band-toggles">
+    <span class="band-toggles-label">Column bands</span>
+    <label><input type="checkbox" data-band="level" checked> Prior-month level</label>
+    <label><input type="checkbox" data-band="contrib" checked> Contribution &amp; base effect</label>
+    <label><input type="checkbox" data-band="trend" checked> Momentum &amp; trend</label>
+  </div>
 
   <div class="table-wrap" id="table-wrap">
     <div class="skeleton" style="height:400px"></div>
   </div>
+
+  <p class="table-foot" id="table-foot"></p>
 
   <div class="table-notes" id="table-notes"></div>
 </main>

@@ -6,6 +6,7 @@ semantics (which series is "headline", how a file is parsed) live in
 the per-dataset adapter, never here.
 """
 import pathlib
+import threading
 
 import duckdb
 
@@ -88,3 +89,48 @@ def connect(read_only=False):
     if not read_only:
         con.execute(SCHEMA)
     return con
+
+
+# --- the API's shared reader -------------------------------------------------
+
+_READER = None
+_READER_VERSION = None
+_READER_LOCK = threading.Lock()
+
+
+def file_version():
+    """Identity of the database file — changes when ingest rewrites it.
+
+    Used as the cache stamp for served responses, so a new release invalidates
+    everything derived from the old one without any explicit bookkeeping.
+    """
+    try:
+        st = DB_PATH.stat()
+    except OSError:
+        return None
+    return (st.st_mtime_ns, st.st_size)
+
+
+def read_cursor():
+    """A cursor on the process-wide read-only connection.
+
+    One connection per process rather than one per request: in production
+    data/ is a network-mounted volume, so opening the file costs a round trip
+    and throws away DuckDB's page cache each time. A cursor is ~0.1ms against
+    ~4ms for a fresh connection, and siblings are safe to use from the
+    threadpool FastAPI runs sync endpoints on.
+
+    The connection is reopened if the file changes underneath it. Note that
+    holding it open blocks a *writer* in another process: run ingest before
+    the server, as start.sh does, not alongside it.
+    """
+    global _READER, _READER_VERSION
+    version = file_version()
+    with _READER_LOCK:
+        if _READER is None or _READER_VERSION != version:
+            if _READER is not None:
+                _READER.close()
+                _READER = None
+            _READER = duckdb.connect(str(DB_PATH), read_only=True)
+            _READER_VERSION = version
+        return _READER.cursor()
