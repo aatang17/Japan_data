@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MCP Manual — Japan Data · Observatory</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="inner">
+    <span class="brand">Observatory <span class="ds">/ Japan CPI</span></span>
+    <nav class="site-nav" aria-label="Main">
+      <a href="index.html">Overview</a>
+      <a href="explorer.html">Item Explorer</a>
+      <a href="methodology.html">Methodology</a>
+    </nav>
+    <div class="header-right">
+      <button class="theme-toggle" type="button">Dark Mode</button>
+    </div>
+  </div>
+</header>
+
+<main class="container">
+  <div class="page-head">
+    <h1>Using the Data From Your AI Assistant</h1>
+    <p class="page-sub">The complete manual for the Observatory's MCP server: setup, every
+    lookup it offers, how to read a response, and what to do when something looks wrong.</p>
+  </div>
+
+  <div class="prose">
+
+  <h2 id="what">What this is</h2>
+  <p>This site publishes its data over the Model Context Protocol (MCP) — an open standard
+  that lets an AI assistant such as Claude look data up from an external source while you
+  chat with it. You add one URL to your assistant; after that, questions about Japanese
+  prices are answered from this site's numbers rather than from the assistant's memory.</p>
+  <p>The assistant does the reading and writing. The server only answers data lookups, and
+  it can only see what this site already publishes: the same figures, from the same accepted
+  release, computed by the same code as the <a href="/api/docs">public API</a>. Nothing you
+  ask is used to change anything here — every lookup is read-only.</p>
+
+  <h2 id="setup">Getting connected</h2>
+  <p>The connect URL is:</p>
+  <div class="connect-url">
+    <code id="mcp-url">https://web-production-c9178.up.railway.app/mcp</code>
+    <button type="button" class="btn" id="copy-url">Copy</button>
+  </div>
+  <h3>claude.ai and Claude Desktop</h3>
+  <ol>
+    <li>Open <b>Settings → Connectors</b> (a paid Claude plan is required for custom
+    connectors).</li>
+    <li>Choose <b>Add custom connector</b>, name it <code>Japan Data Observatory</code>,
+    paste the URL, and add it. No authentication is asked for — there is none.</li>
+    <li>Start a <b>new</b> chat and confirm the connector is enabled in the tools menu
+    under the message box. Connectors added mid-chat are often not picked up until a new
+    conversation.</li>
+  </ol>
+  <h3>Claude Code (terminal)</h3>
+  <div class="connect-url">
+    <code id="cc-cmd">claude mcp add --transport http japan-data-observatory https://web-production-c9178.up.railway.app/mcp</code>
+    <button type="button" class="btn" id="copy-cmd">Copy</button>
+  </div>
+  <p>Run it once; every new session then has the tools. <code>claude mcp list</code> should
+  show the server as connected.</p>
+  <h3>Everything else</h3>
+  <p>Any client that supports remote MCP servers (Streamable HTTP transport) takes the same
+  URL. The server is stateless, needs no key, and identifies itself as
+  <code>Japan Data Observatory</code>.</p>
+
+  <h2 id="lookups">The lookups, one by one</h2>
+  <p>You never call these yourself — the assistant chooses them from your plain-English
+  question. Knowing what exists tells you what you can ask.</p>
+
+  <h3>Consumer prices (always available)</h3>
+  <ul>
+    <li><b>List datasets</b> — the published tables and what each covers. The assistant uses
+    it to orient itself.</li>
+    <li><b>Search series</b> — finds any of the ~820 CPI series by English or Japanese name,
+    or by series code. Returns each match with its basket weight, latest index value, and
+    latest year-over-year and month-over-month rates.
+    <br><i>Ask:</i> “Is there a series for mobile phone charges?”</li>
+    <li><b>Get series history</b> — the history of up to six series at once, as the published
+    index level (2020&nbsp;=&nbsp;100) or as a year-over-year, month-over-month, or 3-month
+    annualized rate, over any date window back to January 1970.
+    <br><i>Ask:</i> “Rice prices year-over-year since 2022.”</li>
+    <li><b>Inflation overview</b> — headline, core (less fresh food), and core-core (less
+    fresh food &amp; energy) at the latest month, plus the ten major expenditure groups with
+    their weights.
+    <br><i>Ask:</i> “Where is Japanese inflation right now?”</li>
+    <li><b>Contributions to headline</b> — the percentage-point decomposition of headline
+    year-over-year inflation by expenditure group, with the rounding residual disclosed
+    separately.
+    <br><i>Ask:</i> “How much of June’s inflation was food?”</li>
+    <li><b>Inflation breadth</b> — across the 582 individually priced items: the share
+    rising at least a threshold, the share rising at all, and the share falling.
+    <br><i>Ask:</i> “What share of items is rising more than 2%?”</li>
+  </ul>
+
+  <h3>Cross-shareholdings (where published)</h3>
+  <p>A second dataset — Japanese policy shareholdings (政策保有株式) extracted from annual
+  securities reports filed on EDINET — is being built filing by filing. Its lookups appear
+  automatically on servers where the dataset is published; if your assistant doesn't list
+  them, the server you're connected to doesn't carry the data yet.</p>
+  <ul>
+    <li><b>Cross-shareholding coverage</b> — how many filers are extracted so far, named
+    holdings, total book value, and positions reduced versus increased. The dataset is not
+    yet the whole market, so any aggregate should be quoted with this denominator.
+    <br><i>Ask:</i> “How much of the cross-shareholding data is covered so far?”</li>
+    <li><b>Search companies</b> — find a company by Japanese name or securities code, with
+    how many holdings it files and how many filers hold it.</li>
+    <li><b>Company holdings</b> — one company in both directions: every named holding it
+    discloses (shares, yen book value, prior-year figures, the stated purpose as filed,
+    reciprocity) and every extracted filer that holds it. The reverse view exists nowhere
+    in any single filing — it only exists because every filer's table is in one database.
+    <br><i>Ask:</i> “Who holds Mitsubishi UFJ shares as policy holdings, and why do they
+    say they hold them?”</li>
+    <li><b>Unwind ranking</b> — extracted filers ranked by total named policy-holding value,
+    with prior-year value and reduce/increase counts.
+    <br><i>Ask:</i> “Which filers hold the most, and who is actually reducing?”</li>
+  </ul>
+
+  <h2 id="reading">How to read what comes back</h2>
+  <p>Every lookup result carries the same disclosure fields. If you ever need to check the
+  assistant's statement, these are what to look at:</p>
+  <ul>
+    <li><b>trust</b> — <code>official</code> means the figure is exactly as published by the
+    source (index levels; filed share counts and book values). <code>calculated</code> means
+    this platform computed it from official inputs.</li>
+    <li><b>calc</b> — for every calculated figure, the exact formula used. A rate computed
+    from published (rounded) indices can differ from the source's own published rate by up
+    to ±0.1&nbsp;pp; the <a href="methodology.html">Methodology</a> page explains why.</li>
+    <li><b>cite</b> — a permanent URL on this site showing the same view. Click it to see
+    the numbers the assistant saw. This is the link to quote in a note or a post.</li>
+    <li><b>as_of_release / latest_period</b> — which data release answered the lookup. The
+    data is monthly; a figure is always “as of” a named month.</li>
+    <li><b>Missing values</b> come back as missing, never as zero. If the assistant tells
+    you a number is unavailable, that is the data speaking, not a failure.</li>
+    <li><b>Coverage (cross-shareholdings)</b> — extraction status and filer counts ride
+    along with equity responses. “¥21tn across 125 filers extracted so far” is honest;
+    “Japan's cross-shareholdings total ¥21tn” is not, and the data says so.</li>
+  </ul>
+
+  <h2 id="sessions">Ten questions to try</h2>
+  <ol>
+    <li>What are Japan's headline, core, and core-core inflation rates right now?</li>
+    <li>Break the current headline rate into percentage-point contributions by group.</li>
+    <li>Is inflation accelerating? Compare year-over-year with the 3-month annualized rate.</li>
+    <li>How has the price of rice moved over the last three years?</li>
+    <li>Compare electricity and city gas since 2022 on one timeline.</li>
+    <li>What share of individually priced items is rising more than 2%? How does that
+    compare with two years ago?</li>
+    <li>What happened to mobile phone charges in 2021?</li>
+    <li>With the cross-shareholding data: what's the coverage so far?</li>
+    <li>Who holds company 8306, and what reasons do the filers state?</li>
+    <li>Rank the extracted filers by policy-holding value and tell me who reduced positions
+    year-on-year.</li>
+  </ol>
+
+  <h2 id="limits">Limits, honestly stated</h2>
+  <ul>
+    <li><b>Consumer prices and cross-shareholdings only.</b> No Bank of Japan balance-sheet
+    data, wages, GDP, or producer prices yet; no Tokyo advance, regional, or seasonally
+    adjusted CPI series; no yen price levels (an index says rice rose 30%, not that it costs
+    ¥3,000). The coverage grows dataset by dataset.</li>
+    <li><b>Latest published data only.</b> “What did April look like before the revision?”
+    is not answerable yet — point-in-time history is stored and will be exposed in a future
+    release.</li>
+    <li><b>History windows are trimmed.</b> Long histories return the most recent points
+    within a size budget; the assistant can page through older windows by asking with
+    explicit dates. Up to six series per history lookup.</li>
+    <li><b>Rate limit.</b> Roughly 120 lookups per minute per connection — far more than a
+    conversation uses. Bulk work belongs on the <a href="/api/docs">public API</a>.</li>
+    <li><b>The assistant's prose is its own.</b> This server hands over numbers with labels
+    and links. Interpretation, forecasts, and causal stories are the product of whichever AI
+    you connect — this site publishes none of those. Check anything you plan to quote
+    against its <code>cite</code> link.</li>
+  </ul>
+
+  <h2 id="trouble">When something looks wrong</h2>
+  <ul>
+    <li><b>The connector won't add</b> — custom connectors need a paid Claude plan; free
+    accounts can't add them.</li>
+    <li><b>The tools don't appear</b> — start a new chat (web/desktop) or a new session
+    (Claude Code); check the connector is enabled in the chat's tools menu.</li>
+    <li><b>“Rate limit exceeded”</b> — wait a minute. If a single question routinely trips
+    it, the assistant is looping; rephrase more narrowly.</li>
+    <li><b>The assistant's rate differs slightly from an official publication</b> — expected
+    within ±0.1&nbsp;pp; see <a href="methodology.html#calc">Methodology → Calculations</a>.
+    Index levels should never differ; if one does, that is a bug — please report it.</li>
+    <li><b>Cross-shareholding lookups are missing or answer “not published yet”</b> — the
+    server you're connected to doesn't carry that dataset yet.</li>
+    <li><b>A number with no cite link, or a claim you can't reproduce</b> — treat it as the
+    assistant's own words, not this site's data.</li>
+  </ul>
+
+  <h2 id="teams">For data teams</h2>
+  <p>The endpoint speaks JSON-RPC 2.0 over a single stateless POST — no session, no
+  authentication, gzip supported. A minimal round-trip:</p>
+  <p><code>curl -X POST https://web-production-c9178.up.railway.app/mcp -H "Content-Type:
+  application/json" -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'</code></p>
+  <p>Tool results return the same JSON the site's public API serves, plus the disclosure
+  fields above. For scheduled or bulk retrieval, use <a href="/api/docs">the REST API</a>
+  directly — it is the same data with proper HTTP caching.</p>
+
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="inner">
+    Source: Statistics Bureau of Japan, via e-Stat.
+  </div>
+</footer>
+
+<script src="assets/format.js"></script>
+<script>
+initThemeToggle();
+function wireCopy(btnId, textId) {
+  var btn = document.getElementById(btnId);
+  var text = document.getElementById(textId).textContent;
+  btn.addEventListener("click", function () {
+    function done() {
+      btn.textContent = "Copied";
+      setTimeout(function () { btn.textContent = "Copy"; }, 1500);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done);
+    } else {
+      var range = document.createRange();
+      range.selectNodeContents(document.getElementById(textId));
+      var sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      document.execCommand("copy");
+      sel.removeAllRanges();
+      done();
+    }
+  });
+}
+wireCopy("copy-url", "mcp-url");
+wireCopy("copy-cmd", "cc-cmd");
+</script>
+</body>
+</html>

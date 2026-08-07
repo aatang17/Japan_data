@@ -12,4 +12,13 @@ for dataset in cpi-jp cpi-jp-items; do
         || echo "ingest $dataset did not publish; serving last published release"
 done
 
+# Cross-shareholding serving DB: built offline by equity/extract.py and
+# shipped with the image as a seed. The image copy always wins — extraction
+# happens off-server, so the seed is the newest data this deploy knows. The
+# raw filing archive never ships; this file is derived and replaceable.
+if [ -f seed/equity.duckdb ]; then
+    cp seed/equity.duckdb data/equity.duckdb \
+        || echo "equity seed copy failed; serving without cross-shareholding data"
+fi
+
 exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8007}"

@@ -16,6 +16,7 @@ env.load()
 
 from . import api  # noqa: E402 — must follow env.load()
 from .api import router  # noqa: E402
+from .equity_api import router as equity_router  # noqa: E402
 from .mcp import router as mcp_router  # noqa: E402
 
 WEB_DIR = pathlib.Path(__file__).resolve().parent.parent / "web"
@@ -39,6 +40,9 @@ app = FastAPI(title="Observatory", docs_url="/api/docs", openapi_url="/api/opena
 app.add_middleware(cache.ResponseCache, version=db.file_version)
 app.add_middleware(GZipMiddleware, minimum_size=1024, compresslevel=5)
 
+# Equity first: its literal /api/v1/equity/ paths must win over the core
+# router's /api/v1/{dataset}/ catch-alls.
+app.include_router(equity_router)
 app.include_router(router)
 # /mcp sits outside /api/v1 on purpose: the response cache only touches GETs
 # under that prefix, so JSON-RPC POSTs can never be served stale.

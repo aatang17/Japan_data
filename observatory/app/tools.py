@@ -22,6 +22,7 @@ import os
 from urllib.parse import urlencode
 
 from . import api
+from . import equity_api
 
 # Tool results are the bulk of an LLM caller's input tokens. These bound how
 # much a single lookup can pull into context.
@@ -294,6 +295,173 @@ TOOL_IMPLS = {
 }
 
 
+# ---------------------------------------------------------------------------
+# equity tools (cross-shareholdings — product #2's own namespace)
+#
+# Documents-and-events data, not time series: yen book values and share
+# counts as filed, never comparable to or rankable against the CPI indices.
+# Same layer discipline as the macro tools — every tool wraps the functions
+# behind /api/v1/equity, so an AI client only sees what the API publishes.
+# The dataset accumulates filing by filing; every response therefore carries
+# its coverage so a caller can state the denominator, and the whole group
+# reports "not published yet" cleanly when the equity database is absent
+# (as on a server that has not received it).
+# ---------------------------------------------------------------------------
+
+def equity_available():
+    """True when this server has the cross-shareholding database."""
+    return equity_api.DB_PATH.exists()
+
+
+_EQ_UNAVAILABLE = ("The cross-shareholding dataset is not published on this "
+                   "server yet.")
+
+
+def _eq_guard(fn):
+    """Run an equity lookup; translate its HTTP failures into tool failures."""
+    try:
+        return fn(), None
+    except Exception as exc:  # noqa: BLE001 — surfaced to the caller, not raised
+        detail = getattr(exc, "detail", None)
+        if getattr(exc, "status_code", None) == 503:
+            return None, _EQ_UNAVAILABLE
+        return None, str(detail) if detail else str(exc)
+
+
+def search_companies(query):
+    """Find companies in the cross-shareholding data by name or code."""
+    raw, err = _eq_guard(lambda: equity_api.companies(q=query or ""))
+    if err:
+        return _fail(err)
+    return json.dumps({
+        "query": query, "trust": "official",
+        "note": equity_api.PROVENANCE["note"],
+        "cite": _cite("/holdings.html"),
+        "companies": raw["companies"],
+    }, ensure_ascii=False, default=str)
+
+
+def get_company_holdings(sec_code):
+    """Both directions for one company: what it holds, and who holds it."""
+    code = (sec_code or "").strip()
+    if not code:
+        return _fail("No securities code given.")
+    raw, err = _eq_guard(lambda: equity_api.company(code))
+    if err:
+        return _fail(err)
+    raw["trust"] = "official"
+    raw["unit"] = "book values in yen, as filed"
+    raw["cite"] = _cite("/holdings.html", c=code)
+    return json.dumps(raw, ensure_ascii=False, default=str)
+
+
+def get_unwind_ranking():
+    """Filers ranked by named policy-holding value, with reduce/increase counts."""
+    raw, err = _eq_guard(equity_api.unwind)
+    if err:
+        return _fail(err)
+    raw["trust"] = "official"
+    raw["unit"] = "book values in yen, as filed"
+    raw["cite"] = _cite("/holdings.html")
+    return json.dumps(raw, ensure_ascii=False, default=str)
+
+
+def get_holdings_summary():
+    """Coverage and totals of the cross-shareholding dataset on this server."""
+    raw, err = _eq_guard(equity_api.summary)
+    if err:
+        return _fail(err)
+    raw["cite"] = _cite("/holdings.html")
+    return json.dumps(raw, ensure_ascii=False, default=str)
+
+
+EQUITY_TOOL_IMPLS = {
+    "search_companies": search_companies,
+    "get_company_holdings": get_company_holdings,
+    "get_unwind_ranking": get_unwind_ranking,
+    "get_holdings_summary": get_holdings_summary,
+}
+
+# Same OpenAI function shape as TOOL_SCHEMAS; mcp.py reshapes both. Kept in a
+# separate list because the ask agent (a CPI product surface) must not see
+# these.
+EQUITY_TOOL_SCHEMAS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "get_holdings_summary",
+            "description": (
+                "Coverage and totals of the Japanese cross-shareholding "
+                "(policy shareholding, 政策保有株式) dataset: how many filers "
+                "are extracted, named holdings, total book value in yen, and "
+                "counts of positions reduced or increased year-on-year. Call "
+                "this first to state the dataset's coverage — it grows filing "
+                "by filing and is not yet all of the market."),
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_companies",
+            "description": (
+                "Find companies in the cross-shareholding data by name "
+                "(Japanese) or securities code. Returns each match with how "
+                "many named holdings it files and how many filers hold it. "
+                "Use the sec_code it returns with get_company_holdings."),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": ("Company name substring (Japanese) or "
+                                        "securities code, e.g. '8306' or "
+                                        "'三菱'."),
+                    },
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_company_holdings",
+            "description": (
+                "One company's policy shareholdings in both directions: the "
+                "named holdings it discloses (share counts, yen book values, "
+                "prior-year figures, stated purpose in Japanese, reciprocity) "
+                "and the reverse view — every extracted filer that holds it. "
+                "Figures are exactly as filed; the reverse view's coverage is "
+                "limited to filers extracted so far."),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "sec_code": {
+                        "type": "string",
+                        "description": "4-digit securities code, e.g. '8306'.",
+                    },
+                },
+                "required": ["sec_code"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_unwind_ranking",
+            "description": (
+                "Extracted filers ranked by total named policy-holding book "
+                "value in yen, with prior-year value and counts of positions "
+                "reduced versus increased — the cross-shareholding unwind "
+                "picture. Yen values are levels as filed; never rank or mix "
+                "them with CPI index numbers."),
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+]
+
+
 def run_tool(name, args):
     """Run one tool with a dict of arguments; never raises.
 
@@ -301,7 +469,7 @@ def run_tool(name, args):
     {"error": ...} shape rather than data. _fail() is the only producer of
     that shape, so the prefix test below is exact.
     """
-    impl = TOOL_IMPLS.get(name)
+    impl = TOOL_IMPLS.get(name) or EQUITY_TOOL_IMPLS.get(name)
     if impl is None:
         return _fail("Unknown tool '%s'." % name), True
     if not isinstance(args, dict):

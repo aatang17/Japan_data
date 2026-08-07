@@ -123,6 +123,13 @@ figure is calculated, and a permanent `cite` URL on the site. Setup steps for
 readers live at `/connect.html`. No key required; per-IP rate limited;
 `MCP_ENABLED=0` turns it off. The protocol is implemented directly in
 `app/mcp.py` (the official SDK needs Python 3.10+, local dev runs 3.9).
+The user manual lives at `/manual.html`.
+
+The cross-shareholding dataset (`/api/v1/equity/...`, built offline by
+`equity/extract.py` into `data/equity.duckdb`) is exposed through the same
+MCP server; its four tools are listed only on servers where the database
+file is present. Production receives it as `seed/equity.duckdb` baked into
+the image and copied onto the volume at boot by `start.sh`.
 
 Quick check:
 

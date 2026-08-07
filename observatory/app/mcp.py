@@ -28,7 +28,8 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, Response
 from starlette.concurrency import run_in_threadpool
 
-from .tools import TOOL_IMPLS, TOOL_SCHEMAS, run_tool
+from .tools import (EQUITY_TOOL_IMPLS, EQUITY_TOOL_SCHEMAS, TOOL_IMPLS,
+                    TOOL_SCHEMAS, equity_available, run_tool)
 
 # Newest first; initialize echoes the client's version when we support it and
 # offers the newest otherwise, per the negotiation rules.
@@ -61,6 +62,20 @@ when quoting them. Every response includes a `cite` URL, a permanent page \
 showing the same view; link it when you present the numbers. Source credit: \
 Statistics Bureau of Japan, via the Japan Data Observatory."""
 
+# Appended to INSTRUCTIONS when the cross-shareholding database is present.
+EQUITY_INSTRUCTIONS = """
+
+This server also publishes Japanese cross-shareholding (policy shareholding, \
+政策保有株式) data extracted from companies' annual securities reports filed \
+on EDINET: named holdings with share counts, yen book values, prior-year \
+figures, and the stated purpose of each holding, plus the reverse view of \
+who holds a company. Figures are exactly as filed. The dataset accumulates \
+filing by filing and does not yet cover the whole market — call \
+get_holdings_summary first and state its coverage with any aggregate you \
+quote. Yen book values are levels, a different measure from CPI indices; \
+never rank or combine the two. Source credit: company filings on EDINET \
+(Financial Services Agency), via the Japan Data Observatory."""
+
 TOOL_TITLES = {
     "list_datasets": "List datasets",
     "search_series": "Search series",
@@ -68,19 +83,40 @@ TOOL_TITLES = {
     "get_overview": "Inflation overview",
     "get_contributions": "Contributions to headline",
     "get_breadth": "Inflation breadth",
+    "get_holdings_summary": "Cross-shareholding coverage",
+    "search_companies": "Search companies",
+    "get_company_holdings": "Company holdings (both directions)",
+    "get_unwind_ranking": "Unwind ranking",
 }
 
-# tools.py keeps one schema list in OpenAI function shape for the ask agent;
-# reshape it here into MCP tool descriptors so there is exactly one source of
-# truth for what each tool does and takes.
-MCP_TOOLS = [{
-    "name": entry["function"]["name"],
-    "title": TOOL_TITLES.get(entry["function"]["name"],
-                             entry["function"]["name"]),
-    "description": entry["function"]["description"],
-    "inputSchema": entry["function"]["parameters"],
-    "annotations": {"readOnlyHint": True, "openWorldHint": False},
-} for entry in TOOL_SCHEMAS]
+
+def _descriptors(schemas):
+    """Reshape tools.py's OpenAI-style schemas into MCP tool descriptors —
+    one source of truth for what each tool does and takes."""
+    return [{
+        "name": entry["function"]["name"],
+        "title": TOOL_TITLES.get(entry["function"]["name"],
+                                 entry["function"]["name"]),
+        "description": entry["function"]["description"],
+        "inputSchema": entry["function"]["parameters"],
+        "annotations": {"readOnlyHint": True, "openWorldHint": False},
+    } for entry in schemas]
+
+
+MCP_TOOLS = _descriptors(TOOL_SCHEMAS)
+EQUITY_MCP_TOOLS = _descriptors(EQUITY_TOOL_SCHEMAS)
+
+
+def _current_tools():
+    """The tool list this server offers right now.
+
+    The cross-shareholding group is listed only when its database is present,
+    so a server that has not received the dataset never advertises tools that
+    could only fail. Checked per request — the file can arrive between calls.
+    """
+    if equity_available():
+        return MCP_TOOLS + EQUITY_MCP_TOOLS
+    return MCP_TOOLS
 
 
 def _enabled():
@@ -141,22 +177,25 @@ def _handle_one(msg):
     if method == "initialize":
         requested = params.get("protocolVersion")
         version = requested if requested in PROTOCOL_VERSIONS else PROTOCOL_VERSIONS[0]
+        instructions = INSTRUCTIONS
+        if equity_available():
+            instructions += EQUITY_INSTRUCTIONS
         return _result(msg_id, {
             "protocolVersion": version,
             "capabilities": {"tools": {"listChanged": False}},
             "serverInfo": SERVER_INFO,
-            "instructions": INSTRUCTIONS,
+            "instructions": instructions,
         })
 
     if method == "ping":
         return _result(msg_id, {})
 
     if method == "tools/list":
-        return _result(msg_id, {"tools": MCP_TOOLS})
+        return _result(msg_id, {"tools": _current_tools()})
 
     if method == "tools/call":
         name = params.get("name")
-        if name not in TOOL_IMPLS:
+        if name not in TOOL_IMPLS and name not in EQUITY_TOOL_IMPLS:
             return _error(msg_id, -32602, "Unknown tool: %s" % name)
         text, is_error = run_tool(name, params.get("arguments") or {})
         return _result(msg_id, {

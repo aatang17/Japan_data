@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Japan Cross-Shareholdings · Observatory</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/app.css">
+<style>
+/* page-local layout only — tokens and components come from app.css */
+.co-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 14px; margin: 18px 0 4px; }
+.co-head h1 { margin: 0; }
+.co-code { font-family: var(--obs-mono, monospace); color: var(--obs-text-muted); font-size: 15px; }
+.co-industry { color: var(--obs-text-muted); font-size: 13px; }
+.filing-meta { font-size: 12.5px; color: var(--obs-text-muted); margin: 2px 0 0; }
+.filing-meta .mono { font-family: var(--obs-mono, monospace); }
+.tbl-hold { width: 100%; border-collapse: collapse; min-width: 900px; }
+.tbl-hold th, .tbl-hold td { padding: 9px 12px; font-size: 13.5px; border-bottom: 1px solid var(--obs-grid); }
+.tbl-hold thead th { font-size: 12px; font-weight: 600; color: var(--obs-text-muted);
+  text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid var(--obs-border); }
+.tbl-hold .r, .tbl-hold th.r { text-align: right; font-variant-numeric: tabular-nums; }
+.tbl-hold tbody tr:hover td { background: var(--obs-surface-subtle); }
+.tbl-hold a { color: var(--obs-primary); text-decoration: none; }
+.tbl-hold a:hover { text-decoration: underline; }
+.tbl-hold .purpose-row td { background: var(--obs-surface-subtle); font-size: 13px; color: var(--obs-ink);
+  padding: 10px 14px 12px; border-left: 2px solid var(--obs-border); }
+.purpose-toggle { background: none; border: none; color: var(--obs-primary); cursor: pointer;
+  font-size: 12.5px; padding: 0; }
+.calc-note { font-size: 12.5px; color: var(--obs-text-muted); margin: 6px 0 0; }
+.calc-note summary { cursor: pointer; color: var(--obs-primary); display: inline; }
+.chart-block { margin: 12px 0 4px; }
+#unwind-chart { width: 100%; height: 380px; }
+.chart-foot { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline;
+  font-size: 12px; color: var(--obs-text-faint); margin-top: 4px; }
+.chart-foot .grow { flex: 1; }
+.sec-actions { display: flex; gap: 10px; align-items: baseline; }
+@media (max-width: 700px) { #unwind-chart { height: 420px; } }
+</style>
+</head>
+<body class="page-wide">
+
+<header class="site-header">
+  <div class="inner">
+    <span class="brand">Observatory <span class="ds">/ Cross-Shareholdings</span></span>
+    <nav class="site-nav" aria-label="Main">
+      <a href="index.html">Overview</a>
+      <a href="explorer.html">Item Explorer</a>
+      <a href="holdings.html" aria-current="page">Cross-Shareholdings</a>
+      <a href="methodology.html">Methodology</a>
+    </nav>
+    <div class="header-right">
+      <span class="header-asof" id="header-asof"></span>
+      <button class="theme-toggle" type="button">Dark Mode</button>
+    </div>
+  </div>
+</header>
+
+<main class="container">
+
+  <!-- landing: sector view -->
+  <section id="sector-view">
+    <div class="page-head">
+      <h1>Cross-Shareholdings — Financial Sector</h1>
+      <p class="page-sub">Policy shareholdings (政策保有株式) exactly as disclosed in each
+      company's annual securities report: what each financial institution holds, who holds
+      whom back, and how fast the unwind is running. Coverage: banks, insurers, securities
+      and other financials, FY2025 filings.</p>
+    </div>
+
+    <div class="explorer-controls">
+      <div class="search-rail">
+        <div class="search-field">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"
+               class="search-icon"><circle cx="7" cy="7" r="4.6"></circle><path d="M10.4 10.4 14 14"></path></svg>
+          <input type="search" id="q" placeholder="Company name or securities code. E.g. Toyota, 8306"
+                 aria-label="Search companies" autocomplete="off">
+        </div>
+      </div>
+    </div>
+    <div id="search-results"></div>
+
+    <div class="strip" id="stat-strip"></div>
+
+    <h2>The Unwind — Positions Cut vs Added <span class="h2-note" id="chart-asof"></span></h2>
+    <div class="chart-block">
+      <div id="unwind-chart"></div>
+      <div class="chart-foot">
+        <span id="chart-source"></span>
+        <span class="grow"></span>
+        <button type="button" class="btn" id="chart-png">Download PNG</button>
+      </div>
+      <details class="calc-note"><summary>Show calculation</summary>
+        A position counts as cut (or added) when its as-filed share count is lower
+        (higher) than the prior-year column of the same filing. Two disclosed caveats:
+        share-count <b>additions can include stock splits</b> (a 2×/3×/5× jump in shares
+        with an unchanged position is usually a split, not a purchase); and the table's
+        Δ value column compares fair-valued book values, so <b>market price moves are
+        inside it</b> — a filer can be cutting positions while its Δ value rises in a
+        rising market. Both input columns are official figures as filed; the comparisons
+        are calculated by the platform.
+      </details>
+    </div>
+
+    <h2>All Filers <span class="h2-note" id="unwind-count"></span></h2>
+    <div class="sec-actions">
+      <p class="table-meta" style="flex:1">Book values are <b>official statistics</b> as filed;
+        Δ value and the reduced/increased counts are <b>calculated</b> from the two as-filed columns.</p>
+      <button type="button" class="btn" id="unwind-csv">Download CSV</button>
+    </div>
+    <div class="table-wrap"><table class="tbl-hold" id="unwind-table"></table></div>
+  </section>
+
+  <!-- company view -->
+  <section id="company-view" hidden>
+    <p style="margin:16px 0 0"><a href="holdings.html" id="back-link">← All filers</a></p>
+    <div class="co-head">
+      <h1 id="co-name"></h1>
+      <span class="co-code" id="co-code"></span>
+      <span class="co-industry" id="co-industry"></span>
+    </div>
+    <p class="filing-meta" id="co-filing"></p>
+
+    <div id="holdings-sec">
+      <h2>What It Holds <span class="h2-note" id="holdings-count"></span></h2>
+      <div class="sec-actions">
+        <p class="table-meta" style="flex:1">Named policy holdings from the governance section
+          (株式の保有状況) of the filing named above. <b>Official statistics</b> as filed.
+          Missing values are shown as —, never as zero.</p>
+        <button type="button" class="btn" id="holdings-csv">Download CSV</button>
+      </div>
+      <div class="table-wrap"><table class="tbl-hold" id="holdings-table"></table></div>
+    </div>
+
+    <div id="holders-sec">
+      <h2>Who Holds It <span class="h2-note" id="holders-count"></span></h2>
+      <div class="sec-actions">
+        <p class="table-meta" style="flex:1">Every financial-sector filer whose own
+          annual report names this company among its policy holdings. This view exists only
+          because every filer's table is in one database — no single filing shows it.</p>
+        <button type="button" class="btn" id="holders-csv">Download CSV</button>
+      </div>
+      <div class="table-wrap"><table class="tbl-hold" id="holders-table"></table></div>
+    </div>
+  </section>
+
+  <footer class="page-foot" id="page-foot">
+    <p>Source: 有価証券報告書 (annual securities reports) via EDINET, Financial Services Agency.
+    Every figure links to its filing; every raw file is archived with its SHA-256.
+    Sector coverage and extraction status are stated above — gaps are disclosed, never filled.</p>
+  </footer>
+</main>
+
+<script src="assets/echarts.min.js"></script>
+<script src="assets/format.js"></script>
+<script src="assets/holdings.js"></script>
+</body>
+</html>
