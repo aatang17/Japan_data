@@ -1052,3 +1052,26 @@ table.data.tbl-bands td.trend-decel { color: var(--obs-trust-official); }
   .chart { height: 280px; }
   input[type="search"] { width: 100%; }
 }
+
+/* ---------- connect page: the URL block ---------- */
+
+.connect-url {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  margin: 12px 0 4px;
+  max-width: 74ch;
+}
+.connect-url code {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+  padding: 9px 12px;
+  font-size: 13.5px;
+}
+.connect-url .btn { flex: none; }
+
+@media (max-width: 480px) {
+  .connect-url { flex-wrap: wrap; }
+}

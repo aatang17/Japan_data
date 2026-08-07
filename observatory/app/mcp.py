@@ -1,0 +1,222 @@
+"""MCP endpoint — lets an external AI assistant use the published data.
+
+A remote Model Context Protocol server in its "Streamable HTTP" shape,
+deliberately stateless: one POST /mcp route speaking JSON-RPC 2.0, no
+sessions, no server-initiated streams. That subset is all a read-only tools
+server needs, and it is what lets a user connect by pasting one URL into
+Claude (or any MCP client) with no install and no login.
+
+The tools served are the shared layer in tools.py — the same wrappers over
+the same functions that serve /api/v1, so a connected assistant can only ever
+see numbers the public API already publishes, with the same trust labels,
+formulas, and cite URLs. No tool here may bypass that layer.
+
+Implemented directly rather than via the official MCP SDK because the SDK
+requires Python 3.10+ and app/ code must run on the 3.9 used locally. The
+protocol methods a stateless tools-only server must answer are few:
+initialize, the initialized notification, ping, tools/list, and tools/call.
+
+Kill switch: MCP_ENABLED — on by default (unlike ASK_ENABLED, nothing here
+generates text or spends money; it serves the same bytes as the API), set it
+to a falsy value to turn the endpoint off.
+"""
+import json
+import os
+import time
+
+from fastapi import APIRouter, Request
+from fastapi.responses import JSONResponse, Response
+from starlette.concurrency import run_in_threadpool
+
+from .tools import TOOL_IMPLS, TOOL_SCHEMAS, run_tool
+
+# Newest first; initialize echoes the client's version when we support it and
+# offers the newest otherwise, per the negotiation rules.
+PROTOCOL_VERSIONS = ("2025-06-18", "2025-03-26", "2024-11-05")
+
+SERVER_INFO = {
+    # Named for the platform, not the macro product alone — future datasets
+    # (BOJ, equity holdings) join this same server.
+    "name": "japan-data-observatory",
+    "title": "Japan Data Observatory",
+    "version": "1.0.0",
+}
+
+# Shown to the connected assistant at initialize time: the trust contract in
+# the form an LLM can follow.
+INSTRUCTIONS = """\
+This server publishes Japanese consumer price statistics from the Japan Data \
+Observatory: cpi-jp (~80 category aggregates: headline CPI, cores, major \
+expenditure groups) and cpi-jp-items (~740 individually priced items), \
+monthly from 1970.
+
+Ground every figure you state in a tool result from this conversation — the \
+data is revised and extended monthly, so never answer from memory. Missing \
+values are missing, never zero. Index levels (2020 = 100) are official \
+statistics exactly as the Statistics Bureau of Japan published them; \
+year-over-year, month-over-month, and 3-month annualized rates are calculated \
+by this platform from those indices and each response carries the formula \
+used in its `calc` field — keep official and calculated figures distinct \
+when quoting them. Every response includes a `cite` URL, a permanent page \
+showing the same view; link it when you present the numbers. Source credit: \
+Statistics Bureau of Japan, via the Japan Data Observatory."""
+
+TOOL_TITLES = {
+    "list_datasets": "List datasets",
+    "search_series": "Search series",
+    "get_series_values": "Get series history",
+    "get_overview": "Inflation overview",
+    "get_contributions": "Contributions to headline",
+    "get_breadth": "Inflation breadth",
+}
+
+# tools.py keeps one schema list in OpenAI function shape for the ask agent;
+# reshape it here into MCP tool descriptors so there is exactly one source of
+# truth for what each tool does and takes.
+MCP_TOOLS = [{
+    "name": entry["function"]["name"],
+    "title": TOOL_TITLES.get(entry["function"]["name"],
+                             entry["function"]["name"]),
+    "description": entry["function"]["description"],
+    "inputSchema": entry["function"]["parameters"],
+    "annotations": {"readOnlyHint": True, "openWorldHint": False},
+} for entry in TOOL_SCHEMAS]
+
+
+def _enabled():
+    """Kill switch — on unless MCP_ENABLED is set to an explicit falsy value."""
+    return os.environ.get("MCP_ENABLED", "1").strip().lower() in (
+        "1", "true", "yes", "on")
+
+
+# Per-IP rate limit, same in-process shape as /ask's. The tools are cheap
+# reads, but an agent loop that goes off the rails should hit a wall.
+WINDOW_SECONDS = 60
+MAX_PER_WINDOW = 120
+_HITS = {}
+
+
+def _rate_limited(client_ip):
+    now = time.monotonic()
+    cutoff = now - WINDOW_SECONDS
+    for ip in [ip for ip, hits in _HITS.items() if not hits or hits[-1] < cutoff]:
+        del _HITS[ip]
+    hits = [t for t in _HITS.get(client_ip, []) if t >= cutoff]
+    if len(hits) >= MAX_PER_WINDOW:
+        _HITS[client_ip] = hits
+        return True
+    hits.append(now)
+    _HITS[client_ip] = hits
+    return False
+
+
+# ---------------------------------------------------------------------------
+# JSON-RPC handling
+# ---------------------------------------------------------------------------
+
+def _result(msg_id, result):
+    return {"jsonrpc": "2.0", "id": msg_id, "result": result}
+
+
+def _error(msg_id, code, message):
+    return {"jsonrpc": "2.0", "id": msg_id,
+            "error": {"code": code, "message": message}}
+
+
+def _handle_one(msg):
+    """One JSON-RPC message in, one response dict out — or None for
+    notifications and client responses, which get no reply."""
+    if not isinstance(msg, dict) or msg.get("jsonrpc") != "2.0":
+        bad_id = msg.get("id") if isinstance(msg, dict) else None
+        return _error(bad_id, -32600, "Invalid Request")
+
+    method = msg.get("method")
+    if method is None:
+        return None  # a response from the client (e.g. to a ping); nothing to do
+    if "id" not in msg:
+        return None  # a notification (initialized, cancelled, …); none need action
+    msg_id = msg["id"]
+    params = msg.get("params") or {}
+
+    if method == "initialize":
+        requested = params.get("protocolVersion")
+        version = requested if requested in PROTOCOL_VERSIONS else PROTOCOL_VERSIONS[0]
+        return _result(msg_id, {
+            "protocolVersion": version,
+            "capabilities": {"tools": {"listChanged": False}},
+            "serverInfo": SERVER_INFO,
+            "instructions": INSTRUCTIONS,
+        })
+
+    if method == "ping":
+        return _result(msg_id, {})
+
+    if method == "tools/list":
+        return _result(msg_id, {"tools": MCP_TOOLS})
+
+    if method == "tools/call":
+        name = params.get("name")
+        if name not in TOOL_IMPLS:
+            return _error(msg_id, -32602, "Unknown tool: %s" % name)
+        text, is_error = run_tool(name, params.get("arguments") or {})
+        return _result(msg_id, {
+            "content": [{"type": "text", "text": text}],
+            "isError": is_error,
+        })
+
+    return _error(msg_id, -32601, "Method not found: %s" % method)
+
+
+def _handle(message):
+    if isinstance(message, list):
+        # Batches: sent by 2025-03-26 clients, removed again in 2025-06-18.
+        # Answering them costs nothing and beats guessing the client version.
+        if not message:
+            return _error(None, -32600, "Invalid Request")
+        replies = [r for r in (_handle_one(m) for m in message) if r is not None]
+        return replies or None
+    return _handle_one(message)
+
+
+# ---------------------------------------------------------------------------
+# HTTP surface
+# ---------------------------------------------------------------------------
+
+router = APIRouter()
+
+_OFF = {"error": "The MCP endpoint is turned off on this server."}
+_STATELESS = {"error": ("This MCP server is stateless. POST JSON-RPC 2.0 "
+                        "messages to this URL; see /connect.html to set up "
+                        "a client.")}
+
+
+@router.post("/mcp")
+async def mcp_post(request: Request):
+    if not _enabled():
+        return JSONResponse(_OFF, status_code=503)
+    client_ip = request.client.host if request.client else "unknown"
+    if _rate_limited(client_ip):
+        return JSONResponse(
+            _error(None, -32000, "Rate limit exceeded — try again in a minute."),
+            status_code=429)
+    try:
+        message = json.loads(await request.body())
+    except (ValueError, UnicodeDecodeError):
+        return JSONResponse(_error(None, -32700, "Parse error"), status_code=400)
+    # Tools run DuckDB queries synchronously; keep them off the event loop.
+    reply = await run_in_threadpool(_handle, message)
+    if reply is None:
+        return Response(status_code=202)  # notifications get no body
+    return JSONResponse(reply)
+
+
+@router.get("/mcp")
+def mcp_get():
+    # No server-initiated stream to offer; 405 is the spec's answer for that.
+    return JSONResponse(_STATELESS, status_code=405, headers={"Allow": "POST"})
+
+
+@router.delete("/mcp")
+def mcp_delete():
+    # No sessions exist, so there is nothing to terminate.
+    return JSONResponse(_STATELESS, status_code=405, headers={"Allow": "POST"})

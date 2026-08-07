@@ -189,6 +189,17 @@
     base revisions.</li>
   </ul>
 
+  <h2 id="mcp">Connecting an AI assistant (MCP)</h2>
+  <p>The site exposes its data to AI assistants over the
+  <a href="https://modelcontextprotocol.io" rel="noopener">Model Context Protocol</a> at
+  <code>/mcp</code> — setup steps are on the <a href="connect.html">Connect&nbsp;your&nbsp;AI</a>
+  page. The assistant reaches the data only through read-only lookups that wrap the same
+  functions serving the public API, so it can only see numbers this site already publishes.
+  Every lookup result carries the same trust labels described above — official index levels
+  tagged as official, calculated rates carrying their formula — plus a permanent citation URL
+  for the equivalent view on this site. The assistant's prose is the product of whichever AI
+  client you connect, not of this site; check its statements against the cited pages.</p>
+
   <h2 id="license">Attribution</h2>
   <p>Underlying data © Statistics Bureau of Japan, republished under the
   <a href="https://www.e-stat.go.jp/terms-of-use" rel="noopener">e-Stat terms of use</a> with

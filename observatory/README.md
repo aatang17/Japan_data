@@ -60,6 +60,10 @@ app/
                            validation gates, presentation roles (headline/core/groups)
   adapters/cpi_jp_items.py detailed item indices adapter (~740 series)
   api.py             dataset-scoped JSON API (/api/v1/{dataset}/...)
+  tools.py           shared tool layer over the API functions — the only data
+                     path for the ask agent and the MCP endpoint
+  agent.py           ask (LLM Q&A) loop; off unless ASK_ENABLED is set
+  mcp.py             remote MCP server (POST /mcp) for external AI clients
   main.py            FastAPI app: API + static frontend
 web/
   assets/tokens.css  design tokens (single source of truth for colour, incl. dark mode)
@@ -108,3 +112,21 @@ GET /api/v1/cpi-jp/releases
 ```
 
 Interactive docs at `/api/docs`.
+
+## MCP (connect an AI assistant)
+
+`POST /mcp` is a stateless remote MCP server — paste the URL into Claude (or
+any MCP client) and its assistant can search series, pull history, and
+decompose headline inflation through the same read-only tool layer that backs
+`/api/v1`. Every response carries its trust label, its formula where the
+figure is calculated, and a permanent `cite` URL on the site. Setup steps for
+readers live at `/connect.html`. No key required; per-IP rate limited;
+`MCP_ENABLED=0` turns it off. The protocol is implemented directly in
+`app/mcp.py` (the official SDK needs Python 3.10+, local dev runs 3.9).
+
+Quick check:
+
+```
+curl -X POST localhost:8007/mcp -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```

@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Connect Your AI — Japan CPI · Observatory</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="inner">
+    <span class="brand">Observatory <span class="ds">/ Japan CPI</span></span>
+    <nav class="site-nav" aria-label="Main">
+      <a href="index.html">Overview</a>
+      <a href="explorer.html">Item Explorer</a>
+      <a href="methodology.html">Methodology</a>
+    </nav>
+    <div class="header-right">
+      <button class="theme-toggle" type="button">Dark Mode</button>
+    </div>
+  </div>
+</header>
+
+<main class="container">
+  <div class="page-head">
+    <h1>Connect Your AI</h1>
+    <p class="page-sub">Use this site's data from Claude — or any assistant that supports the
+    Model Context Protocol — with one URL. No account, no key.</p>
+  </div>
+
+  <div class="prose">
+
+  <h2 id="url">Your connect URL</h2>
+  <p>Add this URL to your assistant as a custom connector. It gives the assistant read-only
+  lookups over the same numbers this site publishes: ~820 Japanese CPI series, monthly from
+  January 1970 to the latest published month.</p>
+  <div class="connect-url">
+    <code id="mcp-url">https://web-production-c9178.up.railway.app/mcp</code>
+    <button type="button" class="btn" id="copy-url">Copy</button>
+  </div>
+
+  <h2 id="setup">Set up in your client</h2>
+
+  <h3>claude.ai (web)</h3>
+  <ol>
+    <li>Open <b>Settings → Connectors</b>.</li>
+    <li>Choose <b>Add custom connector</b>.</li>
+    <li>Name it <code>Japan Data Observatory</code>, paste the URL above, and add it.</li>
+    <li>In a new chat, enable the connector, then ask a question from the list below.</li>
+  </ol>
+
+  <h3>Claude Desktop</h3>
+  <ol>
+    <li>Open <b>Settings → Connectors</b>.</li>
+    <li>Choose <b>Add custom connector</b>, paste the URL above, and add it.</li>
+  </ol>
+
+  <h3>Claude Code</h3>
+  <p>One command in a terminal:</p>
+  <div class="connect-url">
+    <code id="cc-cmd">claude mcp add --transport http japan-data-observatory https://web-production-c9178.up.railway.app/mcp</code>
+    <button type="button" class="btn" id="copy-cmd">Copy</button>
+  </div>
+
+  <h3>Other clients</h3>
+  <p>Any client that supports remote MCP servers over Streamable HTTP can use the same URL.
+  The server is stateless and requires no authentication.</p>
+
+  <h2 id="ask">What to ask</h2>
+  <ul>
+    <li>What is Japan's headline and core inflation right now?</li>
+    <li>Which expenditure groups are driving headline inflation, in percentage points?</li>
+    <li>How has the price of rice moved over the last three years?</li>
+    <li>How broad is inflation across individual items — what share is rising more than 2%?</li>
+    <li>Compare electricity and city gas prices since 2022.</li>
+  </ul>
+
+  <h2 id="tools">What your assistant can see</h2>
+  <p>Six read-only lookups, each a thin wrapper over this site's public API — the assistant can
+  only see numbers the site already publishes, from the same accepted release:</p>
+  <ul>
+    <li><b>List datasets</b> — the published tables and what each covers.</li>
+    <li><b>Search series</b> — find any of the ~820 series by English or Japanese name.</li>
+    <li><b>Get series history</b> — index levels or rates of change for up to six series.</li>
+    <li><b>Inflation overview</b> — headline, cores, and the ten major groups at the latest month.</li>
+    <li><b>Contributions to headline</b> — the percentage-point decomposition by group.</li>
+    <li><b>Inflation breadth</b> — the share of individually priced items rising or falling.</li>
+  </ul>
+
+  <h2 id="trust">Trust and limits</h2>
+  <ul>
+    <li>Index levels are official statistics exactly as the Statistics Bureau of Japan published
+    them; year-over-year and other rates are calculated by this platform, and every lookup
+    result carries that label plus the formula used.</li>
+    <li>Every result includes a permanent citation URL — the page on this site showing the same
+    view — so any figure the assistant quotes can be checked at the source.</li>
+    <li>Missing values are returned as missing, never as zero.</li>
+    <li>The assistant's prose is the product of the AI client you connect, not of this site.
+    Check its statements against the cited pages before quoting them; the
+    <a href="methodology.html">Methodology</a> page explains every label and formula.</li>
+    <li>The endpoint is rate-limited per connection. For bulk or programmatic access, use the
+    <a href="/api/docs">public API</a> directly.</li>
+  </ul>
+
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="inner">
+    Source: Statistics Bureau of Japan, via e-Stat.
+  </div>
+</footer>
+
+<script src="assets/format.js"></script>
+<script>
+initThemeToggle();
+function wireCopy(btnId, textId) {
+  var btn = document.getElementById(btnId);
+  var text = document.getElementById(textId).textContent;
+  btn.addEventListener("click", function () {
+    function done() {
+      btn.textContent = "Copied";
+      setTimeout(function () { btn.textContent = "Copy"; }, 1500);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done);
+    } else {
+      var range = document.createRange();
+      range.selectNodeContents(document.getElementById(textId));
+      var sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      document.execCommand("copy");
+      sel.removeAllRanges();
+      done();
+    }
+  });
+}
+wireCopy("copy-url", "mcp-url");
+wireCopy("copy-cmd", "cc-cmd");
+</script>
+</body>
+</html>
