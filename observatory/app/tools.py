@@ -135,6 +135,24 @@ def list_datasets():
         raw = api.catalog()
     except Exception as exc:  # noqa: BLE001 — surfaced to the caller, not raised
         return _fail(str(exc))
+    # The equity namespace is not in the core catalog table, but a caller
+    # orienting itself here must still learn it exists — an assistant that
+    # sees only the CPI tables concludes, wrongly, that nothing else is
+    # published. Tool response only; /api/v1/catalog/datasets is unchanged.
+    if equity_available():
+        raw["datasets"].append({
+            "slug": "equity-holdings",
+            "title": ("Cross-shareholdings — policy shareholdings "
+                      "(政策保有株式) from EDINET filings"),
+            "country": "Japan", "agency": "Company filings on EDINET (FSA)",
+            "base": None, "frequency": "per annual filing",
+            "description": ("Documents-and-events data, not a time series: "
+                            "named holdings with share counts and yen book "
+                            "values, both directions. Not served by the CPI "
+                            "tools — use get_holdings_summary, "
+                            "search_companies, get_company_holdings, and "
+                            "get_unwind_ranking."),
+        })
     raw["cite"] = _cite("/")
     return json.dumps(raw, ensure_ascii=False)
 
