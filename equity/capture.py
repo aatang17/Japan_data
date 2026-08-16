@@ -53,6 +53,8 @@ import time
 import urllib.error
 import urllib.request
 
+import heartbeat
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.environ.get("EDINET_ARCHIVE_ROOT",
                       os.path.join(HERE, "data", "raw", "edinet"))
@@ -310,8 +312,12 @@ def main():
             if d.weekday() < 5:                 # EDINET publishes business days
                 capture_day(d, key, store, archived, stats)
             d += dt.timedelta(days=1)
-        print("capture %s..%s  archived:%d  skipped(existing):%d  failed:%d  list-failures:%d"
-              % (start, end, stats["ok"], stats["skipped"], stats["fail"], stats["list_fail"]))
+        summary = ("capture %s..%s  archived:%d  skipped(existing):%d  failed:%d  list-failures:%d"
+                   % (start, end, stats["ok"], stats["skipped"], stats["fail"], stats["list_fail"]))
+        print(summary)
+        # a failed *list* means a whole day may be missing; individual document
+        # failures are routine and heal on the next trailing-window run
+        heartbeat.ping(summary, failed=stats["list_fail"] > 0)
     finally:
         store.release_lock()
 
