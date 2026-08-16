@@ -7,7 +7,7 @@
 # So a boot with no upstream reachable still serves the previous data.
 set -u
 
-for dataset in cpi-jp cpi-jp-items; do
+for dataset in cpi-jp cpi-jp-items boj-assets; do
     python -m app.ingest "$dataset" \
         || echo "ingest $dataset did not publish; serving last published release"
 done

@@ -19,7 +19,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from . import db
-from .adapters import cpi_jp, cpi_jp_items
+from .adapters import boj_assets, cpi_jp, cpi_jp_items
 
 # The agent is optional: without the openai package installed the data API
 # and the site keep working, and /ask reports itself as unavailable.
@@ -37,7 +37,7 @@ def _ask_enabled():
     """
     return os.environ.get("ASK_ENABLED", "").strip().lower() in ("1", "true", "yes", "on")
 
-ADAPTERS = {"cpi-jp": cpi_jp, "cpi-jp-items": cpi_jp_items}
+ADAPTERS = {"cpi-jp": cpi_jp, "cpi-jp-items": cpi_jp_items, "boj-assets": boj_assets}
 
 router = APIRouter(prefix="/api/v1")
 
@@ -60,6 +60,39 @@ CALC = {
 TRUST = {"index": "official", "yoy": "derived", "mom": "derived", "ann3m": "derived"}
 UNIT = {"index": "index", "yoy": "%", "mom": "%", "ann3m": "%"}
 
+# Published units, human form. The 'index' measure returns the value exactly as
+# published, so its unit is the series' own — an index point for CPI, a yen
+# level for the BOJ balance sheet. Labelling a ¥100mn level "index (2020 = 100)"
+# would be a trust-contract breach, not a cosmetic slip.
+UNIT_LABEL = {"index": "index", "jpy_100mn": "¥100mn"}
+
+
+def _calc_for(measure, unit):
+    if unit in (None, "index"):
+        return CALC[measure]                     # CPI wording, unchanged
+    if measure == "index":
+        return "Published value as released, in %s. Not recomputed." % UNIT_LABEL.get(unit, unit)
+    return (CALC[measure].replace("index[", "value[")
+            .replace("from published index values", "from published values"))
+
+
+def _unit_for(measure, unit):
+    return (UNIT_LABEL.get(unit, unit) if unit else UNIT[measure]) \
+        if measure == "index" else UNIT[measure]
+
+
+def _index_shaped_or_404(adapter, dataset):
+    """Guard the index-and-weight surfaces (overview, series, contributions,
+    breadth). They compute YoY tiles, weighted contributions and breadth — all
+    of which presuppose an index with weights. A dataset of yen levels and
+    flows has no honest answer here, so it 404s rather than returning a number
+    that mixes measure types."""
+    main = (adapter.PRESENTATION.get("main_series") or [{}])[0]
+    if "name_ja" not in main:
+        raise HTTPException(
+            404, "'%s' does not serve this surface: it is not an index dataset. "
+                 "Use /observations for its published values." % dataset)
+
 
 def _con():
     """A cursor on the shared reader; closing it releases the cursor only."""
@@ -81,9 +114,10 @@ def _months_ago(period, n):
 
 def _series_map(con, dataset):
     rows = con.execute(
-        "SELECT series_id, code, name_en, name_ja, weight_per_10000, sort_order "
+        "SELECT series_id, code, name_en, name_ja, weight_per_10000, sort_order, unit "
         "FROM series WHERE dataset=? ORDER BY sort_order", [dataset]).fetchall()
-    return [dict(zip(("series_id", "code", "name_en", "name_ja", "weight", "sort_order"), r))
+    return [dict(zip(("series_id", "code", "name_en", "name_ja", "weight", "sort_order",
+                      "unit"), r))
             for r in rows]
 
 
@@ -315,6 +349,7 @@ def releases(dataset):
 @router.get("/{dataset}/overview")
 def overview(dataset):
     adapter = _dataset_or_404(dataset)
+    _index_shaped_or_404(adapter, dataset)
     pres = adapter.PRESENTATION
     con = _con()
     try:
@@ -381,6 +416,7 @@ def overview(dataset):
 @router.get("/{dataset}/series")
 def series_list(dataset, q: str = Query("", max_length=200)):
     adapter = _dataset_or_404(dataset)
+    _index_shaped_or_404(adapter, dataset)
     con = _con()
     try:
         rel = _release(con, dataset)
@@ -558,7 +594,7 @@ def observations(dataset,
                  series: str = Query(..., max_length=200),
                  measure: str = Query("index"),
                  start: str = Query(None), end: str = Query(None)):
-    _dataset_or_404(dataset)
+    adapter = _dataset_or_404(dataset)
     if measure not in CALC:
         raise HTTPException(400, "Unknown measure '%s'; one of %s" % (measure, sorted(CALC)))
     codes = [c.strip() for c in series.split(",") if c.strip()][:8]
@@ -570,11 +606,22 @@ def observations(dataset,
     try:
         rel = _release(con, dataset)
         smap = {s["code"]: s for s in _series_map(con, dataset)}
+        kinds = adapter.PRESENTATION.get("kinds") or {}
         out = []
+        units = set()
         for code in codes:
             s = smap.get(code)
             if s is None:
                 raise HTTPException(404, "Unknown series code '%s'" % code)
+            units.add(s.get("unit"))
+            # A flow crosses zero (redemptions are negative, and a net flow is
+            # negative during runoff). A percentage change across a sign change
+            # is arithmetic noise, so rates are refused on flow series rather
+            # than served with a caveat.
+            if measure != "index" and kinds.get(code) == "flow":
+                raise HTTPException(
+                    400, "'%s' is a flow series and crosses zero; percentage "
+                         "changes are not meaningful. Request measure=index." % code)
             pts = _measure_points(_values(con, s["series_id"]), measure)
             pts = [(p, v) for p, v in pts
                    if (p_start is None or p >= p_start) and (p_end is None or p <= p_end)]
@@ -583,8 +630,16 @@ def observations(dataset,
                 "points": [[p.isoformat(), None if v is None else round(v, 6)]
                            for p, v in pts],
             })
-        return {"dataset": dataset, "measure": measure, "unit": UNIT[measure],
-                "trust": TRUST[measure], "calc": CALC[measure],
+        # one response, one measure type — never a yen level and an index
+        # sharing an axis (they would be silently incomparable)
+        if measure == "index" and len(units) > 1:
+            raise HTTPException(
+                400, "Requested series have different published units (%s); "
+                     "published levels of different kinds must not share an axis."
+                     % ", ".join(sorted(UNIT_LABEL.get(u, str(u)) for u in units)))
+        unit = units.pop() if len(units) == 1 else None
+        return {"dataset": dataset, "measure": measure, "unit": _unit_for(measure, unit),
+                "trust": TRUST[measure], "calc": _calc_for(measure, unit),
                 "release": rel, "series": out}
     finally:
         con.close()

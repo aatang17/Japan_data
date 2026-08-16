@@ -18,9 +18,9 @@ import json
 import sys
 
 from . import db
-from .adapters import cpi_jp, cpi_jp_items
+from .adapters import boj_assets, cpi_jp, cpi_jp_items
 
-ADAPTERS = {"cpi-jp": cpi_jp, "cpi-jp-items": cpi_jp_items}
+ADAPTERS = {"cpi-jp": cpi_jp, "cpi-jp-items": cpi_jp_items, "boj-assets": boj_assets}
 
 
 def run(slug, from_file=None):
@@ -73,7 +73,7 @@ def run(slug, from_file=None):
             )
 
         prior = con.execute(
-            "SELECT a.sha256 FROM source_artifacts a "
+            "SELECT a.sha256, a.path FROM source_artifacts a "
             "JOIN releases r ON r.artifact_id = a.artifact_id AND r.status = 'published' "
             "WHERE a.source_id=? ORDER BY a.retrieved_at DESC LIMIT 1",
             [adapter.SOURCE["source_id"]],
@@ -81,11 +81,25 @@ def run(slug, from_file=None):
         if prior and prior[0] == sha:
             print("unchanged: newest artifact already has sha256 %s..." % sha[:12])
             return 0
+        # Sources whose response embeds a fetch timestamp never repeat
+        # byte-for-byte; such adapters expose canonical_bytes() and the
+        # unchanged check compares canonical content against the archived
+        # copy of the newest published artifact.
+        canonical = getattr(adapter, "canonical_bytes", None)
+        if prior and canonical is not None:
+            try:
+                prior_raw = open(prior[1], "rb").read()
+            except OSError:
+                prior_raw = None
+            if prior_raw is not None and canonical(prior_raw) == canonical(raw):
+                print("unchanged: canonical content matches artifact %s..." % prior[0][:12])
+                return 0
 
         # archive first, validate second — evidence is kept even for bad files
         db.RAW_DIR.mkdir(parents=True, exist_ok=True)
         stamp = now.strftime("%Y%m%dT%H%M%SZ")
-        path = db.RAW_DIR / ("%s-%s-%s.csv" % (slug, stamp, sha[:12]))
+        suffix = getattr(adapter, "RAW_SUFFIX", ".csv")
+        path = db.RAW_DIR / ("%s-%s-%s%s" % (slug, stamp, sha[:12], suffix))
         path.write_bytes(raw)
         artifact_id = con.execute(
             "INSERT INTO source_artifacts (source_id, url, retrieved_at, sha256, path, bytes) "
@@ -114,8 +128,9 @@ def run(slug, from_file=None):
         con.execute("DELETE FROM series WHERE dataset=?", [slug])
         con.executemany(
             "INSERT INTO series (dataset, code, name_en, name_ja, unit, weight_per_10000, sort_order) "
-            "VALUES (?,?,?,?, 'index', ?,?)",
-            [[slug, s["code"], s["name_en"], s["name_ja"], s["weight_per_10000"], s["sort_order"]]
+            "VALUES (?,?,?,?,?,?,?)",
+            [[slug, s["code"], s["name_en"], s["name_ja"], s.get("unit", "index"),
+              s["weight_per_10000"], s["sort_order"]]
              for s in series],
         )
         code_to_id = dict(con.execute(
