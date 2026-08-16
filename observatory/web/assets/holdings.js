@@ -54,7 +54,11 @@
 
   // ---- sector view ---------------------------------------------------------
   function renderStrip(s) {
-    var asof = "FY2025 filings";
+    // Year-ends are staggered and delisted filers stop filing, so the reference
+    // period is a range, not a single FY. Say so rather than name one year.
+    var asof = s.earliest_period_end && s.latest_period_end
+      ? "FY ends " + periodShort(s.earliest_period_end) + " – " + periodShort(s.latest_period_end)
+      : "latest filing per company";
     $("stat-strip").innerHTML =
       '<div class="strip-grid">' +
       cell("Named policy holdings", "¥" + fmtNum(s.total_book_value_yen / 1e12, 2) + '<span class="unit"> tn</span>',
@@ -178,11 +182,12 @@
         $("chart-asof").textContent = "named positions cut vs added, YoY · calculated";
         $("chart-source").textContent =
           "Source: annual securities reports via EDINET (FSA). Book values as filed; Δ calculated.";
-        $("header-asof").textContent = "FY2025 filings · financial sector";
+        $("header-asof").textContent = "Each company's latest filing · through " +
+          periodShort(summary.latest_period_end);
         $("unwind-csv").onclick = function () {
           csvDownload("cross-shareholdings-unwind.csv",
-            ["Cross-shareholdings — financial sector unwind",
-             "Source: EDINET annual securities reports (FY2025); book values official as filed",
+            ["Cross-shareholdings — unwind by filer",
+             "Source: EDINET annual securities reports; each company on its latest filing; book values official as filed",
              "Delta = current minus prior FY named book value (calculated)",
              "Retrieved: " + new Date().toISOString().slice(0, 10),
              "Missing values are empty, never 0"],
@@ -246,20 +251,24 @@
       $("co-name").textContent = name;
       $("co-code").textContent = code;
       $("co-industry").textContent = (d.entity && d.entity.industry) || "";
-      $("header-asof").textContent = "FY2025 filings · financial sector";
+      $("header-asof").textContent = d.filing
+        ? "FY end " + periodShort(d.filing.period_end)
+        : "No extracted filing";
 
       if (d.filing) {
         $("co-filing").innerHTML = "Filing: <span class=mono>" + esc(d.filing.doc_id) +
           "</span> · FY end " + periodShort(d.filing.period_end) +
           " · filed " + esc(d.filing.filed_date) +
-          " · archived SHA-256 <span class=mono>" + esc(d.filing.sha256.slice(0, 12)) + "…</span>" +
+          " · archived SHA-256 <span class=mono>" +
+          (d.filing.sha256 ? esc(String(d.filing.sha256).slice(0, 12)) + "…" : MISSING) + "</span>" +
           (d.filing.status !== "clean"
             ? " · <b>extraction status: " + esc(d.filing.status) + "</b> (disclosed, see methodology)"
             : "") +
           " · Official statistic — figures exactly as filed";
       } else {
         $("co-filing").textContent =
-          "Not a covered filer (outside the financial sector slice, or fiscal year not yet filed) — " +
+          "No extracted filing for this company (it may not disclose named policy holdings, " +
+          "or its next fiscal year is not yet filed) — " +
           "the holders view below is still complete for covered filers.";
       }
 
@@ -298,7 +307,7 @@
 
       if (d.holders.length) {
         $("holders-sec").hidden = false;
-        $("holders-count").textContent = d.holders.length + " financial-sector holders";
+        $("holders-count").textContent = d.holders.length + " disclosed holders";
         $("holders-table").innerHTML = "<thead><tr>" +
           "<th>Holder</th><th class=r>Code</th><th class=r>FY end</th>" +
           "<th class=r>Shares</th><th class=r>Book value (¥bn)</th>" +
@@ -315,10 +324,10 @@
           }).join("") + "</tbody>";
         $("holders-csv").onclick = function () {
           csvDownload("holders-of-" + code + ".csv",
-            ["Financial-sector policy holders of " + name + " (" + code + ")",
+            ["Policy holders of " + name + " (" + code + ")",
              "Source: each holder's EDINET annual securities report (doc ids in column)",
              "Official statistics as filed",
-             "Coverage: financial-sector filers only — not the full shareholder register"],
+             "Coverage: filers that disclose named policy holdings — not the full shareholder register"],
             ["holder", "holder_sec_code", "doc_id", "fy_end", "shares",
              "book_value_yen", "prior_book_value_yen", "reciprocal_as_filed"],
             d.holders.map(function (h) {
@@ -333,7 +342,7 @@
       $("co-name").textContent = "No data for " + code;
       $("co-filing").textContent =
         "No covered filing and no covered holder names this securities code. " +
-        "Coverage is the financial sector’s FY2025 filings; see the filer list.";
+        "Coverage is filers that disclose named policy holdings; see the filer list.";
     });
   }
 

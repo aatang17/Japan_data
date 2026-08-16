@@ -4,8 +4,13 @@
 Reads annual-report CSV packages (EDINET type=5), extracts the 政策保有株式
 tables, entity-matches held names against the EDINET code list, validates
 against the filings' own tagged totals, and writes the eq_* tables into a
-dedicated DuckDB file (separate from the macro product's DB; one writer at a
-time — this runs offline, the API reads read-only).
+dedicated DuckDB file (separate from the macro product's DB).
+
+One writer at a time, and DuckDB counts a *reader* as a conflicting lock: a
+local `uvicorn app.main:app` holding its read-only connection makes this script
+fail on connect. Stop the local server before extracting, then start it again —
+production never hits this because the API and the extractor are separate
+processes on separate boxes.
 
 Two sources. `--source local` reads the laptop archive; `--source s3` reads the
 cloud bucket, which is the authoritative one (the laptop copy is a partial
@@ -26,6 +31,7 @@ Python 3.9.
 import argparse
 import csv
 import glob
+import hashlib
 import io
 import json
 import os
@@ -292,6 +298,34 @@ def to_int(s):
     return int(s) if s.isdigit() else None
 
 
+def compact(db_path):
+    """Rewrite the DB into a fresh file to reclaim space.
+
+    Extraction deletes and reinserts each filing's rows so a run can be
+    repeated or narrowed, and DuckDB does not return that space to the file.
+    Over 21k filings the serving copy grew to 75MB against 29MB of actual
+    data — and this file ships with the image as the seed, so the bloat would
+    land in git forever. Rebuild-and-swap, not VACUUM, which does not shrink.
+    """
+    db_path = os.path.abspath(db_path)
+    tmp = db_path + ".compact"
+    for p in (tmp, tmp + ".wal"):
+        if os.path.exists(p):
+            os.remove(p)
+    before = os.path.getsize(db_path)
+    con = duckdb.connect(tmp)
+    con.execute("ATTACH '%s' AS old (READ_ONLY)" % db_path.replace("'", "''"))
+    for t in ("eq_entities", "eq_filings", "eq_holdings"):
+        con.execute("CREATE TABLE %s AS SELECT * FROM old.%s" % (t, t))
+    con.execute("DETACH old")
+    con.close()
+    os.replace(tmp, db_path)
+    wal = db_path + ".wal"
+    if os.path.exists(wal):
+        os.remove(wal)
+    print("compacted %.1fMB -> %.1fMB" % (before / 1e6, os.path.getsize(db_path) / 1e6))
+
+
 # ---- main ------------------------------------------------------------------
 def main():
     ap = argparse.ArgumentParser()
@@ -360,15 +394,19 @@ def main():
         """Runs in a worker thread: network + CPU only, never touches DuckDB."""
         doc_id, rec, m = t
         try:
-            return t, parse_filing(src.read_zip(doc_id, rec["date"])), None
+            blob = src.read_zip(doc_id, rec["date"])
+            # Hash the bytes we actually parsed rather than trusting a manifest
+            # field — the provenance claim on every row is then verifiable, and
+            # S3 discovery has no manifest to read in the first place.
+            return t, parse_filing(blob), hashlib.sha256(blob).hexdigest(), None
         except Exception as e:
-            return t, None, str(e)[:200]
+            return t, None, None, str(e)[:200]
 
     done = 0
     with ThreadPoolExecutor(max_workers=args.workers) as ex:
         futures = [ex.submit(fetch_and_parse, t) for t in targets]
         for fut in as_completed(futures):
-            (doc_id, rec, m), parsed, err = fut.result()
+            (doc_id, rec, m), parsed, sha, err = fut.result()
             done += 1
             if done % 500 == 0:
                 print("  %d/%d filings" % (done, len(targets)))
@@ -376,7 +414,7 @@ def main():
             period_end = m.get("periodEnd") or None
             base = (doc_id, m.get("edinetCode"), (m.get("secCode") or "")[:4] or None,
                     rec.get("filer") or m.get("filerName"), period_end, rec["date"],
-                    rec.get("sha256"), PARSER_VERSION)
+                    sha or rec.get("sha256"), PARSER_VERSION)
             if err:
                 con.execute("INSERT OR REPLACE INTO eq_filings VALUES (?,?,?,?,?,?,?,?,?,?)",
                             base + ("failed", err))
@@ -421,6 +459,7 @@ def main():
 
     con.close()
     n = con = None
+    compact(DB_PATH)
     print("filings: clean %(clean)d, partial %(partial)d, failed %(failed)d" % stats)
     if domestic:
         print("entity matching: %d/%d domestic (%.1f%%), %d foreign"

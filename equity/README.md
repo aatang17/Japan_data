@@ -133,6 +133,35 @@ railway api 'mutation { serviceInstanceDeployV2(serviceId: "<id>", environmentId
 # …then set cronSchedule back once the run has started
 ```
 
+## M4 — full-universe extraction (`extract.py --all --source s3`)
+
+The laptop archive holds a fraction of the filings; the five-year history is in
+the bucket. `--source s3` discovers filings from the object listing, caches the
+1,261 daily lists locally (they carry edinetCode/secCode/periodEnd), and fetches
+in parallel while DuckDB writes stay single-threaded.
+
+```bash
+# credentials: the same EDINET_S3_* vars the capture job uses
+lsof -ti:8007 | xargs kill          # DuckDB counts the API's reader as a
+../observatory/.venv/bin/python extract.py --all --source s3 --workers 16
+```
+
+**Stop the local API server first.** DuckDB treats the serving process's
+read-only connection as a conflicting lock, so the extractor fails on connect
+while `uvicorn` is up. Production is unaffected — separate processes, separate
+boxes.
+
+Provenance: the SHA-256 stored on each filing is computed from **the bytes
+actually parsed**, not copied from a manifest field, so every row's hash is
+verifiable against the archive. (The first S3 run shipped null hashes because
+discovery carried no manifest — caught by the company page, which renders the
+hash.)
+
+Multi-year needs no schema change: one doc_id and one period_end per filing.
+The API keeps every cross-sectional surface on **one filing per company** —
+summing book value across five years would overstate the total several-fold —
+with `?year=` to pin a fiscal year and `/history` for the year-on-year series.
+
 ## Monitoring — dead-man's-switch (`heartbeat.py`)
 
 The dangerous failure is a job that **stops running**: a cron that quietly
