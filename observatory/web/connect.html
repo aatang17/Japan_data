@@ -3,25 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Connect Your AI — Japan CPI · Observatory</title>
+<title>Connect Your AI · Japan Data Observatory</title>
 <link rel="stylesheet" href="assets/tokens.css">
 <link rel="stylesheet" href="assets/app.css">
 </head>
 <body>
 
-<header class="site-header">
-  <div class="inner">
-    <span class="brand">Observatory <span class="ds">/ Japan CPI</span></span>
-    <nav class="site-nav" aria-label="Main">
-      <a href="index.html">Overview</a>
-      <a href="explorer.html">Item Explorer</a>
-      <a href="methodology.html">Methodology</a>
-    </nav>
-    <div class="header-right">
-      <button class="theme-toggle" type="button">Dark Mode</button>
-    </div>
-  </div>
-</header>
+<header class="site-header" data-section="connect" data-page="connect"></header>
+<script src="assets/nav.js"></script>
 
 <main class="container">
   <div class="page-head">
@@ -80,8 +69,9 @@
   </ul>
 
   <h2 id="tools">What your assistant can see</h2>
-  <p>Six read-only lookups, each a thin wrapper over this site's public API — the assistant can
-  only see numbers the site already publishes, from the same accepted release:</p>
+  <p>Read-only lookups, each a thin wrapper over this site's public API — the assistant can
+  only see numbers the site already publishes, from the same accepted release. Consumer
+  prices:</p>
   <ul>
     <li><b>List datasets</b> — the published tables and what each covers.</li>
     <li><b>Search series</b> — find any of the ~820 series by English or Japanese name.</li>
@@ -90,6 +80,14 @@
     <li><b>Contributions to headline</b> — the percentage-point decomposition by group.</li>
     <li><b>Inflation breadth</b> — the share of individually priced items rising or falling.</li>
   </ul>
+  <p>Cross-shareholdings, where that dataset is published:</p>
+  <ul>
+    <li><b>Cross-shareholding coverage</b> — filers extracted, named holdings, total book value.</li>
+    <li><b>Search companies</b> — by Japanese name or securities code.</li>
+    <li><b>Company holdings</b> — what a company holds and who holds it, exactly as filed.</li>
+    <li><b>Unwind ranking</b> — filers by policy-holding value, with positions cut versus added.</li>
+  </ul>
+  <p>The <a href="manual.html">manual</a> documents each one in detail.</p>
 
   <h2 id="trust">Trust and limits</h2>
   <ul>

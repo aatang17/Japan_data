@@ -1075,3 +1075,125 @@ table.data.tbl-bands td.trend-decel { color: var(--obs-trust-official); }
 @media (max-width: 480px) {
   .connect-url { flex-wrap: wrap; }
 }
+
+/* ---------- second-tier navigation ---------- */
+
+/* Sections live in the navy bar; a section with more than one page gets this
+   strip under it. Deliberately not sticky — one fixed bar is enough chrome,
+   and a second would eat a fifth of a phone screen. */
+.site-subnav {
+  background: var(--obs-surface);
+  border-bottom: 1px solid var(--obs-border);
+}
+.site-subnav .inner {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 0 20px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  overflow-x: auto;
+}
+body.page-wide .site-subnav .inner { max-width: 1360px; }
+.site-subnav a {
+  font-size: 13px;
+  color: var(--obs-text-muted);
+  white-space: nowrap;
+  padding: 3px 1px;
+}
+.site-subnav a:hover { color: var(--obs-ink); text-decoration: none; }
+.site-subnav a[aria-current="page"] {
+  color: var(--obs-ink);
+  font-weight: 600;
+  border-bottom: 2px solid var(--obs-primary);
+  margin-bottom: -2px;
+}
+
+/* ---------- landing: product list ---------- */
+
+.prod-list { list-style: none; margin: 0; padding: 0; }
+.prod {
+  padding: 18px 0;
+  border-bottom: 1px solid var(--obs-border);
+}
+.prod:last-child { border-bottom: none; }
+
+.prod-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; }
+.prod-name { font-size: 16px; font-weight: 700; color: var(--obs-ink); }
+a.prod-name:hover { color: var(--obs-primary); text-decoration: underline; }
+
+/* Outline only — a filled chip is the house's tell for a template. */
+.status {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.status-live { color: var(--obs-trust-official); }
+.status-progress { color: var(--obs-primary); }
+.status-planned { color: var(--obs-text-muted); }
+
+.prod-desc {
+  margin: 6px 0 0;
+  max-width: 74ch;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--obs-text-muted);
+}
+
+/* Figures share the strip's cell language, sized down: this is a directory
+   entry, not the product page's headline. */
+.prod-stats {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 220px));
+  border: 1px solid var(--obs-border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.prod-stat {
+  padding: 10px 14px 12px;
+  min-width: 0;
+  border-right: 1px solid var(--obs-border);
+}
+.prod-stat:last-child { border-right: none; }
+.prod-stat-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--obs-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.prod-stat-value {
+  margin-top: 6px;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.5px;
+  color: var(--obs-ink);
+  font-variant-numeric: tabular-nums;
+}
+.prod-stat-note { margin-top: 5px; font-size: 11.5px; color: var(--obs-text-faint); }
+
+.prod-foot { margin: 8px 0 0; font-size: 12px; color: var(--obs-text-faint); }
+.prod-foot a { color: inherit; text-decoration: underline; }
+
+.prod-links { margin: 12px 0 0; display: flex; flex-wrap: wrap; gap: 16px; font-size: 13.5px; }
+
+.build-list { margin: 12px 0 0 20px; max-width: 74ch; font-size: 14px; line-height: 1.6; }
+.build-list li { margin: 7px 0; color: var(--obs-text-muted); }
+.build-list b { color: var(--obs-ink); font-weight: 600; }
+
+@media (max-width: 700px) {
+  .prod-stats { grid-template-columns: 1fr; }
+  .prod-stat { border-right: none; border-bottom: 1px solid var(--obs-border); }
+  .prod-stat:last-child { border-bottom: none; }
+}

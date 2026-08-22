@@ -3,151 +3,186 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Japan CPI — Overview · Observatory</title>
+<title>Japan Data Observatory — Japanese macro and market data</title>
 <link rel="stylesheet" href="assets/tokens.css">
 <link rel="stylesheet" href="assets/app.css">
+<script>
+/* The CPI overview used to live at this address. Anything already published
+   against its section anchors — an exported chart's permalink, a newsletter
+   link, an MCP citation — must still land on the numbers it named, so those
+   arrivals are forwarded before the landing page renders. A bare "/" is a
+   visitor with no such intent and stays here. */
+(function forwardLegacyAnchors() {
+  var moved = ["#h-main", "#h-contrib", "#h-groups", "#h-breadth"];
+  if (moved.indexOf(location.hash) !== -1) {
+    location.replace("cpi.html" + location.search + location.hash);
+  }
+})();
+</script>
 </head>
 <body>
 
-<header class="site-header">
-  <div class="inner">
-    <span class="brand">Observatory <span class="ds">/ Japan CPI</span></span>
-    <nav class="site-nav" aria-label="Main">
-      <a href="index.html" aria-current="page">Overview</a>
-      <a href="explorer.html">Item Explorer</a>
-      <a href="methodology.html">Methodology</a>
-    </nav>
-    <div class="header-right">
-      <span class="header-asof" id="header-asof"></span>
-      <button class="theme-toggle" type="button">Dark Mode</button>
-    </div>
-  </div>
-</header>
+<header class="site-header" data-section=""></header>
+<script src="assets/nav.js"></script>
 
 <main class="container">
-  <div id="stale-banner"></div>
-
-  <!-- The ask assistant mounts itself from assets/ask.js as a floating
-       launcher; it stays absent unless the server reports it configured. -->
-
-  <div class="metric-card">
-    <div class="metric-card-head">
-      <h1>Japan Consumer Price Index</h1>
-      <span class="metric-asof" id="page-asof"></span>
-      <p class="metric-sub" id="page-sub"><span class="skeleton" style="display:inline-block;width:420px;height:14px"></span></p>
-    </div>
-    <div class="strip">
-      <div class="strip-grid" id="tiles">
-        <div class="strip-cell skeleton" style="min-height:104px"></div>
-        <div class="strip-cell skeleton" style="min-height:104px"></div>
-        <div class="strip-cell skeleton" style="min-height:104px"></div>
-        <div class="strip-cell skeleton" style="min-height:104px"></div>
-        <div class="strip-cell skeleton" style="min-height:104px"></div>
-      </div>
-    </div>
-    <p class="strip-foot" id="strip-foot"></p>
+  <div class="page-head">
+    <h1>Japanese Macro and Market Data</h1>
+    <p class="page-sub">Rebuilt from the primary sources on a schedule. Every number carries
+    where it came from, the formula if we calculated it, and a permanent URL you can cite.</p>
   </div>
 
-  <section aria-labelledby="h-main">
-    <h2 id="h-main">Inflation Over Time</h2>
-    <div class="controls">
-      <label for="measure-select">Measure</label>
-      <select id="measure-select" aria-label="Transformation">
-        <option value="yoy">Year over Year (%)</option>
-        <option value="mom">Month over Month (%)</option>
-        <option value="ann3m">3-Month Annualized (%)</option>
-        <option value="index">Index Level (2020 = 100)</option>
-      </select>
-      <div class="seg" role="group" aria-label="Date range" id="range-seg">
-        <button type="button" data-range="1">1Y</button>
-        <button type="button" data-range="3">3Y</button>
-        <button type="button" data-range="5" aria-pressed="true">5Y</button>
-        <button type="button" data-range="10">10Y</button>
-        <button type="button" data-range="max">Max</button>
-      </div>
-      <span class="spacer"></span>
-      <button type="button" class="btn" id="main-png">Download PNG</button>
-      <button type="button" class="btn" id="main-csv">Download CSV</button>
-    </div>
-    <div class="chart" id="main-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
-    <p class="source-line" id="main-source"></p>
-    <details class="calc" id="main-calc"></details>
-  </section>
+  <h2 id="macro">Macro <span class="h2-note">Prices, money and the balance sheet</span></h2>
+  <ul class="prod-list">
 
-  <section aria-labelledby="h-contrib">
-    <h2 id="h-contrib">What Is Driving Inflation</h2>
-    <p class="section-sub">Each bar splits headline year-over-year inflation into the
-    percentage-point contribution of the major expenditure groups; the line is headline CPI
-    itself. The five largest current contributors are shown separately, the rest are bundled.</p>
-    <div class="controls">
-      <div class="seg" role="group" aria-label="Contribution date range" id="contrib-seg">
-        <button type="button" data-range="1">1Y</button>
-        <button type="button" data-range="3" aria-pressed="true">3Y</button>
-        <button type="button" data-range="5">5Y</button>
-        <button type="button" data-range="10">10Y</button>
+    <li class="prod">
+      <div class="prod-head">
+        <a class="prod-name" href="cpi.html">Japan Consumer Price Index</a>
+        <span class="status status-live">Live</span>
       </div>
-      <span class="spacer"></span>
-      <button type="button" class="btn" id="contrib-png">Download PNG</button>
-      <button type="button" class="btn" id="contrib-csv">Download CSV</button>
-    </div>
-    <div class="chart" id="contrib-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
-    <p class="source-line" id="contrib-source"></p>
-    <details class="calc" id="contrib-calc"></details>
-  </section>
-
-  <section aria-labelledby="h-groups">
-    <h2 id="h-groups">Major Expenditure Groups <span class="h2-note" id="groups-note"></span></h2>
-    <div class="controls">
-      <div class="seg" role="group" aria-label="Group metric" id="groups-seg">
-        <button type="button" data-view="yoy" aria-pressed="true">Group inflation (%)</button>
-        <button type="button" data-view="contrib">Contribution to headline (pp)</button>
+      <p class="prod-desc">822 series from the national middle-class and detailed-item tables —
+      headline, both cores, the ten major expenditure groups, and 582 individually priced items.
+      Monthly, January 1970 onward, 2020&nbsp;=&nbsp;100.</p>
+      <div class="prod-stats" id="cpi-stats">
+        <div class="prod-stat skeleton" style="min-height:52px"></div>
+        <div class="prod-stat skeleton" style="min-height:52px"></div>
+        <div class="prod-stat skeleton" style="min-height:52px"></div>
       </div>
-    </div>
-    <div class="chart-bars" id="groups-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
-    <p class="source-line" id="groups-source"></p>
-  </section>
+      <p class="prod-foot" id="cpi-foot"></p>
+      <p class="prod-links">
+        <a href="cpi.html">Overview</a>
+        <a href="explorer.html">Item Explorer</a>
+        <a href="methodology.html">Methodology</a>
+      </p>
+    </li>
 
-  <section aria-labelledby="h-breadth">
-    <h2 id="h-breadth">How Broad Is Inflation <span class="h2-note" id="breadth-note"></span></h2>
-    <p class="section-sub">Computed over the individually priced items of the detailed-item
-    table: the share whose price is up at least 2% on a year earlier, and the share falling.
-    Broad inflation means most items rising, not a few large movers.</p>
-    <div class="controls">
-      <div class="seg" role="group" aria-label="Breadth date range" id="breadth-seg">
-        <button type="button" data-range="5">5Y</button>
-        <button type="button" data-range="10" aria-pressed="true">10Y</button>
-        <button type="button" data-range="25">25Y</button>
-        <button type="button" data-range="max">Max</button>
+    <li class="prod">
+      <div class="prod-head">
+        <span class="prod-name">Bank of Japan balance sheet and monetary base</span>
+        <span class="status status-planned">Planned</span>
       </div>
-      <span class="spacer"></span>
-      <button type="button" class="btn" id="breadth-png">Download PNG</button>
-      <button type="button" class="btn" id="breadth-csv">Download CSV</button>
-    </div>
-    <div class="chart" id="breadth-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
-    <p class="source-line" id="breadth-source"></p>
-    <details class="calc" id="breadth-calc"></details>
-  </section>
+      <p class="prod-desc">Holdings and monthly net flows from the BOJ's time-series API —
+      including the JGB runoff since the November 2023 peak. Not available yet.</p>
+    </li>
 
-  <!-- No h2 band here: the card carries its own "Data Source" head, and two
-       stacked headers saying the same thing read as a duplicate. -->
-  <section aria-label="Data source and provenance" class="prov">
-    <div id="prov-card"></div>
-  </section>
+    <li class="prod">
+      <div class="prod-head">
+        <span class="prod-name">JGB holdings by individual issue</span>
+        <span class="status status-planned">Planned</span>
+      </div>
+      <p class="prod-desc">Which bonds the Bank of Japan holds, issue by issue, alongside
+      flow-of-funds ownership by sector. Not available yet.</p>
+    </li>
+
+    <li class="prod">
+      <div class="prod-head">
+        <span class="prod-name">Producer and services price statistics</span>
+        <span class="status status-planned">Planned</span>
+      </div>
+      <p class="prod-desc">Corporate goods, services producer and import price indices, to
+      complete the pass-through chain from import to consumer prices. Not available yet.</p>
+    </li>
+
+    <li class="prod">
+      <div class="prod-head">
+        <span class="prod-name">Tokyo advance and regional CPI</span>
+        <span class="status status-planned">Planned</span>
+      </div>
+      <p class="prod-desc">The Tokyo index published two to three weeks ahead of the national
+      release, plus prefectural detail. Not available yet.</p>
+    </li>
+
+  </ul>
+
+  <h2 id="equities">Equities <span class="h2-note">Ownership and governance</span></h2>
+  <ul class="prod-list">
+
+    <li class="prod">
+      <div class="prod-head">
+        <a class="prod-name" href="holdings.html">Cross-shareholdings (政策保有株式)</a>
+        <span class="status status-live">Live · partial coverage</span>
+      </div>
+      <p class="prod-desc">Policy shareholdings exactly as disclosed in annual securities
+      reports: what each company holds, who holds it back, the stated reason for every holding,
+      and how fast the unwind is running. Financial sector first; coverage is stated on every
+      figure and grows as filings are extracted.</p>
+      <div class="prod-stats" id="eq-stats">
+        <div class="prod-stat skeleton" style="min-height:52px"></div>
+        <div class="prod-stat skeleton" style="min-height:52px"></div>
+        <div class="prod-stat skeleton" style="min-height:52px"></div>
+      </div>
+      <p class="prod-foot" id="eq-foot"></p>
+      <p class="prod-links">
+        <a href="holdings.html">Cross-Shareholdings</a>
+      </p>
+    </li>
+
+    <li class="prod">
+      <div class="prod-head">
+        <span class="prod-name">Large shareholding reports (5% filings)</span>
+        <span class="status status-progress">Archiving now</span>
+      </div>
+      <p class="prod-desc">Every 大量保有報告書 and amendment is captured and archived daily with
+      its checksum, ahead of extraction — the filing record accumulates from today even though
+      the screens are not built yet.</p>
+    </li>
+
+    <li class="prod">
+      <div class="prod-head">
+        <span class="prod-name">Unwind and activist-overlap screens</span>
+        <span class="status status-planned">Planned</span>
+      </div>
+      <p class="prod-desc">Ranked screens over the two datasets above: largest remaining
+      holders, fastest and stalled unwinds, and overlap with disclosed activist positions.
+      Not available yet.</p>
+    </li>
+
+  </ul>
+
+  <h2 id="ai">Use It From Your AI</h2>
+  <p class="section-sub">Connect Claude — or any assistant that supports the Model Context
+  Protocol — and ask about this data in plain English. Answers come back with the trust label,
+  the formula, and a link to the page the figures came from. No account, no key.</p>
+  <div class="connect-url">
+    <code id="mcp-url">https://web-production-c9178.up.railway.app/mcp</code>
+    <button type="button" class="btn" id="copy-url">Copy</button>
+  </div>
+  <p class="prod-links">
+    <a href="connect.html">Setup steps</a>
+    <a href="manual.html">Full manual</a>
+    <a href="/api/docs">REST API</a>
+  </p>
+
+  <h2 id="how">How This Is Built</h2>
+  <ul class="build-list">
+    <li><b>Primary sources only.</b> Consumer prices come from the Statistics Bureau of Japan
+    via e-Stat; cross-shareholdings come from companies' own filings on EDINET. Every source
+    file is archived with its SHA-256 checksum before anything is parsed.</li>
+    <li><b>Official and calculated are never blurred.</b> Index levels and filed figures are
+    published exactly as they came. Anything this platform computes — year-over-year rates,
+    contributions, breadth, unwind pace — carries its formula instead of a badge.</li>
+    <li><b>Missing stays missing.</b> A gap is shown as an em dash and exported as empty,
+    never as zero.</li>
+    <li><b>Coverage is stated, not implied.</b> Where a dataset is partial, every aggregate
+    names its denominator.</li>
+    <li><b>Every view has an address.</b> The URL carries the full state of a chart or table,
+    so anything you publish stays reproducible. See the
+    <a href="methodology.html">Methodology</a> for formulas, limitations, and attribution.</li>
+  </ul>
 
 </main>
 
 <footer class="site-footer">
   <div class="inner">
-    Source: Statistics Bureau of Japan, via e-Stat. Index values are official statistics;
-    rates of change are calculated from published index values.
+    Sources: Statistics Bureau of Japan, via e-Stat · company filings via EDINET (Financial
+    Services Agency). Index values and filed figures are official; rates of change and
+    aggregates are calculated on this platform.
     <a href="methodology.html">Methodology</a>
   </div>
 </footer>
 
-<script src="assets/echarts.min.js"></script>
 <script src="assets/format.js"></script>
-<script src="assets/charts.js"></script>
-<script src="assets/ask.js"></script>
-<script src="assets/overview.js"></script>
+<script src="assets/landing.js"></script>
+<script>initThemeToggle();</script>
 </body>
 </html>

@@ -115,7 +115,7 @@
       },
       yAxis: {
         type: "category",
-        data: top.map(function (f) { return f.name.replace(/株式会社/g, "").trim(); }),
+        data: top.map(axisName),
         axisLabel: { color: cssVar("--obs-ink"), fontSize: 11.5, width: 190, overflow: "truncate" },
         axisTick: { show: false }, axisLine: { show: false }
       },
@@ -123,7 +123,8 @@
         trigger: "axis", axisPointer: { type: "shadow" },
         formatter: function (ps) {
           var f = top[ps[0].dataIndex];
-          return esc(f.name) + " (" + esc(f.sec_code) + ")<br>" +
+          return esc(f.name_en || f.name) + " (" + esc(f.sec_code) + ")<br>" +
+            (f.name_en ? "<span style='opacity:.75'>" + esc(f.name) + "</span><br>" : "") +
             "Positions cut: <b>" + fmtNum(f.reduced, 0) + "</b> · added: <b>" +
             fmtNum(f.increased, 0) + "</b><br>" +
             "<span style='opacity:.75'>share counts vs prior FY, as filed; " +
@@ -149,6 +150,31 @@
     window.addEventListener("resize", function () { chart && chart.resize(); });
   }
 
+  // Companies are named in Japanese in the filings; the English name is a
+  // lookup from EDINET's filer registry and is missing for some companies. Show
+  // English first for a reader who cannot read the filing, keep the as-filed
+  // Japanese name under it as the record — and where there is no English name,
+  // show the Japanese one alone rather than an empty cell.
+  function nameCell(en, ja, href) {
+    var primary = en || ja || MISSING;
+    var link = href
+      ? "<a href='" + href + "'>" + esc(primary) + "</a>" : esc(primary);
+    return "<div class='cell-item'><div class='en'>" + link + "</div>" +
+      (en && ja ? "<div class='ja'>" + esc(ja) + "</div>" : "") + "</div>";
+  }
+
+  // axis labels: drop the corporate suffix every name carries, so the part that
+  // distinguishes one filer from another survives the truncation
+  var SUFFIX_EN = /,?\s*(Inc\.?|Incorporated|Corporation|Corp\.?|Co\.,?\s*Ltd\.?|Company,?\s*Limited|Limited|Ltd\.?|K\.K\.)\s*$/i;
+  function axisName(f) {
+    return f.name_en
+      ? f.name_en.replace(SUFFIX_EN, "").trim()
+      : String(f.name || "").replace(/株式会社/g, "").trim();
+  }
+
+  var NAMES_CSV_NOTE = "Company names: name_en is a lookup from EDINET's filer " +
+    "registry (blank where it has none); the Japanese name is as filed";
+
   function renderUnwindTable(filers) {
     var head = "<thead><tr>" +
       "<th>Filer</th><th class=r>Code</th><th class=r>FY end</th>" +
@@ -158,7 +184,8 @@
     var body = filers.map(function (f) {
       var d = (f.book_value_yen != null && f.prior_book_value_yen != null)
         ? f.book_value_yen - f.prior_book_value_yen : null;
-      return "<tr><td><a href='holdings.html?c=" + esc(f.sec_code) + "'>" + esc(f.name) + "</a></td>" +
+      return "<tr><td>" +
+        nameCell(f.name_en, f.name, "holdings.html?c=" + esc(f.sec_code)) + "</td>" +
         "<td class='r mono'>" + esc(f.sec_code) + "</td>" +
         "<td class=r>" + periodShort(f.period_end) + "</td>" +
         "<td class=r>" + fmtNum(f.named_holdings, 0) + "</td>" +
@@ -189,14 +216,16 @@
             ["Cross-shareholdings — unwind by filer",
              "Source: EDINET annual securities reports; each company on its latest filing; book values official as filed",
              "Delta = current minus prior FY named book value (calculated)",
+             NAMES_CSV_NOTE,
              "Retrieved: " + new Date().toISOString().slice(0, 10),
              "Missing values are empty, never 0"],
-            ["filer", "sec_code", "fy_end", "named_holdings", "book_value_yen",
-             "prior_book_value_yen", "delta_yen_calculated", "reduced", "increased"],
+            ["filer", "filer_name_en", "sec_code", "fy_end", "named_holdings",
+             "book_value_yen", "prior_book_value_yen", "delta_yen_calculated",
+             "reduced", "increased"],
             unwind.filers.map(function (f) {
               var d = (f.book_value_yen != null && f.prior_book_value_yen != null)
                 ? f.book_value_yen - f.prior_book_value_yen : null;
-              return [f.name, f.sec_code, f.period_end, f.named_holdings,
+              return [f.name, f.name_en, f.sec_code, f.period_end, f.named_holdings,
                       f.book_value_yen, f.prior_book_value_yen, d, f.reduced, f.increased];
             }));
         };
@@ -218,9 +247,8 @@
     var out = [];
     holdings.forEach(function (h, i) {
       var d = (h.shares != null && h.prior_shares != null) ? h.shares - h.prior_shares : null;
-      var name = h.held_sec_code
-        ? "<a href='holdings.html?c=" + esc(h.held_sec_code) + "'>" + esc(h.held_name_raw) + "</a>"
-        : esc(h.held_name_raw);
+      var name = nameCell(h.held_name_en, h.held_name_raw,
+        h.held_sec_code ? "holdings.html?c=" + esc(h.held_sec_code) : null);
       out.push("<tr><td>" + name +
         (h.match_status === "foreign" ? " <span class='h2-note'>overseas</span>" : "") + "</td>" +
         "<td class=r>" + shares(h.shares) + "</td>" +
@@ -247,8 +275,15 @@
       var name = (d.entity && d.entity.name_ja) ||
                  (d.filing && d.filing.filer_name) ||
                  (d.holders[0] && d.holders[0].holder_name) || code;
-      document.title = name + " · Cross-Shareholdings · Observatory";
-      $("co-name").textContent = name;
+      var nameEn = (d.entity && d.entity.name_en) ||
+                   (d.filing && d.filing.filer_name_en) ||
+                   (d.holders[0] && d.holders[0].holder_name_en) || "";
+      document.title = (nameEn || name) + " · Cross-Shareholdings · Observatory";
+      $("co-name").textContent = nameEn || name;
+      // the Japanese name is the one on the filing — keep it on the page, under
+      // the English heading, not hidden behind a hover
+      $("co-name-ja").textContent = nameEn ? name : "";
+      $("co-name-ja").hidden = !nameEn;
       $("co-code").textContent = code;
       $("co-industry").textContent = (d.entity && d.entity.industry) || "";
       $("header-asof").textContent = d.filing
@@ -292,14 +327,17 @@
         });
         $("holdings-csv").onclick = function () {
           csvDownload("holdings-" + code + ".csv",
-            ["Policy shareholdings of " + name + " (" + code + ")",
+            ["Policy shareholdings of " + (nameEn || name) + " (" + code + ")",
              "Source: EDINET filing " + d.filing.doc_id + ", archived SHA-256 " + d.filing.sha256,
              "Official statistics as filed; delta columns calculated",
+             NAMES_CSV_NOTE,
              "Missing values are empty, never 0"],
-            ["held_company", "held_sec_code", "match_status", "shares", "prior_shares",
+            ["held_company", "held_company_name_en", "held_sec_code", "match_status",
+             "shares", "prior_shares",
              "book_value_yen", "prior_book_value_yen", "reciprocal_as_filed", "purpose_ja"],
             d.holdings.map(function (h) {
-              return [h.held_name_raw, h.held_sec_code, h.match_status, h.shares, h.prior_shares,
+              return [h.held_name_raw, h.held_name_en, h.held_sec_code, h.match_status,
+                      h.shares, h.prior_shares,
                       h.book_value_yen, h.prior_book_value_yen, h.reciprocal, h.purpose_ja];
             }));
         };
@@ -313,8 +351,9 @@
           "<th class=r>Shares</th><th class=r>Book value (¥bn)</th>" +
           "<th class=r>Prior (¥bn)</th><th class=r>Mutual</th></tr></thead><tbody>" +
           d.holders.map(function (h) {
-            return "<tr><td><a href='holdings.html?c=" + esc(h.holder_sec_code) + "'>" +
-              esc(h.holder_name) + "</a></td>" +
+            return "<tr><td>" +
+              nameCell(h.holder_name_en, h.holder_name,
+                       "holdings.html?c=" + esc(h.holder_sec_code)) + "</td>" +
               "<td class='r mono'>" + esc(h.holder_sec_code) + "</td>" +
               "<td class=r>" + periodShort(h.period_end) + "</td>" +
               "<td class=r>" + shares(h.shares) + "</td>" +
@@ -324,14 +363,15 @@
           }).join("") + "</tbody>";
         $("holders-csv").onclick = function () {
           csvDownload("holders-of-" + code + ".csv",
-            ["Policy holders of " + name + " (" + code + ")",
+            ["Policy holders of " + (nameEn || name) + " (" + code + ")",
              "Source: each holder's EDINET annual securities report (doc ids in column)",
              "Official statistics as filed",
+             NAMES_CSV_NOTE,
              "Coverage: filers that disclose named policy holdings — not the full shareholder register"],
-            ["holder", "holder_sec_code", "doc_id", "fy_end", "shares",
+            ["holder", "holder_name_en", "holder_sec_code", "doc_id", "fy_end", "shares",
              "book_value_yen", "prior_book_value_yen", "reciprocal_as_filed"],
             d.holders.map(function (h) {
-              return [h.holder_name, h.holder_sec_code, h.doc_id, h.period_end,
+              return [h.holder_name, h.holder_name_en, h.holder_sec_code, h.doc_id, h.period_end,
                       h.shares, h.book_value_yen, h.prior_book_value_yen, h.reciprocal];
             }));
         };
@@ -358,12 +398,15 @@
           $("search-results").innerHTML = d.companies.length
             ? "<div class='table-wrap' style='margin-top:8px'><table class='tbl-hold'><tbody>" +
               d.companies.map(function (c) {
-                return "<tr><td><a href='holdings.html?c=" + esc(c.sec_code) + "'>" + esc(c.name) +
-                  "</a></td><td class='r mono'>" + esc(c.sec_code) + "</td>" +
+                return "<tr><td>" +
+                  nameCell(c.name_en, c.name, "holdings.html?c=" + esc(c.sec_code)) +
+                  "</td><td class='r mono'>" + esc(c.sec_code) + "</td>" +
                   "<td class=r>" + (c.holdings_count ? fmtNum(c.holdings_count, 0) + " holdings" : "") + "</td>" +
                   "<td class=r>" + (c.held_by_count ? "held by " + fmtNum(c.held_by_count, 0) : "") + "</td></tr>";
               }).join("") + "</tbody></table></div>"
-            : "<p class='table-meta'>No covered company matches “" + esc(q) + "”.</p>";
+            : "<p class='table-meta'>No covered company matches “" + esc(q) +
+              "”. Try the English name (Toyota), the Japanese name (トヨタ自動車) " +
+              "or the four-digit securities code (7203).</p>";
         });
       }, 200);
     });

@@ -69,8 +69,12 @@ web/
   assets/tokens.css  design tokens (single source of truth for colour, incl. dark mode)
   assets/format.js   centralised number/date/trust-label formatters
   assets/charts.js   house chart chrome for ECharts (vendored, self-hosted)
-  index.html         Overview        (+ assets/overview.js)
-  explorer.html      Item Explorer   (+ assets/explorer.js)
+  assets/nav.js      the site header, rendered from one list of sections/pages
+  index.html         Landing: what is live, what is planned (+ assets/landing.js)
+  cpi.html           Macro / CPI Overview  (+ assets/overview.js)
+  explorer.html      Macro / Item Explorer (+ assets/explorer.js)
+  holdings.html      Equities / Cross-Shareholdings (+ assets/holdings.js)
+  connect.html       Connect Your AI (MCP setup) · manual.html (MCP manual)
   methodology.html   Methodology / how to use
 data/
   raw/               archived source artifacts (checksummed, kept forever)
@@ -130,6 +134,14 @@ The cross-shareholding dataset (`/api/v1/equity/...`, built offline by
 MCP server; its four tools are listed only on servers where the database
 file is present. Production receives it as `seed/equity.duckdb` baked into
 the image and copied onto the volume at boot by `start.sh`.
+
+Companies in that dataset are named in Japanese in the filings. Every
+name-bearing response also carries an English name (`name_en`,
+`filer_name_en`, `held_name_en`, `holder_name_en`) looked up from EDINET's
+filer registry, and `/companies?q=` matches code, Japanese name and English
+name alike. The registry has no English name for roughly one listed filer in
+ten; those come back null and the site shows the as-filed Japanese name alone.
+See `docs/METHODOLOGY-CROSS-SHAREHOLDINGS.md` §5.1.
 
 Quick check:
 

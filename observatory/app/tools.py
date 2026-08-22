@@ -233,7 +233,7 @@ def get_overview(dataset="cpi-jp"):
         "latest_period": raw["release"]["latest_period"],
         "source": raw["release"]["source_name"],
         "stale": raw["stale"],
-        "cite": _cite("/"),
+        "cite": _cite("/cpi.html"),
         "headline_figures": [{
             "label": t["label"], "series_code": t["series_code"],
             "value": _round(t["value"], 2), "unit": t["unit"],
@@ -269,7 +269,7 @@ def get_contributions(dataset="cpi-jp", start="", end=""):
         "dataset": dataset, "unit": "pp", "trust": "calculated",
         "calc": raw["calc"],
         "as_of_release": raw["release"]["latest_period"],
-        "cite": _cite("/") + "#h-contrib",
+        "cite": _cite("/cpi.html") + "#h-contrib",
         "headline_yoy": {
             "code": raw["headline"]["code"], "name_en": raw["headline"]["name_en"],
             "points": [[p, _round(v, 3)] for p, v in raw["headline"]["points"]],
@@ -298,7 +298,7 @@ def get_breadth(threshold=2.0, dataset="cpi-jp-items", start="", end=""):
         "calc": raw["calc"], "threshold": raw["threshold"],
         "item_universe": raw["item_universe"],
         "as_of_release": raw["release"]["latest_period"],
-        "cite": _cite("/") + "#h-breadth",
+        "cite": _cite("/cpi.html") + "#h-breadth",
         "points": points[-POINT_BUDGET:],
     }, ensure_ascii=False)
 
@@ -354,6 +354,7 @@ def search_companies(query):
     return json.dumps({
         "query": query, "trust": "official",
         "note": equity_api.PROVENANCE["note"],
+        "names_note": raw["names_note"],
         "cite": _cite("/holdings.html"),
         "companies": raw["companies"],
     }, ensure_ascii=False, default=str)
@@ -423,18 +424,21 @@ EQUITY_TOOL_SCHEMAS = [
         "function": {
             "name": "search_companies",
             "description": (
-                "Find companies in the cross-shareholding data by name "
-                "(Japanese) or securities code. Returns each match with how "
-                "many named holdings it files and how many filers hold it. "
-                "Use the sec_code it returns with get_company_holdings."),
+                "Find companies in the cross-shareholding data by name — "
+                "English or Japanese — or by securities code. Returns each "
+                "match with its as-filed Japanese name, its English name where "
+                "one exists, and how many named holdings it files and how many "
+                "filers hold it. Use the sec_code it returns with "
+                "get_company_holdings."),
             "parameters": {
                 "type": "object",
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": ("Company name substring (Japanese) or "
-                                        "securities code, e.g. '8306' or "
-                                        "'三菱'."),
+                        "description": ("Company name substring in English or "
+                                        "Japanese, or securities code — e.g. "
+                                        "'8306', 'Mitsubishi UFJ' or '三菱'. "
+                                        "English matching is case-insensitive."),
                     },
                 },
                 "required": ["query"],
@@ -450,6 +454,8 @@ EQUITY_TOOL_SCHEMAS = [
                 "named holdings it discloses (share counts, yen book values, "
                 "prior-year figures, stated purpose in Japanese, reciprocity) "
                 "and the reverse view — every extracted filer that holds it. "
+                "Company names come back as filed in Japanese with an English "
+                "name alongside where EDINET's filer registry has one. "
                 "Figures are exactly as filed; the reverse view's coverage is "
                 "limited to filers extracted so far."),
             "parameters": {
