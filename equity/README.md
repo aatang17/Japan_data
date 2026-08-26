@@ -194,3 +194,102 @@ Grace periods: EDINET and TDnet daily → ~26h. BOJ monthly → ~35 days.
 
 See [m1/README.md](m1/README.md): 7 financials, 817 named holdings, 100% entity
 match, reconciliation gates, and the extraction traps M3 must inherit.
+
+## M1 — buyback execution prototype (`buyback_m1/`)
+
+EDINET type 220. HTML table parsing, gated by recomputing the filer's own stated
+progress percentage.
+
+## M1 — boards and pay prototype (`board_m1/`)
+
+See [board_m1/README.md](board_m1/README.md): the gates, and the eight extraction traps
+the production extractor inherits. Superseded for data by M2 below.
+
+## M2 — boards and pay, full universe (`board_extract.py`)
+
+Same annual-report `type=5` package as the holdings extractor — **no new capture**.
+Writes `eq_board`, `eq_pay_category`, `eq_pay_named` and `eq_company_year` into the
+same equity DuckDB. Plan: [PLAN-BOARD-AND-PAY.md](../docs/plans/PLAN-BOARD-AND-PAY.md) ·
+methodology: [METHODOLOGY-BOARDS-AND-PAY.md](../docs/METHODOLOGY-BOARDS-AND-PAY.md).
+
+```bash
+lsof -ti:8007 | xargs kill          # DuckDB counts the API's reader as a lock
+../observatory/.venv/bin/python board_extract.py --all --source s3 --workers 16
+../observatory/.venv/bin/python board_extract.py --docs S100XV05,S100VIG1   # fix a subset
+```
+
+Full run (2026-08-23): **21,099 filings, fiscal periods ending 2020-12-31 → 2026-05-31**
+— 195,097 board seats, 61,968 pay rows, 5,605 named individuals paid on a consolidated
+basis, **99.4% clean among listed filers**.
+
+It deliberately does **not** write `eq_filings`: that row is the holdings extractor's
+vintage record and two writers would fight over `status`. `eq_company_year` carries this
+dataset's own status and the SHA-256 of the bytes it parsed.
+
+## M2 — buyback lifecycle (`buyback.py`, parser `bb-2`)
+
+EDINET type 220, the monthly 自己株券買付状況報告書 — **no new capture**, the same
+documents the daily job already banks. Parser `bb-2` reads the whole lifecycle out
+of the one filing:
+
+| Table / view | What it holds |
+| --- | --- |
+| `eq_buyback_filings` | one row per filing: filer, submitted, as-of, SHA-256 of the bytes parsed, gate status |
+| `eq_buyback_programs` | one row **per resolution table** — resolution date, **acquisition window (取得期間)**, authorised shares/yen, the month's buying, cumulative, the filer's stated 進捗状況 |
+| `eq_buyback_treasury` | the 【株式の処理状況及び保有状況】 block — shares **retired (消却)**, disposed by category, and month-end 保有自己株式数 against 発行済株式総数 |
+| `eq_buyback_lifecycle` (view) | one row per authorisation, from its latest filing: `completed` · `expired_unspent` · `awaiting_final` · `running` · `unknown` |
+| `eq_buyback_cancellations` (view) | filing-months with a non-zero retirement |
+
+Two independent gates, neither of which we invented — the filing publishes both
+sums: cumulative ÷ authorised must return the filer's own 進捗状況, and the four
+disposal categories must recompute the filer's own 合計.
+
+```bash
+lsof -ti:8007 | xargs kill          # DuckDB counts the API's reader as a lock
+../observatory/.venv/bin/python buyback.py --source local          # laptop archive only
+../observatory/.venv/bin/python buyback.py --source s3 --workers 12 # whole bucket
+```
+
+**Credentials** for `--source s3` are the same `EDINET_S3_*` vars the capture job
+uses, held as Railway env vars on `edinet-capture-job` (project `observatory`,
+already linked from this repo — `railway status` to confirm, `railway link` if not):
+
+```bash
+# writes the secrets to a file OUTSIDE the repo; --kv prints raw values
+railway variables list --service edinet-capture-job --kv \
+  | grep '^EDINET_S3_' > ~/.edinet-s3.env
+chmod 600 ~/.edinet-s3.env
+set -a; . ~/.edinet-s3.env; set +a       # ENDPOINT / KEY_ID / SECRET / BUCKET / REGION
+../observatory/.venv/bin/python buyback.py --source s3 --workers 12
+```
+
+Full archive run (2026-08-24, parser `bb-2`): **6,236 filings · 1,248 companies ·
+submitted 2025-08-12 → 2026-08-21** — 6,431 programme rows, **1,765 authorisations**,
+6,236 treasury rows. Execution gate **5,905/6,027 = 98.0%** of the rows it could
+check; disposal gate **855/862 = 99.2%**. 211 filing-months of retirements:
+**5.45bn shares, ¥10.99tn**. Lifecycle: 766 completed · **444 window closed with the
+authorisation unspent** · 280 running · 33 awaiting the final report · 242
+unclassifiable. Windows parsed on 6,401/6,431 rows; 13 rows have no resolution date
+because the filer left the form blank.
+
+The unspent leg is the one no free source answers: SoftBank left ¥169.7bn of a ¥500bn
+authorisation unbought when the window closed, Daiichi Sankyo ¥108.2bn of ¥200bn, and
+**Fanuc bought ¥272mn against a ¥50bn authorisation — 0.5%, filed identically every
+month for a year, gate clean each time.**
+
+**The AGM path is finally exercised.** M1 warned it had never parsed a populated
+株主総会決議 table; the full archive holds three (Popla, Convano ×2), all clean.
+
+### Traps this parser exists to survive
+
+Beyond the three `bb-1` defects above, one more that crashes a naive run:
+
+- **Filers type dates that do not exist.** TENTIAL (S100X8KV) filed 2025年11月31日 as
+  its as-of date. There is no honest way to store it and guessing month-end would
+  invent a fact, so `scan_dates()` drops it and records
+  `filer wrote impossible date(s): 2025-11-31` on the filing row. One filing in 6,236.
+
+**Horizon, permanently.** EDINET purges type 220 after ~12 months — nothing before
+**2025-08-12** is retrievable by anyone. The announcement press release (rationale,
+% of shares outstanding, and any *abandonment* of a live programme) is TDnet-only,
+PDF, no XBRL, ~31-day retention: that history starts at our capture, 2026-07-13.

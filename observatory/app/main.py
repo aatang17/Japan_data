@@ -16,7 +16,9 @@ env.load()
 
 from . import api  # noqa: E402 — must follow env.load()
 from .api import router  # noqa: E402
+from .buyback_api import router as buyback_router  # noqa: E402
 from .equity_api import router as equity_router  # noqa: E402
+from .governance_api import router as governance_router  # noqa: E402
 from .mcp import router as mcp_router  # noqa: E402
 
 WEB_DIR = pathlib.Path(__file__).resolve().parent.parent / "web"
@@ -41,7 +43,10 @@ app.add_middleware(cache.ResponseCache, version=db.file_version)
 app.add_middleware(GZipMiddleware, minimum_size=1024, compresslevel=5)
 
 # Equity first: its literal /api/v1/equity/ paths must win over the core
-# router's /api/v1/{dataset}/ catch-alls.
+# router's /api/v1/{dataset}/ catch-alls. Governance and buyback ahead of
+# holdings, so their longer /equity/… prefixes are matched before the shorter one.
+app.include_router(governance_router)
+app.include_router(buyback_router)
 app.include_router(equity_router)
 app.include_router(router)
 # /mcp sits outside /api/v1 on purpose: the response cache only touches GETs

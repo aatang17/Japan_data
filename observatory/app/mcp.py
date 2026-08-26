@@ -74,7 +74,19 @@ filing by filing and does not yet cover the whole market — call \
 get_holdings_summary first and state its coverage with any aggregate you \
 quote. Yen book values are levels, a different measure from CPI indices; \
 never rank or combine the two. Source credit: company filings on EDINET \
-(Financial Services Agency), via the Japan Data Observatory."""
+(Financial Services Agency), via the Japan Data Observatory.
+
+From the same annual reports it publishes BOARDS AND PAY: every director with \
+title, role, age and shareholding; officer remuneration by category; and the \
+individuals whose consolidated remuneration is disclosed. Two rules an \
+assistant must not break. First, named individual pay is 連結報酬等 — \
+CONSOLIDATED, including pay from group companies — and is a different basis \
+from the officer-category table, so the two are never netted, subtracted or \
+divided into one another, and people appear who do not sit on the board. \
+Second, the filed category total is the published number; its components \
+often do not sum to it because filers disagree on whether non-monetary pay is \
+additive or an 'of which' memo, so check components_reconcile before quoting a \
+component. Call get_governance_summary first and state its coverage."""
 
 TOOL_TITLES = {
     "list_datasets": "List datasets",
@@ -87,6 +99,11 @@ TOOL_TITLES = {
     "search_companies": "Search companies",
     "get_company_holdings": "Company holdings (both directions)",
     "get_unwind_ranking": "Unwind ranking",
+    "get_governance_summary": "Boards and pay coverage",
+    "get_company_board": "Company board and pay",
+    "get_board_history": "Board and pay history",
+    "get_governance_screen": "Board and pay screen",
+    "get_top_paid_officers": "Highest-paid officers",
 }
 
 

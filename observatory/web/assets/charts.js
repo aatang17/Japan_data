@@ -42,7 +42,11 @@ function axisCommon(pal) {
 /* cfg: { series: [{name, slot, points: [[iso, v|null], ...]}],
           unit: "%" | "index", yAxisName, trust, sourceLine } */
 function lineOptions(cfg, pal, narrow) {
-  const dp = cfg.unit === "%" ? 2 : 1;
+  // Annual data has no meaningful position between two points, so a fiscal-year
+  // series uses a category axis: a time axis would label it by month and imply
+  // readings we do not have. Time remains the default for every other caller.
+  const isCat = cfg.xType === "category";
+  const dp = cfg.dp !== undefined ? cfg.dp : (cfg.unit === "%" ? 2 : 1);
   let crossesZero = false;
   cfg.series.forEach(s => s.points.forEach(p => { if (p[1] !== null && p[1] < 0) crossesZero = true; }));
 
@@ -66,12 +70,14 @@ function lineOptions(cfg, pal, narrow) {
       // the y-axis name at top-left
       narrow ? { bottom: 0, left: 0 } : { top: 0, right: 0 }),
     grid: narrow
-      ? { left: 8, right: 12, top: 12, bottom: cfg.series.length > 1 ? 44 : 8, containLabel: true }
-      : { left: 8, right: 20, top: cfg.series.length > 1 ? 34 : 16, bottom: 8, containLabel: true },
-    xAxis: Object.assign(axisCommon(pal), {
-      type: "time",
-      splitLine: { show: false },
-    }),
+      ? { left: 8, right: 12, bottom: cfg.series.length > 1 ? 44 : 8, containLabel: true,
+          top: cfg.yAxisName ? 26 : 12 }
+      : { left: 8, right: 20, bottom: 8, containLabel: true,
+          top: cfg.series.length > 1 ? 34 : (cfg.yAxisName ? 28 : 16) },
+    xAxis: Object.assign(axisCommon(pal), isCat
+      ? { type: "category", boundaryGap: false, splitLine: { show: false },
+          data: cfg.series[0].points.map(p => p[0]) }
+      : { type: "time", splitLine: { show: false } }),
     yAxis: Object.assign(axisCommon(pal), {
       type: "value",
       scale: cfg.unit !== "%",           // index levels never forced to zero
@@ -87,13 +93,16 @@ function lineOptions(cfg, pal, narrow) {
       borderColor: pal.border,
       textStyle: { color: pal.text, fontSize: 12 },
       formatter: params => {
-        const date = fmtPeriod(new Date(params[0].value[0]).toISOString());
+        const date = isCat ? params[0].name
+          : fmtPeriod(new Date(params[0].value[0]).toISOString());
         const rows = params.slice()
-          .sort((a, b) => (b.value[1] ?? -Infinity) - (a.value[1] ?? -Infinity))
+          .sort((a, b) => ((isCat ? b.value : b.value[1]) ?? -Infinity) -
+                          ((isCat ? a.value : a.value[1]) ?? -Infinity))
           .map(p => {
-            const v = p.value[1];
+            const v = isCat ? p.value : p.value[1];
             const txt = v === null || v === undefined ? "—"
-              : fmtNum(v, dp) + (cfg.unit === "%" ? "%" : "");
+              : fmtNum(v, dp) + (cfg.unit === "%" ? "%"
+                : (cfg.unitSuffix ? " " + cfg.unitSuffix : ""));
             return p.marker + " " + escapeHtml(p.seriesName) +
               ' <span class="num" style="float:right;margin-left:16px;font-weight:600">' + txt + "</span>";
           });
@@ -106,12 +115,13 @@ function lineOptions(cfg, pal, narrow) {
     series: ordered.map(s => ({
       name: s.name,
       type: "line",
-      showSymbol: false,
+      showSymbol: isCat,
+      symbolSize: 5,
       connectNulls: false,
       lineStyle: { width: 2 },
       itemStyle: { color: pal.series[(s.slot - 1) % 6] },
       emphasis: { focus: "none" },
-      data: s.points.map(p => [p[0], p[1]]),
+      data: isCat ? s.points.map(p => p[1]) : s.points.map(p => [p[0], p[1]]),
       markLine: crossesZero && s === ordered[0] ? {
         silent: true, symbol: "none",
         label: { show: false },
@@ -157,11 +167,13 @@ function stackOptions(cfg, pal, narrow) {
       borderColor: pal.border,
       textStyle: { color: pal.text, fontSize: 12 },
       formatter: params => {
-        const date = fmtPeriod(new Date(params[0].value[0]).toISOString());
+        const date = isCat ? params[0].name
+          : fmtPeriod(new Date(params[0].value[0]).toISOString());
         const rows = params.slice()
-          .sort((a, b) => (b.value[1] ?? -Infinity) - (a.value[1] ?? -Infinity))
+          .sort((a, b) => ((isCat ? b.value : b.value[1]) ?? -Infinity) -
+                          ((isCat ? a.value : a.value[1]) ?? -Infinity))
           .map(p => {
-            const v = p.value[1];
+            const v = isCat ? p.value : p.value[1];
             const txt = v === null || v === undefined ? "—" : fmtSigned(v, 2, cfg.unit);
             return p.marker + " " + escapeHtml(p.seriesName) +
               ' <span class="num" style="float:right;margin-left:16px;font-weight:600">' + txt + "</span>";
@@ -176,7 +188,7 @@ function stackOptions(cfg, pal, narrow) {
       barCategoryGap: "20%",
       itemStyle: { color: pal.series[(s.slot - 1) % 6] },
       emphasis: { focus: "none" },
-      data: s.points.map(p => [p[0], p[1]]),
+      data: isCat ? s.points.map(p => p[1]) : s.points.map(p => [p[0], p[1]]),
       markLine: i === 0 ? {
         silent: true, symbol: "none", label: { show: false },
         lineStyle: { color: pal.muted, width: 1, type: "solid" },
@@ -185,7 +197,8 @@ function stackOptions(cfg, pal, narrow) {
     })).concat(cfg.line ? [{
       name: cfg.line.name,
       type: "line",
-      showSymbol: false,
+      showSymbol: isCat,
+      symbolSize: 5,
       connectNulls: false,
       z: 10,
       lineStyle: { width: 2, color: pal.ink },
@@ -261,6 +274,69 @@ function barOptions(cfg, pal) {
   };
 }
 
+/* cfg: { categories: ["2025-07", ...], series: [{name, slot, points: [v|null]}],
+          dp, unitSuffix, yAxisName, trust, sourceLine }
+   Grouped vertical bars: two flows measured in the same unit over the same
+   months, side by side rather than stacked — they are different acts and their
+   sum means nothing. Zero baseline always; a bar axis is never truncated. */
+function colsOptions(cfg, pal, narrow) {
+  const dp = cfg.dp === undefined ? 1 : cfg.dp;
+  const suffix = cfg.unitSuffix ? " " + cfg.unitSuffix : "";
+  const fmt = v => (v === null || v === undefined ? "—" : fmtNum(v, dp) + suffix);
+  return {
+    animation: false,
+    color: pal.series,
+    legend: Object.assign(
+      { itemWidth: 14, itemHeight: 8, itemGap: narrow ? 10 : 18,
+        textStyle: { color: pal.text, fontSize: narrow ? 11 : 12, padding: [0, 0, 0, 2] },
+        data: cfg.series.map(s => s.name) },
+      narrow ? { bottom: 0, left: 0 } : { top: 0, right: 0 }),
+    grid: { left: 8, right: 12, containLabel: true,
+            top: narrow ? 26 : 34, bottom: narrow ? 44 : 8 },
+    xAxis: Object.assign(axisCommon(pal), {
+      type: "category", data: cfg.categories,
+      splitLine: { show: false },
+      axisLabel: { color: pal.muted, fontSize: 11,
+                   // a month label per bar is unreadable at phone width
+                   interval: narrow ? 2 : 0, rotate: narrow ? 0 : 0 },
+    }),
+    yAxis: Object.assign(axisCommon(pal), {
+      type: "value", min: 0,
+      name: cfg.yAxisName || "",
+      nameTextStyle: { color: pal.muted, fontSize: 11, align: "left" },
+      axisLine: { show: false },
+      splitLine: { show: true, lineStyle: { color: pal.grid, width: 1 } },
+    }),
+    tooltip: {
+      trigger: "axis",
+      axisPointer: { type: "shadow", shadowStyle: { color: pal.subtle } },
+      backgroundColor: pal.surface,
+      borderColor: pal.border,
+      textStyle: { color: pal.text, fontSize: 12 },
+      formatter: params => {
+        const rows = params.map(p => p.marker + " " + escapeHtml(p.seriesName) +
+          ' <span class="num" style="float:right;margin-left:16px;font-weight:600">' +
+          fmt(p.value) + "</span>");
+        const note = (cfg.notes && cfg.notes[params[0].dataIndex])
+          ? '<div style="margin-top:4px;font-size:11px;color:' + pal.muted + '">' +
+            escapeHtml(cfg.notes[params[0].dataIndex]) + "</div>" : "";
+        const trust = TRUST_LABELS[cfg.trust] ? '<div style="margin-top:4px;font-size:11px;color:' +
+          pal.muted + '">' + TRUST_LABELS[cfg.trust] + "</div>" : "";
+        return '<div style="font-weight:600;margin-bottom:2px">' +
+          escapeHtml(params[0].name) + "</div>" + rows.join("<br>") + note + trust;
+      },
+    },
+    series: cfg.series.map(s => ({
+      name: s.name,
+      type: "bar",
+      barMaxWidth: 22,
+      itemStyle: { color: pal.series[(s.slot - 1) % 6] },
+      emphasis: { focus: "none" },
+      data: s.points,
+    })),
+  };
+}
+
 /* mount a chart; returns {render, exportPNG, exportCSV, dispose} */
 function obsChart(el, kind, cfg) {
   let chart = null;
@@ -268,6 +344,7 @@ function obsChart(el, kind, cfg) {
     const narrow = (widthPx || el.clientWidth) < 520;
     if (kind === "line") return lineOptions(cfg, pal, narrow);
     if (kind === "stack") return stackOptions(cfg, pal, narrow);
+    if (kind === "cols") return colsOptions(cfg, pal, narrow);
     return barOptions(cfg, pal);
   };
 
@@ -303,7 +380,15 @@ function obsChart(el, kind, cfg) {
 
   function exportCSV(filename, headerLines) {
     let csv = (headerLines || []).map(l => "# " + l).join("\n") + "\n";
-    if (kind === "line" || kind === "stack") {
+    if (kind === "cols") {
+      csv += "period," + cfg.series.map(c => '"' + c.name.replace(/"/g, '""') + '"').join(",") + "\n";
+      cfg.categories.forEach((cat, i) => {
+        csv += cat + "," + cfg.series.map(s => {
+          const v = s.points[i];
+          return v === null || v === undefined ? "" : v;
+        }).join(",") + "\n";
+      });
+    } else if (kind === "line" || kind === "stack") {
       const cols = kind === "stack" && cfg.line ? cfg.series.concat([cfg.line]) : cfg.series;
       const periods = new Set();
       cols.forEach(s => s.points.forEach(p => periods.add(p[0])));

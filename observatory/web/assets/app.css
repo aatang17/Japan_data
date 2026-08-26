@@ -256,7 +256,16 @@ h3 { font-size: 13.5px; color: var(--obs-ink); font-weight: 600; margin: 16px 0 
   overflow: hidden;
 }
 .strip-meter i { display: block; height: 100%; background: var(--obs-primary); border-radius: 2px; }
+/* A cell with no meter still reserves the lane, so every foot in the strip
+   sits on one line. Hidden rather than absent: an empty track under a value
+   that is not a share of anything would imply a scale that does not exist. */
+.strip-meter.is-empty { visibility: hidden; }
 .strip-foot { margin-top: 10px; font-size: 12px; color: var(--obs-text-faint); }
+/* The company strip carries three readings where the sector strip carries
+   five. It sets its own column count and repeats it at each breakpoint, since
+   the wider selector alone would lose to this one inside a media query. The
+   orphan-slack rules above already fit three cells at two columns. */
+.strip-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
 
 /* ---------- controls ---------- */
 
@@ -993,7 +1002,7 @@ table.data.tbl-bands td.trend-decel { color: var(--obs-trust-official); }
   .meta-rule { display: none; }
 }
 @media (max-width: 768px) {
-  .strip-grid { grid-template-columns: repeat(2, 1fr); }
+  .strip-grid, .strip-grid.cols-3 { grid-template-columns: repeat(2, 1fr); }
   .strip-value { font-size: 30px; }
   .site-header .inner { gap: 12px; }
   .header-asof { display: none; }
@@ -1019,7 +1028,7 @@ table.data.tbl-bands td.trend-decel { color: var(--obs-trust-official); }
   .metric-card { padding: 18px 16px 14px; }
 }
 @media (max-width: 480px) {
-  .strip-grid { grid-template-columns: 1fr; }
+  .strip-grid, .strip-grid.cols-3 { grid-template-columns: 1fr; }
   /* A 420px panel inset from both edges leaves nothing on a phone — take the
      whole viewport instead, using dvh so the browser chrome can't clip the
      compose row. */

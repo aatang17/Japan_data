@@ -2,10 +2,20 @@
 
 **Dataset:** policy shareholdings (政策保有株式) disclosed in Japanese annual
 securities reports.
-**Coverage as built:** 21,084 filings parsed (21,061 published) · 204,402
+**Coverage as built:** 21,099 filings parsed (21,076 published) · 204,465
 disclosed positions · 4,227 filers · published fiscal periods ending
 **2021-02-28 → 2026-05-31**.
-**Parser version:** `m4-1`. **Status:** production.
+**Parser version:** `m6-0`. **Status:** published database is `m5-2`;
+`m6-0` pending re-extraction.
+
+> **Pending re-extraction.** `m6-0` adds the filing's own policy-bucket totals
+> and the balance-sheet denominators (§4.8–4.9, §8.7). The parser and the API
+> serve them, and they are verified against the FY2026 filings held locally,
+> but the published database is still `m5-2` until the full archive is
+> re-extracted from the cloud bucket. Until that run, `eq_filing_totals` is
+> empty and every balance-sheet ratio is null — shown as `—`, never as zero,
+> and the strip that carries them is absent rather than blank. Everything
+> `m5-2` produces is unaffected.
 
 This document states exactly how the numbers are produced, what they mean, and
 where they are wrong. It is written so that a figure taken from this database
@@ -39,7 +49,9 @@ it — the credibility of the dataset is the product.
   They are disclosed in a separate table and are **excluded** (see §4.3). They
   are economically distinct from owned shares and mixing them double-counts.
 - **Non-specified investment shares (純投資目的)** — held for pure investment
-  return, disclosed only in aggregate, not named.
+  return, disclosed only in aggregate, not named. **Holdings the filer *moved*
+  into this category are the exception: those are named, and are captured — see
+  §4.5.**
 
 ---
 
@@ -144,6 +156,148 @@ exported as empty, and rendered as `—`. A position with no prior-year column
 
 ---
 
+### 4.5 Purpose changes — the reclassification table
+
+A filer may keep a holding but stop calling it a policy shareholding, moving it
+to 純投資目的 (pure investment). **The position then disappears from the named
+table with no transaction behind it.** Measured on named holdings alone, that is
+indistinguishable from a sale, and it is not one: the shares are still owned.
+
+Filings disclose the move in a table of their own —
+保有目的を変更した投資株式 — and it is fully tagged. Extraction reads it into
+`eq_reclassified`, in both directions:
+
+| `direction` | Meaning |
+| --- | --- |
+| `to_pure` | policy shareholding → 純投資目的; the holding leaves the named table |
+| `to_policy` | 純投資目的 → policy shareholding; the reverse |
+
+Each row carries the issuer name, the share count and book value the filer
+reports for it, **the fiscal year the filer states the change took effect**
+(`fy_of_change_ja`, verbatim — some filers list more than one), and the filer's
+own stated reason (`reason_ja`).
+
+Three properties matter when using this table:
+
+1. **It is a standing disclosure, not a one-year flow.** A filing repeats these
+   rows for several years after the change, so an `fy_of_change_ja` earlier than
+   the filing's own period end is normal and expected. Summing across filings of
+   different years double counts.
+2. **These row contexts collide with the named table's.** The reclassification
+   table reuses the same `Row<N>Member` context references as the holdings
+   table — the same trap as deemed holdings in §4.3. It is keyed and stored
+   separately and is never merged into the named positions.
+3. **It is not the same measure as a sale.** The filing separately tags how many
+   issues increased and decreased during the year and the yen involved —
+   acquisition cost for increases, **sale proceeds** for decreases. Extraction
+   stores these in `eq_filing_flows`. Read against the reclassification table
+   they separate what was actually sold from what merely changed category.
+
+On the archive as extracted for FY2026, 195 filers disclose 976 holdings moved
+to pure investment. Reported alongside the same filings' sale proceeds, the two
+are frequently an order of magnitude apart.
+
+### 4.6 Table footnotes
+
+The named table's own numbered footnotes (`FootnotesSpecifiedInvestmentShares…`)
+are captured verbatim into `eq_filing_notes`. This is where filers explain a
+share count that moved without a trade — a split, a consolidation, a merger.
+
+**The `Row<N>Member` number here numbers the footnote, not the holding**: these
+are (注)1, (注)2, … and the XBRL carries no link back to a row. A note is
+therefore tied to a position only where it names that issuer, and that link is
+derived, not filed. `FootnotesDeemedHoldings…` is a different table and is
+excluded.
+
+### 4.7 Issued and treasury shares
+
+Each filing's own issued share count at its fiscal year end
+(`NumberOfIssuedSharesAsOfFiscalYearEnd…`, ordinary-share context preferred over
+the all-classes total) and treasury share count are stored on `eq_filings`.
+They are not needed to describe the filer — they are needed because most issuers
+of policy holdings are themselves filers, which makes this archive its own
+source of denominators (§8.5). `share_classes` records how many share-class
+contexts the filing tagged.
+
+### 4.8 The filing's own policy total
+
+The named table lists only a filer's largest holdings, so the sum of the named
+rows is **not** the filer's policy total. Every filing also tags the total
+carrying amount and the number of issues for the *whole* policy bucket, listed
+and unlisted, and those totals are stored in `eq_filing_totals` at the finest
+grain the filing carries: one row per **disclosing entity × share class**.
+
+How far the named rows fall short varies by filer. Measured against the tagged
+totals for seven large financial groups:
+
+| Filer | Named rows | Tagged total | Named share |
+| --- | ---: | ---: | ---: |
+| Dai-ichi Life | ¥286.2bn | ¥290.4bn | 98.5% |
+| MS&AD | ¥2,987.6bn | ¥3,183.5bn | 93.8% |
+| Sompo | ¥1,434.4bn | ¥1,545.5bn | 92.8% |
+| Tokio Marine | ¥1,795.6bn | ¥1,964.3bn | 91.4% |
+| SMFG | ¥2,724.1bn | ¥4,021.6bn | 67.7% |
+| MUFG | ¥2,671.4bn | ¥4,111.3bn | 65.0% |
+| Mizuho | ¥1,873.3bn | ¥3,375.6bn | 55.5% |
+| **All seven** | **¥13,772.6bn** | **¥18,492.2bn** | **74.5%** |
+
+Anything expressed as a share of the filer's own balance sheet therefore uses
+the tagged total, never the named sum.
+
+**Entities are summed, not maxed.** A filing discloses for the filer itself
+(`reporting`) and, where the group's biggest holder is a different company, for
+that company (`largest`) and sometimes a second (`second_largest`). These are
+separate legal entities inside the same consolidated balance sheet, so their
+totals add. For 94% of filers only one entity is disclosed and the distinction
+is moot; for the rest it is large — MS&AD reads 42% of equity on the largest
+entity alone and 66% on the sum.
+
+The result is a **floor**. A filing names at most those entities, so holdings
+at other group companies are disclosed nowhere and are not counted.
+
+The issue-count elements also exist for the 純投資目的 bucket, so the purpose
+guard is load-bearing when reading them; the carrying-amount elements do not
+(checked: no pure-investment carrying amounts in 523 annual reports), which is
+why the §6 reconciliation gate is unaffected by it.
+
+### 4.9 Shareholders' equity and total assets
+
+Both are read from the filing's own 主要な経営指標等の推移 table and stored on
+`eq_filings` as `equity_yen` / `total_assets_yen`, each with the basis actually
+used. They are present in every annual report: over 2,460 filings, coverage is
+100%, and every filer that discloses a policy total also discloses both.
+
+Filers report under Japanese, IFRS or US accounting standards, and each tags
+equity under a different element name. **The trap is that an IFRS or US-GAAP
+adopter stops tagging the Japanese consolidated figure for the current year but
+leaves the prior years in place** — the element is present and merely stale. A
+naive read falls through to the parent-only figure, which for a holding company
+is a near-empty shell: read that way, Sompo shows 90% of equity in policy
+shares against a true 30%, because the shareholdings sit in the operating
+subsidiary while the equity read was the holding company's own.
+
+Resolution is therefore ordered, and the rung used is recorded in
+`equity_basis` and displayed:
+
+| Order | Element | `equity_basis` | Share of filings |
+| --- | --- | --- | ---: |
+| 1 | `NetAssetsSummaryOfBusinessResults` @ `CurrentYearInstant` | `jgaap_consolidated` | 100% tag it |
+| 2 | `TotalEquityIFRS…` | `ifrs_consolidated` | 0.2% |
+| 3 | `EquityAttributableToOwnersOfParentIFRS…` | `ifrs_consolidated_excl_nci` | 7.8% |
+| 4 | `EquityIncludingPortionAttributableToNonControllingInterestUSGAAP…` | `usgaap_consolidated` | 0.1% |
+| 5 | `EquityAttributableToOwnersOfParentUSGAAP…` | `usgaap_consolidated_excl_nci` | 0.3% |
+| 6 | `NetAssetsSummaryOfBusinessResults` @ `CurrentYearInstant_NonConsolidatedMember` | `parent_only` | fallback |
+
+Total assets follow the same ladder (`assets_basis`). A parent-only denominator
+is a different measure from a group one and is labelled as such — the two are
+never silently mixed.
+
+**Element names are matched without their namespace, and this is load-bearing.**
+Ajinomoto tags `TotalEquityIFRS…` in a filer-specific extension namespace
+(`jpcrp030000-asr_E00436-000`) rather than a standard taxonomy prefix. Matching
+on the qualified name would have missed it and dropped that filing to the
+parent-only rung — ¥332bn instead of ¥844bn, a ratio overstated 2.5×.
+
 ## 5. Entity resolution
 
 Issuer names are written free-form by the filer and must be matched to the
@@ -156,21 +310,50 @@ Normalisation applied before matching:
 3. Removal of footnote markers filers append to names — `（注）３`, `(※5)`,
    `（注４）` and similar.
 4. Kyūjitai → shinjitai character folding (會→会, 國→国, 髙→高, …).
-5. Removal of legal-form suffixes (株式会社, （株）, ホールディングス, グループ本社)
-   to derive a base name, matched after the full-string match fails.
-6. A small hand-curated alias map for companies that renamed between the filing
+5. A small hand-curated alias map for companies that renamed between the filing
    date and the current registry (a filer's name is frozen at its fiscal
    year-end; the registry is current).
+
+The normalised name is then matched against the registry in **three tiers,
+strongest first**, and a tier is used only where it resolves to exactly one
+company:
+
+| Tier | Key | Purpose |
+| --- | --- | --- |
+| 1 | the full normalised name | exact identity |
+| 2 | the name less its legal form (株式会社, ㈱) | filers write the form in any position, and it never distinguishes two companies |
+| 3 | the name less ホールディングス and グループ本社 as well | catches a filer naming the operating company where the registry lists the holding company, and vice versa |
+
+**Tier 3 is a last resort, and that ordering matters.** ホールディングス does
+distinguish companies: ヤマトホールディングス (9064, ~360mn shares, logistics)
+and 株式会社ヤマト (1967, ~27mn shares, construction) are unrelated, and
+collapsing both to ヤマト let registry order decide which one a holding pointed
+at. Because the ownership percentage divides by *the matched company's* share
+count (§8.5), a wrong match published a wrong stake — Toyota's holding in Yamato
+Holdings read 25.7% instead of 1.8%. Matching now prefers the stronger key, so
+ヤマトホールディングス resolves at tier 2 and never reaches tier 3.
+
+Where a tier's key still names more than one registry row:
+
+- A company that re-registers leaves behind a bare row with no listing status
+  that never files; those are dropped.
+- Where two registrations are the same company covering different years —
+  ＪＳＲ株式会社 filed under E01003 through FY2024 and E39283 after — the one
+  that actually filed over the holding's period is chosen.
+- Where two **different** listed companies share a name — 株式会社アルファ is
+  both 3434 (metal products) and 4760 (services); 株式会社バッファロー is both
+  6676 and 3352 — no name-based rule can choose, and the position is left
+  `unmatched` rather than assigned by registry order. This affects 47 positions.
 
 **Match status is recorded on every row and never guessed:**
 
 | `match_status` | Meaning | Rows | Share |
 | --- | --- | ---: | ---: |
-| `matched` | resolved to an EDINET code, and a securities code where listed | 191,869 | 93.9% |
-| `unmatched` | domestic name that did not resolve | 10,147 | 5.0% |
+| `matched` | resolved to an EDINET code, and a securities code where listed | 191,882 | 93.8% |
+| `unmatched` | domestic name that did not resolve | 10,197 | 5.0% |
 | `foreign` | non-Japanese issuer, outside the domestic registry | 2,386 | 1.2% |
 
-**Domestic match rate: 191,869 / 202,016 = 95.0%.**
+**Domestic match rate: 191,882 / 202,079 = 95.0%.**
 
 Unmatched rows retain their full as-filed name, share count and book value —
 they are complete for aggregate purposes and merely not joinable by code.
@@ -181,28 +364,60 @@ keyed on securities codes is the known fix.
 
 ### 5.1 English company names
 
-A Japanese annual securities report names its holdings in Japanese only. The
-English name shown on every surface is therefore **not part of the filing**: it
-is a lookup into EDINET's own filer registry (`EdinetcodeDlInfo`, field
-提出者名（英字）), joined on the EDINET code, falling back to the securities
-code. It is a registry label attached to a company, never a translation of the
-filed text and never machine-translated.
+A filing names its *holdings* in Japanese only, but every 有価証券報告書 states
+the **filer's own English name on its cover page** (`jpcrp_cor:CompanyNameInEnglishCoverPage`,
+【英訳名】). That is the English name used throughout: **as filed**, from the
+same archived package under the same SHA-256 as every figure beside it — not a
+translation, and not machine-generated.
+
+EDINET's filer registry also carries an English name (`EdinetcodeDlInfo`, field
+提出者名（英字）), but leaves it blank for roughly one listed filer in ten —
+Murata Manufacturing (E01914) among them, which is why an English search for
+"Murata" once returned nothing while 232 filings named it as a holding. The
+registry is therefore only the fallback, for a company that files no annual
+report of its own.
 
 Coverage, on the archive as extracted:
 
 | Population | With an English name | Share |
 | --- | ---: | ---: |
-| Named positions (all rows) | 182,874 / 204,402 | 89.5% |
-| Named positions resolved to an EDINET code | 182,874 / 191,869 | 95.3% |
-| Filers with a securities code | 3,778 / 4,226 | 89.4% |
-| Registry entries with a securities code | 3,428 / 3,830 | 89.5% |
+| Filers with a securities code | 4,226 / 4,226 | 100% |
+| Named positions resolved to an EDINET code | 191,331 / 191,869 | 99.7% |
+| Named positions (all rows) | 191,331 / 204,402 | 93.6% |
+| Filers whose own filing states one | 4,567 / 4,575 | 99.8% |
 
-Two causes of a missing English name, both left visible rather than filled:
-EDINET holds no English name for that filer, and a company that renamed or
-restructured no longer carries the securities code the filing used. Where there
-is no English name the as-filed Japanese name is shown alone — never a blank,
-never a guess. The as-filed Japanese name is always carried alongside the
-English one, on screen and in every export.
+The gap in the all-rows figure is the `unmatched` and `foreign` positions
+(§5) — names that resolve to no company, so there is nothing to look up. Most
+foreign names are already written in Latin script in the filing.
+
+The stated value needs three corrections, all applied identically by the
+extractor and the backfill so a re-extracted row can never disagree with a
+backfilled one:
+
+1. **HTML entities** are unescaped — filings carry `ISEKI&amp;CO., LTD.`
+2. **Japanese annotation is cut** — filers append a former English name or a
+   rename note to the field (`NANKAI Co.,Ltd.（旧英訳名　Nankai Electric Railway
+   Co.,Ltd.）（注）…`). Everything from the first kana or ideograph is dropped.
+   Two characters are deliberately *not* treated as Japanese, because filers
+   write them inside the name itself: the full-width space
+   (`ＴＨＥ　ＳＨＩＧＡ　ＢＡＮＫ，ＬＴＤ．`) and the middle dot
+   (`ＧＯＬＦ・ＤＯ`, `Ａｉ・Ｐａｒｔｎｅｒｓ`). Cutting on those truncated
+   names to `ＴＨＥ` and `ＧＯＬＦ`.
+3. **Dash placeholders are missing, not names** — a filer that states no
+   English name sometimes writes `――――` rather than leaving the field empty.
+
+Full-width Latin is preserved exactly as the filer wrote it; it is the name as
+filed. Where no English name exists anywhere, the as-filed Japanese name is
+shown alone — never a blank, never a guess — and the Japanese name is always
+carried alongside the English one, on screen and in every export.
+
+Sectors are recorded by EDINET in Japanese only. The site shows the standard
+English name of the TSE sector (JPX's own English labels for the 33-sector
+classification), with the recorded Japanese available on hover; a value outside
+that fixed list is shown in Japanese as recorded. That is a lookup against a
+closed enumeration, never a translation of free text — and the *stated purpose*
+of each holding, which is free-form Japanese, is published exactly as filed and
+never translated.
 
 Search matches the securities code, the as-filed Japanese name and the English
 name; English matching is case-insensitive.
@@ -242,9 +457,10 @@ should be eyeballed for an implausible one-year dip before it is published.
 
 | Class | What it covers | Label |
 | --- | --- | --- |
-| **Official** | share counts, book values, stated purposes, reciprocity flags, issuer names, fiscal period, filing date | exactly as filed; never recomputed |
-| **Derived** | year-on-year deltas, cut/added counts, sector and market aggregates, matched-panel indices | carries its formula, not a badge |
-| **Registry lookup** | English company names (§5.1) | attached from the EDINET filer registry, not from the filing; blank where the registry has none |
+| **Official** | share counts, book values, stated purposes, reciprocity flags, issuer names, fiscal period, filing date; reclassified holdings with their fiscal year of change and stated reason; table footnotes; the filing's own increased/decreased issue counts, acquisition costs and sale proceeds; issued and treasury share counts | exactly as filed; never recomputed |
+| **Derived** | year-on-year deltas, cut/added counts, sector and market aggregates, matched-panel indices, ownership percentages (§8.5), corporate-action flags and share ratios (§8.6), the note-to-position link (§4.6) | carries its formula, not a badge |
+| **Official** | English company names (§5.1) | as stated on the filer's own cover page |
+| **Registry lookup** | English name of a company that files no annual report; sector (§5.1) | attached from the EDINET filer registry / the fixed TSE sector list, not from the filing |
 
 Nothing in this database is modelled, imputed, estimated or interpolated. There
 are no nowcasts and no gap-filling.
@@ -308,6 +524,153 @@ footnote. Consequently:
 
 ---
 
+### 8.5 Ownership percentage — the denominator comes from the issuer
+
+There is no price feed in this product and there does not need to be one: **for
+a single-class listed stock, a stake's share of market capitalisation is its
+share of shares outstanding.** Both would be the same ratio, because the book
+value in the filing is itself fair value at the same date.
+
+The denominator therefore comes from the issuer's own annual report:
+
+```
+pct_outstanding = shares held ÷ (issuer's issued shares − treasury shares) × 100
+```
+
+Both inputs are as filed (§4.7); the percentage is derived and carries this
+formula wherever it appears.
+
+**Choosing the denominator's date.** The holder reports its stake at its own
+fiscal year end; the issuer reports its share count at the issuer's. The two
+rarely coincide, so we take the issuer report **nearest** the holding's fiscal
+year end, on either side of it, because nearest-in-time is the best estimate of
+the share base the stake was measured against — an issuer report three months
+later describes it better than one nine months earlier. A tie goes to the
+earlier report. The date used is always published as `pct_basis_period_end`,
+and it may fall *after* the holding's own year end.
+
+**Where the share base cannot be pinned down, no percentage is published.**
+This is the important guarantee, and it exists because the failure is silent:
+after a stock split the holder's share count is post-split while an older
+issuer report is pre-split, and the stake reads high by the whole split ratio.
+Hulic's stake in Fuyo General Lease is 13.9%; measured against a pre-split
+denominator it reads 41.8%. Two tests suppress the number rather than publish a
+distorted one, and `pct_unavailable` says which fired:
+
+| Test | What it catches |
+| --- | --- |
+| The issuer's share count moves by ≥1.5× between the reports bracketing the holding's date, and the denominator is not measured on that exact date | A split or large issue somewhere inside the window, with nothing to place the holding on one side of it |
+| The **position's** own share count multiplies by ≥1.5× year on year while the issuer's does not | A split the issuer has not filed for yet — the holder restates onto the new share base a year before the issuer's next annual report reaches us |
+
+Where the position and the issuer's share count move **together**, they agree,
+and the percentage publishes normally — that agreement is what lets a post-split
+stake like Hulic's be reported rather than withheld.
+
+Four further things to know before quoting it:
+
+- It is **null where the issuer files no annual report in this archive**, never
+  zero.
+- **A result above 100% is never published.** It cannot be a stake in any
+  company; it means the denominator belongs to a different share base, and it is
+  a fault to report rather than a number to print.
+- Where the issuer has more than one share class (`pct_share_classes > 1`) it is
+  less exact, because treasury shares are reported across all classes while the
+  numerator and the issued-share count are ordinary shares.
+- **Do not total the column.** Holders are not aggregated: the same group may
+  file more than one holder table (§2), and summing double counts.
+
+> **Correction, August 2026.** Before this revision the denominator was the
+> issuer's most recent report *at or before* the holding's date, with no test on
+> the share base. Percentages distorted by splits were published as if sound,
+> and results above 100% were published at all. Separately, the issuer a
+> position resolved to was matched on a key that stripped ホールディングス, so
+> ヤマトホールディングス (9064) and 株式会社ヤマト (1967) — unrelated companies —
+> shared one key: Toyota's 5,748,133-share holding in Yamato Holdings was
+> measured against the smaller company's share count and published as 25.7%
+> rather than 1.8%. Both are fixed; see §5 for the matcher and the note there on
+> names that remain genuinely undecidable.
+
+### 8.6 A share count that moved is not necessarily a trade
+
+Two derived flags travel with each named position, both of them pointers to what
+the filing itself says rather than claims of their own:
+
+- **`corporate_actions`** — keyword match over the row's stated purpose and the
+  table's footnotes for 株式分割、株式併合、株式交換、株式移転、会社分割、合併、
+  持株会社、商号変更、公開買付、上場廃止. The filed text is always carried with
+  the flag so it can be checked.
+- **`share_ratio`** — current shares ÷ prior shares where that ratio is an exact
+  whole number, or its exact reciprocal. Verified examples carry ratios of
+  exactly 2.00, 3.00 and 5.00 on rows the filers themselves footnote (§8.4).
+
+Neither is a substitute for reading the footnote; both exist so that a reader
+scanning a column of share counts is not misled by one.
+
+### 8.7 Sizing a policy book against the filer's own balance sheet
+
+Two different questions get confused here, and they use different denominators.
+
+**Relative to the issuer** — "how much of Toyota does this bank own?" — is
+§8.5: shares held ÷ issuer's shares outstanding. For a single-class listed
+stock that *is* the stake's share of market capitalisation.
+
+**Relative to the holder** — "how much of this bank's own balance sheet is
+tied up in policy holdings?" — is this section:
+
+```
+pct_of_equity = total policy shareholdings ÷ shareholders' equity × 100
+pct_of_assets = total policy shareholdings ÷ total assets × 100
+```
+
+Both figures are as filed in the same annual report; the ratio is calculated
+and carries its formula. Use `eq_filing_totals` for the numerator (§4.8), never
+the sum of `eq_holdings` — and sum across `holder_table`, do not take the
+largest. Guard the denominator on `> 0`: equity can be filed negative, and a
+percentage of negative equity is not a reading.
+
+Read `equity_basis` before comparing two filers. A `parent_only` denominator is
+not comparable with a consolidated one, and the two `_excl_nci` bases exclude
+non-controlling interests where the Japanese standard includes them, so a
+group with large minority stakes reads slightly high against them.
+
+Why this ratio matters commercially: ISS's Japan proxy voting guidelines
+recommend a vote against the top executive at a company that allocates 20% or
+more of its net assets to cross-shareholdings, a policy effective February
+2022, and ISS counts unilateral as well as mutual holdings. The database states
+the level; it does not render a verdict on a company.
+
+There is no equivalent ratio against the *holder's own market capitalisation*.
+That needs a price feed, which this product does not have.
+
+**The same reading for a single position.** `pct_of_holder_equity` and
+`pct_of_holder_assets` on each row of `/company` apply the identical
+denominators to one holding rather than the whole book — how much of a
+company's own capital sits in one name:
+
+```
+pct_of_holder_equity = that position's book value ÷ the holder's equity × 100
+```
+
+It is the mirror of the ownership percentage in §8.5, and the pair answers the
+two different questions people conflate: *how much of the issuer do they own*
+(§8.5) versus *how much of themselves have they committed to it* (here). In the
+reverse "who holds it" direction each row uses **that holder's** own balance
+sheet, so the denominator changes down the column and `holder_equity_basis` must
+be read before comparing two rows.
+
+Distribution across 188,896 positions with both figures: median **0.11%** of the
+holder's equity, 90th percentile 1.21%, 99th 7.43%, 99.9th 25.9%.
+
+**No ceiling is applied, deliberately.** A position can exceed 100% of its
+holder's book equity, and the cases that do are among the most interesting in
+the dataset — Megachips' SiTime stake is 102% of its equity, Iwatsuka Seika's
+Want Want China holding 82%. Clamping or suppressing those would hide the
+signal. Sixteen positions exceed 100%; some are genuine and some are filer
+scale errors, and the `implausible` flag (§6) catches only those whose per-share
+book value is impossible, so it does not separate the two completely. The share
+count and book value are returned alongside so an extreme value can be checked
+against the filing.
+
 ## 9. Known limitations
 
 1. **Correction filings are not folded in** (§1).
@@ -316,14 +679,37 @@ footnote. Consequently:
    and does not scale (§5).
 4. **Deemed holdings are excluded**, so this is not a measure of total voting
    influence (§1).
-5. **Only named positions are captured.** Filers disclose individually only
-   their significant holdings; the tail is disclosed in aggregate and is not in
-   this database. Totals are therefore of *named* holdings, and the disclosure
-   threshold varies by filer.
+5. **Only named positions are captured *individually*.** Filers disclose
+   issue by issue only their significant holdings; the tail is disclosed in
+   aggregate. The aggregate *is* captured, in `eq_filing_totals` (§4.8), so a
+   filer's policy total is known — but the tail cannot be attributed to
+   issuers, so every per-issuer view is of named holdings only, and the
+   disclosure threshold varies by filer.
 6. **Coverage is partial at both ends of the window** (§8.2).
 7. **Book values are fair-valued, not cost** (§8.3).
 8. **This is not a shareholder register.** It shows only holders that file an
    annual report and disclose the position as a policy holding.
+9. **Reclassifications are only as complete as the disclosure.** The table
+   captures what filers report under 保有目的を変更した投資株式. A filer that
+   moved a holding and did not disclose it is invisible here, and the table says
+   nothing about whether the shares were subsequently sold.
+10. **The filing's own issue counts are not corrected.** `eq_filing_flows` is
+    stored exactly as tagged, and at least one filer in the FY2026 archive tags
+    an impossible value (1,000,000 issues decreased against 9 listed issues
+    held). Per-filer figures are shown as filed; no market-wide sum of issue
+    counts is published for this reason. Yen figures are unaffected.
+11. **Ownership percentages depend on issuer coverage** and on no share split
+    falling between the two fiscal year ends (§8.5).
+12. **A policy total is a floor, not a group total** (§4.8). A filing discloses
+    for the filer and at most two named group holders; holdings at other group
+    companies are disclosed nowhere and are not counted. Balance-sheet ratios
+    therefore understate for complex groups, and by an unknown amount.
+13. **Equity is not defined identically across accounting standards** (§4.9).
+    Japanese 純資産 includes non-controlling interests. Where a filer tags only
+    the parent-share IFRS or US-GAAP figure — 8.1% of filings — the
+    denominator excludes them, and the ratio reads slightly high. There is no
+    including-minorities element available for those filings, so the
+    difference is disclosed through `equity_basis` rather than adjusted away.
 
 ---
 
@@ -340,6 +726,22 @@ footnote. Consequently:
 | `sha256` | hash of the archived package as parsed (§3) |
 | `parser_version` | code version that produced the rows |
 | `status`, `detail` | `clean` / `partial` / `failed`, with the reason (§6) |
+| `issued_shares`, `treasury_shares` | the filer's own counts at its fiscal year end; the denominator when this company is someone else's issuer (§4.7, §8.5) |
+| `share_classes` | number of share-class contexts the filing tagged |
+| `equity_yen`, `equity_basis` | shareholders' equity as filed, and which accounting basis it is (§4.9) |
+| `total_assets_yen`, `assets_basis` | total assets as filed, and its basis (§4.9) |
+
+**`eq_filing_totals`** — the filing's own total for the whole policy bucket:
+one row per disclosing entity × share class (§4.8). Sum across rows for a
+filer's policy total; never substitute the sum of `eq_holdings`.
+
+| Field | Description |
+| --- | --- |
+| `doc_id` | the filing |
+| `holder_table` | `reporting` (the filer), `largest`, `second_largest` — separate legal entities in one consolidated group; their totals add |
+| `share_class` | `listed` or `unlisted` |
+| `book_value_yen` | total carrying amount for that entity and class, as filed |
+| `issue_count` | number of issues held, as filed |
 
 **`eq_holdings`** — one row per named position.
 
@@ -354,15 +756,48 @@ footnote. Consequently:
 | `purpose_ja` | stated purpose, verbatim |
 | `reciprocal` | `有` / `無` as filed, footnote markers retained (§2) |
 
+**`eq_reclassified`** — one row per holding whose stated purpose changed (§4.5).
+
+| Field | Description |
+| --- | --- |
+| `doc_id`, `holder_table`, `row_no` | the filing, which table, and the row within it |
+| `direction` | `to_pure` (out of the policy bucket) or `to_policy` (the reverse) |
+| `held_name_raw`, `held_edinet_code`, `held_sec_code`, `match_status` | issuer, resolved as in §5 |
+| `shares`, `book_value_yen` | as the filer reports them for the reclassified holding |
+| `fy_of_change_ja` | fiscal year of the change, verbatim; some filers list more than one |
+| `reason_ja` | the filer's stated reason, verbatim |
+
+**`eq_filing_notes`** — the named table's own numbered footnotes (§4.6).
+
+| Field | Description |
+| --- | --- |
+| `doc_id`, `holder_table` | the filing and which table the notes belong to |
+| `note_no` | the footnote's own number — (注)1, (注)2 …, **not** a holding row |
+| `text_ja` | the footnote, verbatim |
+
+**`eq_filing_flows`** — the filing's own tally of what moved (§4.5).
+
+| Field | Description |
+| --- | --- |
+| `doc_id`, `holder_table` | the filing and which table |
+| `share_class` | `listed` (非上場株式以外の株式) or `unlisted` (非上場株式) |
+| `issues_increased`, `acquisition_cost_yen` | issues whose share count rose, and the cost |
+| `issues_decreased`, `sale_proceeds_yen` | issues whose share count fell, and the proceeds |
+
 **`eq_entities`** — the EDINET registry: codes, names (JA/EN), industry,
 listing status. Refreshed wholesale each run; registry data, not vintage data.
-`name_en` is the source of every English name on the site and in the API
-(§5.1); it is null where EDINET publishes none.
+`name_en` is the registry's English name, null for roughly one listed filer
+in ten (§5.1).
+
+`eq_filings.filer_name_en` holds the filer's own cover-page English name, and
+is the source of every English name on the site and in the API; `eq_entities.name_en`
+is the registry fallback (§5.1).
 
 API responses that carry names return the as-filed Japanese name (`name`,
-`filer_name`, `held_name_raw`, `holder_name`) and, alongside it, the registry
-English name (`name_en`, `filer_name_en`, `held_name_en`, `holder_name_en`),
-plus a `names_note` stating that distinction.
+`filer_name`, `held_name_raw`, `holder_name`) and, alongside it, the English
+name (`name_en`, `filer_name_en`, `held_name_en`, `holder_name_en`), plus a
+`names_note` stating where each came from. `/company` also returns
+`industry_en`.
 
 ---
 
@@ -385,7 +820,9 @@ plus a `names_note` stating that distinction.
 | --- | --- |
 | `m1` | prototype: 7 financial filers, 817 positions; established the deemed-table and rename traps |
 | `m3-1` | financial sector, one fiscal year: 151 filings, 4,684 positions |
-| `m4-1` | **current** — full universe, five fiscal years: 21,084 filings, 204,402 positions; SHA-256 computed from parsed bytes; multi-year query rules (§8) |
+| `m4-1` | full universe, five fiscal years: 21,084 filings, 204,402 positions; SHA-256 computed from parsed bytes; multi-year query rules (§8) |
+| `m5-2` | purpose-change (reclassification) tables in both directions, table footnotes, the filing's own increased/decreased issue counts and yen, and issuer issued/treasury share counts, which make ownership percentages computable from the archive itself (§4.5–4.7, §8.5); filer English names read from the filing cover page |
+| `m6-0` | **current** — the filing's own policy-bucket totals per disclosing entity and share class, and shareholders' equity and total assets with the accounting basis actually used, which make a policy book sizeable against the filer's own balance sheet (§4.8–4.9, §8.7) |
 
 ---
 

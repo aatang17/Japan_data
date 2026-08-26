@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Boards &amp; Pay · Japan Data Observatory</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/app.css">
+<style>
+/* page-local layout only — tokens and components come from app.css */
+.co-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 14px; margin: 18px 0 4px; }
+.co-head h1 { margin: 0; }
+.co-code { font-family: var(--obs-mono, monospace); color: var(--obs-text-muted); font-size: 15px; }
+.co-industry { color: var(--obs-text-muted); font-size: 13px; }
+.co-name-ja { font-size: 14px; color: var(--obs-text-muted); margin: 2px 0 0; }
+.filing-meta { font-size: 12.5px; color: var(--obs-text-muted); margin: 2px 0 0; }
+.filing-meta .mono { font-family: var(--obs-mono, monospace); }
+
+/* Wide content scrolls inside its own container rather than compressing: a
+   squeezed column breaks a Japanese title into one character per line. */
+.tbl-gov { width: 100%; border-collapse: collapse; min-width: 560px; }
+.tbl-gov.wide { min-width: 940px; }
+.tbl-gov th, .tbl-gov td { padding: 9px 12px; font-size: 13.5px; border-bottom: 1px solid var(--obs-grid); }
+.tbl-gov thead th { font-size: 12px; font-weight: 600; color: var(--obs-text-muted);
+  text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid var(--obs-border); }
+.tbl-gov .r, .tbl-gov th.r { text-align: right; font-variant-numeric: tabular-nums; }
+.tbl-gov tbody tr:hover td { background: var(--obs-surface-subtle); }
+.tbl-gov a { color: var(--obs-primary); text-decoration: none; }
+.tbl-gov a:hover { text-decoration: underline; }
+.tbl-gov .cell-item { max-width: 300px; text-wrap: pretty; }
+.tbl-gov .cell-item .ja { margin-top: 1px; line-height: 1.35; font-size: 12px; color: var(--obs-text-muted); }
+/* a qualifier that belongs under its number, never beside it — a four-digit
+   figure and a date must not fight for the same baseline */
+.tbl-gov .sub { display: block; font-size: 11px; color: var(--obs-text-muted);
+  font-variant-numeric: tabular-nums; margin-top: 1px; }
+
+/* Outline only, and deliberately not a trust colour: these point at what the
+   filing says, they do not grade the number. */
+.badge-note { color: var(--obs-text-muted); border-color: var(--obs-border);
+  text-transform: none; letter-spacing: 0; font-weight: 500; }
+.badge-warn { color: var(--obs-warn); border-color: var(--obs-warn);
+  text-transform: none; letter-spacing: 0; font-weight: 500; }
+
+.calc-note { font-size: 12.5px; color: var(--obs-text-muted); margin: 6px 0 0; }
+.calc-note summary { cursor: pointer; color: var(--obs-primary); display: inline; }
+.chart-block { margin: 12px 0 4px; }
+#trend-chart { width: 100%; height: 380px; }
+.chart-foot { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline;
+  font-size: 12px; color: var(--obs-text-faint); margin-top: 4px; }
+.chart-foot .grow { flex: 1; }
+.sec-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline; }
+.tbl-formula { font-size: 12px; line-height: 1.55; color: var(--obs-text-muted);
+  margin: 10px 0 0; text-wrap: pretty; }
+.tbl-formula:empty { display: none; }
+/* Prose under a section heading. Deliberately NOT .table-meta: that class is a
+   flex row for meta chips, so a sentence containing <b> gets torn into flex
+   items with a 12px gap between them. */
+.sec-note { font-size: 12.5px; line-height: 1.6; color: var(--obs-text-muted);
+  margin: 0 0 8px; text-wrap: pretty; }
+.sec-note b { color: var(--obs-ink); font-weight: 600; }
+
+/* The company's headline facts. A definition list, not a table: these are one
+   record's attributes, and each needs its own qualifier underneath. */
+.fact-row { display: flex; flex-wrap: wrap; gap: 10px 44px; margin: 14px 0 4px;
+  padding-left: 14px; border-left: 2px solid var(--obs-border); }
+.fact-row div { margin: 0; }
+.fact-row dt { font-size: 12px; font-weight: 600; color: var(--obs-text-muted);
+  text-transform: uppercase; letter-spacing: 0.04em; margin: 0 0 3px; }
+.fact-row dd { margin: 0; font-size: 21px; font-weight: 600; color: var(--obs-ink);
+  font-variant-numeric: tabular-nums; line-height: 1.15; }
+.fact-row dd .unit { font-size: 13px; font-weight: 400; color: var(--obs-text-muted); }
+.fact-row .qual { display: block; font-size: 12px; font-weight: 400;
+  color: var(--obs-text-muted); margin-top: 2px; }
+
+/* A disclosure a reader must not be able to miss: rule, no fill, no box. */
+.disclose { margin: 12px 0 0; padding-left: 14px; border-left: 2px solid var(--obs-border);
+  font-size: 12.5px; line-height: 1.6; color: var(--obs-text-muted); text-wrap: pretty; }
+.disclose b { color: var(--obs-ink); }
+.disclose.flagged { border-left-color: var(--obs-warn); }
+@media (max-width: 700px) { #trend-chart { height: 420px; } }
+</style>
+</head>
+<body class="page-wide">
+
+<header class="site-header" data-section="equities" data-page="governance"></header>
+<script src="assets/nav.js"></script>
+
+<main class="container">
+
+  <!-- market view -->
+  <section id="market-view">
+    <div class="page-head">
+      <h1>Boards &amp; Pay</h1>
+      <p class="page-sub">Every director of every listed Japanese company — name, role, age,
+      board seat and shareholding — and what each company pays its officers, including every
+      individual disclosed at ¥100m or more. Exactly as filed in the annual securities report.
+      Coverage: five fiscal years of filings, each company shown on its latest.</p>
+    </div>
+
+    <div class="explorer-controls">
+      <div class="search-rail">
+        <div class="search-field">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"
+               class="search-icon"><circle cx="7" cy="7" r="4.6"></circle><path d="M10.4 10.4 14 14"></path></svg>
+          <input type="search" id="q" placeholder="Company name in English or Japanese, or securities code. E.g. Toyota, トヨタ, 7203"
+                 aria-label="Search companies" autocomplete="off">
+        </div>
+      </div>
+    </div>
+    <div id="search-results"></div>
+
+    <div class="strip" id="stat-strip"></div>
+
+    <h2>How Japanese Boards Are Changing <span class="h2-note" id="trend-panel"></span></h2>
+    <div class="controls">
+      <label for="measure-select">Measure</label>
+      <select id="measure-select" aria-label="Trend measure">
+        <option value="avg_director_age">Average director age (years)</option>
+        <option value="directors_70_plus_pct">Directors aged 70 or over (%)</option>
+        <option value="female_officer_pct">Female officers (%)</option>
+        <option value="median_pay_per_officer_yen">Median pay per officer (¥m)</option>
+        <option value="median_employee_salary_yen">Median employee salary (¥m)</option>
+      </select>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="trend-png">Download PNG</button>
+      <button type="button" class="btn" id="trend-csv">Download CSV</button>
+    </div>
+    <div class="chart-block">
+      <div id="trend-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+      <div class="chart-foot">
+        <span id="trend-source"></span>
+        <span class="grow"></span>
+      </div>
+      <details class="calc-note"><summary>Show calculation</summary>
+        <span id="trend-calc"></span>
+      </details>
+    </div>
+
+    <h2>Screens <span class="h2-note" id="screen-count"></span></h2>
+    <div class="controls">
+      <label for="screen-select">Rank by</label>
+      <select id="screen-select" aria-label="Screen"></select>
+      <div class="seg" role="group" aria-label="Filer scope" id="listed-seg">
+        <button type="button" data-listed="true" aria-pressed="true">Listed</button>
+        <button type="button" data-listed="">All filers</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="screen-csv">Download CSV</button>
+    </div>
+    <p class="sec-note" id="screen-meta"></p>
+    <div class="table-wrap"><table class="tbl-gov wide" id="screen-table"></table></div>
+    <p class="tbl-formula" id="screen-formula"></p>
+  </section>
+
+  <!-- company view -->
+  <section id="company-view" hidden>
+    <p style="margin:16px 0 0"><a href="governance.html" id="back-link">← All companies</a></p>
+    <div class="co-head">
+      <h1 id="co-name"></h1>
+      <span class="co-code" id="co-code"></span>
+      <span class="co-industry" id="co-industry"></span>
+    </div>
+    <p class="co-name-ja" id="co-name-ja" hidden></p>
+    <p class="filing-meta" id="co-filing"></p>
+    <dl class="fact-row" id="co-facts"></dl>
+    <p class="disclose flagged" id="co-flag" hidden></p>
+
+    <h2>The Board <span class="h2-note" id="board-count"></span></h2>
+    <div class="sec-actions">
+      <p class="sec-note" style="flex:1">Directors as tagged in the filing's 役員の状況 table.
+        <b>Official statistics</b> as filed; age is calculated from the filed date of birth.
+        English names are the <b>filer's own romanisation</b> from its filing, not a translation
+        by this platform. Missing values are shown as —, never as zero.</p>
+      <button type="button" class="btn" id="board-csv">Download CSV</button>
+    </div>
+    <div class="table-wrap"><table class="tbl-gov wide" id="board-table"></table></div>
+    <p class="disclose" id="board-note"></p>
+
+    <h2>Officer Remuneration <span class="h2-note" id="pay-count"></span></h2>
+    <div class="sec-actions">
+      <p class="sec-note" style="flex:1">The filing's own 役員区分ごとの報酬等 table.
+        The <b>total is the filed, published figure</b>; the components beside it are also
+        as filed and need not sum to it.</p>
+      <button type="button" class="btn" id="pay-csv">Download CSV</button>
+    </div>
+    <div class="table-wrap"><table class="tbl-gov wide" id="pay-table"></table></div>
+    <p class="disclose" id="pay-note"></p>
+
+    <div id="named-sec" hidden>
+      <h2>Individuals Disclosed <span class="h2-note" id="named-count"></span></h2>
+      <div class="sec-actions">
+        <p class="sec-note" style="flex:1">Officers whose 連結報酬等 the company discloses.
+          <b>Official statistics</b> as filed.</p>
+        <button type="button" class="btn" id="named-csv">Download CSV</button>
+      </div>
+      <div class="table-wrap"><table class="tbl-gov" id="named-table"></table></div>
+      <p class="disclose" id="named-note"></p>
+    </div>
+
+    <h2>Five-Year Record <span class="h2-note" id="hist-count"></span></h2>
+    <div class="sec-actions">
+      <p class="sec-note" style="flex:1">The same company against itself, one row per filing.
+        A missing year means that filing was not extractable, not that the company stopped filing.</p>
+      <button type="button" class="btn" id="hist-csv">Download CSV</button>
+    </div>
+    <div class="table-wrap"><table class="tbl-gov wide" id="hist-table"></table></div>
+  </section>
+
+  <footer class="page-foot" id="page-foot">
+    <p>Source: 有価証券報告書 (annual securities reports) via EDINET, Financial Services Agency.
+    Every figure links to its filing; every raw file is archived with its SHA-256.
+    Company names are as filed in both languages; director names in English are the filer's own
+    romanisation taken from its filing, never a translation by this platform.
+    Extraction status is stated per filing — gaps are disclosed, never filled.</p>
+  </footer>
+</main>
+
+<script src="assets/echarts.min.js"></script>
+<script src="assets/format.js"></script>
+<script src="assets/charts.js"></script>
+<script src="assets/governance.js"></script>
+</body>
+</html>

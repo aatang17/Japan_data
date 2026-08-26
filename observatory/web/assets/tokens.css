@@ -52,6 +52,11 @@
   --obs-trust-model: #b45309;
   --obs-trust-stale: #b91c1c;
 
+  /* A filing whose own figures contradict each other. Deliberately NOT a trust
+     colour: it marks a problem in the source document, not the standing of a
+     number we publish. */
+  --obs-warn: #c2410c;
+
   --obs-focus: rgba(26, 77, 143, 0.35);
   --obs-focus-soft: rgba(26, 77, 143, 0.15);
 }
@@ -96,6 +101,7 @@
   --obs-trust-official: #55b785;
   --obs-trust-model: #daa353;
   --obs-trust-stale: #e26d6d;
+  --obs-warn: #e0794a;
 
   --obs-focus: rgba(91, 155, 216, 0.45);
   --obs-focus-soft: rgba(91, 155, 216, 0.2);
@@ -142,6 +148,7 @@
     --obs-trust-official: #55b785;
     --obs-trust-model: #daa353;
     --obs-trust-stale: #e26d6d;
+    --obs-warn: #e0794a;
 
     --obs-focus: rgba(91, 155, 216, 0.45);
     --obs-focus-soft: rgba(91, 155, 216, 0.2);

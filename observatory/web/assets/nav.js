@@ -30,6 +30,8 @@ var NAV_SECTIONS = [
     id: "equities", label: "Equities", suffix: "Equities",
     pages: [
       { id: "holdings", label: "Cross-Shareholdings", href: "holdings.html" },
+      { id: "governance", label: "Boards & Pay", href: "governance.html" },
+      { id: "buyback", label: "Buybacks", href: "buyback.html" },
     ],
   },
   {

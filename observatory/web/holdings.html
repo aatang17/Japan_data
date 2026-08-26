@@ -17,7 +17,7 @@
 .tbl-hold .cell-item .ja { margin-top: 1px; line-height: 1.35; }
 .filing-meta { font-size: 12.5px; color: var(--obs-text-muted); margin: 2px 0 0; }
 .filing-meta .mono { font-family: var(--obs-mono, monospace); }
-.tbl-hold { width: 100%; border-collapse: collapse; min-width: 900px; }
+.tbl-hold { width: 100%; border-collapse: collapse; min-width: 1240px; }
 .tbl-hold th, .tbl-hold td { padding: 9px 12px; font-size: 13.5px; border-bottom: 1px solid var(--obs-grid); }
 .tbl-hold thead th { font-size: 12px; font-weight: 600; color: var(--obs-text-muted);
   text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid var(--obs-border); }
@@ -27,8 +27,10 @@
 .tbl-hold a:hover { text-decoration: underline; }
 .tbl-hold .purpose-row td { background: var(--obs-surface-subtle); font-size: 13px; color: var(--obs-ink);
   padding: 10px 14px 12px; border-left: 2px solid var(--obs-border); }
+/* Never wraps: with the two holder-share columns added, a two-line "Stated
+   purpose" was the only ragged cell in the row. */
 .purpose-toggle { background: none; border: none; color: var(--obs-primary); cursor: pointer;
-  font-size: 12.5px; padding: 0; }
+  font-size: 12.5px; padding: 0; white-space: nowrap; }
 .calc-note { font-size: 12.5px; color: var(--obs-text-muted); margin: 6px 0 0; }
 .calc-note summary { cursor: pointer; color: var(--obs-primary); display: inline; }
 .chart-block { margin: 12px 0 4px; }
@@ -37,6 +39,49 @@
   font-size: 12px; color: var(--obs-text-faint); margin-top: 4px; }
 .chart-foot .grow { flex: 1; }
 .sec-actions { display: flex; gap: 10px; align-items: baseline; }
+/* The formula that a derived column carries instead of a trust badge. */
+.tbl-formula { font-size: 12px; line-height: 1.55; color: var(--obs-text-muted);
+  margin: 10px 0 0; text-wrap: pretty; }
+.tbl-formula:empty { display: none; }
+/* The issuer fiscal year end a percentage is measured against. Its own line so
+   a four-digit percentage and a date never fight for the same baseline. */
+.tbl-hold .asof { display: block; font-size: 11px; color: var(--obs-text-muted);
+  font-variant-numeric: tabular-nums; margin-top: 1px; }
+/* A percentage we withheld, not one we never had. Dotted underline so the
+   reader can tell this dash carries a reason and is worth hovering. */
+.tbl-hold .withheld { color: var(--obs-text-muted); cursor: help;
+  border-bottom: 1px dotted var(--obs-border); }
+/* Exact whole-number share ratio — the signature of a split, not a trade. */
+.tbl-hold .ratio { display: block; font-size: 11px; color: var(--obs-text-muted);
+  font-variant-numeric: tabular-nums; margin-top: 1px; }
+/* Outline only, and deliberately not a trust colour: this marks what the filer
+   said happened to a share count, not the standing of the number. */
+.badge-note { color: var(--obs-text-muted); border-color: var(--obs-border);
+  text-transform: none; letter-spacing: 0; font-weight: 500; }
+.filing-notes { margin: 18px 0 0; }
+.filing-notes h3 { font-size: 14px; margin: 0 0 4px; color: var(--obs-ink); }
+.note-list { margin: 10px 0 0; padding-left: 22px; }
+.note-list li { font-size: 13px; line-height: 1.6; color: var(--obs-ink);
+  margin-bottom: 8px; text-wrap: pretty; }
+/* The one comparison this section exists to make. A definition list, not a
+   sentence: the two figures must be readable without being parsed. */
+.reclass-summary { margin: 12px 0 14px; padding-left: 14px;
+  border-left: 2px solid var(--obs-border); }
+/* a filer with only reverse-direction rows has no headline pair to show —
+   an empty block must not leave its rule behind */
+.reclass-summary:empty { display: none; }
+.reclass-kv { display: flex; flex-wrap: wrap; gap: 6px 44px; margin: 0 0 8px; }
+.reclass-kv dt { font-size: 12px; font-weight: 600; color: var(--obs-text-muted);
+  text-transform: uppercase; letter-spacing: 0.04em; margin: 0 0 3px; }
+.reclass-kv dd { margin: 0; font-size: 21px; font-weight: 600; color: var(--obs-ink);
+  font-variant-numeric: tabular-nums; line-height: 1.15; }
+.reclass-kv .qual { display: block; font-size: 12px; font-weight: 400;
+  color: var(--obs-text-muted); margin-top: 2px; }
+.reclass-summary .table-meta { margin: 0; }
+/* Same outline discipline as the other markers, and deliberately not a trust
+   colour — it points at a disclosure, it does not grade the number. */
+.badge-moved { color: var(--obs-primary); border-color: var(--obs-primary);
+  text-transform: none; letter-spacing: 0; font-weight: 500; }
 @media (max-width: 700px) { #unwind-chart { height: 420px; } }
 </style>
 </head>
@@ -111,16 +156,50 @@
     <p class="co-name-ja" id="co-name-ja" hidden></p>
     <p class="filing-meta" id="co-filing"></p>
 
+    <!-- How big the policy book is against the filer's own balance sheet. One
+         frame, because the three readings are one family of measures on one
+         filing — the same component the sector view uses, for the same reason.
+         The denominators are identical down every row of the tables below, so
+         they belong here and not in a column that would repeat one divisor a
+         hundred times. -->
+    <div class="strip" id="co-scale" hidden></div>
+    <p class="tbl-formula" id="co-scale-formula" hidden></p>
+
     <div id="holdings-sec">
       <h2>What It Holds <span class="h2-note" id="holdings-count"></span></h2>
       <div class="sec-actions">
         <p class="table-meta" style="flex:1">Named policy holdings from the governance section
           (株式の保有状況) of the filing named above. <b>Official statistics</b> as filed.
           Missing values are shown as —, never as zero.
-          Names: English from EDINET's filer registry, Japanese as filed.</p>
+          Names in English and Japanese are both as filed.</p>
         <button type="button" class="btn" id="holdings-csv">Download CSV</button>
       </div>
       <div class="table-wrap"><table class="tbl-hold" id="holdings-table"></table></div>
+      <p class="tbl-formula" id="holdings-formula"></p>
+
+      <div class="filing-notes" id="filing-notes" hidden>
+        <h3>Notes to this table, as filed</h3>
+        <p class="table-meta">The filing's own numbered footnotes to the table above,
+          verbatim. They are where a filer explains a share count that moved without a
+          trade — a split, a consolidation, a merger. The disclosure numbers them
+          (注)1, (注)2 … and gives no link back to a row, so a note is tied to a
+          holding above only where it names that issuer.</p>
+        <ol class="note-list" id="note-list"></ol>
+      </div>
+    </div>
+
+    <div id="reclass-sec" hidden>
+      <h2>Holdings Whose Purpose Changed <span class="h2-note" id="reclass-count"></span></h2>
+      <div class="sec-actions">
+        <p class="table-meta" style="flex:1">Holdings this filer moved between a policy
+          shareholding and 純投資目的 (pure investment), from the annual report's own
+          保有目的を変更した投資株式 table. <b>Official statistics</b> as filed. A holding
+          moved to pure investment leaves the table above without necessarily being sold.</p>
+        <button type="button" class="btn" id="reclass-csv">Download CSV</button>
+      </div>
+      <div class="reclass-summary" id="reclass-vs-sold"></div>
+      <div class="table-wrap"><table class="tbl-hold" id="reclass-table"></table></div>
+      <p class="tbl-formula" id="reclass-formula"></p>
     </div>
 
     <div id="holders-sec">
@@ -132,15 +211,17 @@
         <button type="button" class="btn" id="holders-csv">Download CSV</button>
       </div>
       <div class="table-wrap"><table class="tbl-hold" id="holders-table"></table></div>
+      <p class="tbl-formula" id="holders-formula"></p>
     </div>
   </section>
 
   <footer class="page-foot" id="page-foot">
     <p>Source: 有価証券報告書 (annual securities reports) via EDINET, Financial Services Agency.
     Every figure links to its filing; every raw file is archived with its SHA-256.
-    Filings name companies in Japanese; the English name shown above it is a lookup from
-    EDINET's filer registry, which has no English name for roughly one listed filer in ten —
-    those are shown in Japanese only, never blank.
+    Company names are as filed in both languages: a filing names its holdings in Japanese,
+    and each company's own annual report states its English name on the cover page. Where a
+    company files no annual report, EDINET's filer registry is used instead; where neither
+    states one, the Japanese name is shown alone, never blank.
     Sector coverage and extraction status are stated above — gaps are disclosed, never filled.</p>
   </footer>
 </main>

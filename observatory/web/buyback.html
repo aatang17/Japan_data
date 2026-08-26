@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Buybacks · Japan Data Observatory</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/app.css">
+<style>
+/* page-local layout only — tokens and components come from app.css */
+.co-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 14px; margin: 18px 0 4px; }
+.co-head h1 { margin: 0; }
+.co-code { font-family: var(--obs-mono, monospace); color: var(--obs-text-muted); font-size: 15px; }
+.co-name-ja { font-size: 14px; color: var(--obs-text-muted); margin: 2px 0 0; }
+.filing-meta { font-size: 12.5px; color: var(--obs-text-muted); margin: 2px 0 0; }
+.filing-meta .mono { font-family: var(--obs-mono, monospace); }
+
+/* Wide content scrolls inside its own container rather than compressing: a
+   squeezed column breaks a Japanese filer name into one character per line. */
+.tbl-bb { width: 100%; border-collapse: collapse; min-width: 640px; }
+.tbl-bb.wide { min-width: 940px; }
+.tbl-bb th, .tbl-bb td { padding: 9px 12px; font-size: 13.5px; border-bottom: 1px solid var(--obs-grid); }
+.tbl-bb thead th { font-size: 12px; font-weight: 600; color: var(--obs-text-muted);
+  text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid var(--obs-border); }
+.tbl-bb .r, .tbl-bb th.r { text-align: right; font-variant-numeric: tabular-nums; }
+/* Dates and periods never wrap: a date broken across two lines at phone width
+   reads as two numbers, and the row's other cells lose their baseline. */
+.tbl-bb .nw { white-space: nowrap; }
+.tbl-bb tbody tr:hover td { background: var(--obs-surface-subtle); }
+.tbl-bb a { color: var(--obs-primary); text-decoration: none; }
+.tbl-bb a:hover { text-decoration: underline; }
+.tbl-bb .cell-name { max-width: 320px; text-wrap: pretty; }
+.tbl-bb .cell-name .ja { margin-top: 1px; line-height: 1.35; font-size: 12px; color: var(--obs-text-muted); }
+/* a qualifier that belongs under its number, never beside it */
+.tbl-bb .sub { display: block; font-size: 11px; color: var(--obs-text-muted);
+  font-variant-numeric: tabular-nums; margin-top: 1px; }
+
+/* Outline only, and deliberately not a trust colour: a lifecycle state
+   describes where a programme stands, it does not grade the number. */
+.badge-state { color: var(--obs-text-muted); border-color: var(--obs-border);
+  text-transform: none; letter-spacing: 0; font-weight: 500; white-space: nowrap; }
+.badge-state.unspent { color: var(--obs-warn); border-color: var(--obs-warn); }
+
+.calc-note { font-size: 12.5px; color: var(--obs-text-muted); margin: 6px 0 0; }
+.calc-note summary { cursor: pointer; color: var(--obs-primary); display: inline; }
+.chart-block { margin: 12px 0 4px; }
+#monthly-chart { width: 100%; height: 380px; }
+.chart-foot { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline;
+  font-size: 12px; color: var(--obs-text-faint); margin-top: 4px; }
+.chart-foot .grow { flex: 1; }
+.sec-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline; }
+.tbl-formula { font-size: 12px; line-height: 1.55; color: var(--obs-text-muted);
+  margin: 10px 0 0; text-wrap: pretty; }
+.tbl-formula:empty { display: none; }
+/* Prose under a section heading. Deliberately NOT .table-meta: that class is a
+   flex row for meta chips, so a sentence containing <b> gets torn into flex
+   items with a 12px gap between them. */
+.sec-note { font-size: 12.5px; line-height: 1.6; color: var(--obs-text-muted);
+  margin: 0 0 8px; text-wrap: pretty; }
+.sec-note b { color: var(--obs-ink); font-weight: 600; }
+
+/* The company's headline facts. A definition list, not a table: these are one
+   record's attributes, and each needs its own qualifier underneath. */
+.fact-row { display: flex; flex-wrap: wrap; gap: 10px 44px; margin: 14px 0 4px;
+  padding-left: 14px; border-left: 2px solid var(--obs-border); }
+.fact-row div { margin: 0; }
+.fact-row dt { font-size: 12px; font-weight: 600; color: var(--obs-text-muted);
+  text-transform: uppercase; letter-spacing: 0.04em; margin: 0 0 3px; }
+.fact-row dd { margin: 0; font-size: 21px; font-weight: 600; color: var(--obs-ink);
+  font-variant-numeric: tabular-nums; line-height: 1.15; }
+.fact-row dd .unit { font-size: 13px; font-weight: 400; color: var(--obs-text-muted); }
+.fact-row .qual { display: block; font-size: 12px; font-weight: 400;
+  color: var(--obs-text-muted); margin-top: 2px; }
+
+/* A disclosure a reader must not be able to miss: rule, no fill, no box. */
+.disclose { margin: 12px 0 0; padding-left: 14px; border-left: 2px solid var(--obs-border);
+  font-size: 12.5px; line-height: 1.6; color: var(--obs-text-muted); text-wrap: pretty; }
+.disclose b { color: var(--obs-ink); }
+@media (max-width: 700px) { #monthly-chart { height: 420px; } }
+</style>
+</head>
+<body class="page-wide">
+
+<header class="site-header" data-section="equities" data-page="buyback"></header>
+<script src="assets/nav.js"></script>
+
+<main class="container">
+
+  <!-- market view -->
+  <section id="market-view">
+    <div class="page-head">
+      <h1>Buybacks</h1>
+      <p class="page-sub">What each company said it would buy back, what it actually bought, and
+      whether the shares were cancelled. Taken from the monthly buyback status report every
+      company files while a programme runs — the authorising resolution, the acquisition period,
+      the shares bought that month, and the shares retired outright. Exactly as filed.</p>
+    </div>
+
+    <div class="explorer-controls">
+      <div class="search-rail">
+        <div class="search-field">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"
+               class="search-icon"><circle cx="7" cy="7" r="4.6"></circle><path d="M10.4 10.4 14 14"></path></svg>
+          <input type="search" id="q" placeholder="Company name in English or Japanese, or securities code. E.g. Toyota, トヨタ, 7203"
+                 aria-label="Search companies" autocomplete="off">
+        </div>
+      </div>
+    </div>
+    <div id="search-results"></div>
+
+    <div class="strip" id="stat-strip"></div>
+
+    <h2>Buying and Cancellation by Month <span class="h2-note" id="monthly-panel"></span></h2>
+    <p class="sec-note">Two different acts on one time axis. Shares <b>bought</b> may sit in
+      treasury indefinitely; shares <b>retired</b> are cancelled outright and permanently reduce
+      the share count. The two are shown side by side and are never summed.</p>
+    <div class="controls">
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="monthly-png">Download PNG</button>
+      <button type="button" class="btn" id="monthly-csv">Download CSV</button>
+    </div>
+    <div class="chart-block">
+      <div id="monthly-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+      <div class="chart-foot">
+        <span id="monthly-source"></span>
+        <span class="grow"></span>
+      </div>
+      <details class="calc-note"><summary>Show calculation</summary>
+        <span id="monthly-calc"></span>
+      </details>
+    </div>
+
+    <h2>Announced Versus Executed <span class="h2-note" id="programs-count"></span></h2>
+    <p class="sec-note">One row per authorisation, from its latest monthly report. <b>Yen
+      authorised is a ceiling a board voted for</b>; yen acquired is what was bought. They are
+      different measures and are never summed or netted.</p>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Programme state" id="state-seg">
+        <button type="button" data-state="" aria-pressed="true">All</button>
+        <button type="button" data-state="expired_unspent">Closed unspent</button>
+        <button type="button" data-state="running">Running</button>
+        <button type="button" data-state="completed">Completed</button>
+      </div>
+      <label for="sort-select">Rank by</label>
+      <select id="sort-select" aria-label="Rank programmes by"></select>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="programs-csv">Download CSV</button>
+    </div>
+    <p class="sec-note" id="programs-meta"></p>
+    <div class="table-wrap"><table class="tbl-bb wide" id="programs-table"></table></div>
+    <p class="tbl-formula" id="programs-formula"></p>
+
+    <h2>Shares Retired <span class="h2-note" id="retire-count"></span></h2>
+    <p class="sec-note">Filing-months in which shares were cancelled outright — the 消却 row of
+      the filing's own treasury table. <b>Official statistics</b> as filed.</p>
+    <div class="sec-actions">
+      <p class="sec-note" style="flex:1" id="retire-meta"></p>
+      <button type="button" class="btn" id="retire-csv">Download CSV</button>
+    </div>
+    <div class="table-wrap"><table class="tbl-bb wide" id="retire-table"></table></div>
+    <p class="tbl-formula" id="retire-formula"></p>
+  </section>
+
+  <!-- company view -->
+  <section id="company-view" hidden>
+    <p style="margin:16px 0 0"><a href="buyback.html" id="back-link">← All companies</a></p>
+    <div class="co-head">
+      <h1 id="co-name"></h1>
+      <span class="co-code" id="co-code"></span>
+    </div>
+    <p class="co-name-ja" id="co-name-ja" hidden></p>
+    <p class="filing-meta" id="co-filing"></p>
+    <dl class="fact-row" id="co-facts"></dl>
+
+    <h2>Authorisations <span class="h2-note" id="co-prog-count"></span></h2>
+    <div class="sec-actions">
+      <p class="sec-note" style="flex:1">Each resolution this company reported, with the
+        acquisition period it set itself. <b>Completion is calculated</b> from the filed figures;
+        the filer's own published progress percentage is in the month-by-month table below.</p>
+      <button type="button" class="btn" id="co-prog-csv">Download CSV</button>
+    </div>
+    <div class="table-wrap"><table class="tbl-bb wide" id="co-prog-table"></table></div>
+
+    <h2>Month by Month <span class="h2-note" id="co-month-count"></span></h2>
+    <div class="sec-actions">
+      <p class="sec-note" style="flex:1">One row per monthly report. Progress is the
+        <b>filer's own published percentage</b>, official as filed; where it is missing the
+        filing published none and nothing reconciled the figures.</p>
+      <button type="button" class="btn" id="co-month-csv">Download CSV</button>
+    </div>
+    <div class="table-wrap"><table class="tbl-bb wide" id="co-month-table"></table></div>
+
+    <h2>Treasury and Retirements <span class="h2-note" id="co-treas-count"></span></h2>
+    <div class="sec-actions">
+      <p class="sec-note" style="flex:1">Shares held in treasury at each month end against shares
+        outstanding, and any shares cancelled that month. <b>Official statistics</b> as filed.</p>
+      <button type="button" class="btn" id="co-treas-csv">Download CSV</button>
+    </div>
+    <div class="table-wrap"><table class="tbl-bb wide" id="co-treas-table"></table></div>
+    <p class="disclose" id="co-note"></p>
+  </section>
+
+  <footer class="page-foot" id="page-foot">
+    <p>Source: 自己株券買付状況報告書 (monthly buyback status reports) via EDINET, Financial Services
+    Agency. Every figure links to its filing; every raw file is archived with its SHA-256.
+    EDINET removes these filings after about a year, so this record begins on 12 August 2025 and
+    no earlier filing is retrievable. A closed acquisition period with the authorisation unspent
+    is not the same as a formally abandoned programme — abandonment is announced on the stock
+    exchange's disclosure wire, which this dataset does not carry.</p>
+  </footer>
+</main>
+
+<script src="assets/echarts.min.js"></script>
+<script src="assets/format.js"></script>
+<script src="assets/charts.js"></script>
+<script src="assets/buyback.js"></script>
+</body>
+</html>

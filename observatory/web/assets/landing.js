@@ -78,6 +78,65 @@ function fillEquity() {
     .catch(() => dropStats("eq-stats", "eq-foot"));
 }
 
+// Never render a raw status slug. One map per surface, Title-Case-free because
+// these read inside a sentence.
+const GOV_STATUS_LABELS = {
+  clean: "clean",
+  partial: "partial",
+  no_tagged_board: "no tagged board",
+  unsupported_form: "unsupported form",
+  failed: "failed",
+};
+
+function fillGovernance() {
+  return fetch("/api/v1/equity/governance/summary?listed=true")
+    .then(r => (r.ok ? r.json() : Promise.reject(r.status)))
+    .then(d => {
+      document.getElementById("gov-stats").innerHTML = [
+        landingStat("Companies", fmtNum(d.companies, 0), "latest filing each"),
+        landingStat("Average director age", fmtNum(d.avg_director_age, 1) + " yrs",
+          fmtNum(d.directors_70_plus_pct, 1) + "% aged 70+, calculated"),
+        landingStat("Female officers", fmtRate(d.avg_female_officer_pct, 1),
+          fmtNum(d.boards_with_no_women, 0) + " boards with none"),
+      ].join("");
+
+      const st = d.extraction_status || {};
+      const parts = Object.keys(st).sort().map(
+        k => fmtNum(st[k], 0) + " " + (GOV_STATUS_LABELS[k] || k));
+      document.getElementById("gov-foot").innerHTML =
+        "From " + escapeHtml(fmtNum(d.board_seats, 0)) +
+        " board seats in annual securities reports" +
+        (parts.length ? " · extraction status " + escapeHtml(parts.join(", ")) : "") +
+        " · names, titles and pay as filed; ages and ratios calculated";
+    })
+    .catch(() => dropStats("gov-stats", "gov-foot"));
+}
+
+function fillBuyback() {
+  return fetch("/api/v1/equity/buyback/summary")
+    .then(r => (r.ok ? r.json() : Promise.reject(r.status)))
+    .then(d => {
+      // Authorised and bought are different measures — shown side by side,
+      // never as one "buyback" number.
+      const closed = (d.lifecycle || []).find(x => x.lifecycle === "expired_unspent");
+      document.getElementById("bb-stats").innerHTML = [
+        landingStat("Authorised", "¥" + fmtNum(d.authorised_yen / 1e12, 2) + "tn",
+          fmtNum(d.authorisations, 0) + " authorisations, as filed"),
+        landingStat("Actually bought", "¥" + fmtNum(d.acquired_yen / 1e12, 2) + "tn",
+          "cumulative against those authorisations"),
+        landingStat("Shares retired", fmtNum(d.shares_retired / 1e9, 2) + "bn",
+          "¥" + fmtNum(d.retired_yen / 1e12, 2) + "tn cancelled outright"),
+      ].join("");
+      document.getElementById("bb-foot").innerHTML =
+        "From " + escapeHtml(fmtNum(d.filings, 0)) + " monthly buyback reports by " +
+        escapeHtml(fmtNum(d.companies, 0)) + " companies" +
+        (closed ? " · " + escapeHtml(fmtNum(closed.authorisations, 0)) +
+          " acquisition periods closed with the authorisation unspent" : "") +
+        " · figures as filed; completion calculated";
+    })
+    .catch(() => dropStats("bb-stats", "bb-foot"));
+}
+
 function wireCopy(btnId, textId) {
   const btn = document.getElementById(btnId);
   const source = document.getElementById(textId);
@@ -105,4 +164,6 @@ function wireCopy(btnId, textId) {
 
 fillCpi();
 fillEquity();
+fillGovernance();
+fillBuyback();
 wireCopy("copy-url", "mcp-url");

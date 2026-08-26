@@ -22,7 +22,7 @@ import os
 from urllib.parse import urlencode
 
 from . import api
-from . import equity_api
+from . import equity_api, governance_api
 
 # Tool results are the bulk of an LLM caller's input tokens. These bound how
 # much a single lookup can pull into context.
@@ -376,7 +376,7 @@ def get_company_holdings(sec_code):
 
 def get_unwind_ranking():
     """Filers ranked by named policy-holding value, with reduce/increase counts."""
-    raw, err = _eq_guard(equity_api.unwind)
+    raw, err = _eq_guard(lambda: equity_api.unwind(year=""))
     if err:
         return _fail(err)
     raw["trust"] = "official"
@@ -387,14 +387,81 @@ def get_unwind_ranking():
 
 def get_holdings_summary():
     """Coverage and totals of the cross-shareholding dataset on this server."""
-    raw, err = _eq_guard(equity_api.summary)
+    raw, err = _eq_guard(lambda: equity_api.summary(year=""))
     if err:
         return _fail(err)
     raw["cite"] = _cite("/holdings.html")
     return json.dumps(raw, ensure_ascii=False, default=str)
 
 
+def _gov_guard(fn):
+    """Same translation as _eq_guard, for the boards-and-pay endpoints."""
+    return _eq_guard(fn)
+
+
+def get_governance_summary(year=""):
+    """Coverage and market aggregates for the boards-and-pay dataset."""
+    raw, err = _gov_guard(lambda: governance_api.summary(year=year or "", listed=""))
+    if err:
+        return _fail(err)
+    raw["cite"] = _cite("/holdings.html")
+    return json.dumps(raw, ensure_ascii=False, default=str)
+
+
+def get_company_board(sec_code, year=""):
+    """One company's board, officer pay table and named individuals."""
+    code = (sec_code or "").strip()
+    if not code:
+        return _fail("No securities code given.")
+    raw, err = _gov_guard(lambda: governance_api.company(code, year=year or ""))
+    if err:
+        return _fail(err)
+    raw["trust"] = "official"
+    raw["unit"] = "pay in yen, as filed"
+    raw["cite"] = _cite("/holdings.html", c=code)
+    return json.dumps(raw, ensure_ascii=False, default=str)
+
+
+def get_board_history(sec_code):
+    """One company's board and pay across every extracted fiscal year."""
+    code = (sec_code or "").strip()
+    if not code:
+        return _fail("No securities code given.")
+    raw, err = _gov_guard(lambda: governance_api.history(sec_code=code))
+    if err:
+        return _fail(err)
+    raw["cite"] = _cite("/holdings.html", c=code)
+    return json.dumps(raw, ensure_ascii=False, default=str)
+
+
+def get_governance_screen(metric="oldest_boards", year="", listed="true", limit=25):
+    """Ranked cross-section of boards and pay, one filing per company."""
+    raw, err = _gov_guard(lambda: governance_api.screen(
+        metric=metric or "oldest_boards", year=year or "", listed=listed or "",
+        limit=max(1, min(int(limit or 25), 200))))
+    if err:
+        return _fail(err)
+    raw["cite"] = _cite("/holdings.html")
+    return json.dumps(raw, ensure_ascii=False, default=str)
+
+
+def get_top_paid_officers(year="", limit=25):
+    """Highest-paid named individuals — consolidated basis."""
+    raw, err = _gov_guard(lambda: governance_api.named(
+        year=year or "", listed="", limit=max(1, min(int(limit or 25), 200)), min_yen=0))
+    if err:
+        return _fail(err)
+    raw["trust"] = "official"
+    raw["cite"] = _cite("/holdings.html")
+    return json.dumps(raw, ensure_ascii=False, default=str)
+
+
 EQUITY_TOOL_IMPLS = {
+    "get_governance_summary": get_governance_summary,
+    "get_company_board": get_company_board,
+    "get_board_history": get_board_history,
+    "get_governance_screen": get_governance_screen,
+    "get_top_paid_officers": get_top_paid_officers,
     "search_companies": search_companies,
     "get_company_holdings": get_company_holdings,
     "get_unwind_ranking": get_unwind_ranking,
@@ -404,6 +471,22 @@ EQUITY_TOOL_IMPLS = {
 # Same OpenAI function shape as TOOL_SCHEMAS; mcp.py reshapes both. Kept in a
 # separate list because the ask agent (a CPI product surface) must not see
 # these.
+# Shared warnings. An assistant that misses these will state something false
+# with total confidence, so they are repeated in every pay tool's description.
+_CONSOLIDATED_WARNING = (
+    "Named individual pay is 連結報酬等 — CONSOLIDATED, including pay from "
+    "group companies. It is a DIFFERENT BASIS from the officer-category pay "
+    "table on the same filing: people appear who do not sit on that board (a "
+    "subsidiary's chief executive named in the parent's report), and the named "
+    "total can exceed the whole category total. Never net, subtract or divide "
+    "one by the other, and never describe consolidated pay as salary from the "
+    "listed parent. ")
+_COMPONENTS_WARNING = (
+    "The category total is the filed, published number; the components beside "
+    "it often do not sum to it, because filers differ on whether 非金銭報酬等 "
+    "is additive or an 'of which' memo and print figures rounded to ¥mn. Quote "
+    "the total, and check components_reconcile before quoting a component. ")
+
 EQUITY_TOOL_SCHEMAS = [
     {
         "type": "function",
@@ -454,10 +537,53 @@ EQUITY_TOOL_SCHEMAS = [
                 "named holdings it discloses (share counts, yen book values, "
                 "prior-year figures, stated purpose in Japanese, reciprocity) "
                 "and the reverse view — every extracted filer that holds it. "
-                "Company names come back as filed in Japanese with an English "
-                "name alongside where EDINET's filer registry has one. "
+                "Company names come back as filed in both languages: the "
+                "Japanese name from the filing, and the English name the "
+                "company states on its own annual report cover page. "
                 "Figures are exactly as filed; the reverse view's coverage is "
-                "limited to filers extracted so far."),
+                "limited to filers extracted so far. "
+                "Also returns `reclassified` — holdings the filer moved from a "
+                "policy shareholding to 純投資目的 (pure investment), as filed, "
+                "with the fiscal year and the filer's stated reason. These "
+                "leave the named holdings table WITHOUT being sold, so never "
+                "describe a fall in named holdings as selling or unwinding "
+                "without checking this list and `flows`, which carries the "
+                "filing's own sale proceeds and acquisition costs. `notes` "
+                "holds the filing's own footnotes to the table, where share "
+                "splits and mergers are explained. `pct_outstanding` on each "
+                "position is calculated, not filed — shares held divided by the "
+                "issuer's issued shares less treasury, taken from the issuer's "
+                "own annual report nearest that position's fiscal year end. It "
+                "is null where the issuer files no annual report in this "
+                "archive, and where the share base cannot be pinned down — a "
+                "split or issue straddling the two dates — in which case "
+                "`pct_unavailable` gives the reason. Never fill a null by "
+                "computing the percentage yourself from other fields: the "
+                "reason it is missing is that the two share counts are not "
+                "measured on the same basis. "
+                "`scale` sizes the whole policy book against the filer's own "
+                "balance sheet: `policy_total_yen` (the filing's own total for "
+                "the entire policy bucket) with `pct_of_equity` and "
+                "`pct_of_assets`, and `scale_history` gives the same per "
+                "fiscal year. NEVER answer 'how much does this company hold in "
+                "cross-shareholdings' by summing the named holdings — those "
+                "cover only the largest issues and run about three quarters of "
+                "the true total, as little as half at some filers. Use "
+                "`policy_total_yen`. Read `equity_basis` before comparing two "
+                "companies: a `parent_only` denominator is the holding company "
+                "alone, not the group, and is not comparable with a "
+                "consolidated one. The percentages are calculated, not filed, "
+                "and are null where the filing gives no usable denominator — "
+                "report that as unknown, never as zero. "
+                "Each individual position also carries `pct_of_holder_equity` "
+                "and `pct_of_holder_assets` — that one holding as a share of "
+                "the holder's own equity or assets, the mirror of "
+                "`pct_outstanding`. Keep the two straight: `pct_outstanding` is "
+                "how much of the ISSUER the holder owns, `pct_of_holder_equity` "
+                "is how much of ITSELF the holder has committed to that name. "
+                "A value above 100 is possible and is sometimes genuine, so do "
+                "not treat it as an error on its own; check `implausible` and "
+                "the filing."),
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -481,6 +607,147 @@ EQUITY_TOOL_SCHEMAS = [
                 "picture. Yen values are levels as filed; never rank or mix "
                 "them with CPI index numbers."),
             "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_governance_summary",
+            "description": (
+                "Coverage and market aggregates for the Japanese boards-and-pay "
+                "dataset extracted from annual securities reports: companies, "
+                "board seats, median board size, average director age, share of "
+                "directors aged 70+, female officer ratio, boards with no women, "
+                "median employee salary and gender wage gap, median pay per "
+                "inside director, and the count of individuals disclosed at "
+                "¥100m or more. Call this FIRST and state its coverage with any "
+                "aggregate you quote — extraction_status shows how many filings "
+                "are clean, partial, or carry no tagged board. "
+                + _CONSOLIDATED_WARNING),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "year": {
+                        "type": "string",
+                        "description": ("Fiscal year, e.g. '2026'. Omit for each "
+                                        "company's latest filing."),
+                    },
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_company_board",
+            "description": (
+                "One company's board and pay from its annual securities report: "
+                "every director with title, role, age, date of birth and shares "
+                "held; the officer-category pay table with headcounts and "
+                "components; and the individuals whose consolidated pay is "
+                "disclosed. English director names are the FILER's own "
+                "romanisation from its XBRL, not a translation. "
+                + _CONSOLIDATED_WARNING + _COMPONENTS_WARNING +
+                "The tagged table is the board (取締役会); in a committee-system "
+                "company the filer's own 役員 count also includes executive "
+                "officers who are not individually disclosed — officers_untagged "
+                "is that gap. Pay-table headcounts count officers PAID during "
+                "the year including mid-year leavers, so they differ from board "
+                "size legitimately. If pay_consistency_flag is set, the filing's "
+                "own pay figures contradict the ¥100m disclosure rule — say so "
+                "rather than quoting the number bare. Use search_companies to "
+                "find the securities code."),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "sec_code": {"type": "string",
+                                 "description": "4-digit securities code, e.g. '7203'."},
+                    "year": {"type": "string",
+                             "description": "Fiscal year; omit for the latest filing."},
+                },
+                "required": ["sec_code"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_board_history",
+            "description": (
+                "One company's board and pay across every extracted fiscal year: "
+                "board size, average director age, directors aged 70+, female "
+                "officers, employees, average salary, pay per officer and the "
+                "count and sum of named individuals. Use this for any trend "
+                "about one company — comparing a company to itself is the only "
+                "sound way to read a change, since coverage differs by year. A "
+                "missing year means the filing was not extractable, not that the "
+                "company stopped filing."),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "sec_code": {"type": "string",
+                                 "description": "4-digit securities code, e.g. '7203'."},
+                },
+                "required": ["sec_code"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_governance_screen",
+            "description": (
+                "Ranked cross-section of Japanese boards and pay, one filing per "
+                "company. metric is one of: oldest_boards, youngest_boards, "
+                "no_women, most_female, largest_boards, oldest_directors, "
+                "highest_paid_boards, highest_pay_per_officer, "
+                "highest_employee_pay, widest_gender_pay_gap. Defaults to listed "
+                "companies only. Rows carry pay_consistency_flag where the "
+                "filer's own pay figures contradict the ¥100m individual-"
+                "disclosure rule — those are filer scale errors, published as "
+                "filed; never present a flagged row as the highest-paying "
+                "company without saying so."),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "metric": {"type": "string",
+                               "description": "Screen name; see the description."},
+                    "year": {"type": "string",
+                             "description": "Fiscal year; omit for latest filings."},
+                    "listed": {"type": "string",
+                               "description": ("'true' (default) for listed filers "
+                                               "only, 'false' for unlisted, empty "
+                                               "for both.")},
+                    "limit": {"type": "integer",
+                              "description": "Rows to return, 1-200. Default 25."},
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_top_paid_officers",
+            "description": (
+                "The highest-paid individuals named in Japanese annual securities "
+                "reports, with their company and whether they sit on its board. "
+                + _CONSOLIDATED_WARNING +
+                "¥100m is the mandatory disclosure trigger, not a floor — some "
+                "filers name officers voluntarily below it "
+                "(voluntary_below_100m). Yen amounts are levels as filed; never "
+                "rank or combine them with CPI index numbers."),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "year": {"type": "string",
+                             "description": "Fiscal year; omit for latest filings."},
+                    "limit": {"type": "integer",
+                              "description": "Rows to return, 1-200. Default 25."},
+                },
+                "required": [],
+            },
         },
     },
 ]
