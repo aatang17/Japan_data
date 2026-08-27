@@ -1088,11 +1088,20 @@ table.data.tbl-bands td.trend-decel { color: var(--obs-trust-official); }
 /* ---------- second-tier navigation ---------- */
 
 /* Sections live in the navy bar; a section with more than one page gets this
-   strip under it. Deliberately not sticky — one fixed bar is enough chrome,
-   and a second would eat a fifth of a phone screen. */
+   strip under it. Sticky on desktop — the navy bar alone says "Equities" but
+   not where else the section goes, and the strip vanishing on scroll made the
+   other pages undiscoverable. Phones keep it non-sticky: two fixed bars would
+   eat a fifth of the screen. */
 .site-subnav {
   background: var(--obs-surface);
   border-bottom: 1px solid var(--obs-border);
+}
+@media (min-width: 769px) {
+  .site-subnav {
+    position: sticky;
+    top: 52px; /* .site-header .inner height; its border paints over the seam */
+    z-index: 40;
+  }
 }
 .site-subnav .inner {
   max-width: 1240px;
