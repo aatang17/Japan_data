@@ -1,0 +1,1899 @@
+# English (Hepburn) municipality names for gazetteer_municipalities.csv,
+# from Japan Post's romanized zipcode data (KEN_ALL_ROME, downloaded
+# 2026-08-28, https://www.post.japanpost.jp/zipcode/download.html);
+# Hamamatsu's pre-2024 wards romanized manually. Joined on muni code.
+code,city_en,pref_en
+01101,Sapporo-shi Chuo-ku,Hokkaido
+01102,Sapporo-shi Kita-ku,Hokkaido
+01103,Sapporo-shi Higashi-ku,Hokkaido
+01104,Sapporo-shi Shiroishi-ku,Hokkaido
+01105,Sapporo-shi Toyohira-ku,Hokkaido
+01106,Sapporo-shi Minami-ku,Hokkaido
+01107,Sapporo-shi Nishi-ku,Hokkaido
+01108,Sapporo-shi Atsubetsu-ku,Hokkaido
+01109,Sapporo-shi Teine-ku,Hokkaido
+01110,Sapporo-shi Kiyota-ku,Hokkaido
+01202,Hakodate-shi,Hokkaido
+01203,Otaru-shi,Hokkaido
+01204,Asahikawa-shi,Hokkaido
+01205,Muroran-shi,Hokkaido
+01206,Kushiro-shi,Hokkaido
+01207,Obihiro-shi,Hokkaido
+01208,Kitami-shi,Hokkaido
+01209,Yubari-shi,Hokkaido
+01210,Iwamizawa-shi,Hokkaido
+01211,Abashiri-shi,Hokkaido
+01212,Rumoi-shi,Hokkaido
+01213,Tomakomai-shi,Hokkaido
+01214,Wakkanai-shi,Hokkaido
+01215,Bibai-shi,Hokkaido
+01216,Ashibetsu-shi,Hokkaido
+01217,Ebetsu-shi,Hokkaido
+01218,Akabira-shi,Hokkaido
+01219,Mombetsu-shi,Hokkaido
+01220,Shibetsu-shi,Hokkaido
+01221,Nayoro-shi,Hokkaido
+01222,Mikasa-shi,Hokkaido
+01223,Nemuro-shi,Hokkaido
+01224,Chitose-shi,Hokkaido
+01225,Takikawa-shi,Hokkaido
+01226,Sunagawa-shi,Hokkaido
+01227,Utashinai-shi,Hokkaido
+01228,Fukagawa-shi,Hokkaido
+01229,Furano-shi,Hokkaido
+01230,Noboribetsu-shi,Hokkaido
+01231,Eniwa-shi,Hokkaido
+01233,Date-shi,Hokkaido
+01234,Kitahiroshima-shi,Hokkaido
+01235,Ishikari-shi,Hokkaido
+01236,Hokuto-shi,Hokkaido
+01303,Ishikari-gun Tobetsu-cho,Hokkaido
+01304,Ishikari-gun Shinshinotsu-mura,Hokkaido
+01331,Matsumae-gun Matsumae-cho,Hokkaido
+01332,Matsumae-gun Fukushima-cho,Hokkaido
+01333,Kamiiso-gun Shiriuchi-cho,Hokkaido
+01334,Kamiiso-gun Kikonai-cho,Hokkaido
+01337,Kameda-gun Nanae-cho,Hokkaido
+01343,Kayabe-gun Shikabe-cho,Hokkaido
+01345,Kayabe-gun Mori-machi,Hokkaido
+01346,Futami-gun Yakumo-cho,Hokkaido
+01347,Yamakoshi-gun Oshamambe-cho,Hokkaido
+01361,Hiyama-gun Esashi-cho,Hokkaido
+01362,Hiyama-gun Kaminokuni-cho,Hokkaido
+01363,Hiyama-gun Assabu-cho,Hokkaido
+01364,Nishi-gun Otobe-cho,Hokkaido
+01367,Okushiri-gun Okushiri-cho,Hokkaido
+01370,Setana-gun Imakane-cho,Hokkaido
+01371,Kudo-gun Setana-cho,Hokkaido
+01391,Shimamaki-gun Shimamaki-mura,Hokkaido
+01392,Suttsu-gun Suttsu-cho,Hokkaido
+01393,Suttsu-gun Kuromatsunai-cho,Hokkaido
+01394,Isoya-gun Rankoshi-cho,Hokkaido
+01395,Abuta-gun Niseko-cho,Hokkaido
+01396,Abuta-gun Makkari-mura,Hokkaido
+01397,Abuta-gun Rusutsu-mura,Hokkaido
+01398,Abuta-gun Kimobetsu-cho,Hokkaido
+01399,Abuta-gun Kyogoku-cho,Hokkaido
+01400,Abuta-gun Kutchan-cho,Hokkaido
+01401,Iwanai-gun Kyowa-cho,Hokkaido
+01402,Iwanai-gun Iwanai-cho,Hokkaido
+01403,Furu-gun Tomari-mura,Hokkaido
+01404,Furu-gun Kamoenai-mura,Hokkaido
+01405,Shakotan-gun Shakotan-cho,Hokkaido
+01406,Furubira-gun Furubira-cho,Hokkaido
+01407,Yoichi-gun Niki-cho,Hokkaido
+01408,Yoichi-gun Yoichi-cho,Hokkaido
+01409,Yoichi-gun Akaigawa-mura,Hokkaido
+01423,Sorachi-gun Namporo-cho,Hokkaido
+01424,Sorachi-gun Naie-cho,Hokkaido
+01425,Sorachi-gun Kamisunagawa-cho,Hokkaido
+01427,Yubari-gun Yuni-cho,Hokkaido
+01428,Yubari-gun Naganuma-cho,Hokkaido
+01429,Yubari-gun Kuriyama-cho,Hokkaido
+01430,Kabato-gun Tsukigata-cho,Hokkaido
+01431,Kabato-gun Urausu-cho,Hokkaido
+01432,Kabato-gun Shintotsukawa-cho,Hokkaido
+01433,Uryu-gun Moseushi-cho,Hokkaido
+01434,Uryu-gun Chippubetsu-cho,Hokkaido
+01436,Uryu-gun Uryu-cho,Hokkaido
+01437,Uryu-gun Hokuryu-cho,Hokkaido
+01438,Uryu-gun Numata-cho,Hokkaido
+01452,Kamikawa-gun Takasu-cho,Hokkaido
+01453,Kamikawa-gun Higashikagura-cho,Hokkaido
+01454,Kamikawa-gun Toma-cho,Hokkaido
+01455,Kamikawa-gun Pippu-cho,Hokkaido
+01456,Kamikawa-gun Aibetsu-cho,Hokkaido
+01457,Kamikawa-gun Kamikawa-cho,Hokkaido
+01458,Kamikawa-gun Higashikawa-cho,Hokkaido
+01459,Kamikawa-gun Biei-cho,Hokkaido
+01460,Sorachi-gun Kamifurano-cho,Hokkaido
+01461,Sorachi-gun Nakafurano-cho,Hokkaido
+01462,Sorachi-gun Minamifurano-cho,Hokkaido
+01463,Yufutsu-gun Shimukappu-mura,Hokkaido
+01464,Kamikawa-gun Wassamu-cho,Hokkaido
+01465,Kamikawa-gun Kembuchi-cho,Hokkaido
+01468,Kamikawa-gun Shimokawa-cho,Hokkaido
+01469,Nakagawa-gun Bifuka-cho,Hokkaido
+01470,Nakagawa-gun Otoineppu-mura,Hokkaido
+01471,Nakagawa-gun Nakagawa-cho,Hokkaido
+01472,Uryu-gun Horokanai-cho,Hokkaido
+01481,Mashike-gun Mashike-cho,Hokkaido
+01482,Rumoi-gun Obira-cho,Hokkaido
+01483,Tomamae-gun Tomamae-cho,Hokkaido
+01484,Tomamae-gun Haboro-cho,Hokkaido
+01485,Tomamae-gun Shosambetsu-mura,Hokkaido
+01486,Teshio-gun Embetsu-cho,Hokkaido
+01487,Teshio-gun Teshio-cho,Hokkaido
+01511,Soya-gun Sarufutsu-mura,Hokkaido
+01512,Esashi-gun Hamatombetsu-cho,Hokkaido
+01513,Esashi-gun Nakatombetsu-cho,Hokkaido
+01514,Esashi-gun Esashi-cho,Hokkaido
+01516,Teshio-gun Toyotomi-cho,Hokkaido
+01517,Rebun-gun Rebun-cho,Hokkaido
+01518,Rishiri-gun Rishiri-cho,Hokkaido
+01519,Rishiri-gun Rishirifuji-cho,Hokkaido
+01520,Teshio-gun Horonobe-cho,Hokkaido
+01543,Abashiri-gun Bihoro-cho,Hokkaido
+01544,Abashiri-gun Tsubetsu-cho,Hokkaido
+01545,Shari-gun Shari-cho,Hokkaido
+01546,Shari-gun Kiyosato-cho,Hokkaido
+01547,Shari-gun Koshimizu-cho,Hokkaido
+01549,Tokoro-gun Kunneppu-cho,Hokkaido
+01550,Tokoro-gun Oketo-cho,Hokkaido
+01552,Tokoro-gun Saroma-cho,Hokkaido
+01555,Mombetsu-gun Engaru-cho,Hokkaido
+01559,Mombetsu-gun Yubetsu-cho,Hokkaido
+01560,Mombetsu-gun Takinoe-cho,Hokkaido
+01561,Mombetsu-gun Okoppe-cho,Hokkaido
+01562,Mombetsu-gun Nishiokoppe-mura,Hokkaido
+01563,Mombetsu-gun Omu-cho,Hokkaido
+01564,Abashiri-gun Ozora-cho,Hokkaido
+01571,Abuta-gun Toyora-cho,Hokkaido
+01575,Usu-gun Sobetsu-cho,Hokkaido
+01578,Shiraoi-gun Shiraoi-cho,Hokkaido
+01581,Yufutsu-gun Atsuma-cho,Hokkaido
+01584,Abuta-gun Toyako-cho,Hokkaido
+01585,Yufutsu-gun Abira-cho,Hokkaido
+01586,Yufutsu-gun Mukawa-cho,Hokkaido
+01601,Saru-gun Hidaka-cho,Hokkaido
+01602,Saru-gun Biratori-cho,Hokkaido
+01604,Niikappu-gun Niikappu-cho,Hokkaido
+01607,Urakawa-gun Urakawa-cho,Hokkaido
+01608,Samani-gun Samani-cho,Hokkaido
+01609,Horoizumi-gun Erimo-cho,Hokkaido
+01610,Hidaka-gun Shinhidaka-cho,Hokkaido
+01631,Kato-gun Otofuke-cho,Hokkaido
+01632,Kato-gun Shihoro-cho,Hokkaido
+01633,Kato-gun Kamishihoro-cho,Hokkaido
+01634,Kato-gun Shikaoi-cho,Hokkaido
+01635,Kamikawa-gun Shintoku-cho,Hokkaido
+01636,Kamikawa-gun Shimizu-cho,Hokkaido
+01637,Kasai-gun Memuro-cho,Hokkaido
+01638,Kasai-gun Nakasatsunai-mura,Hokkaido
+01639,Kasai-gun Sarabetsu-mura,Hokkaido
+01641,Hiro-gun Taiki-cho,Hokkaido
+01642,Hiro-gun Hiro-cho,Hokkaido
+01643,Nakagawa-gun Makubetsu-cho,Hokkaido
+01644,Nakagawa-gun Ikeda-cho,Hokkaido
+01645,Nakagawa-gun Toyokoro-cho,Hokkaido
+01646,Nakagawa-gun Hombetsu-cho,Hokkaido
+01647,Ashoro-gun Ashoro-cho,Hokkaido
+01648,Ashoro-gun Rikubetsu-cho,Hokkaido
+01649,Tokachi-gun Urahoro-cho,Hokkaido
+01661,Kushiro-gun Kushiro-cho,Hokkaido
+01662,Akkeshi-gun Akkeshi-cho,Hokkaido
+01663,Akkeshi-gun Hamanaka-cho,Hokkaido
+01664,Kawakami-gun Shibecha-cho,Hokkaido
+01665,Kawakami-gun Teshikaga-cho,Hokkaido
+01667,Akan-gun Tsurui-mura,Hokkaido
+01668,Shiranuka-gun Shiranuka-cho,Hokkaido
+01691,Notsuke-gun Betsukai-cho,Hokkaido
+01692,Shibetsu-gun Nakashibetsu-cho,Hokkaido
+01693,Shibetsu-gun Shibetsu-cho,Hokkaido
+01694,Menashi-gun Rausu-cho,Hokkaido
+02201,Aomori-shi,Aomori
+02202,Hirosaki-shi,Aomori
+02203,Hachinohe-shi,Aomori
+02204,Kuroishi-shi,Aomori
+02205,Goshogawara-shi,Aomori
+02206,Towada-shi,Aomori
+02207,Misawa-shi,Aomori
+02208,Mutsu-shi,Aomori
+02209,Tsugaru-shi,Aomori
+02210,Hirakawa-shi,Aomori
+02301,Higashitsugaru-gun Hiranai-machi,Aomori
+02303,Higashitsugaru-gun Imabetsu-machi,Aomori
+02304,Higashitsugaru-gun Yomogita-mura,Aomori
+02307,Higashitsugaru-gun Sotogahama-machi,Aomori
+02321,Nishitsugaru-gun Ajigasawa-machi,Aomori
+02323,Nishitsugaru-gun Fukaura-machi,Aomori
+02343,Nakatsugaru-gun Nishimeya-mura,Aomori
+02361,Minamitsugaru-gun Fujisaki-machi,Aomori
+02362,Minamitsugaru-gun Owani-machi,Aomori
+02367,Minamitsugaru-gun Inakadate-mura,Aomori
+02381,Kitatsugaru-gun Itayanagi-machi,Aomori
+02384,Kitatsugaru-gun Tsuruta-machi,Aomori
+02387,Kitatsugaru-gun Nakadomari-machi,Aomori
+02401,Kamikita-gun Noheji-machi,Aomori
+02402,Kamikita-gun Shichinohe-machi,Aomori
+02405,Kamikita-gun Rokunohe-machi,Aomori
+02406,Kamikita-gun Yokohama-machi,Aomori
+02408,Kamikita-gun Tohoku-machi,Aomori
+02411,Kamikita-gun Rokkasho-mura,Aomori
+02412,Kamikita-gun Oirase-cho,Aomori
+02423,Shimokita-gun Oma-machi,Aomori
+02424,Shimokita-gun Higashidori-mura,Aomori
+02425,Shimokita-gun Kazamaura-mura,Aomori
+02426,Shimokita-gun Sai-mura,Aomori
+02441,Sannohe-gun Sannohe-machi,Aomori
+02442,Sannohe-gun Gonohe-machi,Aomori
+02443,Sannohe-gun Takko-machi,Aomori
+02445,Sannohe-gun Nambu-cho,Aomori
+02446,Sannohe-gun Hashikami-cho,Aomori
+02450,Sannohe-gun Shingo-mura,Aomori
+03201,Morioka-shi,Iwate
+03202,Miyako-shi,Iwate
+03203,Ofunato-shi,Iwate
+03205,Hanamaki-shi,Iwate
+03206,Kitakami-shi,Iwate
+03207,Kuji-shi,Iwate
+03208,Tono-shi,Iwate
+03209,Ichinoseki-shi,Iwate
+03210,Rikuzentakata-shi,Iwate
+03211,Kamaishi-shi,Iwate
+03213,Ninohe-shi,Iwate
+03214,Hachimantai-shi,Iwate
+03215,Oshu-shi,Iwate
+03216,Takizawa-shi,Iwate
+03301,Iwate-gun Shizukuishi-cho,Iwate
+03302,Iwate-gun Kuzumaki-machi,Iwate
+03303,Iwate-gun Iwate-machi,Iwate
+03321,Shiwa-gun Shiwa-cho,Iwate
+03322,Shiwa-gun Yahaba-cho,Iwate
+03366,Waga-gun Nishiwaga-machi,Iwate
+03381,Isawa-gun Kanegasaki-cho,Iwate
+03402,Nishiiwai-gun Hiraizumi-cho,Iwate
+03441,Kesen-gun Sumita-cho,Iwate
+03461,Kamihei-gun Otsuchi-cho,Iwate
+03482,Shimohei-gun Yamada-machi,Iwate
+03483,Shimohei-gun Iwaizumi-cho,Iwate
+03484,Shimohei-gun Tanohata-mura,Iwate
+03485,Shimohei-gun Fudai-mura,Iwate
+03501,Kunohe-gun Karumai-machi,Iwate
+03503,Kunohe-gun Noda-mura,Iwate
+03506,Kunohe-gun Kunohe-mura,Iwate
+03507,Kunohe-gun Hirono-cho,Iwate
+03524,Ninohe-gun Ichinohe-machi,Iwate
+04101,Sendai-shi Aoba-ku,Miyagi
+04102,Sendai-shi Miyagino-ku,Miyagi
+04103,Sendai-shi Wakabayashi-ku,Miyagi
+04104,Sendai-shi Taihaku-ku,Miyagi
+04105,Sendai-shi Izumi-ku,Miyagi
+04202,Ishinomaki-shi,Miyagi
+04203,Shiogama-shi,Miyagi
+04205,Kesennuma-shi,Miyagi
+04206,Shiroishi-shi,Miyagi
+04207,Natori-shi,Miyagi
+04208,Kakuda-shi,Miyagi
+04209,Tagajo-shi,Miyagi
+04211,Iwanuma-shi,Miyagi
+04212,Tome-shi,Miyagi
+04213,Kurihara-shi,Miyagi
+04214,Higashimatsushima-shi,Miyagi
+04215,Osaki-shi,Miyagi
+04216,Tomiya-shi,Miyagi
+04301,Katta-gun Zao-machi,Miyagi
+04302,Katta-gun Shichikashuku-machi,Miyagi
+04321,Shibata-gun Ogawara-machi,Miyagi
+04322,Shibata-gun Murata-machi,Miyagi
+04323,Shibata-gun Shibata-machi,Miyagi
+04324,Shibata-gun Kawasaki-machi,Miyagi
+04341,Igu-gun Marumori-machi,Miyagi
+04361,Watari-gun Watari-cho,Miyagi
+04362,Watari-gun Yamamoto-cho,Miyagi
+04401,Miyagi-gun Matsushima-machi,Miyagi
+04404,Miyagi-gun Shichigahama-machi,Miyagi
+04406,Miyagi-gun Rifu-cho,Miyagi
+04421,Kurokawa-gun Taiwa-cho,Miyagi
+04422,Kurokawa-gun Osato-cho,Miyagi
+04424,Kurokawa-gun Ohira-mura,Miyagi
+04444,Kami-gun Shikama-cho,Miyagi
+04445,Kami-gun Kami-machi,Miyagi
+04501,Toda-gun Wakuya-cho,Miyagi
+04505,Toda-gun Misato-machi,Miyagi
+04581,Oshika-gun Onagawa-cho,Miyagi
+04606,Motoyoshi-gun Minamisanriku-cho,Miyagi
+05201,Akita-shi,Akita
+05202,Noshiro-shi,Akita
+05203,Yokote-shi,Akita
+05204,Odate-shi,Akita
+05206,Oga-shi,Akita
+05207,Yuzawa-shi,Akita
+05209,Kazuno-shi,Akita
+05210,Yurihonjo-shi,Akita
+05211,Katagami-shi,Akita
+05212,Daisen-shi,Akita
+05213,Kitaakita-shi,Akita
+05214,Nikaho-shi,Akita
+05215,Semboku-shi,Akita
+05303,Kazuno-gun Kosaka-machi,Akita
+05327,Kitaakita-gun Kamikoani-mura,Akita
+05346,Yamamoto-gun Fujisato-machi,Akita
+05348,Yamamoto-gun Mitane-cho,Akita
+05349,Yamamoto-gun Happo-cho,Akita
+05361,Minamiakita-gun Gojome-machi,Akita
+05363,Minamiakita-gun Hachirogata-machi,Akita
+05366,Minamiakita-gun Ikawa-machi,Akita
+05368,Minamiakita-gun Ogata-mura,Akita
+05434,Semboku-gun Misato-cho,Akita
+05463,Ogachi-gun Ugo-machi,Akita
+05464,Ogachi-gun Higashinaruse-mura,Akita
+06201,Yamagata-shi,Yamagata
+06202,Yonezawa-shi,Yamagata
+06203,Tsuruoka-shi,Yamagata
+06204,Sakata-shi,Yamagata
+06205,Shinjo-shi,Yamagata
+06206,Sagae-shi,Yamagata
+06207,Kaminoyama-shi,Yamagata
+06208,Murayama-shi,Yamagata
+06209,Nagai-shi,Yamagata
+06210,Tendo-shi,Yamagata
+06211,Higashine-shi,Yamagata
+06212,Obanazawa-shi,Yamagata
+06213,Nanyo-shi,Yamagata
+06301,Higashimurayama-gun Yamanobe-machi,Yamagata
+06302,Higashimurayama-gun Nakayama-machi,Yamagata
+06321,Nishimurayama-gun Kahoku-cho,Yamagata
+06322,Nishimurayama-gun Nishikawa-machi,Yamagata
+06323,Nishimurayama-gun Asahi-machi,Yamagata
+06324,Nishimurayama-gun Oe-machi,Yamagata
+06341,Kitamurayama-gun Oishida-machi,Yamagata
+06361,Mogami-gun Kaneyama-machi,Yamagata
+06362,Mogami-gun Mogami-machi,Yamagata
+06363,Mogami-gun Funagata-machi,Yamagata
+06364,Mogami-gun Mamurogawa-machi,Yamagata
+06365,Mogami-gun Okura-mura,Yamagata
+06366,Mogami-gun Sakegawa-mura,Yamagata
+06367,Mogami-gun Tozawa-mura,Yamagata
+06381,Higashiokitama-gun Takahata-machi,Yamagata
+06382,Higashiokitama-gun Kawanishi-machi,Yamagata
+06401,Nishiokitama-gun Oguni-machi,Yamagata
+06402,Nishiokitama-gun Shirataka-machi,Yamagata
+06403,Nishiokitama-gun Iide-machi,Yamagata
+06426,Higashitagawa-gun Mikawa-machi,Yamagata
+06428,Higashitagawa-gun Shonai-machi,Yamagata
+06461,Akumi-gun Yuza-machi,Yamagata
+07201,Fukushima-shi,Fukushima
+07202,Aizuwakamatsu-shi,Fukushima
+07203,Koriyama-shi,Fukushima
+07204,Iwaki-shi,Fukushima
+07205,Shirakawa-shi,Fukushima
+07207,Sukagawa-shi,Fukushima
+07208,Kitakata-shi,Fukushima
+07209,Soma-shi,Fukushima
+07210,Nihommatsu-shi,Fukushima
+07211,Tamura-shi,Fukushima
+07212,Minamisoma-shi,Fukushima
+07213,Date-shi,Fukushima
+07214,Motomiya-shi,Fukushima
+07301,Date-gun Kori-machi,Fukushima
+07303,Date-gun Kunimi-machi,Fukushima
+07308,Date-gun Kawamata-machi,Fukushima
+07322,Adachi-gun Otama-mura,Fukushima
+07342,Iwase-gun Kagamiishi-machi,Fukushima
+07344,Iwase-gun Tenei-mura,Fukushima
+07362,Minamiaizu-gun Shimogo-machi,Fukushima
+07364,Minamiaizu-gun Hinoemata-mura,Fukushima
+07367,Minamiaizu-gun Tadami-machi,Fukushima
+07368,Minamiaizu-gun Minamiaizu-machi,Fukushima
+07402,Yama-gun Kitashiobara-mura,Fukushima
+07405,Yama-gun Nishiaizu-machi,Fukushima
+07407,Yama-gun Bandai-machi,Fukushima
+07408,Yama-gun Inawashiro-machi,Fukushima
+07421,Kawanuma-gun Aizubange-machi,Fukushima
+07422,Kawanuma-gun Yugawa-mura,Fukushima
+07423,Kawanuma-gun Yanaizu-machi,Fukushima
+07444,Onuma-gun Mishima-machi,Fukushima
+07445,Onuma-gun Kaneyama-machi,Fukushima
+07446,Onuma-gun Showa-mura,Fukushima
+07447,Onuma-gun Aizumisato-machi,Fukushima
+07461,Nishishirakawa-gun Nishigo-mura,Fukushima
+07464,Nishishirakawa-gun Izumizaki-mura,Fukushima
+07465,Nishishirakawa-gun Nakajima-mura,Fukushima
+07466,Nishishirakawa-gun Yabuki-machi,Fukushima
+07481,Higashishirakawa-gun Tanagura-machi,Fukushima
+07482,Higashishirakawa-gun Yamatsuri Mach,Fukushima
+07483,Higashishirakawa-gun Hanawa-machi,Fukushima
+07484,Higashishirakawa-gun Samegawa-mura,Fukushima
+07501,Ishikawa-gun Ishikawa-machi,Fukushima
+07502,Ishikawa-gun Tamakawa-mura,Fukushima
+07503,Ishikawa-gun Hirata-mura,Fukushima
+07504,Ishikawa-gun Asakawa-machi,Fukushima
+07505,Ishikawa-gun Furudono-machi,Fukushima
+07521,Tamura-gun Miharu-machi,Fukushima
+07522,Tamura-gun Ono-machi,Fukushima
+07541,Futaba-gun Hirono-machi,Fukushima
+07542,Futaba-gun Naraha-machi,Fukushima
+07543,Futaba-gun Tomioka-machi,Fukushima
+07544,Futaba-gun Kawauchi-mura,Fukushima
+07545,Futaba-gun Okuma-machi,Fukushima
+07546,Futaba-gun Futaba-machi,Fukushima
+07547,Futaba-gun Namie-machi,Fukushima
+07548,Futaba-gun Katsurao-mura,Fukushima
+07561,Soma-gun Shinchi-machi,Fukushima
+07564,Soma-gun Iitate-mura,Fukushima
+08201,Mito-shi,Ibaraki
+08202,Hitachi-shi,Ibaraki
+08203,Tsuchiura-shi,Ibaraki
+08204,Koga-shi,Ibaraki
+08205,Ishioka-shi,Ibaraki
+08207,Yuki-shi,Ibaraki
+08208,Ryugasaki-shi,Ibaraki
+08210,Shimotsuma-shi,Ibaraki
+08211,Joso-shi,Ibaraki
+08212,Hitachiota-shi,Ibaraki
+08214,Takahagi-shi,Ibaraki
+08215,Kitaibaraki-shi,Ibaraki
+08216,Kasama-shi,Ibaraki
+08217,Toride-shi,Ibaraki
+08219,Ushiku-shi,Ibaraki
+08220,Tsukuba-shi,Ibaraki
+08221,Hitachinaka-shi,Ibaraki
+08222,Kashima-shi,Ibaraki
+08223,Itako-shi,Ibaraki
+08224,Moriya-shi,Ibaraki
+08225,Hitachiomiya-shi,Ibaraki
+08226,Naka-shi,Ibaraki
+08227,Chikusei-shi,Ibaraki
+08228,Bando-shi,Ibaraki
+08229,Inashiki-shi,Ibaraki
+08230,Kasumigaura-shi,Ibaraki
+08231,Sakuragawa-shi,Ibaraki
+08232,Kamisu-shi,Ibaraki
+08233,Namegata-shi,Ibaraki
+08234,Hokota-shi,Ibaraki
+08235,Tsukubamirai-shi,Ibaraki
+08236,Omitama-shi,Ibaraki
+08302,Higashiibaraki-gun Ibaraki-machi,Ibaraki
+08309,Higashiibaraki-gun Oarai-machi,Ibaraki
+08310,Higashiibaraki-gun Shirosato-machi,Ibaraki
+08341,Naka-gun Tokai-mura,Ibaraki
+08364,Kuji-gun Daigo-machi,Ibaraki
+08442,Inashiki-gun Miho-mura,Ibaraki
+08443,Inashiki-gun Ami-machi,Ibaraki
+08447,Inashiki-gun Kawachi-machi,Ibaraki
+08521,Yuki-gun Yachiyo-machi,Ibaraki
+08542,Sashima-gun Goka-machi,Ibaraki
+08546,Sashima-gun Sakai-machi,Ibaraki
+08564,Kitasoma-gun Tone-machi,Ibaraki
+09201,Utsunomiya-shi,Tochigi
+09202,Ashikaga-shi,Tochigi
+09203,Tochigi-shi,Tochigi
+09204,Sano-shi,Tochigi
+09205,Kanuma-shi,Tochigi
+09206,Nikko-shi,Tochigi
+09208,Oyama-shi,Tochigi
+09209,Moka-shi,Tochigi
+09210,Otawara-shi,Tochigi
+09211,Yaita-shi,Tochigi
+09213,Nasushiobara-shi,Tochigi
+09214,Sakura-shi,Tochigi
+09215,Nasukarasuyama-shi,Tochigi
+09216,Shimotsuke-shi,Tochigi
+09301,Kawachi-gun Kaminokawa-machi,Tochigi
+09342,Haga-gun Mashiko-machi,Tochigi
+09343,Haga-gun Motegi-machi,Tochigi
+09344,Haga-gun Ichikai-machi,Tochigi
+09345,Haga-gun Haga-machi,Tochigi
+09361,Shimotsuga-gun Mibu-machi,Tochigi
+09364,Shimotsuga-gun Nogi-machi,Tochigi
+09384,Shioya-gun Shioya-machi,Tochigi
+09386,Shioya-gun Takanezawa-machi,Tochigi
+09407,Nasu-gun Nasu-machi,Tochigi
+09411,Nasu-gun Nakagawa-machi,Tochigi
+10201,Maebashi-shi,Gumma
+10202,Takasaki-shi,Gumma
+10203,Kiryu-shi,Gumma
+10204,Isesaki-shi,Gumma
+10205,Ota-shi,Gumma
+10206,Numata-shi,Gumma
+10207,Tatebayashi-shi,Gumma
+10208,Shibukawa-shi,Gumma
+10209,Fujioka-shi,Gumma
+10210,Tomioka-shi,Gumma
+10211,Annaka-shi,Gumma
+10212,Midori-shi,Gumma
+10344,Kitagumma-gun Shinto-mura,Gumma
+10345,Kitagumma-gun Yoshioka-machi,Gumma
+10366,Tano-gun Ueno-mura,Gumma
+10367,Tano-gun Kanna-machi,Gumma
+10382,Kanra-gun Shimonita-machi,Gumma
+10383,Kanra-gun Nammoku-mura,Gumma
+10384,Kanra-gun Kanra-machi,Gumma
+10421,Agatsuma-gun Nakanojo-machi,Gumma
+10424,Agatsuma-gun Naganohara-machi,Gumma
+10425,Agatsuma-gun Tsumagoi-mura,Gumma
+10426,Agatsuma-gun Kusatsu-machi,Gumma
+10428,Agatsuma-gun Takayama-mura,Gumma
+10429,Agatsuma-gun Higashiagatsuma-machi,Gumma
+10443,Tone-gun Katashina-mura,Gumma
+10444,Tone-gun Kawaba-mura,Gumma
+10448,Tone-gun Showa-mura,Gumma
+10449,Tone-gun Minakami-machi,Gumma
+10464,Sawa-gun Tamamura-machi,Gumma
+10521,Ora-gun Itakura-machi,Gumma
+10522,Ora-gun Meiwa-machi,Gumma
+10523,Ora-gun Chiyoda-machi,Gumma
+10524,Ora-gun Oizumi-machi,Gumma
+10525,Ora-gun Ora-machi,Gumma
+11101,Saitama-shi Nishi-ku,Saitama
+11102,Saitama-shi Kita-ku,Saitama
+11103,Saitama-shi Omiya-ku,Saitama
+11104,Saitama-shi Minuma-ku,Saitama
+11105,Saitama-shi Chuo-ku,Saitama
+11106,Saitama-shi Sakura-ku,Saitama
+11107,Saitama-shi Urawa-ku,Saitama
+11108,Saitama-shi Minami-ku,Saitama
+11109,Saitama-shi Midori-ku,Saitama
+11110,Saitama-shi Iwatsuki-ku,Saitama
+11201,Kawagoe-shi,Saitama
+11202,Kumagaya-shi,Saitama
+11203,Kawaguchi-shi,Saitama
+11206,Gyoda-shi,Saitama
+11207,Chichibu-shi,Saitama
+11208,Tokorozawa-shi,Saitama
+11209,Hanno-shi,Saitama
+11210,Kazo-shi,Saitama
+11211,Honjo-shi,Saitama
+11212,Higashimatsuyama-shi,Saitama
+11214,Kasukabe-shi,Saitama
+11215,Sayama-shi,Saitama
+11216,Hanyu-shi,Saitama
+11217,Konosu-shi,Saitama
+11218,Fukaya-shi,Saitama
+11219,Ageo-shi,Saitama
+11221,Soka-shi,Saitama
+11222,Koshigaya-shi,Saitama
+11223,Warabi-shi,Saitama
+11224,Toda-shi,Saitama
+11225,Iruma-shi,Saitama
+11227,Asaka-shi,Saitama
+11228,Shiki-shi,Saitama
+11229,Wako-shi,Saitama
+11230,Niiza-shi,Saitama
+11231,Okegawa-shi,Saitama
+11232,Kuki-shi,Saitama
+11233,Kitamoto-shi,Saitama
+11234,Yashio-shi,Saitama
+11235,Fujimi-shi,Saitama
+11237,Misato-shi,Saitama
+11238,Hasuda-shi,Saitama
+11239,Sakado-shi,Saitama
+11240,Satte-shi,Saitama
+11241,Tsurugashima-shi,Saitama
+11242,Hidaka-shi,Saitama
+11243,Yoshikawa-shi,Saitama
+11245,Fujimino-shi,Saitama
+11246,Shiraoka-shi,Saitama
+11301,Kitaadachi-gun Ina-machi,Saitama
+11324,Iruma-gun Miyoshi-machi,Saitama
+11326,Iruma-gun Moroyama-machi,Saitama
+11327,Iruma-gun Ogose-machi,Saitama
+11341,Hiki-gun Namegawa-machi,Saitama
+11342,Hiki-gun Ranzan-machi,Saitama
+11343,Hiki-gun Ogawa-machi,Saitama
+11346,Hiki-gun Kawajima-machi,Saitama
+11347,Hiki-gun Yoshimi-machi,Saitama
+11348,Hiki-gun Hatoyama-machi,Saitama
+11349,Hiki-gun Tokigawa-machi,Saitama
+11361,Chichibu-gun Yokoze-machi,Saitama
+11362,Chichibu-gun Minano-machi,Saitama
+11363,Chichibu-gun Nagatoro-machi,Saitama
+11365,Chichibu-gun Ogano-machi,Saitama
+11369,Chichibu-gun Higashichichibu-mura,Saitama
+11381,Kodama-gun Misato-machi,Saitama
+11383,Kodama-gun Kamikawa-machi,Saitama
+11385,Kodama-gun Kamisato-machi,Saitama
+11408,Osato-gun Yorii-machi,Saitama
+11442,Minamisaitama-gun Miyashiro-machi,Saitama
+11464,Kitakatsushika-gun Sugito-machi,Saitama
+11465,Kitakatsushika-gun Matsubushi-machi,Saitama
+12101,Chiba-shi Chuo-ku,Chiba
+12102,Chiba-shi Hanamigawa-ku,Chiba
+12103,Chiba-shi Inage-ku,Chiba
+12104,Chiba-shi Wakaba-ku,Chiba
+12105,Chiba-shi Midori-ku,Chiba
+12106,Chiba-shi Mihama-ku,Chiba
+12202,Choshi-shi,Chiba
+12203,Ichikawa-shi,Chiba
+12204,Funabashi-shi,Chiba
+12205,Tateyama-shi,Chiba
+12206,Kisarazu-shi,Chiba
+12207,Matsudo-shi,Chiba
+12208,Noda-shi,Chiba
+12210,Mobara-shi,Chiba
+12211,Narita-shi,Chiba
+12212,Sakura-shi,Chiba
+12213,Togane-shi,Chiba
+12215,Asahi-shi,Chiba
+12216,Narashino-shi,Chiba
+12217,Kashiwa-shi,Chiba
+12218,Katsura-shi,Chiba
+12219,Ichihara-shi,Chiba
+12220,Nagareyama-shi,Chiba
+12221,Yachiyo-shi,Chiba
+12222,Abiko-shi,Chiba
+12223,Kamogawa-shi,Chiba
+12224,Kamagaya-shi,Chiba
+12225,Kimitsu-shi,Chiba
+12226,Futtsu-shi,Chiba
+12227,Urayasu-shi,Chiba
+12228,Yotsukaido-shi,Chiba
+12229,Sodegaura-shi,Chiba
+12230,Yachimata-shi,Chiba
+12231,Inzai-shi,Chiba
+12232,Shiroi-shi,Chiba
+12233,Tomisato-shi,Chiba
+12234,Minamiboso-shi,Chiba
+12235,Sosa-shi,Chiba
+12236,Katori-shi,Chiba
+12237,Sammu-shi,Chiba
+12238,Isumi-shi,Chiba
+12239,Oamishirasato-shi,Chiba
+12322,Imba-gun Shisui-machi,Chiba
+12329,Imba-gun Sakae-machi,Chiba
+12342,Katori-gun Kozaki-machi,Chiba
+12347,Katori-gun Tako-machi,Chiba
+12349,Katori-gun Tonosho-machi,Chiba
+12403,Sambu-gun Kujukuri-machi,Chiba
+12409,Sambu-gun Shibayama-machi,Chiba
+12410,Sambu-gun Yokoshibahikari-machi,Chiba
+12421,Chosei-gun Ichinomiya-machi,Chiba
+12422,Chosei-gun Mutsuzawa-machi,Chiba
+12423,Chosei-gun Chosei-mura,Chiba
+12424,Chosei-gun Shirako-machi,Chiba
+12426,Chosei-gun Nagara-machi,Chiba
+12427,Chosei-gun Chonan-machi,Chiba
+12441,Isumi-gun Otaki-machi,Chiba
+12443,Isumi-gun Onjuku-machi,Chiba
+12463,Awa-gun Kyonan-machi,Chiba
+13101,Chiyoda-ku,Tokyo
+13102,Chuo-ku,Tokyo
+13103,Minato-ku,Tokyo
+13104,Shinjuku-ku,Tokyo
+13105,Bunkyo-ku,Tokyo
+13106,Taito-ku,Tokyo
+13107,Sumida-ku,Tokyo
+13108,Koto-ku,Tokyo
+13109,Shinagawa-ku,Tokyo
+13110,Meguro-ku,Tokyo
+13111,Ota-ku,Tokyo
+13112,Setagaya-ku,Tokyo
+13113,Shibuya-ku,Tokyo
+13114,Nakano-ku,Tokyo
+13115,Suginami-ku,Tokyo
+13116,Toshima-ku,Tokyo
+13117,Kita-ku,Tokyo
+13118,Arakawa-ku,Tokyo
+13119,Itabashi-ku,Tokyo
+13120,Nerima-ku,Tokyo
+13121,Adachi-ku,Tokyo
+13122,Katsushika-ku,Tokyo
+13123,Edogawa-ku,Tokyo
+13201,Hachioji-shi,Tokyo
+13202,Tachikawa-shi,Tokyo
+13203,Musashino-shi,Tokyo
+13204,Mitaka-shi,Tokyo
+13205,Ome-shi,Tokyo
+13206,Fuchu-shi,Tokyo
+13207,Akishima-shi,Tokyo
+13208,Chofu-shi,Tokyo
+13209,Machida-shi,Tokyo
+13210,Koganei-shi,Tokyo
+13211,Kodaira-shi,Tokyo
+13212,Hino-shi,Tokyo
+13213,Higashimurayama-shi,Tokyo
+13214,Kokubunji-shi,Tokyo
+13215,Kunitachi-shi,Tokyo
+13218,Fussa-shi,Tokyo
+13219,Komae-shi,Tokyo
+13220,Higashiyamato-shi,Tokyo
+13221,Kiyose-shi,Tokyo
+13222,Higashikurume-shi,Tokyo
+13223,Musashimurayama-shi,Tokyo
+13224,Tama-shi,Tokyo
+13225,Inagi-shi,Tokyo
+13227,Hamura-shi,Tokyo
+13228,Akiruno-shi,Tokyo
+13229,Nishitokyo-shi,Tokyo
+13303,Nishitama-gun Mizuho-machi,Tokyo
+13305,Nishitama-gun Hinode-machi,Tokyo
+13307,Nishitama-gun Hinohara-mura,Tokyo
+13308,Nishitama-gun Okutama-machi,Tokyo
+13361,Oshima-machi,Tokyo
+13363,Niijima-mura,Tokyo
+13364,Kozushima-mura,Tokyo
+13381,Miyakejima Miyake-mura,Tokyo
+13382,Mikurajima-mura,Tokyo
+13401,Hachijojima Hachijo-machi,Tokyo
+13402,Aogashima-mura,Tokyo
+13421,Ogasawara-mura,Tokyo
+14101,Yokohama-shi Tsurumi-ku,Kanagawa
+14102,Yokohama-shi Kanagawa-ku,Kanagawa
+14103,Yokohama-shi Nishi-ku,Kanagawa
+14104,Yokohama-shi Naka-ku,Kanagawa
+14105,Yokohama-shi Minami-ku,Kanagawa
+14106,Yokohama-shi Hodogaya-ku,Kanagawa
+14107,Yokohama-shi Isogo-ku,Kanagawa
+14108,Yokohama-shi Kanazawa-ku,Kanagawa
+14109,Yokohama-shi Kohoku-ku,Kanagawa
+14110,Yokohama-shi Totsuka-ku,Kanagawa
+14111,Yokohama-shi Konan-ku,Kanagawa
+14112,Yokohama-shi Asahi-ku,Kanagawa
+14113,Yokohama-shi Midori-ku,Kanagawa
+14114,Yokohama-shi Seya-ku,Kanagawa
+14115,Yokohama-shi Sakae-ku,Kanagawa
+14116,Yokohama-shi Izumi-ku,Kanagawa
+14117,Yokohama-shi Aoba-ku,Kanagawa
+14118,Yokohama-shi Tsuzuki-ku,Kanagawa
+14131,Kawasaki-shi Kawasaki-ku,Kanagawa
+14132,Kawasaki-shi Saiwai-ku,Kanagawa
+14133,Kawasaki-shi Nakahara-ku,Kanagawa
+14134,Kawasaki-shi Takatsu-ku,Kanagawa
+14135,Kawasaki-shi Tama-ku,Kanagawa
+14136,Kawasaki-shi Miyamae-ku,Kanagawa
+14137,Kawasaki-shi Asao-ku,Kanagawa
+14151,Sagamihara-shi Midori-ku,Kanagawa
+14152,Sagamihara-shi Chuo-ku,Kanagawa
+14153,Sagamihara-shi Minami-ku,Kanagawa
+14201,Yokosuka-shi,Kanagawa
+14203,Hiratsuka-shi,Kanagawa
+14204,Kamakura-shi,Kanagawa
+14205,Fujisawa-shi,Kanagawa
+14206,Odawara-shi,Kanagawa
+14207,Chigasaki-shi,Kanagawa
+14208,Zushi-shi,Kanagawa
+14210,Miura-shi,Kanagawa
+14211,Hadano-shi,Kanagawa
+14212,Atsugi-shi,Kanagawa
+14213,Yamato-shi,Kanagawa
+14214,Isehara-shi,Kanagawa
+14215,Ebina-shi,Kanagawa
+14216,Zama-shi,Kanagawa
+14217,Minamiashigara-shi,Kanagawa
+14218,Ayase-shi,Kanagawa
+14301,Miura-gun Hayama-machi,Kanagawa
+14321,Koza-gun Samukawa-machi,Kanagawa
+14341,Naka-gun Oiso-machi,Kanagawa
+14342,Naka-gun Ninomiya-machi,Kanagawa
+14361,Ashigarakami-gun Nakai-machi,Kanagawa
+14362,Ashigarakami-gun Oi-machi,Kanagawa
+14363,Ashigarakami-gun Matsuda-machi,Kanagawa
+14364,Ashigarakami-gun Yamakita-machi,Kanagawa
+14366,Ashigarakami-gun Kaisei-machi,Kanagawa
+14382,Ashigarashimo-gun Hakone-machi,Kanagawa
+14383,Ashigarashimo-gun Manazuru-machi,Kanagawa
+14384,Ashigarashimo-gun Yugawara-machi,Kanagawa
+14401,Aiko-gun Aikawa-machi,Kanagawa
+14402,Aiko-gun Kiyokawa-mura,Kanagawa
+15101,Niigata-shi Kita-ku,Niigata
+15102,Niigata-shi Higashi-ku,Niigata
+15103,Niigata-shi Chuo-ku,Niigata
+15104,Niigata-shi Konan-ku,Niigata
+15105,Niigata-shi Akiha-ku,Niigata
+15106,Niigata-shi Minami-ku,Niigata
+15107,Niigata-shi Nishi-ku,Niigata
+15108,Niigata-shi Nishikan-ku,Niigata
+15202,Nagaoka-shi,Niigata
+15204,Sanjo-shi,Niigata
+15205,Kashiwazaki-shi,Niigata
+15206,Shibata-shi,Niigata
+15208,Ojiya-shi,Niigata
+15209,Kamo-shi,Niigata
+15210,Tokamachi-shi,Niigata
+15211,Mitsuke-shi,Niigata
+15212,Murakami-shi,Niigata
+15213,Tsubame-shi,Niigata
+15216,Itoigawa-shi,Niigata
+15217,Myoko-shi,Niigata
+15218,Gosen-shi,Niigata
+15222,Joetsu-shi,Niigata
+15223,Agano-shi,Niigata
+15224,Sado-shi,Niigata
+15225,Uonuma-shi,Niigata
+15226,Minamiuonuma-shi,Niigata
+15227,Tainai-shi,Niigata
+15307,Kitakambara-gun Seiro-machi,Niigata
+15342,Nishikambara-gun Yahiko-mura,Niigata
+15361,Minamikambara-gun Tagami-machi,Niigata
+15385,Higashikambara-gun Aga-machi,Niigata
+15405,Santo-gun Izumozaki-machi,Niigata
+15461,Minamiuonuma-gun Yuzawa-machi,Niigata
+15482,Nakauonuma-gun Tsunan-machi,Niigata
+15504,Kariwa-gun Kariwa-mura,Niigata
+15581,Iwafune-gun Sekikawa-mura,Niigata
+15586,Iwafune-gun Awashimaura-mura,Niigata
+16201,Toyama-shi,Toyama
+16202,Takaoka-shi,Toyama
+16204,Uozu-shi,Toyama
+16205,Himi-shi,Toyama
+16206,Namerikawa-shi,Toyama
+16207,Kurobe-shi,Toyama
+16208,Tonami-shi,Toyama
+16209,Oyabe-shi,Toyama
+16210,Nanto-shi,Toyama
+16211,Imizu-shi,Toyama
+16321,Nakaniikawa-gun Funahashi-mura,Toyama
+16322,Nakaniikawa-gun Kamiichi-machi,Toyama
+16323,Nakaniikawa-gun Tateyama-machi,Toyama
+16342,Shimoniikawa-gun Nyuzen-machi,Toyama
+16343,Shimoniikawa-gun Asahi-machi,Toyama
+17201,Kanazawa-shi,Ishikawa
+17202,Nanao-shi,Ishikawa
+17203,Komatsu-shi,Ishikawa
+17204,Wajima-shi,Ishikawa
+17205,Suzu-shi,Ishikawa
+17206,Kaga-shi,Ishikawa
+17207,Hakui-shi,Ishikawa
+17209,Kahoku-shi,Ishikawa
+17210,Hakusan-shi,Ishikawa
+17211,Nomi-shi,Ishikawa
+17212,Nonoichi-shi,Ishikawa
+17324,Nomi-gun Kawakita-machi,Ishikawa
+17361,Kahoku-gun Tsubata-machi,Ishikawa
+17365,Kahoku-gun Uchinada-machi,Ishikawa
+17384,Hakui-gun Shika-machi,Ishikawa
+17386,Hakui-gun Hodatsushimizu-cho,Ishikawa
+17407,Kashima-gun Nakanoto-machi,Ishikawa
+17461,Hosu-gun Anamizu-machi,Ishikawa
+17463,Hosu-gun Noto-cho,Ishikawa
+18201,Fukui-shi,Fukui
+18202,Tsuruga-shi,Fukui
+18204,Obama-shi,Fukui
+18205,Ono-shi,Fukui
+18206,Katsuyama-shi,Fukui
+18207,Sabae-shi,Fukui
+18208,Awara-shi,Fukui
+18209,Echizen-shi,Fukui
+18210,Sakai-shi,Fukui
+18322,Yoshida-gun Eiheiji-cho,Fukui
+18382,Imadate-gun Ikeda-cho,Fukui
+18404,Nanjo-gun Minamiechizen-cho,Fukui
+18423,Nyu-gun Echizen-cho,Fukui
+18442,Mikata-gun Mihama-cho,Fukui
+18481,Oi-gun Takahama-cho,Fukui
+18483,Oi-gun Oi-cho,Fukui
+18501,Mikatakaminaka-gun Wakasa-cho,Fukui
+19201,Kofu-shi,Yamanashi
+19202,Fujiyoshida-shi,Yamanashi
+19204,Tsuru-shi,Yamanashi
+19205,Yamanashi-shi,Yamanashi
+19206,Otsuki-shi,Yamanashi
+19207,Nirasaki-shi,Yamanashi
+19208,Minamiarupusu-shi,Yamanashi
+19209,Hokuto-shi,Yamanashi
+19210,Kai-shi,Yamanashi
+19211,Fuefuki-shi,Yamanashi
+19212,Uenohara-shi,Yamanashi
+19213,Koshu-shi,Yamanashi
+19214,Chuo-shi,Yamanashi
+19346,Nishiyatsushiro-gun Ichikawamisato,Yamanashi
+19364,Minamikoma-gun Hayakawa-cho,Yamanashi
+19365,Minamikoma-gun Minobu-cho,Yamanashi
+19366,Minamikoma-gun Nambu-cho,Yamanashi
+19368,Minamikoma-gun Fujikawa-cho,Yamanashi
+19384,Nakakoma-gun Showa-cho,Yamanashi
+19422,Minamitsuru-gun Doshi-mura,Yamanashi
+19423,Minamitsuru-gun Nishikatsura-cho,Yamanashi
+19424,Minamitsuru-gun Oshino-mura,Yamanashi
+19425,Minamitsuru-gun Yamanakako-mura,Yamanashi
+19429,Minamitsuru-gun Narusawa-mura,Yamanashi
+19430,Minamitsuru-gun Fujikawaguchiko Mac,Yamanashi
+19442,Kitatsuru-gun Kosuge-mura,Yamanashi
+19443,Kitatsuru-gun Tabayama-mura,Yamanashi
+20201,Nagano-shi,Nagano
+20202,Matsumoto-shi,Nagano
+20203,Ueda-shi,Nagano
+20204,Okaya-shi,Nagano
+20205,Iida-shi,Nagano
+20206,Suwa-shi,Nagano
+20207,Suzaka-shi,Nagano
+20208,Komoro-shi,Nagano
+20209,Ina-shi,Nagano
+20210,Komagane-shi,Nagano
+20211,Nakano-shi,Nagano
+20212,Omachi-shi,Nagano
+20213,Iiyama-shi,Nagano
+20214,Chino-shi,Nagano
+20215,Shiojiri-shi,Nagano
+20217,Saku-shi,Nagano
+20218,Chikuma-shi,Nagano
+20219,Tomi-shi,Nagano
+20220,Azumino-shi,Nagano
+20303,Minamisaku-gun Komi-machi,Nagano
+20304,Minamisaku-gun Kawakami-mura,Nagano
+20305,Minamisaku-gun Minamimaki-mura,Nagano
+20306,Minamisaku-gun Minamiaiki-mura,Nagano
+20307,Minamisaku-gun Kitaaiki-mura,Nagano
+20309,Minamisaku-gun Sakuho-machi,Nagano
+20321,Kitasaku-gun Karuizawa-machi,Nagano
+20323,Kitasaku-gun Miyota-machi,Nagano
+20324,Kitasaku-gun Tateshina-machi,Nagano
+20349,Chiisagata-gun Aoki-mura,Nagano
+20350,Chiisagata-gun Nagawa-machi,Nagano
+20361,Suwa-gun Shimosuwa-machi,Nagano
+20362,Suwa-gun Fujimi-machi,Nagano
+20363,Suwa-gun Hara-mura,Nagano
+20382,Kamiina-gun Tatsuno-machi,Nagano
+20383,Kamiina-gun Minowa-machi,Nagano
+20384,Kamiina-gun Iijima-machi,Nagano
+20385,Kamiina-gun Minamiminowa-mura,Nagano
+20386,Kamiina-gun Nakagawa-mura,Nagano
+20388,Kamiina-gun Miyada-mura,Nagano
+20402,Shimoina-gun Matsukawa-machi,Nagano
+20403,Shimoina-gun Takamori-machi,Nagano
+20404,Shimoina-gun Anan-cho,Nagano
+20407,Shimoina-gun Achi-mura,Nagano
+20409,Shimoina-gun Hiraya-mura,Nagano
+20410,Shimoina-gun Neba-mura,Nagano
+20411,Shimoina-gun Shimojo-mura,Nagano
+20412,Shimoina-gun Urugi-mura,Nagano
+20413,Shimoina-gun Tenryu-mura,Nagano
+20414,Shimoina-gun Yasuoka-mura,Nagano
+20415,Shimoina-gun Takagi-mura,Nagano
+20416,Shimoina-gun Toyoka-mura,Nagano
+20417,Shimoina-gun Oshika-mura,Nagano
+20422,Kiso-gun Agematsu-machi,Nagano
+20423,Kiso-gun Nagiso-machi,Nagano
+20425,Kiso-gun Kiso-mura,Nagano
+20429,Kiso-gun Otaki-mura,Nagano
+20430,Kiso-gun Okuwa-mura,Nagano
+20432,Kiso-gun Kiso-machi,Nagano
+20446,Higashichikuma-gun Omi-mura,Nagano
+20448,Higashichikuma-gun Ikusaka-mura,Nagano
+20450,Higashichikuma-gun Yamagata-mura,Nagano
+20451,Higashichikuma-gun Asahi-mura,Nagano
+20452,Higashichikuma-gun Chikuhoku-mura,Nagano
+20481,Kitaazumi-gun Ikeda-machi,Nagano
+20482,Kitaazumi-gun Matsukawa-mura,Nagano
+20485,Kitaazumi-gun Hakuba-mura,Nagano
+20486,Kitaazumi-gun Otari-mura,Nagano
+20521,Hanishina-gun Sakaki-machi,Nagano
+20541,Kamitakai-gun Obuse-machi,Nagano
+20543,Kamitakai-gun Takayama-mura,Nagano
+20561,Shimotakai-gun Yamanochi-machi,Nagano
+20562,Shimotakai-gun Kijimadaira-mura,Nagano
+20563,Shimotakai-gun Nozawaonsen-mura,Nagano
+20583,Kamiminochi-gun Shinano-machi,Nagano
+20588,Kamiminochi-gun Ogawa-mura,Nagano
+20590,Kamiminochi-gun Iizuna-machi,Nagano
+20602,Shimominochi-gun Sakae-mura,Nagano
+21201,Gifu-shi,Gifu
+21202,Ogaki-shi,Gifu
+21203,Takayama-shi,Gifu
+21204,Tajimi-shi,Gifu
+21205,Seki-shi,Gifu
+21206,Nakatsugawa-shi,Gifu
+21207,Mino-shi,Gifu
+21208,Mizunami-shi,Gifu
+21209,Hashima-shi,Gifu
+21210,Ena-shi,Gifu
+21211,Minokamo-shi,Gifu
+21212,Toki-shi,Gifu
+21213,Kakamigahara-shi,Gifu
+21214,Kani-shi,Gifu
+21215,Yamagata-shi,Gifu
+21216,Mizuho-shi,Gifu
+21217,Hida-shi,Gifu
+21218,Motosu-shi,Gifu
+21219,Gujo-shi,Gifu
+21220,Gero-shi,Gifu
+21221,Kaizu-shi,Gifu
+21302,Hashima-gun Ginan-cho,Gifu
+21303,Hashima-gun Kasamatsu-cho,Gifu
+21341,Yoro-gun Yoro-cho,Gifu
+21361,Fuwa-gun Tarui-cho,Gifu
+21362,Fuwa-gun Sekigahara-cho,Gifu
+21381,Ampachi-gun Godo-cho,Gifu
+21382,Ampachi-gun Wanochi-cho,Gifu
+21383,Ampachi-gun Ampachi-cho,Gifu
+21401,Ibi-gun Ibigawa-cho,Gifu
+21403,Ibi-gun Ono-cho,Gifu
+21404,Ibi-gun Ikeda-cho,Gifu
+21421,Motosu-gun Kitagata-cho,Gifu
+21501,Kamo-gun Sakahogi-cho,Gifu
+21502,Kamo-gun Tomika-cho,Gifu
+21503,Kamo-gun Kawabe-cho,Gifu
+21504,Kamo-gun Hichiso-cho,Gifu
+21505,Kamo-gun Yaotsu-cho,Gifu
+21506,Kamo-gun Shirakawa-cho,Gifu
+21507,Kamo-gun Higashishirakawa-mura,Gifu
+21521,Kani-gun Mitake-cho,Gifu
+21604,Ono-gun Shirakawa-mura,Gifu
+22101,Shizuoka-shi Aoi-ku,Shizuoka
+22102,Shizuoka-shi Suruga-ku,Shizuoka
+22103,Shizuoka-shi Shimizu-ku,Shizuoka
+22131,Hamamatsu-shi Naka-ku,Shizuoka
+22132,Hamamatsu-shi Higashi-ku,Shizuoka
+22133,Hamamatsu-shi Nishi-ku,Shizuoka
+22134,Hamamatsu-shi Minami-ku,Shizuoka
+22135,Hamamatsu-shi Kita-ku,Shizuoka
+22136,Hamamatsu-shi Hamakita-ku,Shizuoka
+22137,Hamamatsu-shi Tenryu-ku,Shizuoka
+22203,Numazu-shi,Shizuoka
+22205,Atami-shi,Shizuoka
+22206,Mishima-shi,Shizuoka
+22207,Fujinomiya-shi,Shizuoka
+22208,Ito-shi,Shizuoka
+22209,Shimada-shi,Shizuoka
+22210,Fuji-shi,Shizuoka
+22211,Iwata-shi,Shizuoka
+22212,Yaizu-shi,Shizuoka
+22213,Kakegawa-shi,Shizuoka
+22214,Fujieda-shi,Shizuoka
+22215,Gotemba-shi,Shizuoka
+22216,Fukuroi-shi,Shizuoka
+22219,Shimoda-shi,Shizuoka
+22220,Susono-shi,Shizuoka
+22221,Kosai-shi,Shizuoka
+22222,Izu-shi,Shizuoka
+22223,Omaezaki-shi,Shizuoka
+22224,Kikugawa-shi,Shizuoka
+22225,Izunokuni-shi,Shizuoka
+22226,Makinohara-shi,Shizuoka
+22301,Kamo-gun Higashiizu-cho,Shizuoka
+22302,Kamo-gun Kawazu-cho,Shizuoka
+22304,Kamo-gun Minamiizu-cho,Shizuoka
+22305,Kamo-gun Matsuzaki-cho,Shizuoka
+22306,Kamo-gun Nishiizu-cho,Shizuoka
+22325,Tagata-gun Kannami-cho,Shizuoka
+22341,Sunto-gun Shimizu-cho,Shizuoka
+22342,Sunto-gun Nagaizumi-cho,Shizuoka
+22344,Sunto-gun Oyama-cho,Shizuoka
+22424,Haibara-gun Yoshida-cho,Shizuoka
+22429,Haibara-gun Kawanehon-cho,Shizuoka
+22461,Shuchi-gun Mori-machi,Shizuoka
+23101,Nagoya-shi Chikusa-ku,Aichi
+23102,Nagoya-shi Higashi-ku,Aichi
+23103,Nagoya-shi Kita-ku,Aichi
+23104,Nagoya-shi Nishi-ku,Aichi
+23105,Nagoya-shi Nakamura-ku,Aichi
+23106,Nagoya-shi Naka-ku,Aichi
+23107,Nagoya-shi Showa-ku,Aichi
+23108,Nagoya-shi Mizuho-ku,Aichi
+23109,Nagoya-shi Atsuta-ku,Aichi
+23110,Nagoya-shi Nakagawa-ku,Aichi
+23111,Nagoya-shi Minato-ku,Aichi
+23112,Nagoya-shi Minami-ku,Aichi
+23113,Nagoya-shi Moriyama-ku,Aichi
+23114,Nagoya-shi Midori-ku,Aichi
+23115,Nagoya-shi Meito-ku,Aichi
+23116,Nagoya-shi Tempaku-ku,Aichi
+23201,Toyohashi-shi,Aichi
+23202,Okazaki-shi,Aichi
+23203,Ichinomiya-shi,Aichi
+23204,Seto-shi,Aichi
+23205,Handa-shi,Aichi
+23206,Kasugai-shi,Aichi
+23207,Toyokawa-shi,Aichi
+23208,Tsushima-shi,Aichi
+23209,Hekinan-shi,Aichi
+23210,Kariya-shi,Aichi
+23211,Toyota-shi,Aichi
+23212,Anjo-shi,Aichi
+23213,Nishio-shi,Aichi
+23214,Gamagori-shi,Aichi
+23215,Inuyama-shi,Aichi
+23216,Tokoname-shi,Aichi
+23217,Konan-shi,Aichi
+23219,Komaki-shi,Aichi
+23220,Inazawa-shi,Aichi
+23221,Shinshiro-shi,Aichi
+23222,Tokai-shi,Aichi
+23223,Obu-shi,Aichi
+23224,Chita-shi,Aichi
+23225,Chiryu-shi,Aichi
+23226,Owariasahi-shi,Aichi
+23227,Takahama-shi,Aichi
+23228,Iwakura-shi,Aichi
+23229,Toyoake-shi,Aichi
+23230,Nisshin-shi,Aichi
+23231,Tahara-shi,Aichi
+23232,Aisai-shi,Aichi
+23233,Kiyosu-shi,Aichi
+23234,Kitanagoya-shi,Aichi
+23235,Yatomi-shi,Aichi
+23236,Miyoshi-shi,Aichi
+23237,Ama-shi,Aichi
+23238,Nagakute-shi,Aichi
+23302,Aichi-gun Togo-cho,Aichi
+23342,Nishikasugai-gun Toyoyama-cho,Aichi
+23361,Niwa-gun Oguchi-cho,Aichi
+23362,Niwa-gun Fuso-cho,Aichi
+23424,Ama-gun Oharu-cho,Aichi
+23425,Ama-gun Kanie-cho,Aichi
+23427,Ama-gun Tobishima-mura,Aichi
+23441,Chita-gun Agui-cho,Aichi
+23442,Chita-gun Higashiura-cho,Aichi
+23445,Chita-gun Minamichita-cho,Aichi
+23446,Chita-gun Mihama-cho,Aichi
+23447,Chita-gun Taketoyo-cho,Aichi
+23501,Nukata-gun Kota-cho,Aichi
+23561,Kitashitara-gun Shitara-cho,Aichi
+23562,Kitashitara-gun Toei-cho,Aichi
+23563,Kitashitara-gun Toyone-mura,Aichi
+24201,Tsu-shi,Mie
+24202,Yokkaichi-shi,Mie
+24203,Ise-shi,Mie
+24204,Matsusaka-shi,Mie
+24205,Kuwana-shi,Mie
+24207,Suzuka-shi,Mie
+24208,Nabari-shi,Mie
+24209,Owase-shi,Mie
+24210,Kameyama-shi,Mie
+24211,Toba-shi,Mie
+24212,Kumano-shi,Mie
+24214,Inabe-shi,Mie
+24215,Shima-shi,Mie
+24216,Iga-shi,Mie
+24303,Kuwana-gun Kisosaki-cho,Mie
+24324,Inabe-gun Toin-cho,Mie
+24341,Mie-gun Komono-cho,Mie
+24343,Mie-gun Asahi-cho,Mie
+24344,Mie-gun Kawagoe-cho,Mie
+24441,Taki-gun Taki-cho,Mie
+24442,Taki-gun Meiwa-cho,Mie
+24443,Taki-gun Odai-cho,Mie
+24461,Watarai-gun Tamaki-cho,Mie
+24470,Watarai-gun Watarai-cho,Mie
+24471,Watarai-gun Taiki-cho,Mie
+24472,Watarai-gun Minamiise-cho,Mie
+24543,Kitamuro-gun Kihoku-cho,Mie
+24561,Minamimuro-gun Mihama-cho,Mie
+24562,Minamimuro-gun Kiho-cho,Mie
+25201,Otsu-shi,Shiga
+25202,Hikone-shi,Shiga
+25203,Nagahama-shi,Shiga
+25204,Omihachiman-shi,Shiga
+25206,Kusatsu-shi,Shiga
+25207,Moriyama-shi,Shiga
+25208,Ritto-shi,Shiga
+25209,Koka-shi,Shiga
+25210,Yasu-shi,Shiga
+25211,Konan-shi,Shiga
+25212,Takashima-shi,Shiga
+25213,Higashiomi-shi,Shiga
+25214,Maibara-shi,Shiga
+25383,Gamo-gun Hino-cho,Shiga
+25384,Gamo-gun Ryuo-cho,Shiga
+25425,Echi-gun Aisho-cho,Shiga
+25441,Inukami-gun Toyosato-cho,Shiga
+25442,Inukami-gun Kora-cho,Shiga
+25443,Inukami-gun Taga-cho,Shiga
+26101,Kyoto-shi Kita-ku,Kyoto
+26102,Kyoto-shi Kamigyo-ku,Kyoto
+26103,Kyoto-shi Sakyo-ku,Kyoto
+26104,Kyoto-shi Nakagyo-ku,Kyoto
+26105,Kyoto-shi Higashiyama-ku,Kyoto
+26106,Kyoto-shi Shimogyo-ku,Kyoto
+26107,Kyoto-shi Minami-ku,Kyoto
+26108,Kyoto-shi Ukyo-ku,Kyoto
+26109,Kyoto-shi Fushimi-ku,Kyoto
+26110,Kyoto-shi Yamashina-ku,Kyoto
+26111,Kyoto-shi Nishikyo-ku,Kyoto
+26201,Fukuchiyama-shi,Kyoto
+26202,Maizuru-shi,Kyoto
+26203,Ayabe-shi,Kyoto
+26204,Uji-shi,Kyoto
+26205,Miyazu-shi,Kyoto
+26206,Kameoka-shi,Kyoto
+26207,Joyo-shi,Kyoto
+26208,Muko-shi,Kyoto
+26209,Nagaokakyo-shi,Kyoto
+26210,Yawata-shi,Kyoto
+26211,Kyotanabe-shi,Kyoto
+26212,Kyotango-shi,Kyoto
+26213,Nantan-shi,Kyoto
+26214,Kizugawa-shi,Kyoto
+26303,Otokuni-gun Oyamazaki-cho,Kyoto
+26322,Kuse-gun Kumiyama-cho,Kyoto
+26343,Tsuzuki-gun Ide-cho,Kyoto
+26344,Tsuzuki-gun Ujitawara-cho,Kyoto
+26364,Soraku-gun Kasagi-cho,Kyoto
+26365,Soraku-gun Wazuka-cho,Kyoto
+26366,Soraku-gun Seika-cho,Kyoto
+26367,Soraku-gun Minamiyamashiro-mura,Kyoto
+26407,Funai-gun Kyotamba-cho,Kyoto
+26463,Yosa-gun Ine-cho,Kyoto
+26465,Yosa-gun Yosano-cho,Kyoto
+27102,Osaka-shi Miyakojima-ku,Osaka
+27103,Osaka-shi Fukushima-ku,Osaka
+27104,Osaka-shi Konohana-ku,Osaka
+27106,Osaka-shi Nishi-ku,Osaka
+27107,Osaka-shi Minato-ku,Osaka
+27108,Osaka-shi Taisho-ku,Osaka
+27109,Osaka-shi Tennoji-ku,Osaka
+27111,Osaka-shi Naniwa-ku,Osaka
+27113,Osaka-shi Nishiyodogawa-ku,Osaka
+27114,Osaka-shi Higashiyodogawa-ku,Osaka
+27115,Osaka-shi Higashinari-ku,Osaka
+27116,Osaka-shi Ikuno-ku,Osaka
+27117,Osaka-shi Asahi-ku,Osaka
+27118,Osaka-shi Joto-ku,Osaka
+27119,Osaka-shi Abeno-ku,Osaka
+27120,Osaka-shi Sumiyoshi-ku,Osaka
+27121,Osaka-shi Higashisumiyoshi-ku,Osaka
+27122,Osaka-shi Nishinari-ku,Osaka
+27123,Osaka-shi Yodogawa-ku,Osaka
+27124,Osaka-shi Tsurumi-ku,Osaka
+27125,Osaka-shi Suminoe-ku,Osaka
+27126,Osaka-shi Hirano-ku,Osaka
+27127,Osaka-shi Kita-ku,Osaka
+27128,Osaka-shi Chuo-ku,Osaka
+27141,Sakai-shi Sakai-ku,Osaka
+27142,Sakai-shi Naka-ku,Osaka
+27143,Sakai-shi Higashi-ku,Osaka
+27144,Sakai-shi Nishi-ku,Osaka
+27145,Sakai-shi Minami-ku,Osaka
+27146,Sakai-shi Kita-ku,Osaka
+27147,Sakai-shi Mihara-ku,Osaka
+27202,Kishiwada-shi,Osaka
+27203,Toyonaka-shi,Osaka
+27204,Ikeda-shi,Osaka
+27205,Suita-shi,Osaka
+27206,Izumiotsu-shi,Osaka
+27207,Takatsuki-shi,Osaka
+27208,Kaizuka-shi,Osaka
+27209,Moriguchi-shi,Osaka
+27210,Hirakata-shi,Osaka
+27211,Ibaraki-shi,Osaka
+27212,Yao-shi,Osaka
+27213,Izumisano-shi,Osaka
+27214,Tondabayashi-shi,Osaka
+27215,Neyagawa-shi,Osaka
+27216,Kawachinagano-shi,Osaka
+27217,Matsubara-shi,Osaka
+27218,Daito-shi,Osaka
+27219,Izumi-shi,Osaka
+27220,Mino-shi,Osaka
+27221,Kashiwara-shi,Osaka
+27222,Habikino-shi,Osaka
+27223,Kadoma-shi,Osaka
+27224,Settsu-shi,Osaka
+27225,Takaishi-shi,Osaka
+27226,Fujiidera-shi,Osaka
+27227,Higashiosaka-shi,Osaka
+27228,Sennan-shi,Osaka
+27229,Shijonawate-shi,Osaka
+27230,Katano-shi,Osaka
+27231,Osakasayama-shi,Osaka
+27232,Hannan-shi,Osaka
+27301,Mishima-gun Shimamoto-cho,Osaka
+27321,Toyono-gun Toyono-cho,Osaka
+27322,Toyono-gun Nose-cho,Osaka
+27341,Semboku-gun Tadaoka-cho,Osaka
+27361,Sennan-gun Kumatori-cho,Osaka
+27362,Sennan-gun Tajiri-cho,Osaka
+27366,Sennan-gun Misaki-cho,Osaka
+27381,Minamikawachi-gun Taishi-cho,Osaka
+27382,Minamikawachi-gun Kanan-cho,Osaka
+27383,Minamikawachi-gun Chihayaakasaka Mu,Osaka
+28101,Kobe-shi Higashinada-ku,Hyogo
+28102,Kobe-shi Nada-ku,Hyogo
+28105,Kobe-shi Hyogo-ku,Hyogo
+28106,Kobe-shi Nagata-ku,Hyogo
+28107,Kobe-shi Suma-ku,Hyogo
+28108,Kobe-shi Tarumi-ku,Hyogo
+28109,Kobe-shi Kita-ku,Hyogo
+28110,Kobe-shi Chuo-ku,Hyogo
+28111,Kobe-shi Nishi-ku,Hyogo
+28201,Himeji-shi,Hyogo
+28202,Amagasaki-shi,Hyogo
+28203,Akashi-shi,Hyogo
+28204,Nishinomiya-shi,Hyogo
+28205,Sumoto-shi,Hyogo
+28206,Ashiya-shi,Hyogo
+28207,Itami-shi,Hyogo
+28208,Aioi-shi,Hyogo
+28209,Toyoka-shi,Hyogo
+28210,Kakogawa-shi,Hyogo
+28212,Ako-shi,Hyogo
+28213,Nishiwaki-shi,Hyogo
+28214,Takarazuka-shi,Hyogo
+28215,Miki-shi,Hyogo
+28216,Takasago-shi,Hyogo
+28217,Kawanishi-shi,Hyogo
+28218,Ono-shi,Hyogo
+28219,Sanda-shi,Hyogo
+28220,Kasai-shi,Hyogo
+28221,Tambasasayama-shi,Hyogo
+28222,Yabu-shi,Hyogo
+28223,Tamba-shi,Hyogo
+28224,Minamiawaji-shi,Hyogo
+28225,Asago-shi,Hyogo
+28226,Awaji-shi,Hyogo
+28227,Shiso-shi,Hyogo
+28228,Kato-shi,Hyogo
+28229,Tatsuno-shi,Hyogo
+28301,Kawabe-gun Inagawa-cho,Hyogo
+28365,Taka-gun Taka-cho,Hyogo
+28381,Kako-gun Inami-cho,Hyogo
+28382,Kako-gun Harima-cho,Hyogo
+28442,Kanzaki-gun Ichikawa-cho,Hyogo
+28443,Kanzaki-gun Fukusaki-cho,Hyogo
+28446,Kanzaki-gun Kamikawa-cho,Hyogo
+28464,Ibo-gun Taishi-cho,Hyogo
+28481,Ako-gun Kamigori-cho,Hyogo
+28501,Sayo-gun Sayo-cho,Hyogo
+28585,Mikata-gun Kami-cho,Hyogo
+28586,Mikata-gun Shinonsen-cho,Hyogo
+29201,Nara-shi,Nara
+29202,Yamatotakada-shi,Nara
+29203,Yamatokoriyama-shi,Nara
+29204,Tenri-shi,Nara
+29205,Kashihara-shi,Nara
+29206,Sakurai-shi,Nara
+29207,Gojo-shi,Nara
+29208,Gose-shi,Nara
+29209,Ikoma-shi,Nara
+29210,Kashiba-shi,Nara
+29211,Katsuragi-shi,Nara
+29212,Uda-shi,Nara
+29322,Yamabe-gun Yamazoe-mura,Nara
+29342,Ikoma-gun Heguri-cho,Nara
+29343,Ikoma-gun Sango-cho,Nara
+29344,Ikoma-gun Ikaruga-cho,Nara
+29345,Ikoma-gun Ando-cho,Nara
+29361,Shiki-gun Kawanishi-cho,Nara
+29362,Shiki-gun Miyake-cho,Nara
+29363,Shiki-gun Tawaramoto-cho,Nara
+29385,Uda-gun Soni-mura,Nara
+29386,Uda-gun Mitsue-mura,Nara
+29401,Takaichi-gun Takatori-cho,Nara
+29402,Takaichi-gun Asuka-mura,Nara
+29424,Kitakatsuragi-gun Kammaki-cho,Nara
+29425,Kitakatsuragi-gun Oji-cho,Nara
+29426,Kitakatsuragi-gun Koryo-cho,Nara
+29427,Kitakatsuragi-gun Kawai-cho,Nara
+29441,Yoshino-gun Yoshino-cho,Nara
+29442,Yoshino-gun Oyodo-cho,Nara
+29443,Yoshino-gun Shimoichi-cho,Nara
+29444,Yoshino-gun Kurotaki-mura,Nara
+29446,Yoshino-gun Tenkawa-mura,Nara
+29447,Yoshino-gun Nosegawa-mura,Nara
+29449,Yoshino-gun Totsukawa-mura,Nara
+29450,Yoshino-gun Shimokitayama-mura,Nara
+29451,Yoshino-gun Kamikitayama-mura,Nara
+29452,Yoshino-gun Kawakami-mura,Nara
+29453,Yoshino-gun Higashiyoshino-mura,Nara
+30201,Wakayama-shi,Wakayama
+30202,Kainan-shi,Wakayama
+30203,Hashimoto-shi,Wakayama
+30204,Arida-shi,Wakayama
+30205,Gobo-shi,Wakayama
+30206,Tanabe-shi,Wakayama
+30207,Shingu-shi,Wakayama
+30208,Kinokawa-shi,Wakayama
+30209,Iwade-shi,Wakayama
+30304,Kaiso-gun Kimino-cho,Wakayama
+30341,Ito-gun Katsuragi-cho,Wakayama
+30343,Ito-gun Kudoyama-cho,Wakayama
+30344,Ito-gun Koya-cho,Wakayama
+30361,Arida-gun Yuasa-cho,Wakayama
+30362,Arida-gun Hirogawa-cho,Wakayama
+30366,Arida-gun Aridagawa-cho,Wakayama
+30381,Hidaka-gun Mihama-cho,Wakayama
+30382,Hidaka-gun Hidaka-cho,Wakayama
+30383,Hidaka-gun Yura-cho,Wakayama
+30390,Hidaka-gun Inami-cho,Wakayama
+30391,Hidaka-gun Minabe-cho,Wakayama
+30392,Hidaka-gun Hidakagawa-cho,Wakayama
+30401,Nishimuro-gun Shirahama-cho,Wakayama
+30404,Nishimuro-gun Kamitonda-cho,Wakayama
+30406,Nishimuro-gun Susami-cho,Wakayama
+30421,Higashimuro-gun Nachikatsura-cho,Wakayama
+30422,Higashimuro-gun Taiji-cho,Wakayama
+30424,Higashimuro-gun Kozagawa-cho,Wakayama
+30427,Higashimuro-gun Kitayama-mura,Wakayama
+30428,Higashimuro-gun Kushimoto-cho,Wakayama
+31201,Tottori-shi,Tottori
+31202,Yonago-shi,Tottori
+31203,Kurayoshi-shi,Tottori
+31204,Sakaiminato-shi,Tottori
+31302,Iwami-gun Iwami-cho,Tottori
+31325,Yazu-gun Wakasa-cho,Tottori
+31328,Yazu-gun Chizu-cho,Tottori
+31329,Yazu-gun Yazu-cho,Tottori
+31364,Tohaku-gun Misasa-cho,Tottori
+31370,Tohaku-gun Yurihama-cho,Tottori
+31371,Tohaku-gun Kotora-cho,Tottori
+31372,Tohaku-gun Hokuei-cho,Tottori
+31384,Saihaku-gun Hiezu-son,Tottori
+31386,Saihaku-gun Daisen-cho,Tottori
+31389,Saihaku-gun Nambu-cho,Tottori
+31390,Saihaku-gun Hoki-cho,Tottori
+31401,Hino-gun Nichinan-cho,Tottori
+31402,Hino-gun Hino-cho,Tottori
+31403,Hino-gun Kofu-cho,Tottori
+32201,Matsue-shi,Shimane
+32202,Hamada-shi,Shimane
+32203,Izumo-shi,Shimane
+32204,Masuda-shi,Shimane
+32205,Oda-shi,Shimane
+32206,Yasugi-shi,Shimane
+32207,Gotsu-shi,Shimane
+32209,Unnan-shi,Shimane
+32343,Nita-gun Okuizumo-cho,Shimane
+32386,Iishi-gun Iinan-cho,Shimane
+32441,Ochi-gun Kawamoto-machi,Shimane
+32448,Ochi-gun Misato-cho,Shimane
+32449,Ochi-gun Onan-cho,Shimane
+32501,Kanoashi-gun Tsuwano-cho,Shimane
+32505,Kanoashi-gun Yoshika-cho,Shimane
+32525,Oki-gun Ama-cho,Shimane
+32526,Oki-gun Nishinoshima-cho,Shimane
+32527,Oki-gun Chibu-mura,Shimane
+32528,Oki-gun Okinoshima-cho,Shimane
+33101,Okayama-shi Kita-ku,Okayama
+33102,Okayama-shi Naka-ku,Okayama
+33103,Okayama-shi Higashi-ku,Okayama
+33104,Okayama-shi Minami-ku,Okayama
+33202,Kurashiki-shi,Okayama
+33203,Tsuyama-shi,Okayama
+33204,Tamano-shi,Okayama
+33205,Kasaoka-shi,Okayama
+33207,Ibara-shi,Okayama
+33208,Soja-shi,Okayama
+33209,Takahashi-shi,Okayama
+33210,Niimi-shi,Okayama
+33211,Bizen-shi,Okayama
+33212,Setochi-shi,Okayama
+33213,Akaiwa-shi,Okayama
+33214,Maniwa-shi,Okayama
+33215,Mimasaka-shi,Okayama
+33216,Asakuchi-shi,Okayama
+33346,Wake-gun Wake-cho,Okayama
+33423,Tsukubo-gun Hayashima-cho,Okayama
+33445,Asakuchi-gun Satosho-cho,Okayama
+33461,Oda-gun Yakage-cho,Okayama
+33586,Maniwa-gun Shinjo-son,Okayama
+33606,Tomata-gun Kagamino-cho,Okayama
+33622,Katsuta-gun Shoo-cho,Okayama
+33623,Katsuta-gun Nagi-cho,Okayama
+33643,Aida-gun Nishiawakura-son,Okayama
+33663,Kume-gun Kumenan-cho,Okayama
+33666,Kume-gun Misaki-cho,Okayama
+33681,Kaga-gun Kibichuo-cho,Okayama
+34101,Hiroshima-shi Naka-ku,Hiroshima
+34102,Hiroshima-shi Higashi-ku,Hiroshima
+34103,Hiroshima-shi Minami-ku,Hiroshima
+34104,Hiroshima-shi Nishi-ku,Hiroshima
+34105,Hiroshima-shi Asaminami-ku,Hiroshima
+34106,Hiroshima-shi Asakita-ku,Hiroshima
+34107,Hiroshima-shi Aki-ku,Hiroshima
+34108,Hiroshima-shi Saeki-ku,Hiroshima
+34202,Kure-shi,Hiroshima
+34203,Takehara-shi,Hiroshima
+34204,Mihara-shi,Hiroshima
+34205,Onomichi-shi,Hiroshima
+34207,Fukuyama-shi,Hiroshima
+34208,Fuchu-shi,Hiroshima
+34209,Miyoshi-shi,Hiroshima
+34210,Shobara-shi,Hiroshima
+34211,Otake-shi,Hiroshima
+34212,Higashihiroshima-shi,Hiroshima
+34213,Hatsukaichi-shi,Hiroshima
+34214,Akitakata-shi,Hiroshima
+34215,Etajima-shi,Hiroshima
+34302,Aki-gun Fuchu-cho,Hiroshima
+34304,Aki-gun Kaita-cho,Hiroshima
+34307,Aki-gun Kumano-cho,Hiroshima
+34309,Aki-gun Saka-cho,Hiroshima
+34368,Yamagata-gun Akiota-cho,Hiroshima
+34369,Yamagata-gun Kitahiroshima-cho,Hiroshima
+34431,Toyota-gun Osakikamijima-cho,Hiroshima
+34462,Sera-gun Sera-cho,Hiroshima
+34545,Jinseki-gun Jinsekikogen-cho,Hiroshima
+35201,Shimonoseki-shi,Yamaguchi
+35202,Ube-shi,Yamaguchi
+35203,Yamaguchi-shi,Yamaguchi
+35204,Hagi-shi,Yamaguchi
+35206,Hofu-shi,Yamaguchi
+35207,Kudamatsu-shi,Yamaguchi
+35208,Iwakuni-shi,Yamaguchi
+35210,Hikari-shi,Yamaguchi
+35211,Nagato-shi,Yamaguchi
+35212,Yanai-shi,Yamaguchi
+35213,Mine-shi,Yamaguchi
+35215,Shunan-shi,Yamaguchi
+35216,Sanyoonoda-shi,Yamaguchi
+35305,Oshima-gun Suooshima-cho,Yamaguchi
+35321,Kuga-gun Waki-cho,Yamaguchi
+35341,Kumage-gun Kaminoseki-cho,Yamaguchi
+35343,Kumage-gun Tabuse-cho,Yamaguchi
+35344,Kumage-gun Hirao-cho,Yamaguchi
+35502,Abu-gun Abu-cho,Yamaguchi
+36201,Tokushima-shi,Tokushima
+36202,Naruto-shi,Tokushima
+36203,Komatsushima-shi,Tokushima
+36204,Anan-shi,Tokushima
+36205,Yoshinogawa-shi,Tokushima
+36206,Awa-shi,Tokushima
+36207,Mima-shi,Tokushima
+36208,Miyoshi-shi,Tokushima
+36301,Katsura-gun Katsura-cho,Tokushima
+36302,Katsura-gun Kamikatsu-cho,Tokushima
+36321,Myodo-gun Sanagochi-son,Tokushima
+36341,Myozai-gun Ishii-cho,Tokushima
+36342,Myozai-gun Kamiyama-cho,Tokushima
+36368,Naka-gun Naka-cho,Tokushima
+36383,Kaifu-gun Mugi-cho,Tokushima
+36387,Kaifu-gun Minami-cho,Tokushima
+36388,Kaifu-gun Kaiyo-cho,Tokushima
+36401,Itano-gun Matsushige-cho,Tokushima
+36402,Itano-gun Kitajima-cho,Tokushima
+36403,Itano-gun Aizumi-cho,Tokushima
+36404,Itano-gun Itano-cho,Tokushima
+36405,Itano-gun Kamiita-cho,Tokushima
+36468,Mima-gun Tsurugi-cho,Tokushima
+36489,Miyoshi-gun Higashimiyoshi-cho,Tokushima
+37201,Takamatsu-shi,Kagawa
+37202,Marugame-shi,Kagawa
+37203,Sakaide-shi,Kagawa
+37204,Zentsuji-shi,Kagawa
+37205,Kanonji-shi,Kagawa
+37206,Sanuki-shi,Kagawa
+37207,Higashikagawa-shi,Kagawa
+37208,Mitoyo-shi,Kagawa
+37322,Shozu-gun Tonosho-cho,Kagawa
+37324,Shozu-gun Shodoshima-cho,Kagawa
+37341,Kita-gun Miki-cho,Kagawa
+37364,Kagawa-gun Naoshima-cho,Kagawa
+37386,Ayauta-gun Utazu-cho,Kagawa
+37387,Ayauta-gun Ayagawa-cho,Kagawa
+37403,Nakatado-gun Kotohira-cho,Kagawa
+37404,Nakatado-gun Tadotsu-cho,Kagawa
+37406,Nakatado-gun Manno-cho,Kagawa
+38201,Matsuyama-shi,Ehime
+38202,Imabari-shi,Ehime
+38203,Uwajima-shi,Ehime
+38204,Yawatahama-shi,Ehime
+38205,Niihama-shi,Ehime
+38206,Saijo-shi,Ehime
+38207,Ozu-shi,Ehime
+38210,Iyo-shi,Ehime
+38213,Shikokuchuo-shi,Ehime
+38214,Seiyo-shi,Ehime
+38215,Toon-shi,Ehime
+38356,Ochi-gun Kamijima-cho,Ehime
+38386,Kamiukena-gun Kumakogen-cho,Ehime
+38401,Iyo-gun Masaki-cho,Ehime
+38402,Iyo-gun Tobe-cho,Ehime
+38422,Kita-gun Uchiko-cho,Ehime
+38442,Nishiuwa-gun Ikata-cho,Ehime
+38484,Kitauwa-gun Matsuno-cho,Ehime
+38488,Kitauwa-gun Kihoku-cho,Ehime
+38506,Minamiuwa-gun Ainan-cho,Ehime
+39201,Kochi-shi,Kochi
+39202,Muroto-shi,Kochi
+39203,Aki-shi,Kochi
+39204,Nankoku-shi,Kochi
+39205,Tosa-shi,Kochi
+39206,Susaki-shi,Kochi
+39208,Sukumo-shi,Kochi
+39209,Tosashimizu-shi,Kochi
+39210,Shimanto-shi,Kochi
+39211,Konan-shi,Kochi
+39212,Kami-shi,Kochi
+39301,Aki-gun Toyo-cho,Kochi
+39302,Aki-gun Nahari-cho,Kochi
+39303,Aki-gun Tano-cho,Kochi
+39304,Aki-gun Yasuda-cho,Kochi
+39305,Aki-gun Kitagawa-mura,Kochi
+39306,Aki-gun Umaji-mura,Kochi
+39307,Aki-gun Geisei-mura,Kochi
+39341,Nagaoka-gun Motoyama-cho,Kochi
+39344,Nagaoka-gun Otoyo-cho,Kochi
+39363,Tosa-gun Tosa-cho,Kochi
+39364,Tosa-gun Okawa-mura,Kochi
+39386,Agawa-gun Ino-cho,Kochi
+39387,Agawa-gun Niyodogawa-cho,Kochi
+39401,Takaoka-gun Nakatosa-cho,Kochi
+39402,Takaoka-gun Sakawa-cho,Kochi
+39403,Takaoka-gun Ochi-cho,Kochi
+39405,Takaoka-gun Yusuhara-cho,Kochi
+39410,Takaoka-gun Hidaka-mura,Kochi
+39411,Takaoka-gun Tsuno-cho,Kochi
+39412,Takaoka-gun Shimanto-cho,Kochi
+39424,Hata-gun Otsuki-cho,Kochi
+39427,Hata-gun Mihara-mura,Kochi
+39428,Hata-gun Kuroshio-cho,Kochi
+40101,Kitakyushu-shi Moji-ku,Fukuoka
+40103,Kitakyushu-shi Wakamatsu-ku,Fukuoka
+40105,Kitakyushu-shi Tobata-ku,Fukuoka
+40106,Kitakyushu-shi Kokurakita-ku,Fukuoka
+40107,Kitakyushu-shi Kokuraminami-ku,Fukuoka
+40108,Kitakyushu-shi Yahatahigashi-ku,Fukuoka
+40109,Kitakyushu-shi Yahatanishi-ku,Fukuoka
+40131,Fukuoka-shi Higashi-ku,Fukuoka
+40132,Fukuoka-shi Hakata-ku,Fukuoka
+40133,Fukuoka-shi Chuo-ku,Fukuoka
+40134,Fukuoka-shi Minami-ku,Fukuoka
+40135,Fukuoka-shi Nishi-ku,Fukuoka
+40136,Fukuoka-shi Jonan-ku,Fukuoka
+40137,Fukuoka-shi Sawara-ku,Fukuoka
+40202,Omuta-shi,Fukuoka
+40203,Kurume-shi,Fukuoka
+40204,Nogata-shi,Fukuoka
+40205,Iizuka-shi,Fukuoka
+40206,Tagawa-shi,Fukuoka
+40207,Yanagawa-shi,Fukuoka
+40210,Yame-shi,Fukuoka
+40211,Chikugo-shi,Fukuoka
+40212,Okawa-shi,Fukuoka
+40213,Yukuhashi-shi,Fukuoka
+40214,Buzen-shi,Fukuoka
+40215,Nakama-shi,Fukuoka
+40216,Ogori-shi,Fukuoka
+40217,Chikushino-shi,Fukuoka
+40218,Kasuga-shi,Fukuoka
+40219,Onojo-shi,Fukuoka
+40220,Munakata-shi,Fukuoka
+40221,Dazaifu-shi,Fukuoka
+40223,Koga-shi,Fukuoka
+40224,Fukutsu-shi,Fukuoka
+40225,Ukiha-shi,Fukuoka
+40226,Miyawaka-shi,Fukuoka
+40227,Kama-shi,Fukuoka
+40228,Asakura-shi,Fukuoka
+40229,Miyama-shi,Fukuoka
+40230,Itoshima-shi,Fukuoka
+40231,Nakagawa-shi,Fukuoka
+40341,Kasuya-gun Umi-machi,Fukuoka
+40342,Kasuya-gun Sasaguri-machi,Fukuoka
+40343,Kasuya-gun Shime-machi,Fukuoka
+40344,Kasuya-gun Sue-machi,Fukuoka
+40345,Kasuya-gun Shingu-machi,Fukuoka
+40348,Kasuya-gun Hisayama-machi,Fukuoka
+40349,Kasuya-gun Kasuya-machi,Fukuoka
+40381,Onga-gun Ashiya-machi,Fukuoka
+40382,Onga-gun Mizumaki-machi,Fukuoka
+40383,Onga-gun Okagaki-machi,Fukuoka
+40384,Onga-gun Onga-cho,Fukuoka
+40401,Kurate-gun Kotake-machi,Fukuoka
+40402,Kurate-gun Kurate-machi,Fukuoka
+40421,Kaho-gun Keisen-machi,Fukuoka
+40447,Asakura-gun Chikuzen-machi,Fukuoka
+40448,Asakura-gun Toho-mura,Fukuoka
+40503,Mii-gun Tachiarai-machi,Fukuoka
+40522,Mizuma-gun Oki-machi,Fukuoka
+40544,Yame-gun Hirokawa-machi,Fukuoka
+40601,Tagawa-gun Kawara-machi,Fukuoka
+40602,Tagawa-gun Soeda-machi,Fukuoka
+40604,Tagawa-gun Itoda-machi,Fukuoka
+40605,Tagawa-gun Kawasaki-machi,Fukuoka
+40608,Tagawa-gun Oto-machi,Fukuoka
+40609,Tagawa-gun Aka-mura,Fukuoka
+40610,Tagawa-gun Fukuchi-machi,Fukuoka
+40621,Miyako-gun Kanda-machi,Fukuoka
+40625,Miyako-gun Miyako-machi,Fukuoka
+40642,Chikujo-gun Yoshitomi-machi,Fukuoka
+40646,Chikujo-gun Koge-machi,Fukuoka
+40647,Chikujo-gun Chikujo-machi,Fukuoka
+41201,Saga-shi,Saga
+41202,Karatsu-shi,Saga
+41203,Tosu-shi,Saga
+41204,Taku-shi,Saga
+41205,Imari-shi,Saga
+41206,Takeo-shi,Saga
+41207,Kashima-shi,Saga
+41208,Ogi-shi,Saga
+41209,Ureshino-shi,Saga
+41210,Kanzaki-shi,Saga
+41327,Kanzaki-gun Yoshinogari-cho,Saga
+41341,Miyaki-gun Kiyama-cho,Saga
+41345,Miyaki-gun Kamimine-cho,Saga
+41346,Miyaki-gun Miyaki-cho,Saga
+41387,Higashimatsura-gun Genkai-cho,Saga
+41401,Nishimatsura-gun Arita-cho,Saga
+41423,Kishima-gun Omachi-cho,Saga
+41424,Kishima-gun Kohoku-machi,Saga
+41425,Kishima-gun Shiroishi-cho,Saga
+41441,Fujitsu-gun Tara-cho,Saga
+42201,Nagasaki-shi,Nagasaki
+42202,Sasebo-shi,Nagasaki
+42203,Shimabara-shi,Nagasaki
+42204,Isahaya-shi,Nagasaki
+42205,Omura-shi,Nagasaki
+42207,Hirado-shi,Nagasaki
+42208,Matsura-shi,Nagasaki
+42209,Tsushima-shi,Nagasaki
+42210,Iki-shi,Nagasaki
+42211,Goto-shi,Nagasaki
+42212,Saikai-shi,Nagasaki
+42213,Unzen-shi,Nagasaki
+42214,Minamishimabara-shi,Nagasaki
+42307,Nishisonogi-gun Nagayo-cho,Nagasaki
+42308,Nishisonogi-gun Togitsu-cho,Nagasaki
+42321,Higashisonogi-gun Higashisonogi-cho,Nagasaki
+42322,Higashisonogi-gun Kawatana-cho,Nagasaki
+42323,Higashisonogi-gun Hasami-cho,Nagasaki
+42383,Kitamatsura-gun Ojika-cho,Nagasaki
+42391,Kitamatsura-gun Saza-cho,Nagasaki
+42411,Minamimatsura-gun Shinkamigoto-cho,Nagasaki
+43101,Kumamoto-shi Chuo-ku,Kumamoto
+43102,Kumamoto-shi Higashi-ku,Kumamoto
+43103,Kumamoto-shi Nishi-ku,Kumamoto
+43104,Kumamoto-shi Minami-ku,Kumamoto
+43105,Kumamoto-shi Kita-ku,Kumamoto
+43202,Yatsushiro-shi,Kumamoto
+43203,Hitoyoshi-shi,Kumamoto
+43204,Arao-shi,Kumamoto
+43205,Minamata-shi,Kumamoto
+43206,Tamana-shi,Kumamoto
+43208,Yamaga-shi,Kumamoto
+43210,Kikuchi-shi,Kumamoto
+43211,Uto-shi,Kumamoto
+43212,Kamiamakusa-shi,Kumamoto
+43213,Uki-shi,Kumamoto
+43214,Aso-shi,Kumamoto
+43215,Amakusa-shi,Kumamoto
+43216,Koshi-shi,Kumamoto
+43348,Shimomashiki-gun Misato-machi,Kumamoto
+43364,Tamana-gun Gyokuto-machi,Kumamoto
+43367,Tamana-gun Nankan-machi,Kumamoto
+43368,Tamana-gun Nagasu-machi,Kumamoto
+43369,Tamana-gun Nagomi-machi,Kumamoto
+43403,Kikuchi-gun Ozu-machi,Kumamoto
+43404,Kikuchi-gun Kikuyo-machi,Kumamoto
+43423,Aso-gun Minamioguni-machi,Kumamoto
+43424,Aso-gun Oguni-machi,Kumamoto
+43425,Aso-gun Ubuyama-mura,Kumamoto
+43428,Aso-gun Takamori-machi,Kumamoto
+43432,Aso-gun Nishihara-mura,Kumamoto
+43433,Aso-gun Minamiaso-mura,Kumamoto
+43441,Kamimashiki-gun Mifune-machi,Kumamoto
+43442,Kamimashiki-gun Kashima-machi,Kumamoto
+43443,Kamimashiki-gun Mashiki-machi,Kumamoto
+43444,Kamimashiki-gun Kosa-machi,Kumamoto
+43447,Kamimashiki-gun Yamato-cho,Kumamoto
+43468,Yatsushiro-gun Hikawa-cho,Kumamoto
+43482,Ashikita-gun Ashikita-machi,Kumamoto
+43484,Ashikita-gun Tsunagi-machi,Kumamoto
+43501,Kuma-gun Nishiki-machi,Kumamoto
+43505,Kuma-gun Taragi-machi,Kumamoto
+43507,Kuma-gun Mizukami-mura,Kumamoto
+43510,Kuma-gun Sagara-mura,Kumamoto
+43511,Kuma-gun Itsuki-mura,Kumamoto
+43512,Kuma-gun Yamae-mura,Kumamoto
+43513,Kuma-gun Kuma-mura,Kumamoto
+43514,Kuma-gun Asagiri-cho,Kumamoto
+43531,Amakusa-gun Reihoku-machi,Kumamoto
+44201,Oita-shi,Oita
+44202,Beppu-shi,Oita
+44203,Nakatsu-shi,Oita
+44204,Hita-shi,Oita
+44205,Saiki-shi,Oita
+44206,Usuki-shi,Oita
+44207,Tsukumi-shi,Oita
+44208,Taketa-shi,Oita
+44209,Bungotakada-shi,Oita
+44210,Kitsuki-shi,Oita
+44211,Usa-shi,Oita
+44212,Bungoono-shi,Oita
+44213,Yufu-shi,Oita
+44214,Kunisaki-shi,Oita
+44322,Higashikunisaki-gun Himeshima-mura,Oita
+44341,Hayami-gun Hiji-machi,Oita
+44461,Kusu-gun Kokonoe-machi,Oita
+44462,Kusu-gun Kusu-machi,Oita
+45201,Miyazaki-shi,Miyazaki
+45202,Miyakonojo-shi,Miyazaki
+45203,Nobeoka-shi,Miyazaki
+45204,Nichinan-shi,Miyazaki
+45205,Kobayashi-shi,Miyazaki
+45206,Hyuga-shi,Miyazaki
+45207,Kushima-shi,Miyazaki
+45208,Saito-shi,Miyazaki
+45209,Ebino-shi,Miyazaki
+45341,Kitamorokata-gun Mimata-cho,Miyazaki
+45361,Nishimorokata-gun Takaharu-cho,Miyazaki
+45382,Higashimorokata-gun Kunitomi-cho,Miyazaki
+45383,Higashimorokata-gun Aya-cho,Miyazaki
+45401,Koyu-gun Takanabe-cho,Miyazaki
+45402,Koyu-gun Shintomi-cho,Miyazaki
+45403,Koyu-gun Nishimera-son,Miyazaki
+45404,Koyu-gun Kijo-cho,Miyazaki
+45405,Koyu-gun Kawaminami-cho,Miyazaki
+45406,Koyu-gun Tsuno-cho,Miyazaki
+45421,Higashiusuki-gun Kadogawa-cho,Miyazaki
+45429,Higashiusuki-gun Morotsuka-son,Miyazaki
+45430,Higashiusuki-gun Shiiba-son,Miyazaki
+45431,Higashiusuki-gun Misato-cho,Miyazaki
+45441,Nishiusuki-gun Takachiho-cho,Miyazaki
+45442,Nishiusuki-gun Hinokage-cho,Miyazaki
+45443,Nishiusuki-gun Gokase-cho,Miyazaki
+46201,Kagoshima-shi,Kagoshima
+46203,Kanoya-shi,Kagoshima
+46204,Makurazaki-shi,Kagoshima
+46206,Akune-shi,Kagoshima
+46208,Izumi-shi,Kagoshima
+46210,Ibusuki-shi,Kagoshima
+46213,Nishinomote-shi,Kagoshima
+46214,Tarumizu-shi,Kagoshima
+46215,Satsumasendai-shi,Kagoshima
+46216,Hioki-shi,Kagoshima
+46217,So-shi,Kagoshima
+46218,Kirishima-shi,Kagoshima
+46219,Ichikikushikino-shi,Kagoshima
+46220,Minamisatsuma-shi,Kagoshima
+46221,Shibushi-shi,Kagoshima
+46222,Amami-shi,Kagoshima
+46223,Minamikyushu-shi,Kagoshima
+46224,Isa-shi,Kagoshima
+46225,Aira-shi,Kagoshima
+46303,Kagoshima-gun Mishima-mura,Kagoshima
+46304,Kagoshima-gun Toshima-mura,Kagoshima
+46392,Satsuma-gun Satsuma-cho,Kagoshima
+46404,Izumi-gun Nagashima-cho,Kagoshima
+46452,Aira-gun Yusui-cho,Kagoshima
+46468,So-gun Osaki-cho,Kagoshima
+46482,Kimotsuki-gun Higashikushira-cho,Kagoshima
+46490,Kimotsuki-gun Kinko-cho,Kagoshima
+46491,Kimotsuki-gun Minamiosumi-cho,Kagoshima
+46492,Kimotsuki-gun Kimotsuki-cho,Kagoshima
+46501,Kumage-gun Nakatane-cho,Kagoshima
+46502,Kumage-gun Minamitane-cho,Kagoshima
+46505,Kumage-gun Yakushima-cho,Kagoshima
+46523,Oshima-gun Yamato-son,Kagoshima
+46524,Oshima-gun Uken-son,Kagoshima
+46525,Oshima-gun Setochi-cho,Kagoshima
+46527,Oshima-gun Tatsugo-cho,Kagoshima
+46529,Oshima-gun Kikai-cho,Kagoshima
+46530,Oshima-gun Tokunoshima-cho,Kagoshima
+46531,Oshima-gun Amagi-cho,Kagoshima
+46532,Oshima-gun Isen-cho,Kagoshima
+46533,Oshima-gun Wadomari-cho,Kagoshima
+46534,Oshima-gun China-cho,Kagoshima
+46535,Oshima-gun Yoron-cho,Kagoshima
+47201,Naha-shi,Okinawa
+47205,Ginowan-shi,Okinawa
+47207,Ishigaki-shi,Okinawa
+47208,Urasoe-shi,Okinawa
+47209,Nago-shi,Okinawa
+47210,Itoman-shi,Okinawa
+47211,Okinawa-shi,Okinawa
+47212,Tomigusuku-shi,Okinawa
+47213,Uruma-shi,Okinawa
+47214,Miyakojima-shi,Okinawa
+47215,Nanjo-shi,Okinawa
+47301,Kunigami-gun Kunigami-son,Okinawa
+47302,Kunigami-gun Ogimi-son,Okinawa
+47303,Kunigami-gun Higashi-son,Okinawa
+47306,Kunigami-gun Nakijin-son,Okinawa
+47308,Kunigami-gun Motobu-cho,Okinawa
+47311,Kunigami-gun Onna-son,Okinawa
+47313,Kunigami-gun Ginoza-son,Okinawa
+47314,Kunigami-gun Kin-cho,Okinawa
+47315,Kunigami-gun Ie-son,Okinawa
+47324,Nakagami-gun Yomitan-son,Okinawa
+47325,Nakagami-gun Kadena-cho,Okinawa
+47326,Nakagami-gun Chatan-cho,Okinawa
+47327,Nakagami-gun Kitanakagusuku-son,Okinawa
+47328,Nakagami-gun Nakagusuku-son,Okinawa
+47329,Nakagami-gun Nishihara-cho,Okinawa
+47348,Shimajiri-gun Yonabaru-cho,Okinawa
+47350,Shimajiri-gun Haebaru-cho,Okinawa
+47353,Shimajiri-gun Tokashiki-son,Okinawa
+47354,Shimajiri-gun Zamami-son,Okinawa
+47355,Shimajiri-gun Aguni-son,Okinawa
+47356,Shimajiri-gun Tonaki-son,Okinawa
+47357,Shimajiri-gun Minamidaito-son,Okinawa
+47358,Shimajiri-gun Kitadaito-son,Okinawa
+47359,Shimajiri-gun Iheya-son,Okinawa
+47360,Shimajiri-gun Izena-son,Okinawa
+47361,Shimajiri-gun Kumejima-cho,Okinawa
+47362,Shimajiri-gun Yaese-cho,Okinawa
+47375,Miyako-gun Tarama-son,Okinawa
+47381,Yaeyama-gun Taketomi-cho,Okinawa
+47382,Yaeyama-gun Yonaguni-cho,Okinawa

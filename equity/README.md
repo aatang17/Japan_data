@@ -293,3 +293,55 @@ Beyond the three `bb-1` defects above, one more that crashes a naive run:
 **2025-08-12** is retrievable by anyone. The announcement press release (rationale,
 % of shares outstanding, and any *abandonment* of a live programme) is TDnet-only,
 PDF, no XBRL, ~31-day retention: that history starts at our capture, 2026-07-13.
+
+## M2 — facilities & land (`facility_extract.py`, parser `fac-6`)
+
+主要な設備の状況 from the same annual reports — **no new capture**, but a
+different package: the t5 CSV flattens text blocks and destroys the table, so
+this extractor reads the **t1 honbun HTML** (see
+[METHODOLOGY-FACILITIES.md](../docs/METHODOLOGY-FACILITIES.md)). Writes
+`eq_fac_filings` + `eq_facilities`; city-level addresses geocoded to
+municipality centroids via `gazetteer_municipalities.csv` (static, Geolonia
+CC BY 4.0 — no external API). Prototype and the full trap catalogue:
+[facility_m1/](facility_m1/).
+
+```bash
+lsof -ti:8007 | xargs kill          # DuckDB counts the API's reader as a lock
+../observatory/.venv/bin/python facility_extract.py                  # local
+../observatory/.venv/bin/python facility_extract.py --source s3 --workers 12
+```
+
+Local-archive run (2026-08-28, `fac-6`): **2,243 filings → 1,949 clean (87%) ·
+246 partial · 48 without a parseable table** — 27,244 facility rows, 69%
+geocoded. Clean filings disclose **¥55.1tn of land at book over 4,325 km²**.
+`fac-6` cracked the big real-estate layouts — Mitsui Fudosan, Mitsubishi
+Estate, Sumitomo Realty, Nomura RE, JR West, Keihan and the regional banks
+are now clean: rowspan-grouped facilities (buildings sharing one parcel) are
+one record; 帳簿価額-in-the-parent land columns are money, ㎡-leaf columns
+never are; paginated building lists with one grand 合計 count once; ditto
+unknown asset classes (美術骨董品) fold into other. Every fix was verified by
+a fac-5-vs-fac-6 diff over all 2,243 filings — the ~17 filings the stricter
+parser newly marks partial are genuine filer-side anomalies (e.g. a printed
+合計 of 707 against parts summing 707,245) that fac-5 lumped into unverified
+rows.
+Two gates, both recomputing the filer's own numbers: row sums vs the filed
+合計, and facilities land ≤ consolidated balance-sheet land (own + trust).
+Cross-company surfaces use clean filings only. The five-year S3 run is the
+next step; the extractor takes `--source s3` unchanged.
+
+The geocoder matches ヶ/ケ as one character (袖ケ浦市 = 袖ヶ浦市; fixed
+2026-08-28 and backfilled in place — coordinates are derived values, not
+filed figures). English municipality names and the derived use category are
+serve-time joins in `observatory/app/facility_labels.py`, not extractor
+output; see `docs/METHODOLOGY-FACILITIES.md`.
+
+## M3 — rental-property fair value (`rental_extract.py`, parser `rent-1`)
+
+The 賃貸等不動産 note: carrying amount vs year-end fair value (時価) of
+rental/investment property, the one filed market value for real estate.
+Writes `eq_rental_filings` + `eq_rental_tables`. Two layouts (labels-in-rows
+and labels-in-headers), consecutive-year tables recognised by the rolling
+balance; gate is 期首 + 増減 = 期末. Local run (2026-08-28): **2,243 filings →
+551 clean · 451 immaterial · 1,196 no note (incl. IFRS) · 10 partial · 35
+unparsed** — ¥27.2tn carrying, ¥47.2tn fair, ¥20.0tn disclosed unrealized
+gain. Same usage flags as the facilities extractor.

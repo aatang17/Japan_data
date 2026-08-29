@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Facilities &amp; Land · Japan Data Observatory</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/app.css">
+<style>
+/* page-local layout only — tokens and components come from app.css */
+.co-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 14px; margin: 18px 0 4px; }
+.co-head h1 { margin: 0; }
+.co-code { font-family: var(--obs-mono, monospace); color: var(--obs-text-muted); font-size: 15px; }
+.filing-meta { font-size: 12.5px; color: var(--obs-text-muted); margin: 2px 0 0; }
+.filing-meta .mono { font-family: var(--obs-mono, monospace); }
+
+.fact-row { display: flex; flex-wrap: wrap; gap: 10px 44px; margin: 14px 0 4px;
+  padding-left: 14px; border-left: 2px solid var(--obs-border); }
+.fact-row div { margin: 0; }
+.fact-row dt { font-size: 12px; font-weight: 600; color: var(--obs-text-muted);
+  text-transform: uppercase; letter-spacing: 0.04em; margin: 0 0 3px; }
+.fact-row dd { margin: 0; font-size: 21px; font-weight: 600; color: var(--obs-ink);
+  font-variant-numeric: tabular-nums; line-height: 1.15; }
+.fact-row dd .unit { font-size: 13px; font-weight: 400; color: var(--obs-text-muted); }
+.fact-row .qual { display: block; font-size: 12px; font-weight: 400;
+  color: var(--obs-text-muted); margin-top: 2px; }
+
+#fac-map { width: 100%; height: 580px; border: 1px solid var(--obs-border); }
+.map-controls { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin: 12px 0 2px; }
+.map-controls label { font-size: 12.5px; color: var(--obs-text-muted); }
+.map-controls select { font-size: 13px; }
+.chart-foot { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline;
+  font-size: 12px; color: var(--obs-text-faint); margin-top: 4px; }
+.chart-foot .grow { flex: 1; }
+
+/* zoom buttons live INSIDE the map box, bottom-right; outline style, tokens only */
+.map-shell { position: relative; }
+.map-zoom { position: absolute; right: 10px; bottom: 10px; display: flex;
+  flex-direction: column; z-index: 2; }
+.map-zoom button { width: 30px; height: 30px; font-size: 17px; line-height: 1;
+  font-family: var(--obs-mono, monospace); background: var(--obs-surface);
+  color: var(--obs-ink); border: 1px solid var(--obs-border); border-radius: 3px;
+  cursor: pointer; padding: 0; }
+.map-zoom button + button { margin-top: -1px; border-radius: 0 0 3px 3px; }
+.map-zoom button:first-child { border-radius: 3px 3px 0 0; }
+.map-zoom button:hover { background: var(--obs-surface-subtle); }
+
+.tbl-fac { width: 100%; border-collapse: collapse; min-width: 720px; }
+.tbl-fac th, .tbl-fac td { padding: 9px 12px; font-size: 13.5px; border-bottom: 1px solid var(--obs-grid); }
+.tbl-fac thead th { font-size: 12px; font-weight: 600; color: var(--obs-text-muted);
+  text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid var(--obs-border); }
+.tbl-fac .r, .tbl-fac th.r { text-align: right; font-variant-numeric: tabular-nums; }
+.tbl-fac .nw { white-space: nowrap; }
+.tbl-fac tbody tr:hover td { background: var(--obs-surface-subtle); }
+.tbl-fac a { color: var(--obs-primary); text-decoration: none; }
+.tbl-fac a:hover { text-decoration: underline; }
+.tbl-fac .cell-name { max-width: 340px; text-wrap: pretty; }
+.tbl-fac .sub { display: block; font-size: 11px; color: var(--obs-text-muted); margin-top: 1px; }
+/* outline-only marker for derived non-core rows (rental / housing / idle) */
+.chip-nc { display: inline-block; font-size: 10.5px; line-height: 1.5;
+  padding: 0 5px; border: 1px solid var(--obs-warn); color: var(--obs-warn);
+  border-radius: 3px; vertical-align: 1px; }
+
+.sec-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline; }
+.sec-note { font-size: 12.5px; line-height: 1.6; color: var(--obs-text-muted);
+  margin: 0 0 8px; text-wrap: pretty; }
+.sec-note b { color: var(--obs-ink); font-weight: 600; }
+.calc-note { font-size: 12.5px; color: var(--obs-text-muted); margin: 6px 0 0; }
+.calc-note summary { cursor: pointer; color: var(--obs-primary); display: inline; }
+.disclose { margin: 12px 0 0; padding-left: 14px; border-left: 2px solid var(--obs-border);
+  font-size: 12.5px; line-height: 1.6; color: var(--obs-text-muted); text-wrap: pretty; }
+.disclose b { color: var(--obs-ink); }
+#co-map { width: 100%; height: 560px; margin-top: 14px; border: 1px solid var(--obs-border); }
+@media (max-width: 700px) { #fac-map { height: 440px; } #co-map { height: 430px; } }
+</style>
+</head>
+<body class="page-wide">
+
+<header class="site-header" data-section="equities" data-page="facilities"></header>
+<script src="assets/nav.js"></script>
+
+<main class="container">
+
+  <!-- market view -->
+  <section id="market-view">
+    <h1>Facilities &amp; Land</h1>
+    <p class="sec-note" style="max-width:76ch">
+      Every plant, office, store and landholding Japanese companies disclose in the
+      <b>主要な設備の状況</b> (major facilities) section of their annual securities
+      reports — with land carried at <b>historical-cost book value</b>, which is the
+      point: land bought decades ago is still on the books at decades-old prices,
+      and the area is disclosed next to it.
+    </p>
+
+    <dl class="fact-row" id="market-facts"></dl>
+
+    <div class="explorer-controls">
+      <div class="search-rail">
+        <div class="search-field">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"
+               class="search-icon"><circle cx="7" cy="7" r="4.6"></circle><path d="M10.4 10.4 14 14"></path></svg>
+          <input type="search" id="q" placeholder="Company name in English or Japanese, or securities code. E.g. JR East, 東武, 9020"
+                 aria-label="Search companies" autocomplete="off">
+        </div>
+      </div>
+    </div>
+    <div id="search-results"></div>
+
+    <h2>The Map <span class="h2-note" id="map-qualifier"></span></h2>
+    <div class="map-controls">
+      <label>Dot size by
+        <select id="size-by">
+          <option value="land_book">Land book value (¥)</option>
+          <option value="land_area">Land area (㎡)</option>
+        </select>
+      </label>
+      <label id="min-land-wrap">Show
+        <select id="min-land">
+          <option value="0">every mapped facility</option>
+          <option value="1000000000" selected>land ≥ ¥1bn</option>
+          <option value="10000000000">land ≥ ¥10bn</option>
+        </select>
+      </label>
+    </div>
+    <div class="map-shell">
+      <div id="fac-map" role="img" aria-label="Map of disclosed company facilities in Japan"></div>
+      <div class="map-zoom">
+        <button type="button" id="fac-zoom-in" aria-label="Zoom in">+</button>
+        <button type="button" id="fac-zoom-out" aria-label="Zoom out">−</button>
+      </div>
+    </div>
+    <div class="chart-foot">
+      <span>Source: company annual securities reports (有価証券報告書, EDINET), figures as filed ·
+        positions are municipality centroids, not parcels
+        (<a href="https://github.com/geolonia/japanese-addresses" rel="license">Geolonia Japanese-addresses, CC BY 4.0</a>)</span>
+      <span class="grow"></span>
+      <a href="#" id="map-png">Download PNG</a>
+      <a href="#" id="map-csv">Download CSV</a>
+    </div>
+
+    <h2>Hidden-Land Screen <span class="h2-note" id="rank-count"></span></h2>
+    <p class="sec-note" style="max-width:76ch">
+      Companies ranked on the land their filings disclose. <b>Cheapest book per ㎡</b>
+      is the classic screen: a large area at negligible carrying value is land the
+      balance sheet has forgotten. Book value is not market value — no market
+      estimate is made here.
+    </p>
+    <div class="map-controls">
+      <label>Rank by
+        <select id="rank-metric">
+          <option value="yen_per_m2">cheapest book ¥ per ㎡</option>
+          <option value="land_area">largest land area</option>
+          <option value="land_book">largest land book value</option>
+          <option value="bs_gap">largest land not itemised</option>
+        </select>
+      </label>
+      <span class="grow"></span>
+      <span class="sec-actions"><a href="#" id="rank-csv">Download CSV</a></span>
+    </div>
+    <div style="overflow-x:auto"><table class="tbl-fac" id="rank-table"></table></div>
+    <details class="calc-note"><summary>Show calculation</summary>
+      <div id="rank-calc" style="margin-top:6px"></div>
+    </details>
+
+    <h2>Rental Property at Market <span class="h2-note" id="rent-count"></span></h2>
+    <p class="sec-note" style="max-width:76ch">
+      The one place a filing puts a <b>market value</b> on real estate: the
+      賃貸等不動産 note discloses the balance-sheet carrying amount of rental
+      property next to its fiscal-year-end fair value, mostly appraisal-based.
+      The gap between the two is <b>officially disclosed unrealized gain</b> —
+      nothing here is estimated by this platform.
+    </p>
+    <dl class="fact-row" id="rent-facts"></dl>
+    <div class="map-controls">
+      <label>Rank by
+        <select id="rent-metric">
+          <option value="unrealized">largest unrealized gain</option>
+          <option value="fair_value">largest fair value</option>
+          <option value="ratio">highest fair value ÷ book</option>
+        </select>
+      </label>
+      <span class="grow"></span>
+      <span class="sec-actions"><a href="#" id="rent-csv">Download CSV</a></span>
+    </div>
+    <div style="overflow-x:auto"><table class="tbl-fac" id="rent-table"></table></div>
+    <details class="calc-note"><summary>Show calculation</summary>
+      <div id="rent-calc" style="margin-top:6px"></div>
+    </details>
+  </section>
+
+  <!-- company view -->
+  <section id="company-view" hidden>
+    <p style="margin:16px 0 0"><a href="facilities.html" id="back-link">&larr; All companies</a></p>
+    <div class="co-head">
+      <h1 id="co-name"></h1>
+      <span class="co-code" id="co-code"></span>
+    </div>
+    <p class="filing-meta" id="co-name-ja" hidden></p>
+    <p class="filing-meta" id="co-filing"></p>
+    <div class="disclose" id="co-warning" hidden></div>
+
+    <dl class="fact-row" id="co-facts"></dl>
+
+    <div id="co-map-wrap" hidden>
+      <div class="map-shell">
+        <div id="co-map" role="img" aria-label="Map of this company's disclosed facilities"></div>
+        <div class="map-zoom">
+          <button type="button" id="co-zoom-in" aria-label="Zoom in">+</button>
+          <button type="button" id="co-zoom-out" aria-label="Zoom out">−</button>
+        </div>
+      </div>
+      <div class="chart-foot">
+        <span>Dots at municipality centroids, spread slightly when several sites share one
+          municipality — never parcel locations. Click a dot for the facility's figures.</span>
+      </div>
+    </div>
+
+    <h2>Disclosed Facilities <span class="h2-note" id="co-qualifier"></span></h2>
+    <div class="map-controls">
+      <span class="grow"></span>
+      <span class="sec-actions"><a href="#" id="co-csv">Download CSV</a></span>
+    </div>
+    <div style="overflow-x:auto"><table class="tbl-fac" id="co-table"></table></div>
+  </section>
+
+  <div class="disclose" id="page-disclose">
+    <b>What this data is.</b> Figures exactly as filed in each company's annual
+    securities report; raw filings archived with SHA-256. "Major facilities" is the
+    filer's own selection, so totals are a floor, not the balance sheet. Extraction
+    is validated two ways — each row must recompute the filer's own 合計, and total
+    land must not exceed consolidated balance-sheet land — and only filings that
+    pass feed the map and the screen. Coordinates are derived: city-level filed
+    addresses placed at municipality centroids
+    (Geolonia Japanese-addresses, CC BY 4.0). Land book values are historical
+    cost, not market value.
+    <br><br>
+    <b>Two more things are derived, not filed.</b> English locations are the
+    geocoded municipality's official romanization (Japan Post romanized address
+    data) — the filed Japanese address is always shown with them. The
+    <b>Use</b> category is classified from the filer's own text (site name,
+    contents of equipment, segment) by fixed keyword rules; a row matching no
+    rule shows — rather than a guess. Rental real estate, housing &amp; welfare
+    and idle land are marked <b>non-core</b> — for a company whose business is
+    real estate, rental property is of course core; the marker flags the use,
+    not a judgment on strategy.
+  </div>
+
+</main>
+
+<script src="assets/format.js"></script>
+<script src="assets/echarts.min.js"></script>
+<script src="assets/facilities.js"></script>
+</body>
+</html>
