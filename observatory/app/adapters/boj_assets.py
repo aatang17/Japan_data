@@ -111,6 +111,21 @@ PRESENTATION = {
         {"role": "redemptions", "code": "MA030210342F",
          "label": "JGB redemptions", "slot": 3},
     ],
+    # The stat strip: what is the JGB book, how far below peak, how fast is it
+    # moving, and what is still being bought. Types are generic (api.py);
+    # levels are official, the drawdown and trailing average are derived.
+    # Labels are strip-cell width at phone size (~15 chars before ellipsis);
+    # the full definition rides on the cell's title tooltip.
+    "overview_tiles": [
+        {"key": "holdings", "type": "level",
+         "code": "MA03021034S", "label": "JGB Holdings"},
+        {"key": "from_peak", "type": "drawdown",
+         "code": "MA03021034S", "label": "From Peak"},
+        {"key": "pace_12m", "type": "rolling_avg", "window": 12,
+         "code": "MA03021034F", "label": "Net Flow, 12m"},
+        {"key": "purchases", "type": "level",
+         "code": "MA030210341F", "label": "Gross Purchases"},
+    ],
     "kinds": KIND,
     # released early in the following month; well beyond that is stale
     "stale_after_days": 75,

@@ -24,6 +24,7 @@ var NAV_SECTIONS = [
     pages: [
       { id: "overview", label: "Overview", href: "cpi.html" },
       { id: "explorer", label: "Item Explorer", href: "explorer.html" },
+      { id: "boj", label: "Bank of Japan", href: "boj.html" },
     ],
   },
   {
@@ -32,6 +33,7 @@ var NAV_SECTIONS = [
       { id: "holdings", label: "Cross-Shareholdings", href: "holdings.html" },
       { id: "governance", label: "Boards & Pay", href: "governance.html" },
       { id: "buyback", label: "Buybacks", href: "buyback.html" },
+      { id: "facilities", label: "Facilities & Land", href: "facilities.html" },
     ],
   },
   {

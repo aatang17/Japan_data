@@ -266,6 +266,9 @@ h3 { font-size: 13.5px; color: var(--obs-ink); font-weight: 600; margin: 16px 0 
    the wider selector alone would lose to this one inside a media query. The
    orphan-slack rules above already fit three cells at two columns. */
 .strip-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+/* The BOJ strip carries four readings; it splits 2×2 rather than 3+1 so no
+   orphan-slack rule is ever needed for it. */
+.strip-grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
 
 /* ---------- controls ---------- */
 
@@ -764,6 +767,10 @@ table.data tbody tr:hover .note-mark { color: var(--obs-ink); }
    wider than the page, and squeezing the names instead makes every long one
    wrap to three lines. */
 .tbl-bands { min-width: 1260px; }
+/* BOJ series tables: enough width that the name column stays readable and the
+   trend/as-of columns survive; below it the wrap scrolls, never the page. */
+.tbl-series { min-width: 720px; }
+.tbl-series td:first-child { max-width: 300px; }
 .tbl-bands th, .tbl-bands td { padding: 12px 14px; }
 
 .tbl-bands thead .band-row th {
@@ -979,6 +986,7 @@ table.data.tbl-bands td.trend-decel { color: var(--obs-trust-official); }
 
 @media (max-width: 1024px) {
   .strip-grid { grid-template-columns: repeat(3, 1fr); }
+  .strip-grid.cols-4 { grid-template-columns: repeat(2, 1fr); }
 }
 /* The scope hints are a legend for the search box; once the box is narrow
    enough that they crowd the query, the title tooltip carries them instead. */
@@ -1002,7 +1010,7 @@ table.data.tbl-bands td.trend-decel { color: var(--obs-trust-official); }
   .meta-rule { display: none; }
 }
 @media (max-width: 768px) {
-  .strip-grid, .strip-grid.cols-3 { grid-template-columns: repeat(2, 1fr); }
+  .strip-grid, .strip-grid.cols-3, .strip-grid.cols-4 { grid-template-columns: repeat(2, 1fr); }
   .strip-value { font-size: 30px; }
   .site-header .inner { gap: 12px; }
   .header-asof { display: none; }

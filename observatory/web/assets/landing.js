@@ -52,6 +52,32 @@ function fillCpi() {
     .catch(() => dropStats("cpi-stats", "cpi-foot"));
 }
 
+function fillBoj() {
+  return fetch("/api/v1/boj-assets/overview")
+    .then(r => (r.ok ? r.json() : Promise.reject(r.status)))
+    .then(d => {
+      const byKey = {};
+      d.tiles.forEach(t => { byKey[t.key] = t; });
+      const h = byKey.holdings, p = byKey.from_peak, f = byKey.pace_12m;
+      if (!h || !p || !f) return dropStats("boj-stats", "boj-foot");
+      // Published in ¥100mn; ¥tn (an exact ÷10,000) is the readable unit.
+      const tn = v => (v === null || v === undefined ? null : v / 10000);
+      document.getElementById("boj-stats").innerHTML = [
+        landingStat("JGB holdings", "¥" + fmtNum(tn(h.value), 1) + "tn", "as published"),
+        landingStat("From the peak", fmtSigned(p.pct, 1, "%"),
+          "vs " + fmtPeriodLong(p.peak_period) + ", calculated"),
+        landingStat("Net flow, 12m pace", fmtSigned(tn(f.value), 2) + " ¥tn/mo",
+          "negative is runoff, calculated"),
+      ].join("");
+      document.getElementById("boj-foot").innerHTML =
+        "Latest month " + escapeHtml(fmtPeriodLong(d.release.latest_period)) +
+        " · holdings and flows are official values, peak distance and pace calculated" +
+        ' (<a href="boj.html">formula</a>)' +
+        (d.stale ? " · <b>this release is behind schedule</b>" : "");
+    })
+    .catch(() => dropStats("boj-stats", "boj-foot"));
+}
+
 function fillEquity() {
   return fetch("/api/v1/equity/summary")
     .then(r => (r.ok ? r.json() : Promise.reject(r.status)))
@@ -163,6 +189,7 @@ function wireCopy(btnId, textId) {
 }
 
 fillCpi();
+fillBoj();
 fillEquity();
 fillGovernance();
 fillBuyback();

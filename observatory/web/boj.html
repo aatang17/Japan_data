@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bank of Japan — JGB Holdings &amp; QT · Japan Data Observatory</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+
+<header class="site-header" data-section="macro" data-page="boj"></header>
+<script src="assets/nav.js"></script>
+
+<main class="container">
+  <div id="stale-banner"></div>
+
+  <div class="metric-card">
+    <div class="metric-card-head">
+      <h1>Bank of Japan — JGB Holdings</h1>
+      <span class="metric-asof" id="page-asof"></span>
+      <p class="metric-sub" id="page-sub"><span class="skeleton" style="display:inline-block;width:420px;height:14px"></span></p>
+    </div>
+    <div class="strip">
+      <div class="strip-grid cols-4" id="tiles">
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+      </div>
+    </div>
+    <p class="strip-foot" id="strip-foot"></p>
+    <details class="calc" id="strip-calc" style="display:none"></details>
+  </div>
+
+  <section aria-labelledby="h-holdings">
+    <h2 id="h-holdings">JGB Holdings Over Time</h2>
+    <p class="section-sub">End-of-month holdings of Japanese government bonds on the Bank of
+    Japan's balance sheet, exactly as published in the Bank's “Monetary Base and the BOJ's
+    Transactions” table. Published in ¥100 million; displayed in ¥ trillion.</p>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Date range" id="range-seg">
+        <button type="button" data-range="5">5Y</button>
+        <button type="button" data-range="10">10Y</button>
+        <button type="button" data-range="20">20Y</button>
+        <button type="button" data-range="max" aria-pressed="true">Max</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="main-png">Download PNG</button>
+      <button type="button" class="btn" id="main-csv">Download CSV</button>
+    </div>
+    <div class="chart" id="main-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="main-source"></p>
+  </section>
+
+  <section aria-labelledby="h-flows">
+    <h2 id="h-flows">Purchases vs Redemptions</h2>
+    <p class="section-sub">Each month's gross outright purchases stack above zero and
+    redemptions below; the line is the net flow as published. A month with the line above
+    zero means the Bank added JGBs on net. A small calculated balancing item makes the bars
+    sum exactly to the line.</p>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Flow date range" id="flow-seg">
+        <button type="button" data-range="1">1Y</button>
+        <button type="button" data-range="3" aria-pressed="true">3Y</button>
+        <button type="button" data-range="5">5Y</button>
+        <button type="button" data-range="10">10Y</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="flow-png">Download PNG</button>
+      <button type="button" class="btn" id="flow-csv">Download CSV</button>
+    </div>
+    <div class="chart" id="flow-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="flow-source"></p>
+    <details class="calc" id="flow-calc"></details>
+  </section>
+
+  <section aria-labelledby="h-series">
+    <h2 id="h-series">All Series <span class="h2-note" id="series-note"></span></h2>
+    <p class="section-sub">Every series ingested from the MD09 table, in ¥ trillion.
+    End-of-month stocks and during-month flows are different measures and sit in separate
+    tables. Latest values are official; changes, averages and sums are calculated from them.</p>
+    <div class="controls">
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="series-csv">Download CSV</button>
+    </div>
+
+    <h3>Holdings and balance-sheet stocks · end of month</h3>
+    <div class="table-wrap" id="stocks-table"><div class="skeleton" style="width:100%;height:200px"></div></div>
+
+    <h3>Monthly flows · during month</h3>
+    <div class="table-wrap" id="flows-table"><div class="skeleton" style="width:100%;height:120px"></div></div>
+
+    <p class="table-foot" id="series-foot"></p>
+    <details class="calc" id="series-calc"></details>
+  </section>
+
+  <!-- No h2 band here: the card carries its own "Data Source" head, and two
+       stacked headers saying the same thing read as a duplicate. -->
+  <section aria-label="Data source and provenance" class="prov">
+    <div id="prov-card"></div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="inner">
+    <span id="credit-line">Source: Bank of Japan.</span>
+    Holdings and flows are official values as published; the peak distance and trailing
+    averages are calculated from them.
+    <a href="methodology.html">Methodology</a>
+  </div>
+</footer>
+
+<script src="assets/echarts.min.js"></script>
+<script src="assets/format.js"></script>
+<script src="assets/charts.js"></script>
+<script src="assets/boj.js"></script>
+</body>
+</html>

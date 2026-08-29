@@ -58,11 +58,23 @@
 
     <li class="prod">
       <div class="prod-head">
-        <span class="prod-name">Bank of Japan balance sheet and monetary base</span>
-        <span class="status status-planned">Planned</span>
+        <a class="prod-name" href="boj.html">Bank of Japan balance sheet and monetary base</a>
+        <span class="status status-live">Live</span>
       </div>
-      <p class="prod-desc">Holdings and monthly net flows from the BOJ's time-series API —
-      including the JGB runoff since the November 2023 peak. Not available yet.</p>
+      <p class="prod-desc">23 series of end-of-month holdings and during-month flows from the
+      Bank's own time-series API — JGBs with gross purchases and redemptions split out, ETFs,
+      J-REITs, corporate bonds, and the monetary base. Monthly, July 1996 onward, in ¥100
+      million as published.</p>
+      <div class="prod-stats" id="boj-stats">
+        <div class="prod-stat skeleton" style="min-height:52px"></div>
+        <div class="prod-stat skeleton" style="min-height:52px"></div>
+        <div class="prod-stat skeleton" style="min-height:52px"></div>
+      </div>
+      <p class="prod-foot" id="boj-foot"></p>
+      <p class="prod-links">
+        <a href="boj.html">JGB Holdings &amp; QT</a>
+        <a href="methodology.html">Methodology</a>
+      </p>
     </li>
 
     <li class="prod">

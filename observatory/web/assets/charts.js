@@ -40,7 +40,11 @@ function axisCommon(pal) {
 }
 
 /* cfg: { series: [{name, slot, points: [[iso, v|null], ...]}],
-          unit: "%" | "index", yAxisName, trust, sourceLine } */
+          unit: "%" | "index", yAxisName, trust, sourceLine,
+          annotations?: [{x: iso, y: value, text}] }
+   Annotations mark real readings (a peak, a policy date) on the first
+   series: a small filled point with a label. The caller supplies the
+   coordinates from its own data — nothing is computed here. */
 function lineOptions(cfg, pal, narrow) {
   // Annual data has no meaningful position between two points, so a fiscal-year
   // series uses a category axis: a time axis would label it by month and imply
@@ -128,6 +132,17 @@ function lineOptions(cfg, pal, narrow) {
         lineStyle: { color: pal.muted, width: 1, type: "solid" },
         data: [{ yAxis: 0 }],
       } : undefined,
+      markPoint: cfg.annotations && cfg.annotations.length && s === ordered[0] ? {
+        silent: true,
+        symbol: "circle", symbolSize: 7,
+        itemStyle: { color: pal.ink },
+        // narrow plots: the label sits left of the point, since a peak near
+        // the right edge would push a centered label off the canvas
+        label: { show: true, position: narrow ? "left" : "top",
+                 distance: 8, color: pal.ink, fontSize: 11, fontWeight: 600,
+                 formatter: p => p.data.text },
+        data: cfg.annotations.map(a => ({ coord: [a.x, a.y], text: a.text })),
+      } : undefined,
     })),
   };
 }
@@ -137,6 +152,7 @@ function lineOptions(cfg, pal, narrow) {
    Stacked bars per series (contributions) with an optional line overlay
    (the total the stacks decompose). */
 function stackOptions(cfg, pal, narrow) {
+  const isCat = cfg.xType === "category";
   const names = cfg.series.map(s => s.name).concat(cfg.line ? [cfg.line.name] : []);
   return {
     animation: false,

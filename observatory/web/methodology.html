@@ -116,6 +116,28 @@
   <code>pp</code>, never <code>%</code> — a change <i>of</i> a percentage is not a percentage
   <i>of</i> a level.</p>
 
+  <h3 id="calc-boj">Bank of Japan balance-sheet data</h3>
+  <ul>
+    <li>Holdings (end of month) and flows (during month) are official values exactly as
+    published in the Bank's “Monetary Base and the BOJ's Transactions” table (MD09), in units
+    of ¥100 million. Pages display ¥ trillion, an exact division by 10,000 — no rounding
+    happens before display.</li>
+    <li>Change from peak: <code>value[latest] − max(value[m]) over all published months</code>;
+    the percent version divides by that maximum. The peak month is named wherever the figure
+    appears.</li>
+    <li>12-month pace: <code>mean(value[t−11] … value[t])</code> over the trailing twelve
+    published monthly flows. A negative net flow is balance-sheet runoff.</li>
+    <li>Flows can be genuinely negative (redemptions carry a minus sign), so no percentage
+    rates are computed on flow series — a percent change across a sign change is arithmetic
+    noise, and the API refuses it rather than serving it.</li>
+    <li>Gross outright purchases, redemptions and “other transactions” do <b>not</b> sum
+    exactly to the net JGB flow in every month: some components (for example repo sales to the
+    government) have no live flow series. No surface here presents those three as a complete
+    decomposition.</li>
+    <li>Stocks and flows are different measure types and are never mixed on one axis or in one
+    ranking, and neither is ever compared with a price index.</li>
+  </ul>
+
   <h2 id="flags">Footnote flags</h2>
   <p>Two flags mark readings whose headline rate is easy to misread. Both are calculated here
   from published index values and are <b>not</b> published by the agency. Thresholds are fixed
@@ -194,6 +216,10 @@
   <a href="https://www.e-stat.go.jp/terms-of-use" rel="noopener">e-Stat terms of use</a> with
   attribution. The rates of change calculated on this site are not official statistics; each is
   shown with the formula and the official inputs it was computed from.</p>
+  <p>Bank of Japan data is retrieved through the Bank's public time-series API. As that service
+  requires: “This service uses the API provided by the ‘Bank of Japan Time-Series Data Search.’
+  The Bank of Japan does not guarantee the content of the service.” Holdings and flows are the
+  Bank's official values; the peak distance and trailing averages calculated here are not.</p>
 
   </div>
 </main>

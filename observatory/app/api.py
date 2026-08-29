@@ -346,9 +346,111 @@ def releases(dataset):
         con.close()
 
 
+# Formulas for the tiles a levels-and-flows dataset declares in
+# PRESENTATION["overview_tiles"]. Generic calculations on published values —
+# nothing BOJ-specific lives here.
+LEVEL_TILE_CALCS = {
+    "drawdown": (
+        "value[latest] − max(value[m]) over all published months m; "
+        "percent: (value[latest] / max − 1) × 100. From published values."
+    ),
+    "rolling_avg": (
+        "mean(value[t−(w−1)] … value[t]) over the trailing w published "
+        "monthly values (w in the tile's 'window' field)."
+    ),
+}
+
+
+def _level_overview(adapter, dataset):
+    """Overview for a dataset of published levels and flows.
+
+    No index math: tiles are the latest published value, a drawdown from the
+    all-time peak, or a trailing average — each declared by the adapter, so
+    this stays dataset-agnostic. Published values are official; the peak
+    distance and trailing average are derived and carry their formula.
+    """
+    pres = adapter.PRESENTATION
+    con = _con()
+    try:
+        rel = _release(con, dataset)
+        smap = {s["code"]: s for s in _series_map(con, dataset)}
+        latest = datetime.date.fromisoformat(rel["latest_period"])
+        prior = _months_ago(latest, 1)
+
+        tiles = []
+        for spec in pres["overview_tiles"]:
+            s = smap.get(spec["code"])
+            if s is None:
+                continue
+            vals = _values(con, s["series_id"])
+            if not vals:
+                continue
+            t = {"key": spec["key"], "label": spec["label"], "series_code": s["code"],
+                 "series_name": s["name_en"], "type": spec["type"],
+                 "unit": UNIT_LABEL.get(s["unit"], s["unit"])}
+            if spec["type"] == "level":
+                cur, prev = vals.get(latest), vals.get(prior)
+                t.update({
+                    "value": cur,
+                    "delta": None if cur is None or prev is None else cur - prev,
+                    "comparison": "vs " + prior.strftime("%b %Y"),
+                    "trust": "official", "calc": _calc_for("index", s["unit"]),
+                })
+            elif spec["type"] == "drawdown":
+                cur = vals.get(latest)
+                peak_p = max(vals, key=lambda p: (vals[p], p))
+                peak_v = vals[peak_p]
+                t.update({
+                    "value": None if cur is None else cur - peak_v,
+                    "pct": None if cur is None or not peak_v else (cur / peak_v - 1) * 100,
+                    "peak_period": peak_p.isoformat(), "peak_value": peak_v,
+                    "delta": None,
+                    "comparison": "vs peak " + peak_p.strftime("%b %Y"),
+                    "trust": "derived", "calc": LEVEL_TILE_CALCS["drawdown"],
+                })
+            elif spec["type"] == "rolling_avg":
+                w = spec.get("window", 12)
+
+                def _avg(end):
+                    xs = [vals.get(_months_ago(end, k)) for k in range(w)]
+                    return None if any(x is None for x in xs) else sum(xs) / w
+
+                cur, prev_avg = _avg(latest), _avg(prior)
+                t.update({
+                    "value": cur, "window": w,
+                    "delta": None if cur is None or prev_avg is None else cur - prev_avg,
+                    "comparison": "vs the %d-month window ending %s"
+                                  % (w, prior.strftime("%b %Y")),
+                    "trust": "derived", "calc": LEVEL_TILE_CALCS["rolling_avg"],
+                })
+            else:
+                continue  # unknown tile type: skip rather than 500
+            tiles.append(t)
+
+        today = datetime.date.today()
+        return {
+            "dataset": dataset, "release": rel, "tiles": tiles,
+            "main_series": [
+                {"role": m["role"], "label": m["label"], "slot": m["slot"],
+                 "code": m["code"]}
+                for m in pres.get("main_series", []) if m.get("code") in smap],
+            "credit_line": pres.get("credit_line"),
+            "stale": (today - latest).days > pres["stale_after_days"],
+        }
+    finally:
+        con.close()
+
+
 @router.get("/{dataset}/overview")
 def overview(dataset):
     adapter = _dataset_or_404(dataset)
+    # An index dataset gets the YoY-tile overview below; a levels-and-flows
+    # dataset that declares overview_tiles gets the level overview; anything
+    # else keeps the honest 404.
+    main = (adapter.PRESENTATION.get("main_series") or [{}])[0]
+    if "name_ja" not in main:
+        if adapter.PRESENTATION.get("overview_tiles"):
+            return _level_overview(adapter, dataset)
     _index_shaped_or_404(adapter, dataset)
     pres = adapter.PRESENTATION
     con = _con()
@@ -410,12 +512,79 @@ def overview(dataset):
         con.close()
 
 
+# Formulas for the derived columns of a levels-and-flows series listing.
+LEVEL_SERIES_CALCS = {
+    "latest": "Published value as released, in the series' own unit.",
+    "delta_1m": "value[t] − value[t−1 month], from published values.",
+    "delta_12m": "value[t] − value[t−12 months], from published values.",
+    "avg_12m": "mean(value[t−11] … value[t]) over the trailing 12 published monthly values.",
+    "sum_12m": "sum(value[t−11] … value[t]) over the trailing 12 published monthly values.",
+}
+
+
+def _level_series(adapter, dataset, q):
+    """Series listing for a dataset of published levels and flows.
+
+    No index math and no weights: each row is the latest published value with
+    simple derived comparisons (1m/12m change, trailing-12m average and sum —
+    the latter two are what a flow series is read by). A row whose series
+    ended before the release's latest month is marked discontinued, so a
+    frozen line is never mistaken for a current one.
+    """
+    kinds = adapter.PRESENTATION.get("kinds") or {}
+    con = _con()
+    try:
+        rel = _release(con, dataset)
+        latest = datetime.date.fromisoformat(rel["latest_period"])
+        needle = q.strip().lower()
+        smap = _series_map(con, dataset)
+        matched = [s for s in smap
+                   if not needle
+                   or needle in s["name_en"].lower()
+                   or needle == s["code"]]
+        all_vals = _values_bulk(con, [s["series_id"] for s in matched])
+
+        out = []
+        for s in matched:
+            vals = all_vals.get(s["series_id"])
+            if not vals:
+                continue
+            as_of = max(vals)
+            cur = vals.get(as_of)
+            prev1 = vals.get(_months_ago(as_of, 1))
+            prev12 = vals.get(_months_ago(as_of, 12))
+            window = [vals.get(_months_ago(as_of, k)) for k in range(12)]
+            complete = not any(v is None for v in window)
+            spark_from = _months_ago(as_of, 60)
+            out.append({
+                "code": s["code"], "name_en": s["name_en"],
+                "kind": kinds.get(s["code"]),
+                "unit": UNIT_LABEL.get(s["unit"], s["unit"]),
+                "as_of": as_of.isoformat(),
+                "latest": cur,
+                "delta_1m": None if cur is None or prev1 is None else cur - prev1,
+                "delta_12m": None if cur is None or prev12 is None else cur - prev12,
+                "avg_12m": sum(window) / 12.0 if complete else None,
+                "sum_12m": sum(window) if complete else None,
+                "discontinued": as_of < latest,
+                "spark": [[p.isoformat(), v] for p, v in sorted(vals.items())
+                          if p >= spark_from],
+            })
+        return {"dataset": dataset, "release": rel, "count": len(out), "query": q,
+                "calc": LEVEL_SERIES_CALCS, "series": out}
+    finally:
+        con.close()
+
+
 # This is the explorer's first fetch and the largest payload the API serves;
 # repeat hits are absorbed by the release cache in app/cache.py, which stores
 # the encoded body rather than re-running the work below.
 @router.get("/{dataset}/series")
 def series_list(dataset, q: str = Query("", max_length=200)):
     adapter = _dataset_or_404(dataset)
+    main = (adapter.PRESENTATION.get("main_series") or [{}])[0]
+    if "name_ja" not in main and adapter.PRESENTATION.get("kinds"):
+        return _level_series(adapter, dataset, q)
     _index_shaped_or_404(adapter, dataset)
     con = _con()
     try:
