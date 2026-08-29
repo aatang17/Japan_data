@@ -157,6 +157,8 @@ Never call UI done without rendering it at **390 / 768 / 1280 / 1440** and _look
 
 If not, fix hierarchy before any polish. Use the `run` skill or a screenshot — never declare a visual change done from code inspection alone.
 
+**Full-bleed or container-shaped components (maps, canvases, embeds) must additionally be checked at one ultra-wide viewport (≥2200px)** — layout math that survives 1440 can still collapse when the container's aspect ratio changes.
+
 **Interact, don't just look.** Open every dropdown, tooltip, and expandable at every breakpoint (Step 9 bugs appear only when open). Hover the chart. Change the date range. Toggle a series.
 
 **"Renders" is not "done" — check the data, not just the layout.** Test against the **worst-case row** (longest series name, a missing value, a negative, a revised figure, a five-digit index), never the tidy first one:
