@@ -70,6 +70,10 @@ CREATE TABLE IF NOT EXISTS series (
     unit       TEXT NOT NULL,       -- 'index'
     weight_per_10000 DOUBLE,
     sort_order INTEGER,
+    -- FALSE once a source stops publishing a series. Series rows are never
+    -- deleted: series_id is the stable identity that vintage history and any
+    -- external reference hang off, so it must outlive the series itself.
+    active     BOOLEAN DEFAULT TRUE,
     UNIQUE (dataset, code)
 );
 
@@ -80,7 +84,36 @@ CREATE TABLE IF NOT EXISTS observations (
     release_id BIGINT NOT NULL REFERENCES releases(release_id),
     PRIMARY KEY (series_id, period)
 );
+
+-- Point-in-time history: what each observation was worth at each release.
+--
+-- APPEND-ONLY. Nothing in the codebase may UPDATE or DELETE a row here; a
+-- revision is a new row carrying the release that introduced it. This table
+-- is the commercial asset (see CLAUDE.md, Ingest Guardrails 2) -- `observations`
+-- above is only the live view of it, kept separate so the serving path stays
+-- a plain lookup.
+--
+-- Change-only: a release writes a row for a (series, period) it introduces or
+-- changes, not for one it merely republishes unchanged. The value as of any
+-- date is therefore the newest row at or before that date, which is why a
+-- withdrawn observation needs an explicit NULL tombstone rather than silence.
+CREATE TABLE IF NOT EXISTS observation_vintages (
+    series_id  BIGINT NOT NULL REFERENCES series(series_id),
+    period     DATE NOT NULL,
+    value      DOUBLE,              -- NULL = withdrawn by this release
+    release_id BIGINT NOT NULL REFERENCES releases(release_id),
+    PRIMARY KEY (series_id, period, release_id)
+);
 """
+
+# Applied to existing database files, which were created before the columns
+# above existed. Each statement must be safe to re-run on every open.
+# DuckDB will not add a column with a NOT NULL constraint, so `active` is
+# nullable and back-filled here; ingest always writes it explicitly.
+MIGRATIONS = [
+    "ALTER TABLE series ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT TRUE",
+    "UPDATE series SET active = TRUE WHERE active IS NULL",
+]
 
 
 def connect(read_only=False):
@@ -88,6 +121,8 @@ def connect(read_only=False):
     con = duckdb.connect(str(DB_PATH), read_only=read_only)
     if not read_only:
         con.execute(SCHEMA)
+        for statement in MIGRATIONS:
+            con.execute(statement)
     return con
 
 

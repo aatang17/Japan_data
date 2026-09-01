@@ -10,6 +10,7 @@ Trust labels: 'official' = value as published by the agency;
 the 'calc' field of the response).
 """
 import datetime
+import json
 import math
 import os
 import time
@@ -18,8 +19,9 @@ from typing import List
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
-from . import db
-from .adapters import boj_assets, cpi_jp, cpi_jp_items
+from . import db, vintages
+from .adapters import (boj_assets, cpi_jp, cpi_jp_items, jnto_visitors,
+                       juki_population, mof_jgb, ssds_population)
 
 # The agent is optional: without the openai package installed the data API
 # and the site keep working, and /ask reports itself as unavailable.
@@ -37,13 +39,17 @@ def _ask_enabled():
     """
     return os.environ.get("ASK_ENABLED", "").strip().lower() in ("1", "true", "yes", "on")
 
-ADAPTERS = {"cpi-jp": cpi_jp, "cpi-jp-items": cpi_jp_items, "boj-assets": boj_assets}
+ADAPTERS = {"cpi-jp": cpi_jp, "cpi-jp-items": cpi_jp_items, "boj-assets": boj_assets,
+            "jgb-yields": mof_jgb, "jnto-visitors": jnto_visitors,
+            "population-jp": juki_population,
+            "population-jp-history": ssds_population}
 
 router = APIRouter(prefix="/api/v1")
 
-# What the two pages fetch on load, primed at startup. Not every dataset serves
+# What the pages fetch on load, primed at startup. Not every dataset serves
 # every one of these — the misses 404 harmlessly and simply aren't cached.
-WARM_ENDPOINTS = ("overview", "series", "contributions", "breadth")
+WARM_ENDPOINTS = ("overview", "series", "contributions", "breadth", "curve",
+                  "arrivals")
 
 
 def warm_paths():
@@ -64,7 +70,8 @@ UNIT = {"index": "index", "yoy": "%", "mom": "%", "ann3m": "%"}
 # published, so its unit is the series' own — an index point for CPI, a yen
 # level for the BOJ balance sheet. Labelling a ¥100mn level "index (2020 = 100)"
 # would be a trust-contract breach, not a cosmetic slip.
-UNIT_LABEL = {"index": "index", "jpy_100mn": "¥100mn"}
+UNIT_LABEL = {"index": "index", "jpy_100mn": "¥100mn", "pct": "%",
+              "persons": "persons"}
 
 
 def _calc_for(measure, unit):
@@ -206,15 +213,34 @@ def _row_notes(values, as_of):
     return notes
 
 
-def _release(con, dataset):
-    row = con.execute(
+def _release(con, dataset, as_of=None):
+    """The live release, or — given as_of — the one in force on that date.
+
+    An as_of release is looked up by ingest time regardless of status: the
+    point of a vintage is what a reader would have seen then, and every
+    release except the newest is 'superseded' today.
+    """
+    sql = (
         "SELECT r.release_id, r.label, r.latest_period, r.ingested_at, "
         "       a.sha256, a.url, a.retrieved_at, s.name, s.url AS source_page, s.source_id, "
         "       d.base, d.frequency "
         "FROM releases r JOIN source_artifacts a USING(artifact_id) "
         "JOIN sources s ON s.source_id = a.source_id "
         "JOIN datasets d ON d.slug = r.dataset "
-        "WHERE r.dataset=? AND r.status='published'", [dataset]).fetchone()
+        "WHERE r.dataset=? ")
+    if as_of is None:
+        row = con.execute(sql + "AND r.status='published'", [dataset]).fetchone()
+    else:
+        row = con.execute(
+            sql + "AND r.ingested_at <= ? ORDER BY r.ingested_at DESC LIMIT 1",
+            [dataset, vintages.cutoff(as_of)]).fetchone()
+        if row is None:
+            first = con.execute(
+                "SELECT min(ingested_at) FROM releases WHERE dataset=?", [dataset]).fetchone()[0]
+            raise HTTPException(
+                400, "No release of '%s' existed on %s; the first vintage is %s"
+                     % (dataset, as_of.isoformat(),
+                        first.date().isoformat() if first else "not yet recorded"))
     if row is None:
         raise HTTPException(503, "No published release for dataset '%s'" % dataset)
     keys = ("release_id", "label", "latest_period", "ingested_at", "sha256",
@@ -240,6 +266,65 @@ def catalog():
         return {"datasets": [dict(zip(
             ("slug", "title", "country", "agency", "base", "frequency", "description"), r))
             for r in rows]}
+    finally:
+        con.close()
+
+
+@router.get("/catalog/health")
+def health():
+    """Whether each dataset is current, and whether an ingest went quiet.
+
+    Fail-safe ingest is the right design — a bad file must never replace good
+    data — but it fails *silently*, and silence looks exactly like success. In
+    August 2026 the July CPI file was downloaded, archived and then never
+    published; the site served June for three weeks and nothing said so.
+
+    Two signals catch that. `stale` means the newest period we serve is older
+    than the dataset says it should ever be. `unpublished_artifact` is the
+    sharper one: we fetched a file and no release came out of it, which is
+    always either a validation failure or a crash.
+    """
+    today = datetime.date.today()
+    con = _con()
+    try:
+        out = []
+        for slug in sorted(ADAPTERS):
+            pres = ADAPTERS[slug].PRESENTATION
+            row = con.execute(
+                "SELECT r.latest_period, r.ingested_at, a.retrieved_at "
+                "FROM releases r JOIN source_artifacts a USING(artifact_id) "
+                "WHERE r.dataset=? AND r.status='published'", [slug]).fetchone()
+            newest_fetch = con.execute(
+                "SELECT max(a.retrieved_at) FROM source_artifacts a "
+                "JOIN sources s USING(source_id) WHERE s.dataset=?", [slug]).fetchone()[0]
+            vintage_count = con.execute(
+                "SELECT count(*) FROM releases WHERE dataset=?", [slug]).fetchone()[0]
+            if row is None:
+                out.append({"dataset": slug, "status": "attention", "published": False,
+                            "reason": "no published release"})
+                continue
+            latest_period, ingested_at, published_fetch = row
+            days = (today - latest_period).days
+            stale = days > pres["stale_after_days"]
+            orphan = newest_fetch is not None and newest_fetch > published_fetch
+            out.append({
+                "dataset": slug,
+                "status": "attention" if (stale or orphan) else "ok",
+                "published": True,
+                "latest_period": latest_period.isoformat(),
+                "days_since_latest_period": days,
+                "stale_after_days": pres["stale_after_days"],
+                "stale": stale,
+                "last_published_at": ingested_at.isoformat() + "Z",
+                # A file arrived after the one we published: the ingest that
+                # read it produced nothing, and nobody was told.
+                "unpublished_artifact": orphan,
+                "last_fetch_at": newest_fetch.isoformat() + "Z" if newest_fetch else None,
+                "vintages": vintage_count,
+            })
+        return {"checked_at": today.isoformat(),
+                "status": "attention" if any(d["status"] == "attention" for d in out) else "ok",
+                "datasets": out}
     finally:
         con.close()
 
@@ -758,22 +843,278 @@ def breadth(dataset, threshold: float = Query(2.0, ge=0.0, le=50.0)):
         con.close()
 
 
+CURVE_CALC = (
+    "Published constant-maturity yields exactly as released, in percent. "
+    "Not recomputed, not interpolated, not smoothed. A maturity missing on "
+    "a date (not yet issued) is null, never zero."
+)
+
+
+@router.get("/{dataset}/curve")
+def curve(dataset):
+    """The full published curve history: every date × every maturity.
+
+    One payload serves the animated curve, the spread history and the
+    maturity table — the page slices it client-side. Values are official
+    yields only; anything derived from them is calculated on the page
+    and carries its formula there, per the trust contract.
+    """
+    adapter = _dataset_or_404(dataset)
+    cfg = adapter.PRESENTATION.get("curve")
+    if not cfg:
+        raise HTTPException(404, "Dataset '%s' has no curve definition" % dataset)
+    con = _con()
+    try:
+        rel = _release(con, dataset)
+        smap = {s["code"]: s for s in _series_map(con, dataset)}
+        codes = [m["code"] for m in cfg["maturities"] if m["code"] in smap]
+        vals = _values_bulk(con, [smap[c]["series_id"] for c in codes])
+
+        dates = sorted(set(
+            p for sid in vals for p in vals[sid]))
+        date_pos = dict((p, i) for i, p in enumerate(dates))
+
+        values = {}
+        maturities = []
+        for m in cfg["maturities"]:
+            code = m["code"]
+            s = smap.get(code)
+            if s is None:
+                continue
+            sv = vals.get(s["series_id"], {})
+            col = [None] * len(dates)
+            first = None
+            for p, v in sv.items():
+                col[date_pos[p]] = v
+                if first is None or p < first:
+                    first = p
+            values[code] = col
+            maturities.append({
+                "code": code, "years": m["years"], "name_en": s["name_en"],
+                "first_period": first.isoformat() if first else None,
+            })
+
+        latest = datetime.date.fromisoformat(rel["latest_period"])
+        today = datetime.date.today()
+        return {
+            "dataset": dataset, "release": rel,
+            "unit": "%", "trust": "official", "calc": CURVE_CALC,
+            "credit_line": adapter.PRESENTATION.get("credit_line"),
+            "stale": (today - latest).days
+                     > adapter.PRESENTATION["stale_after_days"],
+            "maturities": maturities,
+            "spreads": cfg.get("spreads", []),
+            "history_series": cfg.get("history_series", []),
+            "dates": [p.isoformat() for p in dates],
+            "values": values,
+        }
+    finally:
+        con.close()
+
+
+ARRIVALS_CALC = (
+    "Published visitor arrivals exactly as released, in persons. Not "
+    "recomputed, not seasonally adjusted, not annualised. A market not "
+    "published for a month is null, never zero — the two most recent "
+    "months are estimates covering a subset of markets."
+)
+
+
+@router.get("/{dataset}/arrivals")
+def arrivals(dataset):
+    """Every market × every month, plus the hierarchy that relates them.
+
+    One payload serves the whole inbound page — headline history, recovery
+    against a baseline year, market mix and the contribution decomposition
+    — because each of those is a different slice of the same counts. Only
+    published counts cross the wire; shares, growth rates, recovery indices
+    and contributions are calculated on the page and carry their formula
+    there, exactly as the curve surface treats spreads.
+
+    `hierarchy` is served rather than assumed: a market's parent has changed
+    twice in the published history (the Middle East grouping from 2020, the
+    Nordic one from 2023), so the page must be told the structure, never
+    infer it from the codes.
+    """
+    adapter = _dataset_or_404(dataset)
+    cfg = adapter.PRESENTATION.get("arrivals")
+    if not cfg:
+        raise HTTPException(404, "Dataset '%s' has no arrivals definition" % dataset)
+    con = _con()
+    try:
+        rel = _release(con, dataset)
+        smap = _series_map(con, dataset)
+        vals = _values_bulk(con, [s["series_id"] for s in smap])
+
+        periods = sorted(set(p for sid in vals for p in vals[sid]))
+        period_pos = dict((p, i) for i, p in enumerate(periods))
+
+        hierarchy = cfg.get("hierarchy") or {}
+        kinds = cfg.get("kinds") or {}
+        markets = []
+        values = {}
+        for s in smap:
+            col = [None] * len(periods)
+            for p, v in vals.get(s["series_id"], {}).items():
+                col[period_pos[p]] = v
+            values[s["code"]] = col
+            markets.append({
+                "code": s["code"],
+                "name_en": s["name_en"],
+                "name_ja": s["name_ja"],
+                "parent": hierarchy.get(s["code"]),
+                "kind": kinds.get(s["code"]),
+            })
+
+        # Which months are still estimates is recorded by the ingest that
+        # published them, in the release's validation summary. It is a
+        # revision status, not a trust level: these counts are official,
+        # rounded to the nearest 100 and covering a subset of markets.
+        row = con.execute(
+            "SELECT validation FROM releases "
+            "WHERE dataset=? AND status='published'", [dataset]).fetchone()
+        provisional = []
+        if row and row[0]:
+            try:
+                provisional = json.loads(row[0]).get("provisional_periods") or []
+            except ValueError:
+                provisional = []
+
+        latest = datetime.date.fromisoformat(rel["latest_period"])
+        today = datetime.date.today()
+        return {
+            "dataset": dataset, "release": rel,
+            "unit": "persons", "trust": "official", "calc": ARRIVALS_CALC,
+            "credit_line": adapter.PRESENTATION.get("credit_line"),
+            "stale": (today - latest).days
+                     > adapter.PRESENTATION["stale_after_days"],
+            "headline": cfg.get("headline"),
+            "regions": cfg.get("regions", []),
+            "feature_markets": cfg.get("feature_markets", []),
+            "baseline_year": cfg.get("baseline_year"),
+            "provisional_periods": provisional,
+            "markets": markets,
+            "periods": [p.isoformat() for p in periods],
+            "values": values,
+        }
+    finally:
+        con.close()
+
+
+PREFECTURES_CALC = (
+    "Published counts of people, exactly as released. Shares, change rates "
+    "and age-group aggregates are calculated on the page from these counts "
+    "and carry their formula there."
+)
+
+
+@router.get("/{dataset}/prefectures")
+def prefectures(dataset):
+    """Every area × every measure × every period, plus the geography.
+
+    One payload serves a whole population surface — the map, the rankings
+    and any one prefecture's history are three slices of the same counts,
+    and a map needs all 47 areas at once, which /observations (capped at
+    eight series) cannot give it.
+
+    Only published counts cross the wire. A prefecture's share of foreign
+    residents, its change rate and its 65-and-over share are arithmetic on
+    those counts, done on the page so the formula travels with the number,
+    exactly as the curve surface treats spreads.
+
+    `geographies`, `measures` and `bases` are served rather than assumed:
+    the two population datasets carry different measures and, in the
+    historical one, different reference dates per measure. A surface that
+    guessed either would mislabel a year.
+    """
+    adapter = _dataset_or_404(dataset)
+    cfg = adapter.PRESENTATION.get("prefectures")
+    if not cfg:
+        raise HTTPException(
+            404, "Dataset '%s' has no prefecture definition" % dataset)
+    con = _con()
+    try:
+        rel = _release(con, dataset)
+        smap = _series_map(con, dataset)
+        vals = _values_bulk(con, [s["series_id"] for s in smap])
+
+        periods = sorted(set(p for sid in vals for p in vals[sid]))
+        period_pos = dict((p, i) for i, p in enumerate(periods))
+
+        values = {}
+        units = {}
+        for s in smap:
+            column = [None] * len(periods)
+            for p, v in vals.get(s["series_id"], {}).items():
+                column[period_pos[p]] = v
+            # A series the source has stopped publishing still has history;
+            # one that never had a value is not sent at all.
+            if any(v is not None for v in column):
+                values[s["code"]] = column
+                units[s["code"]] = s["unit"]
+
+        latest = datetime.date.fromisoformat(rel["latest_period"])
+        today = datetime.date.today()
+        payload = {
+            "dataset": dataset, "release": rel,
+            "trust": "official", "calc": PREFECTURES_CALC,
+            "credit_line": adapter.PRESENTATION.get("credit_line"),
+            "stale": (today - latest).days
+                     > adapter.PRESENTATION["stale_after_days"],
+            "periods": [p.isoformat() for p in periods],
+            "values": values,
+            "units": units,
+        }
+        # Whatever vocabulary this dataset defines: geographies and regions
+        # for both, segments and age bands for the register one, dating
+        # bases for the historical one.
+        for key in ("headline", "national", "geographies", "regions",
+                    "segments", "measures", "indicators", "age_bands",
+                    "age_groups", "sexes", "bases", "companion_dataset"):
+            if key in cfg:
+                payload[key] = cfg[key]
+        return payload
+    finally:
+        con.close()
+
+
 @router.get("/{dataset}/observations")
 def observations(dataset,
                  series: str = Query(..., max_length=200),
                  measure: str = Query("index"),
-                 start: str = Query(None), end: str = Query(None)):
+                 start: str = Query(None), end: str = Query(None),
+                 as_of: str = Query(None)):
+    """Published values for up to eight series.
+
+    With ``as_of=YYYY-MM-DD`` the response is the data *as it stood on that
+    date* — the numbers a reader would have had then, before any later
+    revision. That is what makes a chart citable and a backtest honest, and it
+    is served from the append-only vintage history, not reconstructed.
+    """
     adapter = _dataset_or_404(dataset)
     if measure not in CALC:
         raise HTTPException(400, "Unknown measure '%s'; one of %s" % (measure, sorted(CALC)))
+    # Monthly-lag rates presuppose monthly periods; on a daily series the
+    # lag lookup would mostly miss and a %-change of a rate is not a
+    # meaningful measure anyway.
+    if measure != "index" and adapter.DATASET.get("frequency") == "daily":
+        raise HTTPException(
+            400, "'%s' is a daily dataset; monthly rate measures do not "
+                 "apply. Request measure=index for published values." % dataset)
     codes = [c.strip() for c in series.split(",") if c.strip()][:8]
     if not codes:
         raise HTTPException(400, "No series codes given")
     p_start = datetime.date.fromisoformat(start + "-01") if start else None
     p_end = datetime.date.fromisoformat(end + "-01") if end else None
+    try:
+        p_as_of = datetime.date.fromisoformat(as_of) if as_of else None
+    except ValueError:
+        raise HTTPException(400, "as_of must be a date, YYYY-MM-DD (got '%s')" % as_of)
     con = _con()
     try:
-        rel = _release(con, dataset)
+        rel = _release(con, dataset, as_of=p_as_of)
+        as_of_values = (vintages.values_as_of(con, dataset, p_as_of, codes)
+                        if p_as_of else None)
         smap = {s["code"]: s for s in _series_map(con, dataset)}
         kinds = adapter.PRESENTATION.get("kinds") or {}
         out = []
@@ -791,7 +1132,9 @@ def observations(dataset,
                 raise HTTPException(
                     400, "'%s' is a flow series and crosses zero; percentage "
                          "changes are not meaningful. Request measure=index." % code)
-            pts = _measure_points(_values(con, s["series_id"]), measure)
+            raw = (as_of_values.get(code, {}) if as_of_values is not None
+                   else _values(con, s["series_id"]))
+            pts = _measure_points(raw, measure)
             pts = [(p, v) for p, v in pts
                    if (p_start is None or p >= p_start) and (p_end is None or p <= p_end)]
             out.append({
@@ -807,8 +1150,69 @@ def observations(dataset,
                      "published levels of different kinds must not share an axis."
                      % ", ".join(sorted(UNIT_LABEL.get(u, str(u)) for u in units)))
         unit = units.pop() if len(units) == 1 else None
-        return {"dataset": dataset, "measure": measure, "unit": _unit_for(measure, unit),
+        body = {"dataset": dataset, "measure": measure, "unit": _unit_for(measure, unit),
                 "trust": TRUST[measure], "calc": _calc_for(measure, unit),
                 "release": rel, "series": out}
+        if p_as_of:
+            # The vintage is part of the citation: the same URL must return the
+            # same numbers next year, so the response says which one it read.
+            body["as_of"] = p_as_of.isoformat()
+        return body
+    finally:
+        con.close()
+
+
+@router.get("/{dataset}/revisions")
+def revisions(dataset,
+              series: str = Query(..., max_length=40),
+              period: str = Query(None)):
+    """How one series has been revised, release by release.
+
+    Only releases that actually changed a value appear: the vintage store is
+    change-only, so two consecutive entries for a period are always a real
+    revision, never a republished number. `change` is the difference from the
+    value the previous release carried — a derived figure, so it travels with
+    its formula rather than an Official Statistic badge.
+    """
+    _dataset_or_404(dataset)
+    code = series.strip()
+    try:
+        p_period = datetime.date.fromisoformat(period + "-01") if period else None
+    except ValueError:
+        raise HTTPException(400, "period must be YYYY-MM (got '%s')" % period)
+    con = _con()
+    try:
+        row = con.execute(
+            "SELECT series_id, name_en, name_ja, unit FROM series WHERE dataset=? AND code=?",
+            [dataset, code]).fetchone()
+        if row is None:
+            raise HTTPException(404, "Unknown series code '%s'" % code)
+        rows = vintages.revisions(con, dataset, code, p_period)
+        by_period = {}
+        for obs_period, value, release_id, label, ingested_at in rows:
+            entry = by_period.setdefault(obs_period.isoformat(), [])
+            change = None
+            if entry and entry[-1]["value"] is not None and value is not None:
+                change = round(value - entry[-1]["value"], 6)
+            entry.append({
+                "value": value,                       # None = withdrawn
+                "release_id": release_id,
+                "release_label": label,
+                "known_at": ingested_at.isoformat() + "Z",
+                "change": change,
+                "first": not entry,
+            })
+        revised = {p: v for p, v in by_period.items() if len(v) > 1}
+        return {
+            "dataset": dataset,
+            "series": {"code": code, "name_en": row[1], "name_ja": row[2], "unit": row[3]},
+            "trust": "derived",
+            "calc": "change = value[this release] − value[previous release carrying "
+                    "this period]. Values themselves are official, exactly as published "
+                    "in each release; only the difference between them is calculated.",
+            "periods_recorded": len(by_period),
+            "periods_revised": len(revised),
+            "history": by_period,
+        }
     finally:
         con.close()

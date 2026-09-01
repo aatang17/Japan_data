@@ -138,6 +138,146 @@
     ranking, and neither is ever compared with a price index.</li>
   </ul>
 
+  <h3 id="calc-jgb">JGB yield curve data</h3>
+  <ul>
+    <li>Yields are the Ministry of Finance's daily <b>constant-maturity par yields</b> for 15
+    tenors (1–10, 15, 20, 25, 30, 40 years), in percent to three decimals, computed by the
+    Ministry from Japan Securities Dealers Association over-the-counter reference prices.
+    They are shown exactly as published — nothing is fitted, interpolated, or smoothed. A
+    tenor with no published value on a date (not yet issued, or not quoted) is a gap, and the
+    curve line breaks rather than drawing across it.</li>
+    <li>Coverage starts 24 September 1974. Longer tenors begin later — the 10-year
+    constant-maturity series in July 1986, 20-year in December 1986, 15-year in August 1991,
+    30-year in September 1999, 25-year in March 2004, and 40-year in November 2007 — and the
+    1-, 2- and 3-year series have real mid-series gaps where short tenors were not quoted.</li>
+    <li>Spreads: <code>2s10s[t] = 10Y[t] − 2Y[t]</code> and
+    <code>10s30s[t] = 30Y[t] − 10Y[t]</code>, in percentage points, calculated from the
+    published yields.</li>
+    <li>Changes: <code>value[t] − value[b]</code>, where <code>b</code> is the latest business
+    day on or before the same calendar date one month or one year earlier.</li>
+    <li>Yields can be genuinely negative (the 1-year traded below zero through the
+    negative-rate era); no surface treats a negative yield as missing.</li>
+    <li>The policy markers on the history chart are Bank of Japan announcement dates
+    (ZIRP, QE, QQE, NIRP, yield curve control and its end, and subsequent policy-rate
+    changes). They are dates only — annotations, not data.</li>
+  </ul>
+
+  <h3 id="calc-inbound">Visitor arrivals data</h3>
+  <ul>
+    <li>Arrivals are the Japan National Tourism Organization's monthly counts of foreign
+    visitors, in persons, by market. JNTO computes them from the Ministry of Justice's
+    immigration statistics: foreign nationals entering Japan, less those whose main
+    residence is Japan, plus landings at a port of call, landings in transit and cruise
+    passengers. Crew are excluded; expatriates, their families and students are included.
+    They are shown exactly as published.</li>
+    <li><b>Revision status is not a trust level.</b> JNTO publishes each month three times —
+    an estimate (推計値) about three weeks after the month ends, a provisional figure
+    (暫定値) with the full market detail two months later, and a definitive one (確定値).
+    All three are official statistics. The estimate covers only the largest markets and is
+    rounded to the nearest 100, so on estimate months the named markets do not add up to
+    the headline and the regional totals are absent. Those months are marked on every
+    surface. Measured across three vintages of the source workbook, definitive figures are
+    never subsequently revised; the estimate-to-final change is rounding, about 0.006% at
+    the headline.</li>
+    <li>Growth: <code>growth[t] = (arrivals[t] / arrivals[t−12 months] − 1) × 100</code>,
+    in percent. Month-over-month rates are not shown for arrivals: the series is strongly
+    seasonal and an unadjusted monthly change is not interpretable.</li>
+    <li>Recovery index: <code>recovery[t] = (arrivals[t] / arrivals[same month of 2019]) ×
+    100</code>. 2019 is the last full year before the border closed, and comparing like
+    months removes the seasonality.</li>
+    <li>Share: <code>share[market] = (arrivals[market] / arrivals[Total]) × 100</code>, both
+    for the same month. The market table therefore shows the latest month with a complete
+    breakdown, not each market's own latest month — a share is only comparable when every
+    row is the same month.</li>
+    <li>Contributions:
+    <code>contribution[market, t] = (arrivals[market, t] − arrivals[market, t−12]) /
+    arrivals[Total, t−12] × 100</code>, in percentage points. The residual is
+    <code>growth[Total, t] − Σ contribution[named markets, t]</code> — taken from the
+    published headline rather than by summing the markets left out, which keeps the
+    segments summing to the headline exactly even on estimate months. The residual is
+    always shown, never dropped.</li>
+    <li>Year to date sums the published months of the current year against the same months
+    of the prior year. Where a month is still an estimate, JNTO rounds both it and its own
+    published cumulative to the nearest 100, so this sum can differ from the cumulative in
+    the press release by a few tens of people. Neither figure is adjusted to match the
+    other.</li>
+    <li>Market mix: <code>share[market, t] = Σ arrivals[market, t−11 … t] / Σ
+    arrivals[Total, t−11 … t] × 100</code>. Shares are taken over a trailing twelve months
+    so that a market's summer peak reads as seasonality rather than as a change in the mix,
+    and the residual is taken from the published total so the shares sum to 100%. A share
+    is a percent of arrivals, not of spending — markets differ several-fold in what each
+    visitor spends.</li>
+    <li>Concentration: <code>HHI[t] = Σ share[part, t]²</code> over the parts that actually
+    partition the total — every leaf market, every residual JNTO publishes, and whatever is
+    left of the headline not itemised in that era, since the residual rows only begin in
+    2016. Including that remainder is what lets the index mean the same thing in 2003 as it
+    does today. A higher value means arrivals come from fewer places. The series ends before
+    the headline does: an estimate month does not publish every market, and an incomplete
+    partition is not an index, so those months are gaps rather than estimates.</li>
+    <li>The seasonality view groups the same published counts by calendar month, one line
+    per year, so that like months line up. 2020–2022 are left out of it: with the border
+    shut those lines sit on the axis and flatten every other year into an unreadable band.
+    They remain in the table, the other charts and every export.</li>
+    <li>Arrivals are a count of people — a different measure from a price index, a yen level,
+    a stock or a flow. Where arrivals are shown against the consumer price index for hotel
+    charges, both are indexed to the same month of 2019 so that they share one comparable
+    scale; neither is read off the other's units, and the two series are published by
+    different agencies on different schedules, so they can end in different months.
+    That chart shows two series moving together over the same months. It is not evidence
+    that one causes the other.</li>
+  </ul>
+
+  <h3 id="calc-population">Population by prefecture</h3>
+  <ul>
+    <li>Two datasets sit behind the population surface and they are not interchangeable.
+    <b>population-jp</b> is the Basic Resident Register (住民基本台帳) as published by the
+    Ministry of Internal Affairs and Communications: an administrative count of everyone on
+    a municipality's register at 1 January, not a survey estimate, split three ways — all
+    residents, Japanese residents and foreign residents. <b>population-jp-history</b> is the
+    Statistics Bureau's System of Social and Demographic Statistics (社会・人口統計体系),
+    which republishes census, population-estimate, vital-statistics and register figures on
+    one prefecture grid back to 1975.</li>
+    <li><b>Reference dates differ by series and are never mixed on one axis.</b> Register
+    counts are as of 1 January. Register flows — births, deaths, moves — cover the calendar
+    year <i>before</i> that date, so the count at 1 January 2026 less the count at 1 January
+    2025 equals the flows dated 2025. Census and population-estimate figures are as of
+    1 October and are a different measure: the total population line and the registered
+    residents line are close but neither is read off the other.</li>
+    <li>Change rate:
+    <code>change % = net change ÷ (population − net change) × 100</code>. The register
+    publishes the closing count and the change over the year, but not the population it
+    started from, so the denominator is the published count less the published change.</li>
+    <li>Natural and social change:
+    <code>natural % = (births − deaths) ÷ opening population × 100</code> and
+    <code>social % = (net change − natural change) ÷ opening population × 100</code>, on the
+    same denominator. <b>Social change is not migration.</b> The ministry defines it as the
+    net change less the natural change, so it also carries naturalisations, losses of
+    nationality and register corrections. In-migrants less out-migrants is a different
+    figure and does not equal it for any prefecture.</li>
+    <li>Foreign share: <code>foreign % = foreign residents ÷ all residents × 100</code>,
+    always over all residents whichever segment the table is showing — a share of one
+    nationality within itself has no meaning.</li>
+    <li>Aged 65 and over:
+    <code>aged 65+ % = (sum of the published five-year bands from 65 upward) ÷ all
+    residents × 100</code>. A small number of residents have no usable birth date on the
+    register, so the bands fall slightly short of the published total — 43 people in 123.8
+    million nationally at 1 January 2026, but 1,258 of Hokkaido's 75,392 foreign residents.
+    The shortfall stays in the published total rather than being spread across the bands,
+    and a share computed from the bands is therefore a share of everyone, not of everyone
+    with a recorded age.</li>
+    <li>Two published figures that will not reconcile, disclosed rather than adjusted.
+    First, the national age bands hold about 6,200 more foreign residents than the 47
+    prefectures band, because a prefecture leaves those people unbanded and the national row
+    does not; summing the prefectures therefore gives a slightly smaller age total than the
+    national row. Second, the Statistics Bureau's own ageing rate excludes people of
+    unrecorded age from its denominator, so in census years it differs from
+    <code>65+ ÷ total population</code> by real amounts — 28.7% against 28.0% in 2020.
+    Published rates are not ingested; the platform calculates its rates and shows the
+    formula.</li>
+    <li>The ministry keeps only the current year's workbooks online — last year's file is
+    deleted and its URL reused — so the archive of past releases here is the history.</li>
+  </ul>
+
   <h2 id="flags">Footnote flags</h2>
   <p>Two flags mark readings whose headline rate is easy to misread. Both are calculated here
   from published index values and are <b>not</b> published by the agency. Thresholds are fixed
@@ -172,20 +312,49 @@
     SHA-256 checksum, parsed, and passed through validation gates (structure, required aggregates,
     plausible latest period and headline level) before anything is published. A file that fails
     validation publishes nothing — the previous release stays live.</li>
-    <li><b>Vintages:</b> this version of the site keeps one live vintage — the latest accepted
-    release — plus the archived raw file for every ingestion run. Full side-by-side vintage
-    history is on the roadmap.</li>
+    <li><b>Vintages:</b> every accepted release is kept as a point-in-time vintage, alongside
+    the archived raw file for every ingestion run. See <a href="#pit">Point-in-time data</a>
+    below.</li>
     <li><b>Missing values:</b> months where an item was not collected are shown as
     <code>—</code> and rendered as gaps in charts. A missing value is never displayed or exported
     as zero. Items with no value for the latest month are marked with the month their series
     ends.</li>
   </ul>
 
+  <h2 id="pit">Point-in-time data (vintages)</h2>
+  <p>The Statistics Bureau republishes the <em>entire</em> index history every month, and figures
+  for past months can change. A site that only ever holds the newest file can answer what the
+  Bureau says today, but not what it said in March — and that second question is the one that
+  matters for a chart published in March, or for any test run on data as it was actually known
+  at the time.</p>
+  <p>Every accepted release here is therefore recorded as a <b>vintage</b>: what each observation
+  was worth at that release. The store is append-only. A revision is written as a new entry
+  carrying the release that introduced it; nothing is ever edited or removed, so a number this
+  site once showed can always be recovered.</p>
+  <p>Two things follow from that, and both are available through the API:</p>
+  <ul>
+    <li><b>As-of views.</b> <code>?as_of=YYYY-MM-DD</code> on the observations endpoint returns
+    the data as it stood on that date — the numbers a reader would have had then, before any
+    later revision. The response names the release that was live at the time.</li>
+    <li><b>Revision history.</b> The revisions endpoint lists every value a series has carried
+    for a given month, release by release. The values themselves are official, exactly as
+    published in each release. The difference between two of them is calculated here and carries
+    no Official Statistic badge:<br>
+    <code>change = value[this release] − value[previous release carrying this period]</code></li>
+  </ul>
+  <p>Because an unchanged number carries no information, a release records only what it
+  introduced or revised. An observation the Bureau withdraws is recorded explicitly as withdrawn,
+  so an as-of view can distinguish “not published yet” from “published and later retracted” —
+  neither of which is ever shown as zero.</p>
+
   <h2 id="cadence">Update cadence and staleness</h2>
   <p>The Statistics Bureau publishes national CPI roughly three weeks after the end of the
   reference month. Each page shows the month its data runs through and when it was ingested. If
   the data on screen is more than three months behind, a red banner says so — a stale surface
   never presents itself as current.</p>
+  <p>JGB yields are published by the Ministry of Finance every business day, usually with a
+  one-business-day lag, and re-ingested on the platform's daily refresh. The yield curve page
+  turns stale — with the same red banner — when its newest data is more than a week old.</p>
 
   <h2 id="limits">Known limitations of this version</h2>
   <ul>
@@ -193,8 +362,10 @@
     splits are not yet ingested. The Overview page reads the middle-class table only.</li>
     <li>Rates of change are calculated here rather than ingested from the official
     change-rate tables (see Calculations above for the rounding consequence).</li>
-    <li>One live vintage; no side-by-side base-revision comparison yet. The 2025-base transition
-    will be handled with an explicit item mapping table before any cross-base series is shown.</li>
+    <li>Vintage history starts on 5 August 2026, the platform's first accepted release. Revisions
+    the Statistics Bureau made before that date are not recoverable here — nobody was saving the
+    files. No side-by-side base-revision comparison yet: the 2025-base transition will be handled
+    with an explicit item mapping table before any cross-base series is shown.</li>
     <li>Group contributions are computed with fixed 2020-base weights (the Laspeyres
     approximation the official decomposition also uses); they are not chain-linked across
     base revisions.</li>
@@ -220,6 +391,15 @@
   requires: “This service uses the API provided by the ‘Bank of Japan Time-Series Data Search.’
   The Bank of Japan does not guarantee the content of the service.” Holdings and flows are the
   Bank's official values; the peak distance and trailing averages calculated here are not.</p>
+  <p>JGB yield data © Ministry of Finance, Japan, republished with attribution under the
+  Government of Japan Standard Terms of Use. The yields are reference values the Ministry
+  computes from JSDA over-the-counter prices; the spreads and changes calculated on this site
+  are not official statistics and carry their formulas wherever they appear.</p>
+  <p>Visitor arrivals data is reproduced from the Japan National Tourism Organization, which
+  requires the source to be credited: 日本政府観光局(JNTO) / Japan National Tourism
+  Organization. JNTO computes the counts from Ministry of Justice immigration statistics.
+  The growth rates, shares, contributions and recovery indices calculated on this site are
+  not official statistics and carry their formulas wherever they appear.</p>
 
   </div>
 </main>

@@ -25,12 +25,17 @@ var NAV_SECTIONS = [
       { id: "overview", label: "Overview", href: "cpi.html" },
       { id: "explorer", label: "Item Explorer", href: "explorer.html" },
       { id: "boj", label: "Bank of Japan", href: "boj.html" },
+      { id: "rates", label: "Yield Curve", href: "rates.html" },
+      { id: "inbound", label: "Inbound", href: "inbound.html" },
+      { id: "population", label: "Population", href: "population.html" },
     ],
   },
   {
     id: "equities", label: "Equities", suffix: "Equities",
     pages: [
       { id: "holdings", label: "Cross-Shareholdings", href: "holdings.html" },
+      { id: "ownership", label: "Register", href: "ownership.html" },
+      { id: "stakes", label: "5% Filings", href: "stakes.html" },
       { id: "governance", label: "Boards & Pay", href: "governance.html" },
       { id: "buyback", label: "Buybacks", href: "buyback.html" },
       { id: "facilities", label: "Facilities & Land", href: "facilities.html" },
@@ -99,5 +104,14 @@ var NAV_SECTIONS = [
         esc(p.label) + "</a>";
     }).join("") + "</div>";
     header.parentNode.insertBefore(sub, header.nextSibling);
+
+    // The strip scrolls sideways on a phone, and a section's later pages sit
+    // off-screen — so the page you are actually on can be invisible. Bring it
+    // into view once, without scrolling the document itself.
+    var inner = sub.firstChild;
+    var current = inner.querySelector('a[aria-current="page"]');
+    if (current && inner.scrollWidth > inner.clientWidth) {
+      inner.scrollLeft = Math.max(0, current.offsetLeft - 20);
+    }
   }
 })();

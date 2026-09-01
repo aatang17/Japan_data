@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Visitor Arrivals · Japan Data Observatory</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+
+<header class="site-header" data-section="macro" data-page="inbound"></header>
+<script src="assets/nav.js"></script>
+
+<main class="container">
+  <div id="stale-banner"></div>
+
+  <div class="metric-card">
+    <div class="metric-card-head">
+      <h1>Visitor Arrivals to Japan</h1>
+      <span class="metric-asof" id="page-asof"></span>
+      <p class="metric-sub" id="page-sub"><span class="skeleton" style="display:inline-block;width:420px;height:14px"></span></p>
+    </div>
+    <div class="strip">
+      <div class="strip-grid cols-4" id="tiles">
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+      </div>
+    </div>
+    <p class="strip-foot" id="strip-foot"></p>
+    <details class="calc" id="strip-calc" style="display:none"></details>
+  </div>
+
+  <section aria-labelledby="h-monthly">
+    <h2 id="h-monthly">Arrivals by Month <span class="h2-note" id="monthly-note"></span></h2>
+    <p class="section-sub">Monthly arrivals exactly as published by JNTO, for the national
+    total or any markets you pick. Arrivals are strongly seasonal, so the second view
+    indexes each month against the same month of 2019 — the last full year before the
+    border closed — and the third lays the years over each other by calendar month. The
+    two most recent months are estimates.</p>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="View" id="view-seg">
+        <button type="button" data-view="level" aria-pressed="true">Arrivals</button>
+        <button type="button" data-view="rec">vs 2019</button>
+        <button type="button" data-view="season">Seasonality</button>
+      </div>
+      <div class="seg" role="group" aria-label="Date range" id="range-seg">
+        <button type="button" data-range="3">3Y</button>
+        <button type="button" data-range="8" aria-pressed="true">8Y</button>
+        <button type="button" data-range="max">Max</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="monthly-png">Download PNG</button>
+      <button type="button" class="btn" id="monthly-csv">Download CSV</button>
+    </div>
+    <div class="band-toggles" id="market-picker" role="group" aria-label="Markets shown">
+      <span class="band-toggles-label">Markets</span>
+    </div>
+    <div class="chart" id="monthly-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="monthly-source"></p>
+    <details class="calc" id="monthly-calc"></details>
+  </section>
+
+  <section aria-labelledby="h-contrib">
+    <h2 id="h-contrib">What Moved the Total <span class="h2-note" id="contrib-note"></span></h2>
+    <p class="section-sub">The year-over-year change in total arrivals, split into the
+    markets that produced it. Each bar segment is that market's contribution in percentage
+    points; the segments sum to the total line, which is the headline growth rate. Markets
+    outside the five named are bundled into one disclosed residual, never dropped.</p>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Date range" id="contrib-seg">
+        <button type="button" data-crange="2" aria-pressed="true">2Y</button>
+        <button type="button" data-crange="4">4Y</button>
+        <button type="button" data-crange="max">Max</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="contrib-png">Download PNG</button>
+      <button type="button" class="btn" id="contrib-csv">Download CSV</button>
+    </div>
+    <div class="chart" id="contrib-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="contrib-source"></p>
+    <details class="calc" id="contrib-calc"></details>
+  </section>
+
+  <section aria-labelledby="h-mix">
+    <h2 id="h-mix">Where the Visitors Come From <span class="h2-note" id="mix-note"></span></h2>
+    <p class="section-sub">The same arrivals, read as a mix rather than a level. Shares are
+    taken over a trailing twelve months, so a market's summer peak does not read as a
+    change in the mix. Concentration is the Herfindahl–Hirschman index of those shares:
+    higher means the visitors come from fewer places, which is the exposure a single
+    market's policy or economy can move.</p>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="View" id="mix-seg">
+        <button type="button" data-mix="share" aria-pressed="true">Share of Arrivals</button>
+        <button type="button" data-mix="hhi">Concentration</button>
+      </div>
+      <div class="seg" role="group" aria-label="Date range" id="mixrange-seg">
+        <button type="button" data-mrange="5">5Y</button>
+        <button type="button" data-mrange="10" aria-pressed="true">10Y</button>
+        <button type="button" data-mrange="max">Max</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="mix-png">Download PNG</button>
+      <button type="button" class="btn" id="mix-csv">Download CSV</button>
+    </div>
+    <div class="chart" id="mix-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="mix-source"></p>
+    <details class="calc" id="mix-calc"></details>
+  </section>
+
+  <section aria-labelledby="h-hotel">
+    <h2 id="h-hotel">Arrivals and Hotel Prices</h2>
+    <p class="section-sub">Arrivals are a count of people and the consumer price index for
+    hotel charges is an index, so neither can be read off the other's axis. Both are
+    therefore shown on one comparable basis: each indexed to the same month of 2019. The
+    two series come from different agencies and are published on different schedules.</p>
+    <div class="controls">
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="hotel-png">Download PNG</button>
+      <button type="button" class="btn" id="hotel-csv">Download CSV</button>
+    </div>
+    <div class="chart" id="hotel-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="hotel-source"></p>
+    <details class="calc" id="hotel-calc"></details>
+  </section>
+
+  <section aria-labelledby="h-markets">
+    <h2 id="h-markets">All Markets <span class="h2-note" id="markets-note"></span></h2>
+    <p class="section-sub">Every market JNTO publishes, all on the latest month with a
+    complete breakdown, so that every row and every share is the same month. Arrivals are
+    official counts; growth, share and the 2019 comparison are calculated from them.
+    Regional totals and their member markets are both listed — a region is the sum of its
+    members, so the two must not be added together.</p>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Rows shown" id="rows-seg">
+        <button type="button" data-rows="markets" aria-pressed="true">Markets</button>
+        <button type="button" data-rows="regions">Regions</button>
+        <button type="button" data-rows="all">All Rows</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="markets-csv">Download CSV</button>
+    </div>
+    <div class="table-wrap" id="markets-table"><div class="skeleton" style="width:100%;height:300px"></div></div>
+    <p class="table-foot" id="markets-foot"></p>
+    <details class="calc" id="markets-calc"></details>
+  </section>
+
+  <!-- No h2 band here: the card carries its own "Data Source" head, and two
+       stacked headers saying the same thing read as a duplicate. -->
+  <section aria-label="Data source and provenance" class="prov">
+    <div id="prov-card"></div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="inner">
+    <span id="credit-line">Source: Japan National Tourism Organization (JNTO).</span>
+    Arrivals are official counts as published; growth rates, shares, contributions and
+    recovery indices are calculated from them.
+    <a href="methodology.html">Methodology</a>
+  </div>
+</footer>
+
+<script src="assets/echarts.min.js"></script>
+<script src="assets/format.js"></script>
+<script src="assets/charts.js"></script>
+<script src="assets/sortable.js"></script>
+<script src="assets/inbound.js"></script>
+</body>
+</html>

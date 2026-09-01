@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>5% Filings · Japan Data Observatory</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/app.css">
+<style>
+/* page-local layout only — tokens and components come from app.css */
+.co-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 14px; margin: 18px 0 4px; }
+.co-head h1 { margin: 0; }
+.co-code { font-family: var(--obs-mono, monospace); color: var(--obs-text-muted); font-size: 15px; }
+.co-name-ja { font-size: 14px; color: var(--obs-text-muted); margin: 2px 0 0; }
+.filing-meta { font-size: 12.5px; color: var(--obs-text-muted); margin: 2px 0 0; }
+.filing-meta .mono { font-family: var(--obs-mono, monospace); }
+
+.tbl-stk { width: 100%; border-collapse: collapse; min-width: 680px; }
+.tbl-stk.wide { min-width: 980px; }
+.tbl-stk th, .tbl-stk td { padding: 9px 12px; font-size: 13.5px; border-bottom: 1px solid var(--obs-grid); }
+.tbl-stk thead th { font-size: 12px; font-weight: 600; color: var(--obs-text-muted);
+  text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid var(--obs-border); }
+.tbl-stk .r, .tbl-stk th.r { text-align: right; font-variant-numeric: tabular-nums; }
+.tbl-stk tbody tr:hover td { background: var(--obs-surface-subtle); }
+.tbl-stk a { color: var(--obs-primary); text-decoration: none; }
+.tbl-stk a:hover { text-decoration: underline; }
+.tbl-stk .cell-item { max-width: 320px; text-wrap: pretty; }
+.tbl-stk .cell-item .ja { margin-top: 1px; line-height: 1.35; font-size: 12px; color: var(--obs-text-muted); }
+.tbl-stk .sub { display: block; font-size: 11px; color: var(--obs-text-muted); margin-top: 1px;
+  white-space: nowrap; }
+/* One line, and it never grows: the full statement is on hover and in the CSV. */
+.tbl-stk .purpose { max-width: 340px; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; color: var(--obs-text-muted); }
+/* a date and a signed move are single tokens — they must never break in two */
+.tbl-stk .nowrap, .tbl-stk .move { white-space: nowrap; }
+/* the move column: a signed number reads as a move, colour never carries it */
+.tbl-stk .move { font-variant-numeric: tabular-nums; }
+
+.badge-note { color: var(--obs-text-muted); border-color: var(--obs-border);
+  text-transform: none; letter-spacing: 0; font-weight: 500; }
+.badge-warn { color: var(--obs-warn); border-color: var(--obs-warn);
+  text-transform: none; letter-spacing: 0; font-weight: 500; }
+
+.sec-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline; }
+.sec-note { font-size: 12.5px; line-height: 1.6; color: var(--obs-text-muted);
+  margin: 0 0 8px; text-wrap: pretty; }
+.sec-note b { color: var(--obs-ink); font-weight: 600; }
+.tbl-formula { font-size: 12px; line-height: 1.55; color: var(--obs-text-muted);
+  margin: 10px 0 0; text-wrap: pretty; }
+
+.fact-row { display: flex; flex-wrap: wrap; gap: 10px 44px; margin: 14px 0 4px;
+  padding-left: 14px; border-left: 2px solid var(--obs-border); }
+.fact-row div { margin: 0; }
+.fact-row dt { font-size: 12px; font-weight: 600; color: var(--obs-text-muted);
+  text-transform: uppercase; letter-spacing: 0.04em; margin: 0 0 3px; }
+.fact-row dd { margin: 0; font-size: 21px; font-weight: 600; color: var(--obs-ink);
+  font-variant-numeric: tabular-nums; line-height: 1.15; }
+.fact-row dd .unit { font-size: 13px; font-weight: 400; color: var(--obs-text-muted); }
+.fact-row .qual { display: block; font-size: 12px; font-weight: 400;
+  color: var(--obs-text-muted); margin-top: 2px; }
+
+.disclose { margin: 12px 0 0; padding-left: 14px; border-left: 2px solid var(--obs-border);
+  font-size: 12.5px; line-height: 1.6; color: var(--obs-text-muted); text-wrap: pretty; }
+.disclose b { color: var(--obs-ink); }
+.disclose.flagged { border-left-color: var(--obs-warn); }
+
+/* One holding group on a company page: heading, then its members. Plain rows
+   under a rule — a card inside a panel would be a box inside a box. */
+.group { margin: 16px 0 0; padding-left: 14px; border-left: 2px solid var(--obs-border); }
+.group.is-current { border-left-color: var(--obs-primary); }
+.group h3 { margin: 0 0 2px; font-size: 15.5px; }
+.group .grp-meta { font-size: 12.5px; color: var(--obs-text-muted); margin: 0 0 8px; }
+.group .grp-purpose { font-size: 12.5px; line-height: 1.6; color: var(--obs-text-muted);
+  margin: 6px 0 0; text-wrap: pretty; }
+.group details.grp-purpose summary { cursor: pointer; }
+.group details.grp-purpose[open] summary { color: var(--obs-primary); }
+.group details.grp-purpose p { margin: 6px 0 0; }
+</style>
+</head>
+<body class="page-wide">
+
+<header class="site-header" data-section="equities" data-page="stakes"></header>
+<script src="assets/nav.js"></script>
+
+<main class="container">
+
+  <!-- market view -->
+  <section id="market-view">
+    <div class="page-head">
+      <h1>5% Filings</h1>
+      <p class="page-sub">Every large-shareholding report filed on a Japanese listed company:
+      who crossed 5%, in whom, how the stake moved, what they say it is for — and whether they
+      state that they may make important proposals to the board, which is the filed line
+      between a passive stake and a campaign. Exactly as filed, within five business days
+      of the trigger.</p>
+    </div>
+
+    <div class="explorer-controls">
+      <div class="search-rail">
+        <div class="search-field">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"
+               class="search-icon"><circle cx="7" cy="7" r="4.6"></circle><path d="M10.4 10.4 14 14"></path></svg>
+          <input type="search" id="q" placeholder="Company name in English or Japanese, or securities code. E.g. Sekisui, 積水, 4212"
+                 aria-label="Search issuers" autocomplete="off">
+        </div>
+      </div>
+    </div>
+    <div id="search-results"></div>
+
+    <div class="strip" id="stat-strip"></div>
+
+    <h2>The Tape <span class="h2-note" id="tape-count"></span></h2>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Filter" id="tape-seg">
+        <button type="button" data-filter="all" aria-pressed="true">All reports</button>
+        <button type="button" data-filter="activist">Important proposals</button>
+        <button type="button" data-filter="initial">New 5% holders</button>
+        <button type="button" data-filter="moves">Moves of 1pp or more</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="tape-csv">Download CSV</button>
+    </div>
+    <p class="sec-note" id="tape-meta"></p>
+    <div class="table-wrap"><table class="tbl-stk wide" id="tape-table"></table></div>
+    <p class="tbl-formula" id="tape-formula"></p>
+
+    <h2>Most Active Filers <span class="h2-note" id="filers-count"></span></h2>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Filer type" id="filer-seg">
+        <button type="button" data-activist="" aria-pressed="true">All filers</button>
+        <button type="button" data-activist="true">Stated important proposals</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="filers-csv">Download CSV</button>
+    </div>
+    <p class="sec-note" id="filers-meta"></p>
+    <div class="table-wrap"><table class="tbl-stk" id="filers-table"></table></div>
+  </section>
+
+  <!-- company view -->
+  <section id="company-view" hidden>
+    <p style="margin:16px 0 0"><a href="stakes.html">← All filings</a></p>
+    <div class="co-head"><h1 id="co-name"></h1><span class="co-code" id="co-code"></span></div>
+    <p class="co-name-ja" id="co-name-ja" hidden></p>
+    <p class="filing-meta" id="co-meta"></p>
+    <dl class="fact-row" id="co-facts"></dl>
+
+    <h2>Disclosed Holders <span class="h2-note" id="grp-count"></span></h2>
+    <p class="sec-note">Each holding group's latest report. Share counts, ratios and the
+      stated purpose are <b>official statistics</b> as filed. A group that has fallen below
+      5% files once more and then stops — it is shown as exited, not removed.</p>
+    <div id="groups"></div>
+
+    <h2>Every Report on This Company <span class="h2-note" id="rep-count"></span></h2>
+    <div class="sec-actions">
+      <p class="sec-note" style="flex:1">One row per report, newest trigger date first.</p>
+      <button type="button" class="btn" id="rep-csv">Download CSV</button>
+    </div>
+    <div class="table-wrap"><table class="tbl-stk wide" id="rep-table"></table></div>
+  </section>
+
+  <!-- holder view -->
+  <section id="holder-view" hidden>
+    <p style="margin:16px 0 0"><a href="stakes.html">← All filings</a></p>
+    <div class="co-head"><h1 id="ho-name"></h1><span class="co-code" id="ho-code"></span></div>
+    <p class="filing-meta" id="ho-meta"></p>
+    <h2>Current Positions <span class="h2-note" id="ho-count"></span></h2>
+    <div class="sec-actions">
+      <p class="sec-note" style="flex:1">This holder's latest report on each issuer.</p>
+      <button type="button" class="btn" id="ho-csv">Download CSV</button>
+    </div>
+    <div class="table-wrap"><table class="tbl-stk wide" id="ho-table"></table></div>
+    <h2>Every Report <span class="h2-note" id="ho-rep-count"></span></h2>
+    <div class="table-wrap"><table class="tbl-stk wide" id="ho-rep-table"></table></div>
+  </section>
+
+  <footer class="page-foot">
+    <p>Source: 大量保有報告書・変更報告書 (large-shareholding reports) via EDINET, Financial
+    Services Agency. Every figure links to its filing; every raw file is archived with its
+    SHA-256. Each report is a snapshot at its own trigger date, not a running position.
+    Extraction status is stated per filing — gaps are disclosed, never filled.</p>
+  </footer>
+</main>
+
+<script src="assets/format.js"></script>
+<script src="assets/stakes.js"></script>
+</body>
+</html>

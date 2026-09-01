@@ -60,7 +60,26 @@ by this platform from those indices and each response carries the formula \
 used in its `calc` field — keep official and calculated figures distinct \
 when quoting them. Every response includes a `cite` URL, a permanent page \
 showing the same view; link it when you present the numbers. Source credit: \
-Statistics Bureau of Japan, via the Japan Data Observatory."""
+Statistics Bureau of Japan, via the Japan Data Observatory.
+
+It also publishes three other Japanese macro datasets, each in its own \
+measure and never to be ranked or combined with the price indices or with \
+each other. VISITOR ARRIVALS (jnto-visitors) — monthly counts of foreign \
+visitors by market from 2003, published by the Japan National Tourism \
+Organization and computed by it from Ministry of Justice immigration \
+statistics; use get_arrivals_ranking to find market codes and to answer \
+"which markets are up or down the most", and get_arrivals for history. The \
+two most recent months are JNTO estimates: still official, but rounded to \
+the nearest 100 and covering only the largest markets, so rankings and \
+shares are served on the latest month with a complete breakdown and every \
+response says which month that is. A region is the sum of its member \
+markets — never add a parent to its children. Credit: Japan National \
+Tourism Organization (JNTO). JGB YIELD CURVE (jgb-yields) — Ministry of \
+Finance constant-maturity yields for 15 tenors, in percent per year, which \
+can be genuinely negative; get_yield_curve. BANK OF JAPAN (boj-assets) — \
+JGB holdings and monthly flows in yen, where a negative net flow is real \
+balance-sheet runoff, not a missing value; get_boj_balance_sheet, whose \
+response carries the Bank's required credit line."""
 
 # Appended to INSTRUCTIONS when the cross-shareholding database is present.
 EQUITY_INSTRUCTIONS = """

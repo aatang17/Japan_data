@@ -74,7 +74,12 @@ function lineOptions(cfg, pal, narrow) {
       // the y-axis name at top-left
       narrow ? { bottom: 0, left: 0 } : { top: 0, right: 0 }),
     grid: narrow
-      ? { left: 8, right: 12, bottom: cfg.series.length > 1 ? 44 : 8, containLabel: true,
+      // The legend sits under the plot when narrow and wraps to as many rows
+      // as it needs. Two rows fit in 44px; a fourth series pushes it to three
+      // and it lands on top of the axis labels, so reserve more for it.
+      ? { left: 8, right: 12,
+          bottom: cfg.series.length > 3 ? 70 : (cfg.series.length > 1 ? 44 : 8),
+          containLabel: true,
           top: cfg.yAxisName ? 26 : 12 }
       : { left: 8, right: 20, bottom: 8, containLabel: true,
           top: cfg.series.length > 1 ? 34 : (cfg.yAxisName ? 28 : 16) },
@@ -126,11 +131,34 @@ function lineOptions(cfg, pal, narrow) {
       itemStyle: { color: pal.series[(s.slot - 1) % 6] },
       emphasis: { focus: "none" },
       data: isCat ? s.points.map(p => p[1]) : s.points.map(p => [p[0], p[1]]),
-      markLine: crossesZero && s === ordered[0] ? {
+      // one markLine block carries the zero line, an optional horizontal
+      // reference level (cfg.refLine: {y, label} — the 100 on a rebased
+      // index, where the baseline is the whole point of the chart), and
+      // any event rules (cfg.eventLines: [{x: iso, label}] — thin
+      // vertical rules with a small label, for policy dates and
+      // methodology breaks)
+      markLine: (crossesZero || cfg.refLine
+                 || (cfg.eventLines && cfg.eventLines.length))
+          && s === ordered[0] ? {
         silent: true, symbol: "none",
         label: { show: false },
         lineStyle: { color: pal.muted, width: 1, type: "solid" },
-        data: [{ yAxis: 0 }],
+        data: (crossesZero ? [{ yAxis: 0 }] : []).concat(
+          cfg.refLine ? [{
+            yAxis: cfg.refLine.y,
+            lineStyle: { color: pal.muted, width: 1, type: "dashed" },
+            label: { show: !!cfg.refLine.label, formatter: cfg.refLine.label,
+                     position: "insideStartTop", color: pal.muted, fontSize: 10 },
+          }] : []).concat(
+          (cfg.eventLines || []).map(e => ({
+            xAxis: e.x,
+            lineStyle: { color: pal.border, width: 1, type: "dashed" },
+            // stagger drops a label one line down, so two events close in
+            // time (NIRP and YCC) don't print on top of each other
+            label: { show: !!e.label, formatter: e.label, position: "end",
+                     offset: e.stagger ? [0, 13] : [0, 0],
+                     color: pal.muted, fontSize: 10 },
+          }))),
       } : undefined,
       markPoint: cfg.annotations && cfg.annotations.length && s === ordered[0] ? {
         silent: true,
@@ -154,6 +182,12 @@ function lineOptions(cfg, pal, narrow) {
 function stackOptions(cfg, pal, narrow) {
   const isCat = cfg.xType === "category";
   const names = cfg.series.map(s => s.name).concat(cfg.line ? [cfg.line.name] : []);
+  // Shares that sum to a fixed whole say so on the axis: cfg.yMax = 100 stops
+  // ECharts padding the scale past the only value the stack can reach.
+  const bars = cfg.series.length ? cfg.series[0].points.length : 0;
+  // Past ~60 bars the inter-bar gaps read as a picket fence rather than a
+  // composition; closing the gap turns the same data into a stacked area.
+  const gap = bars > 60 ? "0%" : "20%";
   return {
     animation: false,
     color: pal.series,
@@ -172,6 +206,7 @@ function stackOptions(cfg, pal, narrow) {
     yAxis: Object.assign(axisCommon(pal), {
       type: "value",
       name: cfg.yAxisName || "",
+      max: cfg.yMax !== undefined ? cfg.yMax : null,
       nameTextStyle: { color: pal.muted, fontSize: 11, align: "left" },
       axisLine: { show: false },
       splitLine: { show: true, lineStyle: { color: pal.grid, width: 1 } },
@@ -190,7 +225,10 @@ function stackOptions(cfg, pal, narrow) {
                           ((isCat ? a.value : a.value[1]) ?? -Infinity))
           .map(p => {
             const v = isCat ? p.value : p.value[1];
-            const txt = v === null || v === undefined ? "—" : fmtSigned(v, 2, cfg.unit);
+            // a share is a level, not a movement — it carries no sign
+            const txt = v === null || v === undefined ? "—"
+              : (cfg.unsigned ? fmtNum(v, 1) + (cfg.unit === "%" ? "%" : "")
+                              : fmtSigned(v, 2, cfg.unit));
             return p.marker + " " + escapeHtml(p.seriesName) +
               ' <span class="num" style="float:right;margin-left:16px;font-weight:600">' + txt + "</span>";
           });
@@ -201,7 +239,7 @@ function stackOptions(cfg, pal, narrow) {
       name: s.name,
       type: "bar",
       stack: "contrib",
-      barCategoryGap: "20%",
+      barCategoryGap: gap,
       itemStyle: { color: pal.series[(s.slot - 1) % 6] },
       emphasis: { focus: "none" },
       data: isCat ? s.points.map(p => p[1]) : s.points.map(p => [p[0], p[1]]),
@@ -414,7 +452,9 @@ function obsChart(el, kind, cfg) {
           const hit = s.points.find(p => p[0] === period);
           return hit && hit[1] !== null ? hit[1] : "";
         });
-        csv += fmtPeriod(period) + "," + row.join(",") + "\n";
+        // daily series keep the full date; monthly series keep YYYY-MM
+        const label = cfg.isoPeriods ? period.slice(0, 10) : fmtPeriod(period);
+        csv += label + "," + row.join(",") + "\n";
       });
     } else {
       csv += "group,value,weight_per_10000\n";

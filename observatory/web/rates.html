@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JGB Yield Curve · Japan Data Observatory</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+
+<header class="site-header" data-section="macro" data-page="rates"></header>
+<script src="assets/nav.js"></script>
+
+<main class="container">
+  <div id="stale-banner"></div>
+
+  <div class="metric-card">
+    <div class="metric-card-head">
+      <h1>JGB Yield Curve</h1>
+      <span class="metric-asof" id="page-asof"></span>
+      <p class="metric-sub" id="page-sub"><span class="skeleton" style="display:inline-block;width:420px;height:14px"></span></p>
+    </div>
+    <div class="strip">
+      <div class="strip-grid cols-4" id="tiles">
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+      </div>
+    </div>
+    <p class="strip-foot" id="strip-foot"></p>
+    <details class="calc" id="strip-calc" style="display:none"></details>
+  </div>
+
+  <section aria-labelledby="h-curve">
+    <h2 id="h-curve">The Curve Through Time <span class="h2-note" id="curve-note"></span></h2>
+    <p class="section-sub">Constant-maturity yields for 15 tenors from 1 to 40 years, exactly
+    as published by the Ministry of Finance — no fitting, no interpolation. Drag the slider
+    to any business day back to September 1974, or press Play to watch the curve move.
+    A maturity that was not yet quoted on a date is simply absent.</p>
+    <div class="controls">
+      <div class="band-toggles" id="cmp-toggles" role="group" aria-label="Comparison curves">
+        <span class="band-toggles-label">Compare</span>
+        <label><input type="checkbox" data-cmp="1m" checked> 1M earlier</label>
+        <label><input type="checkbox" data-cmp="1y" checked> 1Y earlier</label>
+        <label><input type="checkbox" data-cmp="5y"> 5Y earlier</label>
+      </div>
+      <button type="button" class="btn" id="pin-btn" title="Keep the selected date on the chart while you move the slider">Pin This Date</button>
+      <span id="pin-chips"></span>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="curve-png">Download PNG</button>
+      <button type="button" class="btn" id="curve-csv">Download CSV</button>
+    </div>
+    <div class="curve-row">
+      <button type="button" class="btn" id="play-btn" aria-pressed="false">▶ Play</button>
+      <input type="range" id="date-slider" min="0" max="0" value="0" step="1"
+             aria-label="Curve date">
+      <button type="button" class="btn" id="latest-btn">Latest</button>
+      <span class="curve-date num" id="curve-date"></span>
+    </div>
+    <div class="chart" id="curve-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="curve-source"></p>
+  </section>
+
+  <section aria-labelledby="h-history">
+    <h2 id="h-history">Yields Over Time</h2>
+    <p class="section-sub">The 2-, 10- and 30-year yields as published, with Bank of Japan
+    policy dates marked. The 10-year constant-maturity series begins in July 1986 and the
+    30-year in September 1999; short maturities have real gaps where the tenor was not
+    quoted — gaps stay gaps.</p>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="History date range" id="hist-seg">
+        <button type="button" data-range="5">5Y</button>
+        <button type="button" data-range="10" aria-pressed="true">10Y</button>
+        <button type="button" data-range="20">20Y</button>
+        <button type="button" data-range="max">Max</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="hist-png">Download PNG</button>
+      <button type="button" class="btn" id="hist-csv">Download CSV</button>
+    </div>
+    <div class="chart" id="hist-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="hist-source"></p>
+    <details class="calc" id="hist-calc"></details>
+  </section>
+
+  <section aria-labelledby="h-maturities">
+    <h2 id="h-maturities">All Maturities <span class="h2-note" id="mat-note"></span></h2>
+    <p class="section-sub">Every published tenor on the latest business day. Yields are
+    official values to three decimals, exactly as released; changes are calculated from
+    them and shown in percentage points.</p>
+    <div class="controls">
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="mat-csv">Download CSV</button>
+    </div>
+    <div class="table-wrap" id="mat-table"><div class="skeleton" style="width:100%;height:300px"></div></div>
+    <p class="table-foot" id="mat-foot"></p>
+    <details class="calc" id="mat-calc"></details>
+  </section>
+
+  <!-- No h2 band here: the card carries its own "Data Source" head, and two
+       stacked headers saying the same thing read as a duplicate. -->
+  <section aria-label="Data source and provenance" class="prov">
+    <div id="prov-card"></div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="inner">
+    <span id="credit-line">Source: Ministry of Finance, Japan.</span>
+    Yields are official constant-maturity values as published; spreads and changes are
+    calculated from them.
+    <a href="methodology.html">Methodology</a>
+  </div>
+</footer>
+
+<script src="assets/echarts.min.js"></script>
+<script src="assets/format.js"></script>
+<script src="assets/charts.js"></script>
+<script src="assets/rates.js"></script>
+</body>
+</html>

@@ -226,6 +226,86 @@ It deliberately does **not** write `eq_filings`: that row is the holdings extrac
 vintage record and two writers would fight over `status`. `eq_company_year` carries this
 dataset's own status and the SHA-256 of the bytes it parsed.
 
+## M2 — shareholder register (`ownership_extract.py`, parser `own-1`)
+
+大株主の状況 + 所有者別状況 from the same annual-report `type=5` package the
+holdings and boards extractors already read — **no new capture**. Writes
+`eq_major_shareholders`, `eq_own_category` and `eq_own_filings`. Plan:
+[PLAN-CROSS-SHAREHOLDING-DB.md](../docs/plans/PLAN-CROSS-SHAREHOLDING-DB.md) ·
+methodology: [METHODOLOGY-OWNERSHIP.md](../docs/METHODOLOGY-OWNERSHIP.md).
+
+```bash
+lsof -ti:8007 | xargs kill          # DuckDB counts the API's reader as a lock
+../observatory/.venv/bin/python ownership_extract.py --all              # local
+../observatory/.venv/bin/python ownership_extract.py --all --source s3 --workers 16
+```
+
+Local-archive run (2026-09-01, `own-1`): **2,503 filings → 2,445 clean · 13
+partial · 45 unsupported form** — 24,353 named holders, 16,321 category rows,
+7,748 holders entity-matched, **5,294 rows classified as custody accounts**.
+
+Traps this parser exists to survive:
+
+- **The register is not ownership.** A fifth of all named rows are nominee trust
+  banks and global custodians holding for someone else. `holder_kind` is ours,
+  derived from the name, and the custodian test runs on the name with its
+  bracketed qualifier stripped — that bracket is usually the holder's 常任代理人,
+  and GOVERNMENT OF NORWAY（常任代理人 シティバンク）is Norway's own money, not a
+  Citibank account.
+- **A natural person is never entity-matched.** EDINET codes individuals who
+  file 5% reports, so a name lookup would return a hit and a collision would
+  attribute one person's holdings to another.
+- **Filers truncate as often as they round.** Ono prints 1.80 for an exact
+  1.8064 and its 計 is the truncated sum; Toyota's ten rows sum two hundredths
+  above its 計. The percentage gates therefore allow a full last digit per row
+  below the filed total and half a digit above it.
+- **Past row 15 the member context carries the filer's own namespace**
+  (`…E03738-000No16MajorShareholdersMember`) — the same trap the holdings and
+  boards extractors hit.
+- **A holder's share count is tested against ALL share classes.** TEPCO's rescue
+  fund and Mitsubishi Corp's Chiyoda stake are largely preferred shares;
+  measuring them against the ordinary count reports a holder owning more of a
+  company than exists.
+
+## M1 — 5% filings (`lvh_extract.py`, parser `lvh-1`)
+
+EDINET types 350/360, the 大量保有報告書 family — **no new capture**, the daily
+job has banked them since 2021. The only extractor here that reads the **t1
+inline-XBRL** package, because EDINET publishes no CSV rendition of this form.
+Writes `eq_lvh_filings` + `eq_lvh_holders`. Methodology:
+[METHODOLOGY-5PCT-FILINGS.md](../docs/METHODOLOGY-5PCT-FILINGS.md).
+
+```bash
+lsof -ti:8007 | xargs kill
+../observatory/.venv/bin/python lvh_extract.py                       # local
+../observatory/.venv/bin/python lvh_extract.py --source s3 --workers 16
+```
+
+Local-archive run (2026-09-01, `lvh-1`): **3,893 reports filed 2026-05-29 →
+2026-08-06 → 3,850 clean · 43 partial** — 1,276 issuers, 817 filing groups,
+8,287 holder rows, **150 reports stating a 重要提案行為 act**.
+
+Traps this parser exists to survive:
+
+- **Inline XBRL nests, so the scan cannot be a regex.** A text-block fact wraps
+  the tagged facts inside it; a non-greedy pattern closes the outer element on
+  an inner end tag and resumes past it, losing both. Measured: the holding ratio
+  vanished in 36% of filings before the stack-based scanner.
+- **The answer to 重要提案行為 lives in one of two elements** — the base one when
+  an act is stated, the `…NA` twin when none is — and the field does not exist
+  at all on the change report or the special form. `proposal_asked` distinguishes
+  "not asked" from "asked and left blank"; null never means no.
+- **A departing joint holder is still described in the filing.** Nomura's report
+  on Nissui details three holders and its group total is the sum of two.
+- **Numbers are taken only when the tag holds a number and nothing else.**
+  Filers leave tags open over whole tables, and the single number inside is
+  often a different line of the form — Nomura's borrowings tag contains its
+  total funding.
+- **Dates lie in both directions.** The cover-page filing date is filer-typed
+  (a Trusco corrector dated a 2026 filing 2028), so EDINET's own submission
+  record is used and the printed date kept beside it; and 提出義務発生日 on a
+  change report is routinely the date the holder first crossed 5%, years back.
+
 ## M2 — buyback lifecycle (`buyback.py`, parser `bb-2`)
 
 EDINET type 220, the monthly 自己株券買付状況報告書 — **no new capture**, the same

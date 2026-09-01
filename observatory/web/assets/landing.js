@@ -78,6 +78,40 @@ function fillBoj() {
     .catch(() => dropStats("boj-stats", "boj-foot"));
 }
 
+function fillRates() {
+  // A short recent window is enough for the card; the page loads the
+  // full history itself.
+  const now = new Date();
+  const from = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+  const start = from.getFullYear() + "-" + String(from.getMonth() + 1).padStart(2, "0");
+  return fetch("/api/v1/jgb-yields/observations?series=10Y,2Y,30Y&measure=index&start=" + start)
+    .then(r => (r.ok ? r.json() : Promise.reject(r.status)))
+    .then(d => {
+      const latest = {};
+      d.series.forEach(s => {
+        for (let i = s.points.length - 1; i >= 0; i--) {
+          if (s.points[i][1] !== null) { latest[s.code] = s.points[i][1]; break; }
+        }
+      });
+      if (latest["10Y"] === undefined || latest["2Y"] === undefined) {
+        return dropStats("rates-stats", "rates-foot");
+      }
+      document.getElementById("rates-stats").innerHTML = [
+        landingStat("10-year yield", fmtRate(latest["10Y"], 3), "as published"),
+        landingStat("2-year yield", fmtRate(latest["2Y"], 3), "as published"),
+        landingStat("2s10s spread",
+          fmtSigned(latest["10Y"] - latest["2Y"], 3, "pp"), "calculated"),
+      ].join("");
+      const day = d.release.latest_period;   // "2026-08-27" -> "27 August 2026"
+      const dayLong = Number(day.slice(8, 10)) + " " + fmtPeriodLong(day);
+      document.getElementById("rates-foot").innerHTML =
+        "Latest business day " + escapeHtml(dayLong) +
+        " · yields are official statistics, the spread calculated from them" +
+        ' (<a href="rates.html">formula</a>)';
+    })
+    .catch(() => dropStats("rates-stats", "rates-foot"));
+}
+
 function fillEquity() {
   return fetch("/api/v1/equity/summary")
     .then(r => (r.ok ? r.json() : Promise.reject(r.status)))
@@ -190,6 +224,7 @@ function wireCopy(btnId, textId) {
 
 fillCpi();
 fillBoj();
+fillRates();
 fillEquity();
 fillGovernance();
 fillBuyback();

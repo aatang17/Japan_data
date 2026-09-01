@@ -303,6 +303,293 @@ def get_breadth(threshold=2.0, dataset="cpi-jp-items", start="", end=""):
     }, ensure_ascii=False)
 
 
+# ---------------------------------------------------------------------------
+# visitor arrivals (jnto-visitors)
+#
+# A count of people — a different measure from a price index, a yen level, a
+# stock or a flow. Nothing here may be ranked or combined with CPI or
+# balance-sheet figures.
+#
+# These wrap /api/v1/jnto-visitors/arrivals, which publishes the counts and the
+# market hierarchy. Growth, share, recovery and rank are calculated from that
+# published payload by the same formulas the inbound page shows under "Show
+# calculation", and every response carries the formula it used.
+# ---------------------------------------------------------------------------
+
+ARRIVALS_DATASET = "jnto-visitors"
+
+ARRIVALS_CALCS = {
+    "count": "Published arrivals in persons, exactly as released. Not recomputed.",
+    "yoy": ("(arrivals[t] / arrivals[t−12 months] − 1) × 100, in percent, "
+            "from published counts."),
+    "recovery": ("(arrivals[t] / arrivals[same month of the baseline year]) "
+                 "× 100. The baseline is 2019, the last full year before the "
+                 "border closed; comparing like months removes the seasonality."),
+    "share": ("(arrivals[market] / arrivals[Total]) × 100, both for the same "
+              "month, from published counts."),
+}
+
+
+def _arrivals_raw():
+    return api.arrivals(ARRIVALS_DATASET)
+
+
+def _arrivals_index(raw):
+    return dict((p, i) for i, p in enumerate(raw["periods"]))
+
+
+def _latest_complete(raw):
+    """Newest month carrying every top-level series.
+
+    The two most recent months are estimates covering a subset of markets, so
+    a share or a ranking taken there would compare markets across different
+    months. Rankings therefore use this month, and say so.
+    """
+    i = len(raw["periods"]) - 1
+    while i > 0 and not all(raw["values"].get(c, [])[i] is not None
+                            for c in raw["regions"]):
+        i -= 1
+    return i
+
+
+def _baseline_index(raw, idx, pidx):
+    iso = raw["periods"][idx]
+    return pidx.get("%d%s" % (raw["baseline_year"], iso[4:]))
+
+
+def get_arrivals(markets="total", measure="count", start="", end=""):
+    """Monthly foreign visitor arrivals to Japan, by market."""
+    args = {"markets": markets, "measure": measure,
+            "start": start or None, "end": end or None}
+    if measure not in ARRIVALS_CALCS or measure == "share":
+        return _fail("measure must be 'count', 'yoy' or 'recovery'.")
+    try:
+        raw = _arrivals_raw()
+    except Exception as exc:  # noqa: BLE001
+        _record("get_arrivals", args, note="failed")
+        return _fail(str(exc))
+
+    known = dict((m["code"], m) for m in raw["markets"])
+    codes = [c.strip() for c in markets.split(",") if c.strip()][:6] or ["total"]
+    unknown = [c for c in codes if c not in known]
+    if unknown:
+        return _fail("Unknown market code(s): %s. Call get_arrivals_ranking to "
+                     "see the codes." % ", ".join(unknown))
+
+    pidx = _arrivals_index(raw)
+    lo = start + "-01" if start else _window_start(raw["release"], DEFAULT_MONTHS) + "-01"
+    hi = (end + "-01") if end else None
+
+    out = []
+    for code in codes:
+        col = raw["values"][code]
+        points = []
+        for i, iso in enumerate(raw["periods"]):
+            if iso < lo or (hi and iso > hi):
+                continue
+            v = col[i]
+            if measure == "count":
+                points.append([iso[:7], v])
+                continue
+            if v is None:
+                points.append([iso[:7], None])
+                continue
+            if measure == "yoy":
+                b = pidx.get("%d%s" % (int(iso[:4]) - 1, iso[4:]))
+            else:
+                b = _baseline_index(raw, i, pidx)
+            prev = col[b] if b is not None else None
+            if not prev:
+                points.append([iso[:7], None])
+            elif measure == "yoy":
+                points.append([iso[:7], _round((v / prev - 1) * 100, 2)])
+            else:
+                points.append([iso[:7], _round((v / prev) * 100, 1)])
+        out.append({"code": code, "name_en": known[code]["name_en"],
+                    "name_ja": known[code]["name_ja"],
+                    "parent": known[code]["parent"], "points": points})
+
+    truncated = _trim_points(out, POINT_BUDGET)
+    _record("get_arrivals", args, raw["release"],
+            note="%s, %d market(s)" % (measure, len(out)))
+    return json.dumps({
+        "dataset": ARRIVALS_DATASET,
+        "measure": measure,
+        "unit": "persons" if measure == "count" else
+                ("%" if measure == "yoy" else "index, baseline = 100"),
+        "trust": "official" if measure == "count" else "calculated",
+        "calc": ARRIVALS_CALCS[measure],
+        "baseline_year": raw["baseline_year"],
+        "truncated_to_recent": truncated,
+        "as_of_release": raw["release"]["latest_period"],
+        "estimate_months": [p[:7] for p in raw["provisional_periods"]],
+        "estimate_note": (
+            "Months listed in estimate_months are JNTO estimates: official, "
+            "rounded to the nearest 100, covering only the largest markets, "
+            "and superseded by a provisional and then a definitive figure."),
+        "credit": "Japan National Tourism Organization (JNTO)",
+        "cite": _cite("/inbound.html"),
+        "series": out,
+    }, ensure_ascii=False)
+
+
+def get_arrivals_ranking(order="highest", metric="arrivals", limit=15,
+                         group="markets"):
+    """Rank the markets sending visitors to Japan, at one comparable month."""
+    args = {"order": order, "metric": metric, "limit": limit, "group": group}
+    if order not in ("highest", "lowest"):
+        return _fail("order must be 'highest' or 'lowest'.")
+    if metric not in ("arrivals", "yoy", "share", "recovery"):
+        return _fail("metric must be 'arrivals', 'yoy', 'share' or 'recovery'.")
+    try:
+        raw = _arrivals_raw()
+    except Exception as exc:  # noqa: BLE001
+        _record("get_arrivals_ranking", args, note="failed")
+        return _fail(str(exc))
+
+    pidx = _arrivals_index(raw)
+    i = _latest_complete(raw)
+    iso = raw["periods"][i]
+    y1 = pidx.get("%d%s" % (int(iso[:4]) - 1, iso[4:]))
+    b = _baseline_index(raw, i, pidx)
+    total = raw["values"]["total"][i]
+
+    rows = []
+    for m in raw["markets"]:
+        if group == "markets" and m["kind"] not in ("market", "group"):
+            continue
+        if group == "regions" and m["kind"] not in ("region", "total"):
+            continue
+        col = raw["values"][m["code"]]
+        cur = col[i]
+        if cur is None:
+            continue
+        prev = col[y1] if y1 is not None else None
+        base = col[b] if b is not None else None
+        rows.append({
+            "code": m["code"], "name_en": m["name_en"], "name_ja": m["name_ja"],
+            "parent": m["parent"], "kind": m["kind"],
+            "arrivals": int(cur),
+            "yoy": _round((cur / prev - 1) * 100, 2) if prev else None,
+            "share": _round(cur / total * 100, 2) if total else None,
+            "recovery": _round(cur / base * 100, 1) if base else None,
+        })
+
+    ranked = [r for r in rows if r[metric] is not None]
+    ranked.sort(key=lambda r: r[metric], reverse=(order == "highest"))
+    limit = max(1, min(int(limit), 60))
+    _record("get_arrivals_ranking", args, raw["release"],
+            note="%s by %s, %s" % (order, metric, iso[:7]))
+    return json.dumps({
+        "dataset": ARRIVALS_DATASET,
+        "period": iso[:7],
+        "period_note": (
+            "The latest month with a complete market breakdown. Later months "
+            "exist but are estimates covering only the largest markets, so a "
+            "ranking or a share taken there would not compare like with like."),
+        "order": order, "metric": metric, "group": group,
+        "counted": len(ranked), "returned": min(limit, len(ranked)),
+        "trust": {"arrivals": "official", "yoy": "calculated",
+                  "share": "calculated", "recovery": "calculated"}[metric],
+        "calc": ARRIVALS_CALCS[{"arrivals": "count", "yoy": "yoy",
+                                "share": "share", "recovery": "recovery"}[metric]],
+        "baseline_year": raw["baseline_year"],
+        "hierarchy_note": (
+            "A region is the sum of its member markets and a group (Middle "
+            "East, Nordic Countries) is the sum of its members — never add a "
+            "parent to its children."),
+        "as_of_release": raw["release"]["latest_period"],
+        "credit": "Japan National Tourism Organization (JNTO)",
+        "cite": _cite("/inbound.html") + "#h-markets",
+        "markets": ranked[:limit],
+    }, ensure_ascii=False)
+
+
+# ---------------------------------------------------------------------------
+# JGB yield curve and Bank of Japan balance sheet
+#
+# Percent-per-year yields and ¥100mn levels and flows. Both are published
+# values; the spreads and the distance from peak are calculated and say so.
+# ---------------------------------------------------------------------------
+
+def get_yield_curve(date=""):
+    """The JGB constant-maturity curve on one business day, with key spreads."""
+    args = {"date": date or None}
+    try:
+        raw = api.curve("jgb-yields")
+    except Exception as exc:  # noqa: BLE001
+        _record("get_yield_curve", args, note="failed")
+        return _fail(str(exc))
+
+    dates = raw["dates"]
+    if date:
+        on_or_before = [d for d in dates if d <= date]
+        if not on_or_before:
+            return _fail("No published curve on or before %s; the series "
+                         "starts %s." % (date, dates[0]))
+        idx = len(on_or_before) - 1
+    else:
+        idx = len(dates) - 1
+
+    curve = []
+    by_code = {}
+    for m in raw["maturities"]:
+        v = raw["values"][m["code"]][idx]
+        by_code[m["code"]] = v
+        curve.append({"code": m["code"], "years": m["years"],
+                      "yield_pct": _round(v, 3)})
+
+    spreads = []
+    for s in raw["spreads"]:
+        lo, hi = by_code.get(s["short"]), by_code.get(s["long"])
+        spreads.append({
+            "key": s["key"], "label": s["label"],
+            "spread_pp": _round(hi - lo, 3) if (lo is not None and hi is not None)
+                         else None,
+        })
+
+    _record("get_yield_curve", args, raw["release"], note="curve on %s" % dates[idx])
+    return json.dumps({
+        "dataset": "jgb-yields", "date": dates[idx],
+        "requested_date": date or None,
+        "unit": "% per year", "trust": "official", "calc": raw["calc"],
+        "spread_calc": ("spread = long-maturity yield − short-maturity yield, "
+                        "in percentage points, from published yields."),
+        "missing_note": ("A maturity absent on a date was not yet issued or "
+                         "not quoted; it is null, never zero. Yields can be "
+                         "genuinely negative."),
+        "as_of_release": raw["release"]["latest_period"],
+        "cite": _cite("/rates.html", d=dates[idx]),
+        "curve": curve, "spreads": spreads,
+    }, ensure_ascii=False)
+
+
+def get_boj_balance_sheet():
+    """The Bank of Japan's JGB holdings and flows at the latest month."""
+    try:
+        raw = api.overview("boj-assets")
+    except Exception as exc:  # noqa: BLE001
+        _record("get_boj_balance_sheet", {}, note="failed")
+        return _fail(str(exc))
+    _record("get_boj_balance_sheet", {}, raw["release"])
+    return json.dumps({
+        "dataset": "boj-assets",
+        "latest_period": raw["release"]["latest_period"],
+        "source": raw["release"]["source_name"],
+        "stale": raw["stale"],
+        "unit_note": ("Levels are stocks and flows in ¥100 million as "
+                      "published. A net flow is negative during balance-sheet "
+                      "runoff; a negative value is real, not missing. These are "
+                      "yen levels and must never be ranked against a price "
+                      "index or a count."),
+        "tiles": raw["tiles"],
+        "credit": ("This service uses the API provided by the 'Bank of Japan "
+                   "Time-Series Data Search.' The Bank of Japan does not "
+                   "guarantee the content of the service."),
+        "cite": _cite("/boj.html"),
+    }, ensure_ascii=False)
+
+
 TOOL_IMPLS = {
     "list_datasets": list_datasets,
     "search_series": search_series,
@@ -310,6 +597,10 @@ TOOL_IMPLS = {
     "get_overview": get_overview,
     "get_contributions": get_contributions,
     "get_breadth": get_breadth,
+    "get_arrivals": get_arrivals,
+    "get_arrivals_ranking": get_arrivals_ranking,
+    "get_yield_curve": get_yield_curve,
+    "get_boj_balance_sheet": get_boj_balance_sheet,
 }
 
 
@@ -960,6 +1251,140 @@ TOOL_SCHEMAS = [
                 },
                 "required": [],
             },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_arrivals",
+            "description": (
+                "Monthly foreign visitor arrivals to Japan by market, as "
+                "published by the Japan National Tourism Organization: the "
+                "national total ('total'), six regional totals, and named "
+                "markets. Use measure='count' for the published number of "
+                "people, 'yoy' for year-over-year growth, or 'recovery' to "
+                "index each month against the same month of 2019. Arrivals "
+                "are a count of people and must never be ranked against a "
+                "price index or a yen level. Call get_arrivals_ranking first "
+                "if you need the market codes."),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "markets": {
+                        "type": "string",
+                        "description": (
+                            "Comma-separated market codes, up to 6, e.g. "
+                            "'total' or 'cn,kr,tw'. Defaults to 'total'."),
+                    },
+                    "measure": {
+                        "type": "string",
+                        "enum": ["count", "yoy", "recovery"],
+                        "description": (
+                            "'count' for published arrivals in persons, 'yoy' "
+                            "for year-over-year %, 'recovery' for an index "
+                            "against the same month of 2019 (= 100)."),
+                    },
+                    "start": {
+                        "type": "string",
+                        "description": (
+                            "First month as 'YYYY-MM'. Defaults to the most "
+                            "recent 36 months. History starts 2003-01."),
+                    },
+                    "end": {
+                        "type": "string",
+                        "description": (
+                            "Last month as 'YYYY-MM'. Defaults to the latest "
+                            "available."),
+                    },
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_arrivals_ranking",
+            "description": (
+                "Rank the markets sending visitors to Japan — biggest, "
+                "fastest-growing, fastest-shrinking, or furthest above or "
+                "below their 2019 level. Answers \"which markets are up or "
+                "down the most\" and returns the market codes for use with "
+                "get_arrivals. All rows are the same month: the latest one "
+                "with a complete market breakdown, because a share or a rank "
+                "taken on an estimate month would not compare like with "
+                "like."),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "order": {
+                        "type": "string",
+                        "enum": ["highest", "lowest"],
+                        "description": "Sort direction on the chosen metric.",
+                    },
+                    "metric": {
+                        "type": "string",
+                        "enum": ["arrivals", "yoy", "share", "recovery"],
+                        "description": (
+                            "'arrivals' = published count of people; 'yoy' = "
+                            "year-over-year %; 'share' = % of the national "
+                            "total; 'recovery' = index against the same month "
+                            "of 2019 (= 100)."),
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Maximum rows to return, up to 60.",
+                    },
+                    "group": {
+                        "type": "string",
+                        "enum": ["markets", "regions"],
+                        "description": (
+                            "'markets' ranks individual markets, 'regions' "
+                            "ranks the six regional totals. Never mix them: a "
+                            "region is the sum of its markets."),
+                    },
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_yield_curve",
+            "description": (
+                "The Japanese government bond constant-maturity yield curve "
+                "on one business day — 15 tenors from 1 to 40 years in "
+                "percent per year, as published by the Ministry of Finance — "
+                "with the 2s10s and 10s30s spreads calculated from them. "
+                "Yields can be genuinely negative."),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "date": {
+                        "type": "string",
+                        "description": (
+                            "Business day as 'YYYY-MM-DD'. The latest curve "
+                            "on or before it is returned. Defaults to the "
+                            "latest published day. History starts 1974-09-24."),
+                    },
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_boj_balance_sheet",
+            "description": (
+                "The Bank of Japan's JGB holdings and monthly flows at the "
+                "latest published month: the holdings level, its distance "
+                "from the November 2023 peak, the trailing net flow (negative "
+                "during balance-sheet runoff) and gross purchases. Levels are "
+                "yen and must never be ranked against a price index or a "
+                "count of people."),
+            "parameters": {"type": "object", "properties": {}, "required": []},
         },
     },
 ]

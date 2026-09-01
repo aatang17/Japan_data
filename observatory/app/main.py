@@ -20,6 +20,8 @@ from .buyback_api import router as buyback_router  # noqa: E402
 from .equity_api import router as equity_router  # noqa: E402
 from .facility_api import router as facility_router  # noqa: E402
 from .governance_api import router as governance_router  # noqa: E402
+from .lvh_api import router as lvh_router  # noqa: E402
+from .ownership_api import router as ownership_router  # noqa: E402
 from .mcp import router as mcp_router  # noqa: E402
 
 WEB_DIR = pathlib.Path(__file__).resolve().parent.parent / "web"
@@ -64,6 +66,8 @@ app.add_middleware(GZipMiddleware, minimum_size=1024, compresslevel=5)
 # router's /api/v1/{dataset}/ catch-alls. Governance and buyback ahead of
 # holdings, so their longer /equity/… prefixes are matched before the shorter one.
 app.include_router(governance_router)
+app.include_router(ownership_router)
+app.include_router(lvh_router)
 app.include_router(facility_router)
 app.include_router(buyback_router)
 app.include_router(equity_router)

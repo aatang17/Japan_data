@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Population by Prefecture · Japan Data Observatory</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/app.css">
+<style>
+  /* Page-local layout only; every colour comes from tokens.css. */
+  .pop-map-row { display: grid; grid-template-columns: 460px minmax(0, 1fr); gap: 16px; align-items: start; }
+  /* Japan is portrait once the uninhabited Pacific outliers are cropped, so
+     the map column is too — a landscape frame left half the canvas empty. */
+  #pop-map { width: 100%; height: 560px; border: 1px solid var(--obs-border); }
+  .pop-ex-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 24px; }
+  .pop-extremes h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--obs-text-muted); font-weight: 600; margin: 0 0 6px; }
+  .pop-extremes h3 + h3 { margin-top: 18px; }
+  .pop-ex-note { margin: 14px 0 0; font-size: 11.5px; line-height: 1.45;
+    color: var(--obs-text-muted); }
+  .pop-ex-row { display: flex; justify-content: space-between; gap: 10px; padding: 3px 0;
+    font-size: 12.5px; border-bottom: 1px solid var(--obs-border); cursor: pointer; }
+  .pop-ex-row:last-child { border-bottom: none; }
+  .pop-ex-row:hover { background: var(--obs-surface-subtle); }
+  .pop-ex-row[aria-current="true"] { color: var(--obs-primary); font-weight: 600; }
+  .pop-ex-row .v { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .pop-select { font: inherit; font-size: 12.5px; padding: 4px 8px; color: var(--obs-ink);
+    background: var(--obs-surface); border: 1px solid var(--obs-border); border-radius: 3px; }
+  /* This page's measure control has six options and the history control has
+     long ones. A .seg is a joined group with overflow:hidden, so at narrow
+     widths the last option is silently clipped rather than reachable. Below
+     700px the group becomes wrapped outline buttons instead — no clipping,
+     and no horizontal scroll a reader has to discover. */
+  @media (max-width: 700px) {
+    .pop-map-row .seg, .controls .seg { flex-wrap: wrap; overflow: visible;
+      border: 0; gap: 6px; }
+    .controls .seg button { border: 1px solid var(--obs-border); border-radius: 3px; }
+  }
+  @media (max-width: 900px) {
+    .pop-map-row { grid-template-columns: minmax(0, 1fr); }
+    /* Stacked, the map would go full-width and landscape again, which is the
+       shape that wasted half the canvas. Cap it and centre it instead. */
+    #pop-map { height: 480px; max-width: 420px; margin: 0 auto; }
+  }
+  @media (max-width: 560px) {
+    #pop-map { height: 420px; }
+    .pop-ex-cols { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  }
+</style>
+</head>
+<body>
+
+<header class="site-header" data-section="macro" data-page="population"></header>
+<script src="assets/nav.js"></script>
+
+<main class="container">
+  <div id="stale-banner"></div>
+
+  <div class="metric-card">
+    <div class="metric-card-head">
+      <h1>Population by Prefecture</h1>
+      <span class="metric-asof" id="page-asof"></span>
+      <p class="metric-sub" id="page-sub"><span class="skeleton" style="display:inline-block;width:420px;height:14px"></span></p>
+    </div>
+    <div class="strip">
+      <div class="strip-grid cols-4" id="tiles">
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+      </div>
+    </div>
+    <p class="strip-foot" id="strip-foot"></p>
+    <details class="calc" id="strip-calc" style="display:none"></details>
+  </div>
+
+  <section aria-labelledby="h-map">
+    <h2 id="h-map">Which Prefectures Are Growing <span class="h2-note" id="map-note"></span></h2>
+    <p class="section-sub">Every prefecture on one measure at a time. Population is the count
+    on the register at 1 January; the change is over the calendar year before it, split into
+    the natural part (births less deaths) and the social part (everything else the register
+    recorded, which is mostly moves but also includes naturalisations and corrections).
+    Click a prefecture to put it in the chart below.</p>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Measure shown" id="measure-seg">
+        <button type="button" data-measure="change_pct" aria-pressed="true">Change</button>
+        <button type="button" data-measure="natural_pct">Natural</button>
+        <button type="button" data-measure="social_pct">Social</button>
+        <button type="button" data-measure="foreign_pct">Foreign Share</button>
+        <button type="button" data-measure="aged_pct">Aged 65+</button>
+        <button type="button" data-measure="population">Population</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="map-png">Download PNG</button>
+      <button type="button" class="btn" id="map-csv">Download CSV</button>
+    </div>
+    <div class="pop-map-row">
+      <div class="chart pop-map" id="pop-map" role="img" aria-label="Choropleth map of Japan by prefecture"><div class="skeleton" style="width:100%;height:100%"></div></div>
+      <div class="pop-extremes" id="map-extremes"></div>
+    </div>
+    <p class="source-line" id="map-source"></p>
+    <details class="calc" id="map-calc"></details>
+  </section>
+
+  <section aria-labelledby="h-history">
+    <h2 id="h-history">One Prefecture, Fifty Years <span class="h2-note" id="hist-note"></span></h2>
+    <p class="section-sub" id="hist-sub">The long run behind the latest year, from the
+    Statistics Bureau's regional series. Registered residents are counted at 1 January and
+    are split into Japanese and foreign residents only from 2013, when foreign residents
+    joined the register; the total population line is the census and population estimate,
+    measured at 1 October on a different basis, so the two are close but not the same number
+    and neither is read off the other.</p>
+    <div class="controls">
+      <label class="visually-hidden" for="pref-select">Prefecture</label>
+      <select class="pop-select" id="pref-select"></select>
+      <div class="seg" role="group" aria-label="View" id="hist-seg">
+        <button type="button" data-hist="level" aria-pressed="true">Residents</button>
+        <button type="button" data-hist="index">Indexed to 1975</button>
+        <button type="button" data-hist="age">Age Structure</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="hist-png">Download PNG</button>
+      <button type="button" class="btn" id="hist-csv">Download CSV</button>
+    </div>
+    <div class="chart" id="hist-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="hist-source"></p>
+    <details class="calc" id="hist-calc"></details>
+  </section>
+
+  <section aria-labelledby="h-table">
+    <h2 id="h-table">All 47 Prefectures <span class="h2-note" id="table-note"></span></h2>
+    <p class="section-sub">Every prefecture on the latest register year. Counts are official
+    statistics exactly as published; shares and rates are calculated from them and carry their
+    formula. The national row is the ministry's own total, not a sum of the rows — and the age
+    columns are shown for all residents, where a small number of people have no recorded age.</p>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Residents counted" id="segment-seg">
+        <button type="button" data-segment="all" aria-pressed="true">All Residents</button>
+        <button type="button" data-segment="jp">Japanese</button>
+        <button type="button" data-segment="fgn">Foreign</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="table-csv">Download CSV</button>
+    </div>
+    <div class="table-wrap" id="pref-table"><div class="skeleton" style="width:100%;height:340px"></div></div>
+    <p class="table-foot" id="table-foot"></p>
+    <details class="calc" id="table-calc"></details>
+  </section>
+
+  <!-- No h2 band here: the card carries its own "Data Source" head, and two
+       stacked headers saying the same thing read as a duplicate. -->
+  <section aria-label="Data source and provenance" class="prov">
+    <div id="prov-card"></div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="inner">
+    <span id="credit-line">Source: Ministry of Internal Affairs and Communications, Japan.</span>
+    Counts of residents are official statistics as published; shares, change rates and
+    age-group aggregates are calculated from them.
+    <a href="methodology.html">Methodology</a>
+  </div>
+</footer>
+
+<script src="assets/echarts.min.js"></script>
+<script src="assets/format.js"></script>
+<script src="assets/charts.js"></script>
+<script src="assets/sortable.js"></script>
+<script src="assets/population.js"></script>
+</body>
+</html>
