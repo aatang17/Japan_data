@@ -274,6 +274,17 @@
     <code>65+ ÷ total population</code> by real amounts — 28.7% against 28.0% in 2020.
     Published rates are not ingested; the platform calculates its rates and shows the
     formula.</li>
+    <li>Index view: <code>index[t] = value[t] ÷ that series' value in the first year of
+    the window shown × 100</code>. The base is the first year in view, not a fixed year, so
+    changing the year range rebases the chart — the base is printed on the axis and in the
+    export header. Foreign residents enter the register only in 2013, so on a window that
+    starts earlier that line is based on 2013 and the others are not; the lines are then
+    comparable in shape, not in level.</li>
+    <li>Log axis: an option on the level views, not a default. Registered residents and
+    foreign residents are two orders of magnitude apart, so on a linear axis the smaller
+    line sits on the baseline with no readable shape. On a logarithmic axis equal vertical
+    distances are equal <i>proportional</i> changes, not equal numbers of people; the axis
+    is labelled "log scale" wherever it is on. Nothing about the underlying values changes.</li>
     <li>The ministry keeps only the current year's workbooks online — last year's file is
     deleted and its URL reused — so the archive of past releases here is the history.</li>
   </ul>

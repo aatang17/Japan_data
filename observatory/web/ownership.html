@@ -30,6 +30,13 @@
 .tbl-own .cell-item { max-width: 320px; text-wrap: pretty; }
 .tbl-own .cell-item .ja { margin-top: 1px; line-height: 1.35; font-size: 12px; color: var(--obs-text-muted); }
 .tbl-own .rank { font-variant-numeric: tabular-nums; color: var(--obs-text-muted); width: 1%; }
+/* A running total is context for the column beside it, not a headline number. */
+.tbl-own .cum { color: var(--obs-text-muted); }
+/* Four short columns, so this table is not held to the shared minimum width
+   that exists for the ten-column ones. The floor is the width its own content
+   needs: below it the last column is squeezed to a stub and a year renders as
+   "20" — a half-shown number is worse than one you have to scroll to. */
+#ho-table { min-width: 430px; }
 .tbl-own .sub { display: block; font-size: 11px; color: var(--obs-text-muted);
   font-variant-numeric: tabular-nums; margin-top: 1px; }
 
@@ -157,7 +164,10 @@
         denominator. Holder type is <b>our reading of the name</b>, not a filed field.</p>
       <button type="button" class="btn" id="reg-csv">Download CSV</button>
     </div>
-    <div class="table-wrap"><table class="tbl-own wide" id="reg-table"></table></div>
+    <div class="table-wrap">
+      <table class="tbl-own wide" id="reg-table" data-no-enhance-sort></table>
+    </div>
+    <p class="tbl-formula" id="reg-formula"></p>
     <p class="disclose" id="reg-note"></p>
 
     <h2>The Whole Register, by Investor Type <span class="h2-note" id="mix-count"></span></h2>
@@ -194,7 +204,7 @@
       <p class="sec-note" style="flex:1" id="ho-note"></p>
       <button type="button" class="btn" id="ho-csv">Download CSV</button>
     </div>
-    <div class="table-wrap"><table class="tbl-own wide" id="ho-table"></table></div>
+    <div class="table-wrap"><table class="tbl-own" id="ho-table"></table></div>
   </section>
 
   <footer class="page-foot" id="page-foot">
@@ -209,6 +219,7 @@
 <script src="assets/echarts.min.js"></script>
 <script src="assets/format.js"></script>
 <script src="assets/charts.js"></script>
+<script src="assets/sortable.js"></script>
 <script src="assets/ownership.js"></script>
 </body>
 </html>

@@ -31,6 +31,12 @@
 /* One line, and it never grows: the full statement is on hover and in the CSV. */
 .tbl-stk .purpose { max-width: 340px; white-space: nowrap; overflow: hidden;
   text-overflow: ellipsis; color: var(--obs-text-muted); }
+/* The consolidated-entity line under a group name: quiet, and clickable to
+   open the group. */
+.tbl-stk .members { display: block; font-size: 11px; margin-top: 1px; }
+.tbl-stk .members a { color: var(--obs-text-muted); }
+.tbl-stk .members a:hover { color: var(--obs-primary); }
+.crumb { font-size: 12.5px; margin: 0 0 8px; }
 /* a date and a signed move are single tokens — they must never break in two */
 .tbl-stk .nowrap, .tbl-stk .move { white-space: nowrap; }
 /* the move column: a signed number reads as a move, colour never carries it */
@@ -126,6 +132,12 @@
 
     <h2>Most Active Filers <span class="h2-note" id="filers-count"></span></h2>
     <div class="controls">
+      <div class="seg" role="group" aria-label="Consolidation" id="by-seg">
+        <button type="button" data-by="group" aria-pressed="true">By group</button>
+        <button type="button" data-by="entity">By filing entity</button>
+      </div>
+      <label for="type-select">Type</label>
+      <select id="type-select" aria-label="Filer type"></select>
       <div class="seg" role="group" aria-label="Filer type" id="filer-seg">
         <button type="button" data-activist="" aria-pressed="true">All filers</button>
         <button type="button" data-activist="true">Stated important proposals</button>
@@ -135,6 +147,7 @@
     </div>
     <p class="sec-note" id="filers-meta"></p>
     <div class="table-wrap"><table class="tbl-stk" id="filers-table"></table></div>
+    <p class="tbl-formula" id="filers-formula"></p>
   </section>
 
   <!-- company view -->
@@ -164,6 +177,7 @@
     <p style="margin:16px 0 0"><a href="stakes.html">← All filings</a></p>
     <div class="co-head"><h1 id="ho-name"></h1><span class="co-code" id="ho-code"></span></div>
     <p class="filing-meta" id="ho-meta"></p>
+    <p class="filing-meta" id="ho-profile"></p>
     <h2>Current Positions <span class="h2-note" id="ho-count"></span></h2>
     <div class="sec-actions">
       <p class="sec-note" style="flex:1">This holder's latest report on each issuer.</p>
@@ -183,6 +197,7 @@
 </main>
 
 <script src="assets/format.js"></script>
+<script src="assets/sortable.js"></script>
 <script src="assets/stakes.js"></script>
 </body>
 </html>

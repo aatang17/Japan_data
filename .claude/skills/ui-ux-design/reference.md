@@ -207,6 +207,25 @@ The workhorse surface. Most professional users live here, not in the charts.
   rather than silently truncating what the user can see.
 - **Sort** on every numeric column; show the active sort direction; sorting must be stable and must place
   missing values last in both directions (never treat `—` as zero or as `-Infinity`).
+- **Sort and filter are the platform default, applied automatically — do not hand-roll either.**
+  `assets/sortable.js` watches the DOM and, as soon as a table with a header row and at least six body
+  rows appears (or is re-rendered), gives it click-to-sort on every orderable column plus a filter box
+  and an "N of M rows" count above it. A page only has to load the script. Consequences to design for:
+  - A column is treated as numeric only when every cell carrying a value parses as a number, so a name
+    column is never ranked as though `3M` were three. Where the eye and the machine read a cell
+    differently — a date, a yen figure with a unit suffix, a value with a footnote marker — put the
+    orderable value in `data-sort` on the `<td>`.
+  - A column with nothing orderable in it (a sparkline, an actions cell) is skipped, so it never offers
+    a sort that silently does nothing.
+  - Opt a table out entirely with `data-no-enhance`; set its filter placeholder with
+    `data-filter-placeholder`. Below six rows nothing is added — a filter box over four rows is clutter.
+  - A table whose page sorts its own rows — any header carrying `data-key`, which both `sortableHead()`
+    and the Item Explorer emit — keeps that sort and its own arrow, and gets only the filter. Two sort
+    handlers on one click is the failure this avoids; force it with `data-no-enhance-sort` if a page
+    sorts without using `data-key`.
+  - The toolbar is inserted as a sibling *outside* the table's `.table-wrap`, so re-rendering the table's
+    `innerHTML` — which nearly every page here does — cannot destroy it, and the reader's query is
+    re-applied to the new rows.
 - **Inline sparklines** are preferred over a wide grid of period columns when comparing many series.
 - Long identifiers or names: truncate with the full value in `title`, or link to the detail page. Never
   let one long name reflow the numeric columns.

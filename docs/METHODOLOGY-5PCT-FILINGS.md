@@ -34,9 +34,11 @@ is an initial report, a change report or a correction.
 
 - **Official, as filed:** issuer, holder names and addresses, share counts,
   holding ratios, the stated purpose, the reason for filing, funding amounts,
-  and the important-proposal answer.
+  the important-proposal answer, and each holder's stated business (`business_ja`,
+  事業内容) and occupation (`occupation_ja`, 職業).
 - **Derived:** `ratio_change_pp` (current ratio − prior ratio, both as filed),
-  every count and aggregate, and `is_current`.
+  every count and aggregate, `is_current`, and the two labels below —
+  `filer_type` and `group`.
 - **From EDINET's own record, not the document:** `filed_date` is EDINET's
   submission timestamp. The date printed on the cover page is typed by the
   filer and is occasionally impossible — a Trusco corrector dated a 2026 filing
@@ -73,6 +75,41 @@ Money is stated in 千円 on this form and stored in yen, using the filing's own
    filing, the oldest reaching back to 1990. The tape is therefore ordered by
    filing date, and the gap between the two dates is not a lateness measure.
 
+## Filer type and filer groups
+
+Two labels sit on top of the filings, both **derived**, both applied at serve
+time in [`observatory/app/filer_labels.py`](../observatory/app/filer_labels.py).
+The extractor stores only what the filing states, so changing a rule costs a
+redeploy and never rewrites a stored row.
+
+**filer_type** is read from the filer's own 事業内容 (business description),
+which 87.9% of holder rows state, plus the filed 法人/個人 flag. Across 1,340
+filing entities that types **99.3%** from a filed field: individual 483, asset
+manager 162, investment vehicle 273, broker-dealer 36, insurer 19, bank 16,
+trust bank 4, operating company 337, not stated 10.
+
+- **No filing states a category such as "hedge fund"**, and none is invented
+  here. The closest filed signal is 重要提案行為, which is a declaration of
+  intent, not a description of the firm.
+- **Own-account before third-party**, and the ordering is load-bearing. Hikari
+  Tsushin's securities arm files 有価証券の保有管理及び投資運用: reading the
+  投資運用 at the end of that sentence as "asset manager" would file a corporate
+  holding vehicle among the fund houses. Managing your own money is not
+  managing anyone else's.
+- **Operating company is a finding, not a failure.** On a 5% filing it means a
+  strategic holder.
+
+**group** consolidates a family's filing entities. This one cannot be derived:
+BlackRock files under 16 EDINET codes, Fidelity 13, J.P. Morgan 10, Nomura 8,
+and no document names the parent. It is therefore a curated map, kept small,
+with every entry carrying the name as the filings write it. An entity not in
+the map is its own group — never inferred from a shared word, because Sumitomo
+Corporation and Sumitomo Mitsui Banking are different companies and 48
+unrelated firms have "Capital" in their name. **A joint venture is its own
+group** (三菱UFJモルガン・スタンレー証券) rather than being counted inside either
+parent. A group's issuer count is the distinct companies its entities cover
+between them, never the sum of theirs — they file on largely the same names.
+
 ## Identity resolution
 
 Both sides resolve without name matching, which is what makes the reverse view
@@ -83,6 +120,16 @@ exact rather than fuzzy:
   they never file themselves, so a holder is identifiable across every report it
   appears in; where EDINET's public filer registry has no row for that code the
   status is `code_not_in_registry` and the code is still the identity.
+- **A holder's code is not the issuer's.** A holder with no EDINET registration
+  of its own is sometimes given the target company's code by the filer's own
+  XBRL tool: Be Brave, an activist vehicle, filed on three companies and carried
+  a different target's code each time, splitting its stakes three ways and
+  landing each on the code of the company it was challenging. Where a holder's
+  code equals the issuer's and the names differ, the code is rejected, the
+  holder is identified by name, and the filing says so. 9 holder rows in 8,287.
+- **A holder with no usable code** is identified by `name_key`, the same width-,
+  spacing- and character-form folding the entity resolver uses, so one holder is
+  one row of a ranking however the filer spelled it.
 
 ## Validation gates
 

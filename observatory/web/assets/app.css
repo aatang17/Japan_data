@@ -556,6 +556,46 @@ details.calc code {
   flex-wrap: wrap;
 }
 
+/* ---------- table tools: filter + row count ----------
+   Sits above a data table, outside its scroll wrapper so a re-render of the
+   table cannot destroy it. Every data table gets this by default. */
+
+.table-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.table-tools .table-filter {
+  font: inherit;
+  font-size: 12.5px;
+  padding: 4px 8px;
+  min-width: 200px;
+  max-width: 320px;
+  flex: 1 1 200px;
+  color: var(--obs-ink);
+  background: var(--obs-surface);
+  border: 1px solid var(--obs-border);
+  border-radius: 3px;
+}
+.table-tools .table-filter:focus {
+  outline: 2px solid var(--obs-primary);
+  outline-offset: -1px;
+}
+.table-count {
+  font-size: 11.5px;
+  color: var(--obs-text-muted);
+  white-space: nowrap;
+}
+.table-empty {
+  font-size: 12.5px;
+  color: var(--obs-text-muted);
+  margin: 8px 0 0;
+}
+@media (max-width: 560px) {
+  .table-tools .table-filter { max-width: none; }
+}
+
 .table-wrap { overflow-x: auto; border: 1px solid var(--obs-border); border-radius: 3px; }
 
 table.data {

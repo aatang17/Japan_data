@@ -78,6 +78,9 @@ function urlState() {
     measure: MEASURES[measure] ? measure : "change_pct",
     pref: pref && GEO_BY_CODE[pref] && pref !== NATIONAL ? pref : "13",
     hist: ["level", "index", "age"].indexOf(p.get("hist")) >= 0 ? p.get("hist") : "level",
+    scale: p.get("scale") === "log" ? "log" : "linear",
+    from: p.get("from") || "",
+    to: p.get("to") || "",
     segment: SEGMENT_LABEL[p.get("segment")] ? p.get("segment") : "all",
     sort: p.get("sort") || "change_pct",
     dir: p.get("dir") === "asc" ? "asc" : "desc",
@@ -90,6 +93,9 @@ function setUrlState(next) {
   if (s.measure !== "change_pct") p.set("measure", s.measure);
   if (s.pref !== "13") p.set("pref", s.pref);
   if (s.hist !== "level") p.set("hist", s.hist);
+  if (s.scale !== "linear") p.set("scale", s.scale);
+  if (s.from) p.set("from", s.from);
+  if (s.to) p.set("to", s.to);
   if (s.segment !== "all") p.set("segment", s.segment);
   if (s.sort !== "change_pct") p.set("sort", s.sort);
   if (s.dir !== "desc") p.set("dir", s.dir);
@@ -120,6 +126,26 @@ function hist(geo, indicator) {
     if (col[i] !== null) out.push([HIST.periods[i], col[i]]);
   }
   return out;
+}
+
+/* Every year the long-run dataset publishes anything for, as strings. The
+   two reference dates in it (1 January and 1 October) collapse to one year. */
+function histYears() {
+  var seen = {};
+  (HIST ? HIST.periods : []).forEach(function (p) { seen[p.slice(0, 4)] = true; });
+  return Object.keys(seen).sort();
+}
+
+/* The window actually in force: the URL's, clamped to what exists. */
+function histWindow() {
+  var years = histYears();
+  if (!years.length) return { from: "", to: "", first: "", last: "" };
+  var st = urlState();
+  var first = years[0], last = years[years.length - 1];
+  var from = st.from && years.indexOf(st.from) >= 0 ? st.from : first;
+  var to = st.to && years.indexOf(st.to) >= 0 ? st.to : last;
+  if (from > to) { from = first; to = last; }
+  return { from: from, to: to, first: first, last: last, years: years };
 }
 
 function agedTotal(geo, segment) {
@@ -510,13 +536,20 @@ var AGE_SERIES = [
 
 function histConfig() {
   var st = urlState();
+  var w = histWindow();
   var geo = st.pref;
   var name = (GEO_BY_CODE[geo] || {}).name_en || geo;
   var defs = st.hist === "age" ? AGE_SERIES : HIST_SERIES;
+  var inWindow = function (p) {
+    var y = p[0].slice(0, 4);
+    return (!w.from || y >= w.from) && (!w.to || y <= w.to);
+  };
 
   var series = defs.map(function (d) {
-    var pts = hist(geo, d.ind);
+    var pts = hist(geo, d.ind).filter(inWindow);
     if (st.hist === "index") {
+      // Indexed to the first year in view, not to a fixed 1975: with a custom
+      // window a fixed base would put the whole chart off the top or bottom.
       var base = null;
       for (var i = 0; i < pts.length; i++) { if (pts[i][1] !== null) { base = pts[i][1]; break; } }
       pts = pts.map(function (p) { return [p[0], base ? p[1] / base * 100 : null]; });
@@ -524,15 +557,99 @@ function histConfig() {
     return { name: d.name, slot: d.slot, points: pts };
   }).filter(function (s) { return s.points.length; });
 
+  // A log axis cannot show a zero or a negative. These are counts of people so
+  // it never arises, but a silently broken axis is worse than a linear one.
+  var positive = series.every(function (s) {
+    return s.points.every(function (p) { return p[1] === null || p[1] > 0; });
+  });
+  var log = st.scale === "log" && positive;
+
   return {
     series: series,
     unit: st.hist === "index" ? "index" : "persons",
     dp: st.hist === "index" ? 1 : 0,
-    yAxisName: st.hist === "index" ? "1975 = 100" : "persons",
+    logScale: log,
+    yAxisName: (st.hist === "index" ? indexBaseLabel(series) : "persons") +
+               (log ? " · log scale" : ""),
     trust: "official",
     sourceLine: (HIST ? HIST.credit_line : "") + " " + name + ".",
     title: name,
+    window: w,
+    logAvailable: positive,
   };
+}
+
+/* "1990 = 100" — the base is whatever the window starts at. */
+function indexBaseLabel(series) {
+  var first = null;
+  series.forEach(function (s) {
+    if (s.points.length && (first === null || s.points[0][0] < first)) first = s.points[0][0];
+  });
+  return first ? first.slice(0, 4) + " = 100" : "index";
+}
+
+/* Presets plus the two year pickers, in the platform's range-row pattern. */
+function renderRange() {
+  var el = document.getElementById("hist-range");
+  if (!el || !HIST) return;
+  var w = histWindow();
+  if (!w.years) { el.innerHTML = ""; return; }
+  var st = urlState();
+  var lastYear = Number(w.last);
+  var presets = [
+    { label: "Max", from: w.first, to: w.last },
+    { label: "30Y", from: String(Math.max(Number(w.first), lastYear - 29)), to: w.last },
+    { label: "10Y", from: String(Math.max(Number(w.first), lastYear - 9)), to: w.last },
+  ];
+  var options = function (selected, lo, hi) {
+    return w.years.filter(function (y) { return y >= lo && y <= hi; })
+      .map(function (y) {
+        return '<option value="' + y + '"' + (y === selected ? " selected" : "") +
+          ">" + y + "</option>";
+      }).join("");
+  };
+  var shown = w.years.filter(function (y) { return y >= w.from && y <= w.to; }).length;
+
+  el.innerHTML =
+    '<span class="seg" role="group" aria-label="Year range" id="range-seg">' +
+      presets.map(function (p) {
+        var on = p.from === w.from && p.to === w.to;
+        return '<button type="button" data-from="' + p.from + '" data-to="' + p.to +
+          '" aria-pressed="' + (on ? "true" : "false") + '">' + p.label + "</button>";
+      }).join("") + "</span>" +
+    '<span class="range-pair"><label for="range-from">From</label>' +
+      '<select id="range-from" class="num">' + options(w.from, w.first, w.to) + "</select></span>" +
+    '<span class="range-pair"><label for="range-to">To</label>' +
+      '<select id="range-to" class="num">' + options(w.to, w.from, w.last) + "</select></span>" +
+    '<span class="seg" role="group" aria-label="Axis scale" id="scale-seg">' +
+      '<button type="button" data-scale="linear" aria-pressed="' +
+        (st.scale === "linear" ? "true" : "false") + '">Linear</button>' +
+      '<button type="button" data-scale="log" aria-pressed="' +
+        (st.scale === "log" ? "true" : "false") + '">Log</button>' +
+    "</span>" +
+    '<span class="range-note num">' + shown + " of " + w.years.length +
+      " years · series covers " + w.first + " to " + w.last + "</span>";
+
+  Array.prototype.forEach.call(el.querySelectorAll("#range-seg button"), function (b) {
+    b.addEventListener("click", function () {
+      setUrlState({ from: b.getAttribute("data-from"), to: b.getAttribute("data-to") });
+      renderHistory();
+    });
+  });
+  ["from", "to"].forEach(function (end) {
+    document.getElementById("range-" + end).addEventListener("change", function (e) {
+      var next = {};
+      next[end] = e.target.value;
+      setUrlState(next);
+      renderHistory();
+    });
+  });
+  Array.prototype.forEach.call(el.querySelectorAll("#scale-seg button"), function (b) {
+    b.addEventListener("click", function () {
+      setUrlState({ scale: b.getAttribute("data-scale") });
+      renderHistory();
+    });
+  });
 }
 
 function renderHistory() {
@@ -548,6 +665,7 @@ function renderHistory() {
   if (!histChart) histChart = obsChart(el, "line", cfg);
   histChart.render(cfg);
 
+  renderRange();
   var name = (GEO_BY_CODE[st.pref] || {}).name_en || st.pref;
   var sub = document.getElementById("hist-sub");
   if (sub) sub.textContent = st.hist === "age"
@@ -561,9 +679,11 @@ function renderHistory() {
       "the register; the total population line is the census and population estimate, " +
       "measured at 1 October on a different basis, so the two are close but not the " +
       "same number and neither is read off the other.";
+  var w = cfg.window;
   document.getElementById("hist-note").textContent =
     name + " · " + (st.hist === "age" ? "age structure" :
-      st.hist === "index" ? "indexed to 1975" : "residents");
+      st.hist === "index" ? "indexed" : "residents") +
+    " · " + w.from + "–" + w.to + (cfg.logScale ? " · log scale" : "");
   document.getElementById("hist-source").innerHTML =
     trustBadge("official") + " " + escapeHtml(HIST.credit_line || "") +
     " Release “" + escapeHtml(HIST.release.label) + "”, ingested " +
@@ -573,8 +693,19 @@ function renderHistory() {
   document.getElementById("hist-calc").innerHTML =
     "<summary>Show calculation</summary><div class=\"calc-body\">" +
     (st.hist === "index"
-      ? "<code>index = value ÷ the series' first published value × 100</code><br>"
+      ? "<code>index = value ÷ that series' value in " + escapeHtml(w.from) +
+        " × 100</code>, so the base moves with the window you choose.<br>"
       : "The values are published counts; nothing is computed.<br>") +
+    (cfg.logScale
+      ? "The vertical axis is <b>logarithmic</b>: equal vertical distances are " +
+        "equal <i>proportional</i> changes, not equal numbers of people. It is on " +
+        "because registered residents and foreign residents are two orders of " +
+        "magnitude apart, and on a linear axis the smaller line sits on the " +
+        "baseline with no readable shape.<br>"
+      : (cfg.logAvailable && st.hist !== "index"
+         ? "Foreign residents are a small fraction of the total, so on this " +
+           "linear axis their line sits near the baseline. Switch the axis to " +
+           "Log to read its shape against the others.<br>" : "")) +
     "Reference dates differ by series and are not interchangeable. " +
     escapeHtml(bases.register || "") + " " + escapeHtml(bases.asof_oct || "") +
     " Foreign residents joined the register in 2013, so that line starts there; " +
@@ -672,6 +803,11 @@ function renderTable() {
   Array.prototype.forEach.call(wrap.querySelectorAll("tr.clickable"), function (tr) {
     tr.addEventListener("click", function () { selectPrefecture(tr.getAttribute("data-code")); });
   });
+
+  // Sorting is handled above by the row-object helper; this adds the filter
+  // box and re-applies whatever the reader had typed, since the re-render
+  // just replaced every row.
+  enhanceTable(wrap, { sort: false, placeholder: "Filter prefectures…" });
 
   document.getElementById("table-note").textContent =
     rows.length + " prefectures · " + SEGMENT_LABEL[st.segment];
@@ -821,12 +957,19 @@ function wire() {
   });
   document.getElementById("hist-csv").addEventListener("click", function () {
     var name = (GEO_BY_CODE[urlState().pref] || {}).name_en || "prefecture";
+    var cfg = histConfig();
     downloadCsv("japan-" + name.toLowerCase() + "-population-history.csv", histCsvRows(),
       [ "# Japan Data Observatory — " + name + ", long-run population",
         "# Source: " + (HIST.credit_line || ""),
         "# Release: " + HIST.release.label + " (sha256 " + HIST.release.sha256 + ")",
+        "# Years: " + cfg.window.from + " to " + cfg.window.to +
+          " (series covers " + cfg.window.first + " to " + cfg.window.last + ")",
         "# Reference dates differ by series: " +
           (HIST.bases ? HIST.bases.register + " " + HIST.bases.asof_oct : ""),
+        (urlState().hist === "index"
+          ? "# Values are indexed: value ÷ that series' " + cfg.window.from +
+            " value × 100"
+          : "# Values are published counts, in persons"),
         "# Trust: official statistics as published" ]);
   });
   document.getElementById("hist-png").addEventListener("click", function () {

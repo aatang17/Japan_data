@@ -426,7 +426,8 @@ holder before the annual report does. Methodology:
 | `/stakes/recent` | the tape, most recently filed first; `?activist=true`, `?report_type=`, `?min_ratio=`, `?min_change=` |
 | `/stakes/company/{sec_code}` | who has filed 5% on this company — each group's latest report with its members, plus every report on the company |
 | `/stakes/holder/{edinet_code}` | one holder's book: its latest position per issuer, and every report |
-| `/stakes/holders` | the most active filers; `?activist=true` |
+| `/stakes/holders` | the most active filers, consolidated into groups by default; `?by=entity`, `?filer_type=`, `?group=`, `?activist=true` |
+| `/stakes/holder-types` | the filer types and how many filing entities carry each |
 | `/stakes/companies?q=` | search scoped to issuers a report names |
 
 Unlike every other extractor here the source is the **t1 inline-XBRL package** —
@@ -445,6 +446,17 @@ field, so `proposal_asked` is false on change reports and on the special form,
 and a null answer never means "no". **The ratio is the statutory one**, whose
 denominator adds the holder's own potential shares, so it does not equal
 `shares_held / shares_outstanding`.
+
+**Filers carry two derived labels**, both applied at serve time in
+`app/filer_labels.py` (the extractor stores only what the filing says).
+`filer_type` is read from the filer's own 事業内容 plus the filed 法人/個人 flag
+and types 99.3% of the 1,340 filing entities — no filing states a category such
+as "hedge fund" and none is invented. `group` consolidates a family's filing
+entities, and it is curated rather than derived because no document names the
+parent: BlackRock files under 16 EDINET codes, Fidelity 13, Nomura 8. A group's
+issuer count is the distinct companies its entities cover between them, not the
+sum of theirs; a joint venture is its own group, never counted inside either
+parent.
 
 `filed_date` is EDINET's own submission record rather than the date printed on
 the cover page, which the filer types and occasionally gets wrong (`cover_date`

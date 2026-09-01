@@ -317,9 +317,16 @@
     var rows = d.holders || [];
     var nominees = rows.filter(function (r) { return NOMINEE_KINDS[r.holder_kind]; });
     $("reg-count").textContent = rows.length + " named holders";
+    // Running total down the register. It is only a number in the filing's own
+    // rank order — which is why this table opts out of click-to-sort — and it
+    // is DERIVED, so it carries its formula under the table. A row the filing
+    // leaves without a percentage does not advance the total and shows —,
+    // rather than repeating the line above and implying a zero.
+    var cumulative = 0;
     $("reg-table").innerHTML =
       "<thead><tr><th class=rank>#</th><th>Holder</th><th>Type</th>" +
-      "<th class=r>Shares</th><th class=r>Stake (%)</th><th>Address as filed</th>" +
+      "<th class=r>Shares</th><th class=r>Stake (%)</th>" +
+      "<th class=r>Cumulative (%)</th><th>Address as filed</th>" +
       "</tr></thead><tbody>" +
       rows.map(function (r) {
         var href = r.holder_sec_code ? "ownership.html?c=" + esc(r.holder_sec_code)
@@ -331,14 +338,24 @@
             ? "<a href='ownership.html?c=" + esc(r.beneficiary_sec_code) + "'>" +
               esc(r.beneficiary_raw) + "</a>" : esc(r.beneficiary_raw));
         }
+        if (r.ratio_pct != null) cumulative += r.ratio_pct;
         return "<tr><td class=rank>" + count(r.rank) + "</td><td>" +
           nameCell(r.holder_name_en, r.name_raw, href) +
           (sub ? "<span class='sub'>" + sub + "</span>" : "") +
           "</td><td>" + kindBadge(r.holder_kind) +
           "</td><td class=r>" + count(r.shares) +
           "</td><td class=r>" + pct(r.ratio_pct) +
+          "</td><td class='r cum'>" + (r.ratio_pct == null ? MISSING : pct(cumulative)) +
           "</td><td>" + esc(r.address_raw || MISSING) + "</td></tr>";
       }).join("") + "</tbody></table>";
+    $("reg-formula").textContent = rows.length
+      ? "Cumulative is the running sum of the filed percentages down the "
+        + "register, calculated here — " + pct(cumulative) + "% over "
+        + rows.length + " named holders against the filing's own 計 row of "
+        + pct(d.majors_ratio_filed_pct) + "%. It includes custody accounts, "
+        + "which hold for others. Each percentage is of shares in issue "
+        + "excluding treasury, so they share a denominator and do add up."
+      : "";
     $("reg-note").innerHTML = nominees.length
       ? "<b>" + nominees.length + " of these rows are custody accounts</b> holding for " +
         "someone else — " + pct(d.nominee_ratio_pct, 2) + "% of the company between them. " +
@@ -350,17 +367,24 @@
          (d.filer_name_en || "") + " (" + d.filer_name + "), securities code " + (d.sec_code || ""),
          "Fiscal year ended " + d.period_end + "; filed " + d.filed_date + "; filing " + d.doc_id,
          "Official statistics exactly as filed. Stake % is of shares in issue excluding treasury.",
+         "cumulative_ratio_pct is calculated: the running sum of ratio_pct down the register.",
          "holder_kind and beneficiary are classified by the platform from the filed name.",
          "SHA-256 of archived filing: " + (d.sha256 || ""),
          "Source: 有価証券報告書 via EDINET, Financial Services Agency."],
         ["rank", "holder_name_ja", "holder_name_en", "account", "holder_kind",
-         "beneficiary", "shares", "ratio_pct", "address", "holder_edinet_code",
-         "holder_sec_code", "match_status"],
-        rows.map(function (r) {
-          return [r.rank, r.name_raw, r.holder_name_en, r.account_raw, r.holder_kind,
-                  r.beneficiary_raw, r.shares, r.ratio_pct, r.address_raw,
-                  r.holder_edinet_code, r.holder_sec_code, r.match_status];
-        }));
+         "beneficiary", "shares", "ratio_pct", "cumulative_ratio_pct", "address",
+         "holder_edinet_code", "holder_sec_code", "match_status"],
+        (function () {
+          var run = 0;
+          return rows.map(function (r) {
+            if (r.ratio_pct != null) run += r.ratio_pct;
+            return [r.rank, r.name_raw, r.holder_name_en, r.account_raw, r.holder_kind,
+                    r.beneficiary_raw, r.shares, r.ratio_pct,
+                    r.ratio_pct == null ? null : Math.round(run * 100) / 100,
+                    r.address_raw, r.holder_edinet_code, r.holder_sec_code,
+                    r.match_status];
+          });
+        })());
     };
   }
 
@@ -473,18 +497,25 @@
       " · <span class='badge badge-official'>Official statistic</span>";
     $("ho-count").textContent = rows.length < d.companies
       ? rows.length + " of " + count(d.companies) + " shown" : rows.length + " companies";
-    $("ho-note").innerHTML = esc(d.reverse_note);
+    $("ho-note").innerHTML = esc(d.reverse_note) +
+      " The rank this holder occupies in each register, and the name that " +
+      "register prints for it, are on the row and in the CSV.";
+    // Four columns, because four are what a reader ranks on. The register
+    // rank and the name the filer actually printed are provenance, not
+    // ranking material: they ride on the row's tooltip and in the CSV, so the
+    // match behind every row stays checkable without a column that nobody
+    // sorts by.
     $("ho-table").innerHTML =
-      "<thead><tr><th>Company</th><th class=r>Rank</th><th class=r>Shares</th>" +
-      "<th class=r>Stake (%)</th><th>Named in the register as</th>" +
-      "<th class=r>FY</th></tr></thead><tbody>" +
+      "<thead><tr><th>Company</th><th class=r>Shares</th>" +
+      "<th class=r>Stake (%)</th><th class=r>FY</th></tr></thead><tbody>" +
       rows.map(function (r) {
-        return "<tr><td>" + nameCell(r.company_name_en, r.filer_name,
-                 r.sec_code ? "ownership.html?c=" + esc(r.sec_code) : null) +
-          "</td><td class=r>" + count(r.rank) +
+        var provenance = "Rank " + (r.rank == null ? MISSING : r.rank) +
+          " in this register · named as " + (r.held_as || MISSING);
+        return "<tr title='" + esc(provenance) + "'><td>" +
+          nameCell(r.company_name_en, r.filer_name,
+                   r.sec_code ? "ownership.html?c=" + esc(r.sec_code) : null) +
           "</td><td class=r>" + count(r.shares) +
           "</td><td class=r>" + pct(r.ratio_pct) +
-          "</td><td>" + esc(r.held_as || MISSING) +
           "</td><td class=r>" + esc(periodShort(r.period_end)) + "</td></tr>";
       }).join("") + "</tbody></table>";
     $("ho-csv").onclick = function () {

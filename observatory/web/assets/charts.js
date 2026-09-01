@@ -88,8 +88,12 @@ function lineOptions(cfg, pal, narrow) {
           data: cfg.series[0].points.map(p => p[0]) }
       : { type: "time", splitLine: { show: false } }),
     yAxis: Object.assign(axisCommon(pal), {
-      type: "value",
-      scale: cfg.unit !== "%",           // index levels never forced to zero
+      // A log axis is the honest way to put series orders of magnitude apart
+      // on one chart: on a linear axis the smaller one is pinned to the
+      // baseline and its shape is unreadable. Callers opt in and must label
+      // it — a reader who misses the switch misreads every distance.
+      type: cfg.logScale ? "log" : "value",
+      scale: !cfg.logScale && cfg.unit !== "%",   // index levels never forced to zero
       name: cfg.yAxisName || "",
       nameTextStyle: { color: pal.muted, fontSize: 11, align: "left" },
       axisLine: { show: false },

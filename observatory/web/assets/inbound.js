@@ -933,6 +933,8 @@ function renderTable() {
     setUrlState({ sort: key, dir: dir });
     renderTable();
   });
+  // Sorting is the row-object helper's; this adds the filter box on top.
+  enhanceTable(wrap, { sort: false, placeholder: "Filter markets…" });
 
   const laterMonths = PERIODS.length - 1 - LAST_FULL;
   const sortedCol = TABLE_COLS.filter(c => c.key === st.sort)[0];

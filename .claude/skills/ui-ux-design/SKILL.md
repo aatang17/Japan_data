@@ -34,6 +34,11 @@ Dashboards fail by answering ten questions equally. Rank them, then build to the
 Hard rules:
 
 - **If a cell would hold a sentence, it must not be a table.** Tables are for scanning _down a column_.
+- **Every data table sorts and filters, and you get it for free.** Loading `assets/sortable.js` is the
+  whole integration: it enhances any table with a header row and six or more rows, on render and on
+  re-render. Never write a bespoke sort or filter for a table; give a cell `data-sort` when its text
+  does not sort correctly, and `data-no-enhance` to opt a table out. Spec →
+  [reference.md](reference.md#data-tables).
 - **More than ~6 series on one line chart is unreadable.** Above that, switch to a table with sparklines, small multiples, or make series selectable with a sane default subset.
 - **Never a pie or donut chart.** Composition is a bar; change in composition is a waterfall or stacked area.
 

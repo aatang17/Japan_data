@@ -12,6 +12,8 @@
   /* Japan is portrait once the uninhabited Pacific outliers are cropped, so
      the map column is too — a landscape frame left half the canvas empty. */
   #pop-map { width: 100%; height: 560px; border: 1px solid var(--obs-border); }
+  /* Keep a range label with its own select when the row wraps. */
+  .range-pair { display: inline-flex; align-items: center; gap: 4px; }
   .pop-ex-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 24px; }
   .pop-extremes h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
     color: var(--obs-text-muted); font-weight: 600; margin: 0 0 6px; }
@@ -115,13 +117,14 @@
       <select class="pop-select" id="pref-select"></select>
       <div class="seg" role="group" aria-label="View" id="hist-seg">
         <button type="button" data-hist="level" aria-pressed="true">Residents</button>
-        <button type="button" data-hist="index">Indexed to 1975</button>
+        <button type="button" data-hist="index">Indexed</button>
         <button type="button" data-hist="age">Age Structure</button>
       </div>
       <span class="spacer"></span>
       <button type="button" class="btn" id="hist-png">Download PNG</button>
       <button type="button" class="btn" id="hist-csv">Download CSV</button>
     </div>
+    <div class="controls range-row" id="hist-range"></div>
     <div class="chart" id="hist-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
     <p class="source-line" id="hist-source"></p>
     <details class="calc" id="hist-calc"></details>

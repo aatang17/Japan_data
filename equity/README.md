@@ -272,7 +272,9 @@ Traps this parser exists to survive:
 EDINET types 350/360, the 大量保有報告書 family — **no new capture**, the daily
 job has banked them since 2021. The only extractor here that reads the **t1
 inline-XBRL** package, because EDINET publishes no CSV rendition of this form.
-Writes `eq_lvh_filings` + `eq_lvh_holders`. Methodology:
+Writes `eq_lvh_filings` + `eq_lvh_holders`, including each holder's stated
+事業内容 and 職業 — the inputs the serve-time filer-type labels read.
+Methodology:
 [METHODOLOGY-5PCT-FILINGS.md](../docs/METHODOLOGY-5PCT-FILINGS.md).
 
 ```bash
@@ -301,6 +303,11 @@ Traps this parser exists to survive:
   Filers leave tags open over whole tables, and the single number inside is
   often a different line of the form — Nomura's borrowings tag contains its
   total funding.
+- **A holder's EDINET code is sometimes the ISSUER's.** A holder with no
+  registration of its own gets the target's code from the filer's XBRL tool —
+  Be Brave filed on three companies under three different targets' codes. The
+  guard rejects a holder code equal to the issuer's when the names differ (9 of
+  8,287 rows) and falls back to `name_key`, the folded name.
 - **Dates lie in both directions.** The cover-page filing date is filer-typed
   (a Trusco corrector dated a 2026 filing 2028), so EDINET's own submission
   record is used and the printed date kept beside it; and 提出義務発生日 on a

@@ -215,6 +215,24 @@ def _days(iso):
     return y * 372 + m * 31 + d
 
 
+# A filer that states no English name sometimes writes a rule of dashes rather
+# than leaving the field empty. That is "not stated", not a name, and it must
+# never reach a page as a company's English name.
+DASHES_ONLY = re.compile(u"^[-\u2010\u2011\u2012\u2013\u2014\u2015\u2500\uFF0D\s\u3000]+$")
+
+
+def clean_english_name(value):
+    t = clean_text(value)
+    return None if (t is None or DASHES_ONLY.match(t)) else t
+
+
+def clean_text(value):
+    u"""Filed free text, whitespace collapsed, or None. Filers pad these fields
+    with newlines and full-width spaces from the form's own layout."""
+    t = re.sub(r"[\s\u3000]+", " ", (value or "")).strip()
+    return t or None
+
+
 def to_int(x):
     return int(round(x)) if x is not None else None
 
@@ -411,7 +429,18 @@ SCHEMA_SQL = """
             match_status VARCHAR, shares_held BIGINT, ratio_pct DOUBLE,
             prior_ratio_pct DOUBLE, in_group_total BOOLEAN, purpose_ja VARCHAR,
             important_proposal_ja VARCHAR, important_proposal BOOLEAN,
-            own_funds_yen BIGINT, borrowings_yen BIGINT, total_funding_yen BIGINT);
+            own_funds_yen BIGINT, borrowings_yen BIGINT, total_funding_yen BIGINT,
+            -- A stable identity for a holder that has no EDINET code of its
+            -- own (or whose code was the issuer's — see the guard in build()).
+            -- Width, spacing and old character forms are folded exactly as the
+            -- entity resolver folds them, so one holder is one row of a
+            -- ranking however the filer spelled it.
+            name_key VARCHAR,
+            -- 事業内容 and 職業, exactly as filed. What kind of institution a
+            -- holder is gets read from these at serve time; storing the filer's
+            -- own words rather than our reading of them means a change to that
+            -- reading never rewrites a stored row.
+            business_ja VARCHAR, occupation_ja VARCHAR);
 """
 
 FILING_COLUMNS = ("doc_id", "doc_type", "form", "report_type", "change_no",
@@ -452,6 +481,11 @@ def build(doc_id, doc_type, facts, form, submitted, resolve_issuer, resolve_hold
     title = first(facts, "DocumentTitleCoverPage", 0)
     report_type, change_no = report_type_of(title, doc_type)
 
+    sec = re.sub(r"\D", "", first(facts, "SecurityCodeOfIssuer", 0))[:4] or None
+    issuer_name = first(facts, "NameOfIssuer", 0).strip() or None
+    imstat, iec = resolve_issuer(sec, issuer_name)
+    issuer_code = iec
+
     holders, in_total = [], 0
     for no in holder_numbers(facts):
         name = first(facts, "Name", no).strip()
@@ -478,17 +512,28 @@ def build(doc_id, doc_type, facts, form, submitted, resolve_issuer, resolve_hold
         # …NA twin. Reading only the first left 89% of holders as "not
         # stated" — an unknown where the filing gives a plain no, which
         # makes an activist filter useless.
+        business_ja = clean_text(first(facts, "DescriptionOfBusiness", no))
+        occupation_ja = clean_text(first(facts, "Occupation", no))
         proposal_ja = (first(facts, "ActOfMakingImportantProposalEtc", no).strip()
                        or first(facts, "ActOfMakingImportantProposalEtcNA", no).strip())
         kind_ja = first(facts, "IndividualOrCorporation", no).strip()
         ecode = (first(facts, "EDINETCodeDEI", no) or "").strip() or None
+        # A holder that has no EDINET registration of its own is sometimes
+        # given the ISSUER's code by the filer's own XBRL tool. Be Brave, an
+        # activist vehicle, files on three companies and carries a different
+        # target's code each time — so its stakes split three ways and each
+        # one lands on the code of the company it is challenging. The code is
+        # only an identity when it is not the issuer's.
+        if ecode and issuer_code and ecode == issuer_code and norm(name) != norm(issuer_name or ""):
+            problems.append("holder %d filed under the issuer's own EDINET code "
+                            "(%s); identified by name instead" % (no, ecode))
+            ecode = None
         mstat, ec, sc = resolve_holder(ecode, name)
         # A holder counts toward the group position only where the filing gives
         # it a CURRENT figure (trap 4).
         current = vals["ratio"] is not None or vals["shares"] is not None
         in_total += 1 if current else 0
-        holders.append((doc_id, no, name,
-                        (first(facts, "FilerNameInEnglishDEI", no) or "").strip() or None,
+        holders.append((doc_id, no, name, clean_english_name(first(facts, "FilerNameInEnglishDEI", no)),
                         first(facts, "ResidentialAddressOrAddressOfRegisteredHeadquarter", no).strip() or None,
                         kind_ja or None, (u"個人" in kind_ja) if kind_ja else None,
                         ec, sc, mstat, to_int(vals["shares"]), vals["ratio"],
@@ -496,7 +541,8 @@ def build(doc_id, doc_type, facts, form, submitted, resolve_issuer, resolve_hold
                         proposal_ja or None,
                         (None if special or not proposal_ja else not stated_none(proposal_ja)),
                         to_int(vals["own"]), to_int(vals["borrow"]),
-                        to_int(vals["funding"])))
+                        to_int(vals["funding"]), norm(name), business_ja,
+                        occupation_ja))
 
     # ---- the group position ------------------------------------------------
     group = {}
@@ -587,9 +633,6 @@ def build(doc_id, doc_type, facts, form, submitted, resolve_issuer, resolve_hold
         problems.append("G6 cover page dated %s, after EDINET received it on %s"
                         % (cover, submitted))
 
-    sec = re.sub(r"\D", "", first(facts, "SecurityCodeOfIssuer", 0))[:4] or None
-    issuer_name = first(facts, "NameOfIssuer", 0).strip() or None
-    imstat, iec = resolve_issuer(sec, issuer_name)
     proposals = [h[16] for h in holders if h[16] is not None]
 
     row = {
@@ -828,7 +871,7 @@ def main():
             con.execute(FILING_INSERT, [row[c] for c in FILING_COLUMNS])
             if holders:
                 con.executemany("INSERT INTO eq_lvh_holders VALUES (%s)"
-                                % ",".join(["?"] * 20), holders)
+                                % ",".join(["?"] * 23), holders)
                 tot_holders += len(holders)
                 tot_proposal += sum(1 for h in holders if h[16])
     con.close()

@@ -424,6 +424,15 @@ async function renderSeriesTables() {
       fmtSigned(tn(s.sum_12m), 2),
     ])).join(""));
 
+  // Every data table on the platform gets click-to-sort and a filter box.
+  // The trend column is a sparkline with no orderable value, so it opts out.
+  ["stocks-table", "flows-table"].forEach(function (id) {
+    var el = document.getElementById(id);
+    var trend = el.querySelectorAll("thead th");
+    if (trend.length) trend[trend.length - 2].setAttribute("data-nosort", "");
+    enhanceTable(el, { placeholder: "Filter series…" });
+  });
+
   document.getElementById("series-foot").textContent =
     "Latest values are official statistics; Δ, averages and sums are calculated. " +
     "Shown in ¥ trillion (published ¥100 million ÷ 10,000, exact) to two decimals. " +

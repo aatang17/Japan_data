@@ -10,7 +10,7 @@
   "use strict";
 
   var tapeState = { filter: "all" };
-  var filerState = { activist: "" };
+  var filerState = { activist: "", by: "group", type: "", group: "" };
 
   function $(id) { return document.getElementById(id); }
   function esc(s) { return escapeHtml(String(s == null ? "" : s)); }
@@ -195,34 +195,74 @@
 
   function renderFilers(d) {
     var rows = d.holders;
-    $("filers-count").textContent = rows.length + " filers";
-    $("filers-meta").innerHTML = d.activist_only
-      ? "Filers that have stated an <b>important-proposal</b> act on at least one report."
-      : "Ranked by how many companies the filer has reported on.";
+    var grouped = d.by === "group";
+    $("filers-count").textContent = grouped
+      ? count(d.groups_total) + " groups · " + count(d.filers_total) + " filing entities"
+      : count(rows.length) + " of " + count(d.filers_total) + " filing entities";
+    var lead = d.group
+      ? "<a href='#' id='clear-group'>← All filers</a> · filing entities inside <b>" +
+        esc(d.group) + "</b>."
+      : (d.activist_only
+          ? "Filers that have stated an <b>important-proposal</b> act on at least one report."
+          : "Ranked by how many companies the filer has reported on.");
+    $("filers-meta").innerHTML = lead + (grouped && !d.group
+      ? " A family's filing entities are consolidated: <b>BlackRock files under " +
+        "sixteen EDINET codes</b>, so listing them separately reads as sixteen investors."
+      : "");
     $("filers-table").innerHTML =
-      "<thead><tr><th>Filer</th><th class=r>Companies</th><th class=r>Reports</th>" +
+      "<thead><tr><th>" + (grouped ? "Filer group" : "Filing entity") +
+      "</th><th>Type</th><th class=r>Companies</th><th class=r>Reports</th>" +
       "<th class=r>Largest stake (%)</th><th class=r>Proposal reports</th>" +
       "<th>Latest report</th></tr></thead><tbody>" +
       rows.map(function (r) {
-        return "<tr><td>" + nameCell(r.name_en, r.name_ja,
-              "stakes.html?h=" + esc(r.holder_edinet_code)) +
+        var name = grouped
+          ? "<div class='cell-item'><div class='en'>" + esc(r.group) + "</div>" +
+            (r.entity_count > 1
+              ? "<span class='members'><a href='#' data-group='" + esc(r.group) + "'>" +
+                r.entity_count + " filing entities</a></span>" : "") + "</div>"
+          : nameCell(r.name_en, r.name_ja,
+                     r.holder_edinet_code ? "stakes.html?h=" + esc(r.holder_edinet_code) : null);
+        return "<tr><td>" + name +
+          "</td><td>" + typeBadge(r) +
           "</td><td class=r>" + count(r.issuers) +
           "</td><td class=r>" + count(r.reports) +
           "</td><td class=r>" + pct(r.max_ratio_pct) +
           "</td><td class=r>" + count(r.proposal_reports) +
           "</td><td>" + esc(day(r.latest_report)) + "</td></tr>";
       }).join("") + "</tbody></table>";
+    $("filers-formula").textContent =
+      "Companies counts the distinct issuers reported on — for a group it is the " +
+      "issuers its entities cover between them, not the sum of theirs, because " +
+      "they file on largely the same names. " + (d.type_note || "") + " " +
+      (d.group_note || "");
+    Array.prototype.forEach.call($("filers-table").querySelectorAll("a[data-group]"),
+      function (a) {
+        a.onclick = function (ev) {
+          ev.preventDefault();
+          filerState.group = a.getAttribute("data-group");
+          loadFilers();
+        };
+      });
+    if ($("clear-group")) {
+      $("clear-group").onclick = function (ev) {
+        ev.preventDefault();
+        filerState.group = "";
+        loadFilers();
+      };
+    }
     $("filers-csv").onclick = function () {
       csvDownload("japan-5pct-filers.csv",
         ["Japan Data Observatory — most active 5% filers",
          d.activist_only ? "Filers that have stated an important-proposal act" : "All filers",
          "Counts are calculated over archived reports; ratios are as filed.",
+         "filer_type is derived from the filer's own 事業内容; group is a curated map of filing entities to their family.",
          "Source: 大量保有報告書 via EDINET, Financial Services Agency."],
-        ["edinet_code", "name_ja", "name_en", "issuers", "reports", "max_ratio_pct",
-         "proposal_reports", "latest_report"],
+        ["group", "edinet_code", "name_ja", "name_en", "filer_type", "entities",
+         "issuers", "reports", "max_ratio_pct", "proposal_reports", "latest_report"],
         rows.map(function (r) {
-          return [r.holder_edinet_code, r.name_ja, r.name_en, r.issuers, r.reports,
-                  r.max_ratio_pct, r.proposal_reports, r.latest_report];
+          return [r.group, r.holder_edinet_code, r.name_ja, r.name_en, r.filer_type,
+                  r.entity_count, r.issuers, r.reports, r.max_ratio_pct,
+                  r.proposal_reports, r.latest_report];
         }));
     };
   }
@@ -233,8 +273,24 @@
       .then(renderTape).catch(function (e) { errorInto("tape-meta", e); });
   }
 
+  // A filer's type is our reading of what it filed as its business, so it is
+  // rendered like every other derived label here: outline, quiet, with the
+  // evidence on hover.
+  function typeBadge(r) {
+    if (!r.filer_type) return MISSING;
+    var why = r.filer_type === "mixed"
+      ? "This group's filing entities state different businesses: " +
+        (r.filer_type_mix || []).join(", ")
+      : "From the filer's own 事業内容";
+    return "<span class='badge badge-note' title='" + esc(why) + "'>" +
+      esc(r.filer_type_en) + "</span>";
+  }
+
   function loadFilers() {
-    getJSON("/api/v1/equity/stakes/holders?limit=40" +
+    syncUrl();
+    getJSON("/api/v1/equity/stakes/holders?limit=40&by=" + filerState.by +
+            (filerState.type ? "&filer_type=" + encodeURIComponent(filerState.type) : "") +
+            (filerState.group ? "&group=" + encodeURIComponent(filerState.group) : "") +
             (filerState.activist ? "&activist=true" : ""))
       .then(renderFilers).catch(function (e) { errorInto("filers-meta", e); });
   }
@@ -243,6 +299,9 @@
     var p = new URLSearchParams();
     if (tapeState.filter !== "all") p.set("view", tapeState.filter);
     if (filerState.activist) p.set("filers", "activist");
+    if (filerState.by !== "group") p.set("by", filerState.by);
+    if (filerState.type) p.set("type", filerState.type);
+    if (filerState.group) p.set("group", filerState.group);
     history.replaceState(null, "", "stakes.html" + (p.toString() ? "?" + p.toString() : ""));
   }
 
@@ -380,6 +439,15 @@
     document.title = (d.name || d.holder_edinet_code) + " · 5% Filings · Japan Data Observatory";
     $("ho-name").textContent = d.name_en || d.name || d.holder_edinet_code;
     $("ho-code").textContent = d.holder_edinet_code;
+    var prof = [];
+    if (d.filer_type_en) prof.push("<b>" + esc(d.filer_type_en) + "</b>");
+    if (d.business_ja) prof.push("Filed business: " + esc(d.business_ja));
+    if (d.group && d.group_entities > 1) {
+      prof.push("Part of <a href='stakes.html?group=" + encodeURIComponent(d.group) +
+                "'>" + esc(d.group) + "</a> — " + d.group_entities +
+                " filing entities in Japan");
+    }
+    $("ho-profile").innerHTML = prof.join(" · ");
     $("ho-meta").innerHTML = (d.name_en && d.name ? esc(d.name) + " · " : "") +
       count(d.issuers) + " companies reported on · " + count(d.reports_total) +
       " reports · <span class='badge badge-official'>Official statistic</span>";
@@ -444,6 +512,14 @@
           b.getAttribute("data-filter") === tapeState.filter ? "true" : "false");
       });
     }
+    if (p.get("by") === "entity") {
+      filerState.by = "entity";
+      Array.prototype.forEach.call($("by-seg").querySelectorAll("button"), function (b) {
+        b.setAttribute("aria-pressed", b.getAttribute("data-by") === "entity" ? "true" : "false");
+      });
+    }
+    if (p.get("type")) filerState.type = p.get("type");
+    if (p.get("group")) filerState.group = p.get("group");
     if (p.get("filers") === "activist") {
       filerState.activist = "true";
       Array.prototype.forEach.call($("filer-seg").querySelectorAll("button"), function (b) {
@@ -465,6 +541,28 @@
       });
       loadTape();
     });
+    $("by-seg").addEventListener("click", function (ev) {
+      var b = ev.target.closest("button");
+      if (!b) return;
+      filerState.by = b.getAttribute("data-by");
+      filerState.group = "";
+      Array.prototype.forEach.call(this.querySelectorAll("button"), function (x) {
+        x.setAttribute("aria-pressed", x === b ? "true" : "false");
+      });
+      loadFilers();
+    });
+    $("type-select").onchange = function () {
+      filerState.type = this.value;
+      loadFilers();
+    };
+    getJSON("/api/v1/equity/stakes/holder-types").then(function (d) {
+      $("type-select").innerHTML = "<option value=''>Every type</option>" +
+        d.types.map(function (t) {
+          return "<option value='" + esc(t.filer_type) + "'" +
+            (t.filer_type === filerState.type ? " selected" : "") + ">" +
+            esc(t.label) + " (" + fmtNum(t.filers, 0) + ")</option>";
+        }).join("");
+    }).catch(function () {});
     $("filer-seg").addEventListener("click", function (ev) {
       var b = ev.target.closest("button");
       if (!b) return;

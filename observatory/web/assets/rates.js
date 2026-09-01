@@ -607,6 +607,11 @@ function renderTable() {
     '<th class="num">Since</th>' +
     "</tr></thead><tbody>" + rows.join("") + "</tbody></table>";
 
+  var matEl = document.getElementById("mat-table");
+  var ths = matEl.querySelectorAll("thead th");
+  if (ths.length) ths[ths.length - 2].setAttribute("data-nosort", "");  // sparkline
+  enhanceTable(matEl, { placeholder: "Filter tenors…" });
+
   document.getElementById("mat-foot").textContent =
     "Yields are official statistics to three decimals, exactly as published; " +
     "Δ columns are calculated in percentage points vs the latest business day " +

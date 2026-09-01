@@ -35,6 +35,8 @@ WHAT A CONSUMER MUST NOT ASSUME, carried in the data rather than in prose:
 from fastapi import APIRouter, HTTPException, Query
 
 from .equity_api import NAMES_NOTE, NAME_CTES, PROVENANCE, _cur, _rows
+from .filer_labels import (GROUP_NOTE, TYPE_EN, TYPE_NOTE, group_of, group_size,
+                           type_of)
 
 router = APIRouter(prefix="/api/v1/equity/stakes")
 
@@ -296,7 +298,8 @@ def holder(key: str, limit: int = Query(200, ge=1, le=1000)):
     cur = _require()
     k = (key or "").strip()
     rows = _rows(cur, "WITH x AS (SELECT 1)" + NAME_CTES + """
-        SELECT h.name_raw, h.name_en, h.holder_edinet_code, f.issuer_sec_code,
+        SELECT h.name_raw, h.name_en, h.holder_edinet_code, h.business_ja,
+               h.holder_type_ja, h.is_individual, f.issuer_sec_code,
                f.issuer_name_raw, coalesce(es.name_en, ee.name_en) AS issuer_name_en,
                f.report_type, f.requirement_date, f.filed_date, h.shares_held,
                h.ratio_pct, h.prior_ratio_pct, h.important_proposal, h.purpose_ja,
@@ -320,8 +323,20 @@ def holder(key: str, limit: int = Query(200, ge=1, le=1000)):
                count(DISTINCT coalesce(f.issuer_sec_code, f.issuer_name_raw)) AS issuers
         FROM eq_lvh_holders h JOIN eq_lvh_filings f USING (doc_id)
         WHERE h.holder_edinet_code = ? AND f.status IN ('clean','partial')""", [k])[0]
+    profile = _label({"holder_edinet_code": k, "name_ja": rows[0]["name_raw"],
+                      "name_en": rows[0]["name_en"],
+                      "business_ja": rows[0].get("business_ja"),
+                      "holder_type_ja": rows[0].get("holder_type_ja"),
+                      "is_individual": rows[0].get("is_individual")})
     return _notes({"holder_edinet_code": k, "name": rows[0]["name_raw"],
                    "name_en": rows[0]["name_en"],
+                   "filer_type": profile["filer_type"],
+                   "filer_type_en": profile["filer_type_en"],
+                   "filer_type_evidence": profile["filer_type_evidence"],
+                   "business_ja": rows[0].get("business_ja"),
+                   "group": profile["group"],
+                   "group_entities": profile["group_entities"],
+                   "type_note": TYPE_NOTE, "group_note": GROUP_NOTE,
                    "issuers": totals["issuers"], "reports_total": totals["reports"],
                    "reports_returned": len(rows),
                    "current": sorted(latest.values(),
@@ -329,25 +344,154 @@ def holder(key: str, limit: int = Query(200, ge=1, le=1000)):
                    "reports": rows})
 
 
+def _label(row):
+    u"""Attach the two derived labels to one filing-entity row."""
+    kind, evidence = type_of(row.get("business_ja"), row.get("is_individual"),
+                             row.get("holder_type_ja"))
+    row["filer_type"] = kind
+    row["filer_type_en"] = TYPE_EN[kind]
+    row["filer_type_evidence"] = evidence
+    row["group"] = group_of(row.get("holder_edinet_code"),
+                            row.get("name_en") or row.get("name_ja"))
+    row["group_entities"] = group_size(row["group"]) or 1
+    return row
+
+
+# One row per FILING ENTITY, before any grouping. Everything the labels need
+# travels with it: what the entity filed as its business, and whether the
+# filing called it a person.
+ENTITY_ROLLUP = """
+    SELECT coalesce(h.holder_edinet_code, h.name_key) AS holder_key,
+           any_value(h.holder_edinet_code) AS holder_edinet_code,
+           min(h.name_raw) AS name_ja, min(h.name_en) AS name_en,
+           any_value(h.holder_type_ja) AS holder_type_ja,
+           any_value(h.is_individual) AS is_individual,
+           max(h.business_ja) AS business_ja,
+           count(*) AS reports,
+           count(DISTINCT coalesce(f.issuer_sec_code, f.issuer_name_raw)) AS issuers,
+           max(h.ratio_pct) AS max_ratio_pct,
+           sum(CASE WHEN h.important_proposal THEN 1 ELSE 0 END) AS proposal_reports,
+           max(coalesce(f.requirement_date, f.filed_date)) AS latest_report
+    FROM eq_lvh_holders h JOIN eq_lvh_filings f USING (doc_id)
+    WHERE {WHERE}
+    GROUP BY 1
+"""
+
+
 @router.get("/holders")
 def holders(limit: int = Query(50, ge=1, le=500),
+            by: str = Query("group", description="'group' (default) consolidates "
+                                                 "a family's filing entities; "
+                                                 "'entity' lists them separately"),
+            filer_type: str = Query("", description="one filer_type to filter to; "
+                                                    "see /holder-types"),
+            group: str = Query("", description="one group, to list its entities"),
             activist: str = Query("", description="'true' for holders that have "
                                                   "stated an important-proposal act")):
-    u"""The most active 5% filers."""
+    u"""The most active 5% filers, by family or by filing entity.
+
+    Grouped is the default because the alternative misleads: BlackRock files
+    under sixteen EDINET codes and Fidelity thirteen, so an entity ranking puts
+    nine BlackRock subsidiaries in a top twenty and reads as nine investors.
+    """
     cur = _require()
-    where = ["f.status IN ('clean','partial')", "h.holder_edinet_code IS NOT NULL"]
+    where = ["f.status IN ('clean','partial')"]
     if (activist or "").strip().lower() == "true":
         where.append("h.important_proposal")
-    rows = _rows(cur, """
-        SELECT h.holder_edinet_code, any_value(h.name_raw) AS name_ja,
-               any_value(h.name_en) AS name_en,
-               count(*) AS reports,
-               count(DISTINCT coalesce(f.issuer_sec_code, f.issuer_name_raw)) AS issuers,
-               max(h.ratio_pct) AS max_ratio_pct,
-               sum(CASE WHEN h.important_proposal THEN 1 ELSE 0 END) AS proposal_reports,
-               max(coalesce(f.requirement_date, f.filed_date)) AS latest_report
-        FROM eq_lvh_holders h JOIN eq_lvh_filings f USING (doc_id)
-        WHERE """ + " AND ".join(where) + """
-        GROUP BY 1 ORDER BY issuers DESC, reports DESC LIMIT ?""", [limit])
-    return _notes({"holders": rows,
-                   "activist_only": (activist or "").strip().lower() == "true"})
+    entities = [_label(r) for r in
+                _rows(cur, ENTITY_ROLLUP.replace("{WHERE}", " AND ".join(where)))]
+
+    wanted_type = (filer_type or "").strip()
+    if wanted_type:
+        entities = [e for e in entities if e["filer_type"] == wanted_type]
+    wanted_group = (group or "").strip()
+    if wanted_group:
+        entities = [e for e in entities if e["group"] == wanted_group]
+
+    by_entity = (by or "").strip().lower() == "entity" or bool(wanted_group)
+    if by_entity:
+        rows = sorted(entities, key=lambda e: (-(e["issuers"] or 0), -(e["reports"] or 0)))
+    else:
+        # A group's issuer count is the number of DISTINCT companies its
+        # entities file on, which is not the sum of theirs: BlackRock's
+        # sixteen entities file on largely the same names, and adding them
+        # would report it holding 5% of more companies than exist.
+        keys = [e["holder_key"] for e in entities]
+        per_issuer = _issuers_by_entity(cur, where) if keys else {}
+        merged = {}
+        for e in entities:
+            g = merged.setdefault(e["group"], {
+                "group": e["group"], "entities": [], "reports": 0,
+                "max_ratio_pct": None, "proposal_reports": 0,
+                "latest_report": None, "issuer_set": set()})
+            g["entities"].append({
+                "holder_key": e["holder_key"],
+                "holder_edinet_code": e["holder_edinet_code"],
+                "name_ja": e["name_ja"], "name_en": e["name_en"],
+                "filer_type": e["filer_type"], "filer_type_en": e["filer_type_en"],
+                "issuers": e["issuers"], "reports": e["reports"],
+                "max_ratio_pct": e["max_ratio_pct"],
+                "proposal_reports": e["proposal_reports"]})
+            g["reports"] += e["reports"] or 0
+            g["proposal_reports"] += e["proposal_reports"] or 0
+            if e["max_ratio_pct"] is not None:
+                g["max_ratio_pct"] = max(g["max_ratio_pct"] or 0, e["max_ratio_pct"])
+            if e["latest_report"] and (not g["latest_report"]
+                                       or e["latest_report"] > g["latest_report"]):
+                g["latest_report"] = e["latest_report"]
+            g["issuer_set"] |= per_issuer.get(e["holder_key"], set())
+        rows = []
+        for g in merged.values():
+            g["issuers"] = len(g["issuer_set"])
+            g.pop("issuer_set")
+            g["entity_count"] = len(g["entities"])
+            # The type of a group is its entities' type where they agree, and
+            # stated as mixed where they do not — a bank group that also runs
+            # an asset manager is both, and picking one would be a claim.
+            kinds = sorted({e["filer_type"] for e in g["entities"]})
+            g["filer_type"] = kinds[0] if len(kinds) == 1 else "mixed"
+            # "Mixed" is the label; WHICH kinds it mixes is detail for a
+            # tooltip, not a sentence inside a badge.
+            g["filer_type_en"] = TYPE_EN[kinds[0]] if len(kinds) == 1 else "Mixed"
+            g["filer_type_mix"] = [TYPE_EN[k] for k in kinds]
+            g["entities"].sort(key=lambda e: -(e["issuers"] or 0))
+            rows.append(g)
+        rows.sort(key=lambda g: (-(g["issuers"] or 0), -(g["reports"] or 0)))
+
+    head = {"holders": rows[:limit],
+            "by": "entity" if by_entity else "group",
+            "filer_type": wanted_type or None,
+            "group": wanted_group or None,
+            "activist_only": (activist or "").strip().lower() == "true",
+            "filers_total": len(entities),
+            "groups_total": (None if by_entity else len(rows))}
+    head["type_note"] = TYPE_NOTE
+    head["group_note"] = GROUP_NOTE
+    return _notes(head)
+
+
+def _issuers_by_entity(cur, where):
+    u"""entity key -> the set of issuers it has filed on."""
+    out = {}
+    for r in _rows(cur, """
+            SELECT coalesce(h.holder_edinet_code, h.name_key) AS holder_key,
+                   coalesce(f.issuer_sec_code, f.issuer_name_raw) AS issuer
+            FROM eq_lvh_holders h JOIN eq_lvh_filings f USING (doc_id)
+            WHERE """ + " AND ".join(where)):
+        out.setdefault(r["holder_key"], set()).add(r["issuer"])
+    return out
+
+
+@router.get("/holder-types")
+def holder_types():
+    u"""The filer types, with how many filing entities carry each."""
+    cur = _require()
+    counts = {}
+    for r in _rows(cur, ENTITY_ROLLUP.replace(
+            "{WHERE}", "f.status IN ('clean','partial')")):
+        kind, _ = type_of(r.get("business_ja"), r.get("is_individual"),
+                          r.get("holder_type_ja"))
+        counts[kind] = counts.get(kind, 0) + 1
+    return {"types": [{"filer_type": k, "label": TYPE_EN[k], "filers": counts.get(k, 0)}
+                      for k in TYPE_EN if counts.get(k)],
+            "type_note": TYPE_NOTE, "calc": CALC, "provenance": PROVENANCE}
