@@ -22,7 +22,7 @@ from pydantic import BaseModel, Field
 
 from . import db, heartbeat, vintages
 from .adapters import (boj_assets, cpi_jp, cpi_jp_items, jnto_visitors,
-                       juki_population, mof_jgb, ssds_population)
+                       juki_population, mof_jgb, mof_trade, ssds_population)
 
 # The agent is optional: without the openai package installed the data API
 # and the site keep working, and /ask reports itself as unavailable.
@@ -43,14 +43,15 @@ def _ask_enabled():
 ADAPTERS = {"cpi-jp": cpi_jp, "cpi-jp-items": cpi_jp_items, "boj-assets": boj_assets,
             "jgb-yields": mof_jgb, "jnto-visitors": jnto_visitors,
             "population-jp": juki_population,
-            "population-jp-history": ssds_population}
+            "population-jp-history": ssds_population,
+            "trade-semis": mof_trade}
 
 router = APIRouter(prefix="/api/v1")
 
 # What the pages fetch on load, primed at startup. Not every dataset serves
 # every one of these — the misses 404 harmlessly and simply aren't cached.
 WARM_ENDPOINTS = ("overview", "series", "contributions", "breadth", "curve",
-                  "arrivals")
+                  "arrivals", "trade")
 
 
 def warm_paths():
@@ -72,7 +73,10 @@ UNIT = {"index": "index", "yoy": "%", "mom": "%", "ann3m": "%"}
 # level for the BOJ balance sheet. Labelling a ¥100mn level "index (2020 = 100)"
 # would be a trust-contract breach, not a cosmetic slip.
 UNIT_LABEL = {"index": "index", "jpy_100mn": "¥100mn", "pct": "%",
-              "persons": "persons"}
+              "persons": "persons", "jpy_1000": "¥1,000",
+              # Customs quantity units, published full-width. Stored exactly
+              # as released; only the label is normalised.
+              "ＮＯ": "units", "ＫＧ": "kg"}
 
 
 def _calc_for(measure, unit):
@@ -1115,6 +1119,145 @@ def prefectures(dataset):
             if key in cfg:
                 payload[key] = cfg[key]
         return payload
+    finally:
+        con.close()
+
+
+TRADE_CALC = (
+    "Customs-declared values and quantities exactly as published by the "
+    "Ministry of Finance. Value is in thousands of yen; quantity is in the "
+    "commodity's published unit. Growth rates, shares, world totals and "
+    "average unit values are calculated from these published figures and "
+    "carry their formula wherever they are shown."
+)
+
+TRADE_WORLD_CALC = (
+    "world[commodity, t] = Σ value[partner, commodity, t] over every partner "
+    "country the Ministry publishes for that commodity, including the "
+    "non-country entries (For Order, Unknown, bonded areas). The Ministry "
+    "publishes no world total in this table, so it is summed here rather "
+    "than read off."
+)
+
+
+@router.get("/{dataset}/trade")
+def trade(dataset,
+          flow: str = Query(None, description="'exp' or 'imp'"),
+          commodity: str = Query(None, description="published commodity code")):
+    """One commodity's trade with every partner, plus world totals for all of them.
+
+    The cube here is commodity × partner × month × (value, quantity) in two
+    directions — far too much to ship in one payload the way /arrivals does, so
+    the partner detail is served for the commodity actually being read while the
+    world totals for every commodity ride along. That is what the page needs to
+    draw its tiles and its commodity comparison without a second round trip, and
+    it keeps a citable URL pointing at exactly one view.
+
+    Only published values cross the wire. World totals are the one exception and
+    say so: this table has no world row, so the sum is labelled derived and
+    carries its formula, exactly as a spread or a contribution does.
+
+    Export and import commodity codes are separate vocabularies — `70311000` is
+    semiconductors on the import side and audio equipment on the export side —
+    so the commodity is always validated against the requested direction's list
+    rather than against a shared one.
+    """
+    adapter = _dataset_or_404(dataset)
+    cfg = adapter.PRESENTATION.get("trade")
+    if not cfg:
+        raise HTTPException(404, "Dataset '%s' has no trade definition" % dataset)
+
+    flow = flow or cfg["default_flow"]
+    if flow not in cfg["commodities"]:
+        raise HTTPException(400, "Unknown flow '%s'; one of %s"
+                                 % (flow, sorted(cfg["commodities"])))
+    catalogue = cfg["commodities"][flow]
+    commodity = commodity or cfg["default_commodity"][flow]
+    chosen = next((c for c in catalogue if c["code"] == commodity), None)
+    if chosen is None:
+        raise HTTPException(
+            404, "Commodity '%s' is not published for %s; one of %s"
+                 % (commodity, flow, ", ".join(c["code"] for c in catalogue)))
+
+    con = _con()
+    try:
+        rel = _release(con, dataset)
+
+        periods = [p for (p,) in con.execute(
+            "SELECT DISTINCT o.period FROM observations o "
+            "JOIN series s USING(series_id) WHERE s.dataset=? ORDER BY o.period",
+            [dataset]).fetchall()]
+        pos = dict((p, i) for i, p in enumerate(periods))
+
+        # The slice being read: one commodity, one direction, every partner,
+        # both measures.
+        values, quantities, qty_unit = {}, {}, None
+        rows = con.execute(
+            "SELECT s.code, s.unit, o.period, o.value FROM observations o "
+            "JOIN series s USING(series_id) "
+            "WHERE s.dataset=? AND s.code LIKE ?",
+            [dataset, "%s.%s.%%" % (flow, commodity)]).fetchall()
+        for code, unit, period, value in rows:
+            _flow, _com, partner, measure = code.split(".")
+            target = values if measure == "val" else quantities
+            if measure == "qty" and qty_unit is None:
+                qty_unit = unit
+            column = target.get(partner)
+            if column is None:
+                column = target[partner] = [None] * len(periods)
+            column[pos[period]] = value
+
+        present = sorted(set(values) | set(quantities))
+        partners = [{
+            "code": code,
+            "name_en": adapter.PARTNER_EN.get(code, code),
+            "name_ja": adapter.PARTNER_JA.get(code),
+            "region": adapter.partner_region(code),
+            # The Ministry's non-country entries are published partners and are
+            # part of the total, but they are not places and a map or a country
+            # ranking must be able to tell them apart.
+            "is_country": adapter.partner_region(code) != "7",
+        } for code in present]
+
+        # World totals for every commodity in both directions, summed in the
+        # database rather than shipped as partner detail nobody asked for.
+        world = {}
+        for f, c, period, total in con.execute(
+                "SELECT split_part(s.code,'.',1), split_part(s.code,'.',2), "
+                "       o.period, sum(o.value) "
+                "FROM observations o JOIN series s USING(series_id) "
+                "WHERE s.dataset=? AND split_part(s.code,'.',4)='val' "
+                "GROUP BY 1,2,3", [dataset]).fetchall():
+            key = "%s.%s" % (f, c)
+            column = world.get(key)
+            if column is None:
+                column = world[key] = [None] * len(periods)
+            column[pos[period]] = total
+
+        latest = datetime.date.fromisoformat(rel["latest_period"])
+        today = datetime.date.today()
+        return {
+            "dataset": dataset, "release": rel,
+            "trust": "official", "calc": TRADE_CALC,
+            "credit_line": adapter.PRESENTATION.get("credit_line"),
+            "stale": (today - latest).days
+                     > adapter.PRESENTATION["stale_after_days"],
+            "flow": flow,
+            "flows": cfg["flows"],
+            "commodity": chosen,
+            "commodities": cfg["commodities"],
+            "feature_partners": cfg.get("feature_partners", []),
+            "regions": [{"key": k, "label": l} for k, l in adapter.REGIONS],
+            "units": {"value": UNIT_LABEL.get(cfg["value_unit"], cfg["value_unit"]),
+                      "quantity": UNIT_LABEL.get(qty_unit, qty_unit)},
+            "periods": [p.isoformat() for p in periods],
+            "partners": partners,
+            "values": values,
+            "quantities": quantities,
+            "world": world,
+            "world_trust": "derived",
+            "world_calc": TRADE_WORLD_CALC,
+        }
     finally:
         con.close()
 

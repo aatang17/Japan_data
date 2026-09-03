@@ -27,12 +27,13 @@ from . import db, env
 env.load()
 
 from .adapters import (boj_assets, cpi_jp, cpi_jp_items, jnto_visitors,
-                       juki_population, mof_jgb, ssds_population)
+                       juki_population, mof_jgb, mof_trade, ssds_population)
 
 ADAPTERS = {"cpi-jp": cpi_jp, "cpi-jp-items": cpi_jp_items, "boj-assets": boj_assets,
             "jgb-yields": mof_jgb, "jnto-visitors": jnto_visitors,
             "population-jp": juki_population,
-            "population-jp-history": ssds_population}
+            "population-jp-history": ssds_population,
+            "trade-semis": mof_trade}
 
 # "this (series, period) had no prior value at all" — distinct from a prior
 # value that happens to be None.

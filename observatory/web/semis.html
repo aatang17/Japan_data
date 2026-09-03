@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Semiconductor Trade · Japan Data Observatory</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+
+<header class="site-header" data-section="macro" data-page="semis"></header>
+<script src="assets/nav.js"></script>
+
+<main class="container">
+  <div id="stale-banner"></div>
+
+  <div class="metric-card">
+    <div class="metric-card-head">
+      <h1>Japan's Semiconductor Trade</h1>
+      <span class="metric-asof" id="page-asof"></span>
+      <p class="metric-sub" id="page-sub"><span class="skeleton" style="display:inline-block;width:420px;height:14px"></span></p>
+    </div>
+    <div class="strip">
+      <div class="strip-grid cols-4" id="tiles">
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+      </div>
+    </div>
+    <p class="strip-foot" id="strip-foot"></p>
+    <details class="calc" id="strip-calc" style="display:none"></details>
+  </div>
+
+  <section aria-labelledby="h-partner">
+    <h2 id="h-partner">Trade by Partner <span class="h2-note" id="partner-note"></span></h2>
+    <p class="section-sub">Monthly customs values for one commodity, for the world and for any
+    partners you pick. Trade is strongly seasonal and lumpy month to month, so the second view
+    sums a trailing twelve months; the third reads the same figures as each partner's share of
+    the world total, and the fourth divides value by quantity to give an average price per unit
+    shipped.</p>
+    <div class="chart-panel">
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Direction" id="flow-seg">
+        <button type="button" data-flow="exp" aria-pressed="true">Exports</button>
+        <button type="button" data-flow="imp">Imports</button>
+      </div>
+      <label for="commodity-select">Commodity</label>
+      <select id="commodity-select" aria-label="Commodity"></select>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="partner-png">Download PNG</button>
+      <button type="button" class="btn" id="partner-csv">Download CSV</button>
+    </div>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="View" id="view-seg">
+        <button type="button" data-view="value" aria-pressed="true">Monthly Value</button>
+        <button type="button" data-view="ttm">12-Month Total</button>
+        <button type="button" data-view="share">Share of World</button>
+        <button type="button" data-view="unit">Unit Value</button>
+      </div>
+      <div class="seg" role="group" aria-label="Date range" id="range-seg">
+        <button type="button" data-range="5">5Y</button>
+        <button type="button" data-range="10" aria-pressed="true">10Y</button>
+        <button type="button" data-range="max">Max</button>
+      </div>
+    </div>
+    <div class="band-toggles" id="partner-picker" role="group" aria-label="Partners shown">
+      <span class="band-toggles-label">Partners</span>
+    </div>
+    <div class="controls">
+      <label for="partner-add">Add any partner</label>
+      <select id="partner-add" aria-label="Add any partner"></select>
+    </div>
+    <div class="chart" id="partner-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="partner-source"></p>
+    <details class="calc" id="partner-calc"></details>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-mix">
+    <h2 id="h-mix"><span id="mix-title">How the Destination Mix Has Shifted</span> <span class="h2-note" id="mix-note"></span></h2>
+    <p class="section-sub">The same commodity, read as a mix rather than a level. Each band is a
+    partner's share of the world total over a trailing twelve months, so a single strong month
+    does not read as a change in the mix. Partners outside the five largest are bundled into one
+    disclosed residual, never dropped, and the bands sum to 100% in every month.</p>
+    <div class="chart-panel">
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Date range" id="mixrange-seg">
+        <button type="button" data-mrange="10" aria-pressed="true">10Y</button>
+        <button type="button" data-mrange="max">Max</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="mix-png">Download PNG</button>
+      <button type="button" class="btn" id="mix-csv">Download CSV</button>
+    </div>
+    <div class="chart" id="mix-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="mix-source"></p>
+    <details class="calc" id="mix-calc"></details>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-commodity">
+    <h2 id="h-commodity">Chips and the Machines That Make Them <span class="h2-note" id="commodity-note"></span></h2>
+    <p class="section-sub">World totals for every commodity published in this direction, on
+    trailing twelve-month sums. The equipment cycle and the component cycle turn at different
+    times, which is the point of reading them together. A published group and the items beneath
+    it are both shown and must not be added: the Ministry publishes components inside a group
+    that are not carried here, so a group is always larger than the items listed under it.</p>
+    <div class="chart-panel">
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Date range" id="crange-seg">
+        <button type="button" data-crange="10" aria-pressed="true">10Y</button>
+        <button type="button" data-crange="max">Max</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="commodity-png">Download PNG</button>
+      <button type="button" class="btn" id="commodity-csv">Download CSV</button>
+    </div>
+    <div class="chart" id="commodity-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="commodity-source"></p>
+    <details class="calc" id="commodity-calc"></details>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-partners">
+    <h2 id="h-partners">All Partners <span class="h2-note" id="partners-note"></span></h2>
+    <p class="section-sub">Every partner the Ministry publishes for this commodity and direction,
+    on the latest month. Values and quantities are official customs figures; growth, the
+    twelve-month total and the share are calculated from them. The Ministry's non-country
+    entries — goods shipped to order, unknown destinations and bonded areas — are part of the
+    world total and are listed with the rest, marked as not being places.</p>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Rows shown" id="rows-seg">
+        <button type="button" data-rows="countries" aria-pressed="true">Countries</button>
+        <button type="button" data-rows="all">All Entries</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="partners-csv">Download CSV</button>
+    </div>
+    <div class="table-wrap" id="partners-table"><div class="skeleton" style="width:100%;height:300px"></div></div>
+    <p class="table-foot" id="partners-foot"></p>
+    <details class="calc" id="partners-calc"></details>
+  </section>
+
+  <section aria-label="Data source and provenance" class="prov">
+    <div id="prov-card"></div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="inner">
+    <span id="credit-line">Source: Ministry of Finance, Japan — Trade Statistics of Japan.</span>
+    Values and quantities are official customs figures as published; world totals, growth rates,
+    shares, twelve-month sums and unit values are calculated from them.
+    <a href="methodology.html">Methodology</a>
+  </div>
+</footer>
+
+<script src="assets/echarts.min.js"></script>
+<script src="assets/format.js"></script>
+<script src="assets/charts.js"></script>
+<script src="assets/sortable.js"></script>
+<script src="assets/semis.js"></script>
+</body>
+</html>
