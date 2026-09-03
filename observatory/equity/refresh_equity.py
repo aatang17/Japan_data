@@ -48,7 +48,16 @@ EXTRACTORS = [
     ("board_extract.py",      "boards-and-pay",       ["--all"]),
     ("facility_extract.py",   "facilities",           ["--all"]),
     ("rental_extract.py",     "rental-property",      ["--all"]),
-    ("fin_extract.py",        "financials",           []),
+    # NOT in the boot path yet. Every other extractor resumes from a watermark
+    # the shipped seed already carries, so a boot is one incremental night.
+    # financials has no watermark and no eq_fin_* tables in the seed, so its
+    # first run is the whole archive — 1,315 daily lists — and start.sh does
+    # not bind the port until the refresh returns. That is what failed the
+    # 2026-09-03 deploy: the container was alive, the healthcheck window (15m)
+    # expired, and the site was down. History gets extracted offline and
+    # shipped in the seed, the way every other dataset was; re-enable this line
+    # once seed/equity.duckdb carries a "financials" row in eq_extract_runs.
+    # ("fin_extract.py",      "financials",           []),
     ("lvh_extract.py",        "5pct-filings",         []),
     ("agm_extract.py",        "agm-votes",            []),
     ("buyback.py",            "buybacks",             []),
