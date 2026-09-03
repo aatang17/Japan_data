@@ -11,3 +11,7 @@ duckdb>=1.4,<1.6
 # DeepSeek's API matches OpenAI's request/response shape. Override the model
 # with LLM_MODEL and, for any other OpenAI-compatible endpoint, LLM_BASE_URL.
 openai>=1.40,<2
+# The nightly equity refresh reads the EDINET archive out of the S3-compatible
+# bucket the capture jobs write to. Without EDINET_S3_BUCKET set, the refresh
+# skips itself and nothing here is imported.
+boto3>=1.34,<2

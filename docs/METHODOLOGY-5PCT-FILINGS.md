@@ -3,7 +3,7 @@
 Every large-shareholding report filed on a Japanese listed company: who crossed
 5%, in whom, how the stake moved, what they say it is for, and whether they
 state that they may make important proposals to the board. Extractor:
-[`equity/lvh_extract.py`](../equity/lvh_extract.py) (parser `lvh-1`). API:
+[`observatory/equity/lvh_extract.py`](../observatory/equity/lvh_extract.py) (parser `lvh-1`). API:
 `/api/v1/equity/stakes/…`. Page: `stakes.html`.
 
 Anyone crossing 5% of a listed company's voting shares must file within five

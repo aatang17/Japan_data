@@ -30,10 +30,18 @@ about the filing, not a number the filing states.
     ../observatory/.venv/bin/python rematch.py --dry-run   # report, change nothing
 """
 import argparse
+import os
 import collections
 import collections
 
 import duckdb
+
+import sys
+
+# The extractors moved to observatory/equity/ so they ship inside the
+# serving image; this maintenance tool stayed with the archive.
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                               "..", "observatory", "equity"))
 
 import extract
 

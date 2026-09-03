@@ -32,10 +32,17 @@ from concurrent.futures import ThreadPoolExecutor
 
 import duckdb
 
+import sys
+
+# The extractors moved to observatory/equity/ so they ship inside the
+# serving image; this maintenance tool stayed with the archive.
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                               "..", "observatory", "equity"))
+
 import extract
 
 ELEMENT = "jpcrp_cor:CompanyNameInEnglishCoverPage"
-SEED_DB = os.path.join(extract.HERE, "..", "observatory", "seed", "equity.duckdb")
+SEED_DB = os.path.join(extract.HERE, "..", "seed", "equity.duckdb")
 
 # One rule for stripping the Japanese annotations filers append to the English
 # name, shared with the extractor so a backfilled row and a freshly extracted

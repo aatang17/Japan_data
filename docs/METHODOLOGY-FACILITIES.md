@@ -3,7 +3,7 @@
 One row per facility a listed company discloses in the major-facilities section
 of its annual securities report (有価証券報告書, EDINET): site name, city-level
 location, per-asset-class book values, land area, employees. Extractor:
-[`equity/facility_extract.py`](../equity/facility_extract.py) (parser `fac-6`);
+[`observatory/equity/facility_extract.py`](../observatory/equity/facility_extract.py) (parser `fac-6`);
 prototype and trap catalogue: [`equity/facility_m1/`](../equity/facility_m1/).
 
 ## Source and why it is the t1 package
@@ -82,7 +82,7 @@ foreign table, in its own currency.
 
 ## Rental property at market (賃貸等不動産)
 
-Extractor: [`equity/rental_extract.py`](../equity/rental_extract.py) (parser
+Extractor: [`observatory/equity/rental_extract.py`](../observatory/equity/rental_extract.py) (parser
 `rent-1`), reading the 賃貸等不動産 note from the same t1 filings — the one
 disclosure that puts a **market value** on a company's real estate. Stored
 exactly as disclosed: the balance-sheet carrying amount and the year-end fair

@@ -1,5 +1,11 @@
+# The build context is observatory/, which also holds the local DuckDB files
+# (300MB+) and the dev virtualenv. None of it belongs in the image: data/ is a
+# mounted volume in production and is created empty at boot.
 .venv/
 __pycache__/
+**/__pycache__/
 *.pyc
 data/
 README.md
+# Never let the local provider keys into a layer.
+.env

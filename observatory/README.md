@@ -104,8 +104,10 @@ read-only connections. A cold boot on network-backed storage therefore takes ~4�
 and a redeploy is a short outage. Refreshing data means restarting the service.
 
 **Daily refresh.** `start.sh` is a supervisor, not a one-shot: it ingests, serves, and when
-the server ends, ingests again. `app/refresh.py` ends the server once a day — 09:00 UTC by
-default, which is 18:00 in Tokyo, after the Ministry of Finance posts the day's yield curve.
+the server ends, ingests again. `app/refresh.py` ends the server once a day — 13:00 UTC by
+default, which is 22:00 in Tokyo: after the Ministry of Finance posts the day's yield curve,
+and after the 12:00 UTC EDINET capture job, so the equity extractors read the same day's
+archive rather than yesterday's.
 So the container refreshes itself and the platform's restart policy is never load-bearing;
 the container itself never exits.
 
@@ -121,13 +123,45 @@ is for ingest to build a new DuckDB file beside the live one and rename it into 
 
 | Variable | Default | What it does |
 | --- | --- | --- |
-| `REFRESH_AT` | `09:00` | Daily refresh time, **UTC**. Japan has no daylight saving, so this is 18:00 JST all year. |
+| `REFRESH_AT` | `13:00` | Daily refresh time, **UTC**. Japan has no daylight saving, so this is 22:00 JST all year. |
 | `REFRESH_ENABLED` | `1` | Kill switch for both the refresh and the health watch. |
 | `REFRESH_MAX_AGE_HOURS` | `26` | How old the ingest stamp may get before the refresh counts as broken. |
 | `ALERT_WEBHOOK_URL` | unset | Slack-shaped webhook; the server posts to it when something needs attention. |
+| `EDINET_S3_*` | unset | Bucket credentials for the nightly equity refresh (below). Unset = the refresh skips itself and the shipped equity data is served as-is. |
 
 `REFRESH_SUPERVISED` is set by `start.sh` alone and is what arms the daily shutdown. A
 development `uvicorn app.main:app` therefore never ends itself, whatever the clock says.
+
+### The nightly equity refresh
+
+The EDINET-derived datasets — 5% filings, cross-shareholdings, boards and pay, buybacks,
+facilities, rental property, shareholder registers — refresh in the same cycle, from the
+same S3 bucket the capture jobs write to:
+
+```
+python equity/refresh_equity.py --seed seed/equity.duckdb
+```
+
+They used to be extracted by hand on a laptop and shipped as a seed file. That is exactly
+how the 5% filings went four weeks stale: capture moved to the cloud bucket on 6 August
+2026, the extractors kept being pointed at the laptop's frozen archive, and every page
+still rendered a healthy-looking dashboard over month-old data.
+
+- **Incremental.** Each extractor records how far it has read the archive in
+  `eq_extract_runs` and resumes from there (minus a 10-day lookback, because EDINET
+  back-fills). A routine night is one day of filings — about 130 documents, under a
+  minute for all seven. `--full` re-reads five years and takes hours.
+- **The bucket listing is shared.** 182k keys is 26 seconds; `EDINET_LISTING_CACHE` keeps
+  one answer for an hour so seven extractors ask once.
+- **The seed no longer always wins.** `--seed` installs the shipped database only when its
+  watermark is ahead of the volume's, so a redeploy never discards accumulated nights. A
+  fresh offline re-extraction (after a parser fix) is still ahead, and is still how a
+  rebuild reaches production.
+- **Fail-safe, like ingest.** A failing extractor logs `ATTENTION`, leaves its previous
+  data live, and never stops the server coming back up.
+- **Freshness is reported.** `/api/v1/catalog/health` carries an `equity_extractors`
+  block: how far each extractor has read, and whether that is more than 7 days behind
+  (long enough to survive the New Year closure without crying wolf).
 
 ### Knowing when it stops
 
@@ -311,7 +345,7 @@ readers live at `/connect.html`. No key required; per-IP rate limited;
 The user manual lives at `/manual.html`.
 
 The cross-shareholding dataset (`/api/v1/equity/...`, built offline by
-`equity/extract.py` into `data/equity.duckdb`) is exposed through the same
+`observatory/equity/extract.py` into `data/equity.duckdb`) is exposed through the same
 MCP server; its tools are listed only on servers where the database
 file is present. Production receives it as `seed/equity.duckdb` baked into
 the image and copied onto the volume at boot by `start.sh`.
@@ -349,7 +383,7 @@ See §4.8–4.9 and §8.7.
 ### Boards and pay (`/api/v1/equity/governance/...`)
 
 The third surface, from the same annual reports and the same DuckDB file
-(`equity/board_extract.py`; see `docs/METHODOLOGY-BOARDS-AND-PAY.md`):
+(`observatory/equity/board_extract.py`; see `docs/METHODOLOGY-BOARDS-AND-PAY.md`):
 
 | Endpoint | What it returns |
 | --- | --- |
@@ -391,7 +425,7 @@ scope, so any view is citable.
 
 The fourth surface, and the only one not built from annual reports: EDINET type
 220, the **monthly** 自己株券買付状況報告書 a company files while a buyback runs
-(`equity/buyback.py`, parser `bb-2`). Announcement → execution → cancellation
+(`observatory/equity/buyback.py`, parser `bb-2`). Announcement → execution → cancellation
 all come out of that one filing.
 
 | Endpoint | What it returns |
@@ -435,7 +469,7 @@ encodes the filter and the ranking, so any view is citable.
 ### Shareholder register (`/api/v1/equity/ownership/...`)
 
 The reverse of cross-shareholdings: who holds each listed company. Extracted
-from the ownership section of the same annual reports (`equity/ownership_extract.py`,
+from the ownership section of the same annual reports (`observatory/equity/ownership_extract.py`,
 parser `own-1`) — 大株主の状況, the named holders at the top of the register,
 and 所有者別状況, the whole register split by investor category. Methodology:
 `docs/METHODOLOGY-OWNERSHIP.md`.
@@ -479,7 +513,7 @@ toggle, so any view is citable.
 ### 5% filings (`/api/v1/equity/stakes/...`)
 
 The fast tape: EDINET types 350 and 360, the large-shareholding reports
-(`equity/lvh_extract.py`, parser `lvh-1`). Anyone crossing 5% files within five
+(`observatory/equity/lvh_extract.py`, parser `lvh-1`). Anyone crossing 5% files within five
 business days and again on every one-point move, so this names an accumulating
 holder before the annual report does. Methodology:
 `docs/METHODOLOGY-5PCT-FILINGS.md`.

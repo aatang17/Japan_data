@@ -322,17 +322,29 @@ def health():
                 "last_fetch_at": newest_fetch.isoformat() + "Z" if newest_fetch else None,
                 "vintages": vintage_count,
             })
+        # The EDINET-derived datasets keep their own clock: they are not
+        # ingests and have no release table, so they report how far each
+        # extractor has read the archive instead. Defensive because the equity
+        # database is optional — a deploy without it must still answer here.
+        try:
+            from . import equity_api
+            equity = equity_api.health()
+        except Exception:                                    # noqa: BLE001
+            equity = []
+
         # The machinery's own signal, independent of any dataset's threshold:
         # a refresh that has stopped running is a fault even while every
         # series is still comfortably inside its staleness allowance.
         machine = heartbeat.status()
         attention = (any(d["status"] == "attention" for d in out)
+                     or any(d["status"] == "attention" for d in equity)
                      or bool(machine["refresh_overdue"]))
         report = {"checked_at": datetime.datetime.now(datetime.timezone.utc)
                                 .replace(microsecond=0).isoformat()
                                 .replace("+00:00", "Z"),
                   "status": "attention" if attention else "ok",
-                  "datasets": out}
+                  "datasets": out,
+                  "equity_extractors": equity}
         report.update(machine)
         return report
     finally:

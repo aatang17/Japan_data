@@ -30,16 +30,6 @@ set -u
 # not once per cycle: after the first pass there is nothing left to recover.
 python -m app.vintages seed || echo "vintage seed did not run"
 
-# Cross-shareholding serving DB: built offline by equity/extract.py and
-# shipped with the image as a seed. The image copy always wins — extraction
-# happens off-server, so the seed is the newest data this deploy knows. The
-# raw filing archive never ships; this file is derived and replaceable. Once
-# per container: the seed cannot change while the container lives.
-if [ -f seed/equity.duckdb ]; then
-    cp seed/equity.duckdb data/equity.duckdb \
-        || echo "equity seed copy failed; serving without cross-shareholding data"
-fi
-
 # Stop cleanly when the platform stops us, so a redeploy is not held up
 # waiting for a shell that is ignoring SIGTERM.
 child=""
@@ -72,6 +62,25 @@ while true; do
                 || echo "ingest $dataset did not publish; serving last published release"
         done
 
+        # The EDINET-derived datasets: 5% filings, cross-shareholdings,
+        # boards and pay, buybacks, facilities, rental property, shareholder
+        # registers. These used to be extracted by hand on a laptop and
+        # shipped as a seed, which is precisely how they went four weeks
+        # stale in August 2026 while the capture jobs kept filling the
+        # archive on schedule. Now they refresh on the same clock as
+        # everything else, from the same bucket the capture jobs write to.
+        #
+        # Incremental: each extractor resumes from its own recorded
+        # watermark, so a routine night is one day of filings (~130
+        # documents, under a minute) rather than five years of them. It runs
+        # here, in the window where the server is stopped, because DuckDB
+        # takes a single writer and the API holds the same file open.
+        #
+        # --seed installs the shipped database only if it reads further than
+        # the volume's, so a redeploy never discards accumulated nights.
+        python equity/refresh_equity.py --seed seed/equity.duckdb \
+            || echo "equity refresh did not complete; last good equity data stays live"
+
         # Stamp the end of the cycle. This is the only proof that the refresh
         # machinery ran at all: the per-dataset staleness limits are 7 to 950
         # days, so a refresh that stops is invisible in them for days. The API
@@ -92,6 +101,10 @@ for d in report["datasets"]:
         print("ATTENTION %s: stale=%s unpublished_artifact=%s latest=%s"
               % (d["dataset"], d.get("stale"), d.get("unpublished_artifact"),
                  d.get("latest_period", "none")))
+for d in report.get("equity_extractors", []):
+    if d["status"] == "attention":
+        print("ATTENTION equity/%s: archive read only through %s (%s days behind)"
+              % (d["dataset"], d.get("archive_read_through"), d.get("days_behind")))
 print("ingest health: %s (last ingest %s)"
       % (report["status"], report.get("last_ingest_at")))
 EOF

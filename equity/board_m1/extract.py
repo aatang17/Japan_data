@@ -47,7 +47,8 @@ from concurrent.futures import ThreadPoolExecutor
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DOCS = os.path.join(HERE, "..", "data", "raw", "edinet", "docs")
-CODELIST = os.path.join(HERE, "..", "m1", "EdinetcodeDlInfo.csv")
+CODELIST = os.path.join(HERE, "..", "..", "observatory", "equity", "m1",
+                        "EdinetcodeDlInfo.csv")
 OUT = os.path.join(HERE, "out")
 
 C = "jpcrp_cor:"

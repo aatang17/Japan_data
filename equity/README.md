@@ -4,6 +4,31 @@ Documents-and-events data (cross-shareholdings, 5% filings, buybacks), deliberat
 **outside** the macro core schema. Plan:
 [docs/plans/PLAN-CROSS-SHAREHOLDING-DB.md](../docs/plans/PLAN-CROSS-SHAREHOLDING-DB.md).
 
+> ## Where the code lives (changed 2026-09-03)
+>
+> **Capture stays here; extraction moved to
+> [`observatory/equity/`](../observatory/equity/).**
+>
+> | | Directory | Runs where |
+> | --- | --- | --- |
+> | Capture (`capture.py`, `tdnet_capture.py`, `boj_capture.py`) | `equity/` | Railway cron jobs, built from `equity/Dockerfile` |
+> | Extraction (`extract.py`, `lvh_extract.py`, `buyback.py`, …) | `observatory/equity/` | Inside the web container, nightly — and on the laptop |
+> | The raw archive (`data/`, 9.4GB, gitignored) | `equity/` | Laptop only; the bucket is the real one |
+>
+> Why: the extractors have to be inside the web image's build context to run
+> on a schedule. Leaving them out is what let the 5% filings sit four weeks
+> stale in August 2026 — capture moved to the cloud bucket on the 6th, the
+> extractors kept being hand-run against the laptop's frozen copy, and nothing
+> reported the gap. Run them from their new home:
+>
+> ```bash
+> cd observatory/equity
+> ../.venv/bin/python lvh_extract.py --source s3 --new-only
+> ```
+>
+> The nightly job is `observatory/equity/refresh_equity.py`; see
+> [observatory/README.md](../observatory/README.md).
+
 ## M2 — daily capture (`capture.py`)
 
 The compounding archive. EDINET's list API reaches back only ~5 years and files are
@@ -143,7 +168,7 @@ in parallel while DuckDB writes stay single-threaded.
 ```bash
 # credentials: the same EDINET_S3_* vars the capture job uses
 lsof -ti:8007 | xargs kill          # DuckDB counts the API's reader as a
-../observatory/.venv/bin/python extract.py --all --source s3 --workers 16
+../observatory/.venv/bin/python ../observatory/equity/extract.py --all --source s3 --workers 16
 ```
 
 **Stop the local API server first.** DuckDB treats the serving process's
@@ -214,8 +239,8 @@ methodology: [METHODOLOGY-BOARDS-AND-PAY.md](../docs/METHODOLOGY-BOARDS-AND-PAY.
 
 ```bash
 lsof -ti:8007 | xargs kill          # DuckDB counts the API's reader as a lock
-../observatory/.venv/bin/python board_extract.py --all --source s3 --workers 16
-../observatory/.venv/bin/python board_extract.py --docs S100XV05,S100VIG1   # fix a subset
+../observatory/.venv/bin/python ../observatory/equity/board_extract.py --all --source s3 --workers 16
+../observatory/.venv/bin/python ../observatory/equity/board_extract.py --docs S100XV05,S100VIG1   # fix a subset
 ```
 
 Full run (2026-08-23): **21,099 filings, fiscal periods ending 2020-12-31 → 2026-05-31**
@@ -236,8 +261,8 @@ methodology: [METHODOLOGY-OWNERSHIP.md](../docs/METHODOLOGY-OWNERSHIP.md).
 
 ```bash
 lsof -ti:8007 | xargs kill          # DuckDB counts the API's reader as a lock
-../observatory/.venv/bin/python ownership_extract.py --all              # local
-../observatory/.venv/bin/python ownership_extract.py --all --source s3 --workers 16
+../observatory/.venv/bin/python ../observatory/equity/ownership_extract.py --all              # local
+../observatory/.venv/bin/python ../observatory/equity/ownership_extract.py --all --source s3 --workers 16
 ```
 
 Local-archive run (2026-09-01, `own-1`): **2,503 filings → 2,445 clean · 13
@@ -279,8 +304,8 @@ Methodology:
 
 ```bash
 lsof -ti:8007 | xargs kill
-../observatory/.venv/bin/python lvh_extract.py                       # local
-../observatory/.venv/bin/python lvh_extract.py --source s3 --workers 16
+../observatory/.venv/bin/python ../observatory/equity/lvh_extract.py                       # local
+../observatory/.venv/bin/python ../observatory/equity/lvh_extract.py --source s3 --workers 16
 ```
 
 Local-archive run (2026-09-01, `lvh-1`): **3,893 reports filed 2026-05-29 →
@@ -333,8 +358,8 @@ disposal categories must recompute the filer's own 合計.
 
 ```bash
 lsof -ti:8007 | xargs kill          # DuckDB counts the API's reader as a lock
-../observatory/.venv/bin/python buyback.py --source local          # laptop archive only
-../observatory/.venv/bin/python buyback.py --source s3 --workers 12 # whole bucket
+../observatory/.venv/bin/python ../observatory/equity/buyback.py --source local          # laptop archive only
+../observatory/.venv/bin/python ../observatory/equity/buyback.py --source s3 --workers 12 # whole bucket
 ```
 
 **Credentials** for `--source s3` are the same `EDINET_S3_*` vars the capture job
@@ -347,7 +372,7 @@ railway variables list --service edinet-capture-job --kv \
   | grep '^EDINET_S3_' > ~/.edinet-s3.env
 chmod 600 ~/.edinet-s3.env
 set -a; . ~/.edinet-s3.env; set +a       # ENDPOINT / KEY_ID / SECRET / BUCKET / REGION
-../observatory/.venv/bin/python buyback.py --source s3 --workers 12
+../observatory/.venv/bin/python ../observatory/equity/buyback.py --source s3 --workers 12
 ```
 
 Full archive run (2026-08-24, parser `bb-2`): **6,236 filings · 1,248 companies ·
@@ -394,8 +419,8 @@ CC BY 4.0 — no external API). Prototype and the full trap catalogue:
 
 ```bash
 lsof -ti:8007 | xargs kill          # DuckDB counts the API's reader as a lock
-../observatory/.venv/bin/python facility_extract.py                  # local
-../observatory/.venv/bin/python facility_extract.py --source s3 --workers 12
+../observatory/.venv/bin/python ../observatory/equity/facility_extract.py                  # local
+../observatory/.venv/bin/python ../observatory/equity/facility_extract.py --source s3 --workers 12
 ```
 
 Local-archive run (2026-08-28, `fac-6`): **2,243 filings → 1,949 clean (87%) ·

@@ -3,7 +3,7 @@
 Who owns each listed Japanese company, from the ownership section of its annual
 securities report (有価証券報告書, EDINET): the named holders at the top of the
 register, and the whole register split by investor category. Extractor:
-[`equity/ownership_extract.py`](../equity/ownership_extract.py) (parser `own-1`).
+[`observatory/equity/ownership_extract.py`](../observatory/equity/ownership_extract.py) (parser `own-1`).
 API: `/api/v1/equity/ownership/…`. Page: `ownership.html`.
 
 This is the reverse of [cross-shareholdings](METHODOLOGY-CROSS-SHAREHOLDINGS.md):

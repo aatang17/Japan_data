@@ -24,8 +24,10 @@ The health watch below runs everywhere, because it only reports.
 
 Why UTC
 -------
-The schedule is UTC and the default is 09:00, which is 18:00 in Tokyo — after
-the Ministry of Finance posts the day's yield curve. Japan has no daylight
+The schedule is UTC and the default is 13:00, which is 22:00 in Tokyo — after
+the Ministry of Finance posts the day's yield curve and after the 12:00 UTC
+EDINET capture job, so an equity refresh reads the same day's archive rather
+than yesterday's. Japan has no daylight
 saving, so a fixed UTC offset is exactly right all year, and the slim
 container image needs no timezone database for it to be.
 """
@@ -54,7 +56,12 @@ MIN_UPTIME_SECONDS = 600
 HEALTH_EVERY_SECONDS = 900
 ALERT_REPEAT_SECONDS = 6 * 3600
 
-DEFAULT_AT = "09:00"  # 18:00 Asia/Tokyo
+# 22:00 Asia/Tokyo. Late enough to follow both upstream clocks: the Ministry
+# of Finance posts the day's yield curve in the Tokyo afternoon, and the
+# EDINET capture job runs at 12:00 UTC. Refreshing at 09:00 as it used to
+# meant the equity extractors always read an archive that stopped the day
+# before.
+DEFAULT_AT = "13:00"
 _UTC = datetime.timezone.utc
 
 _FALSE = ("0", "false", "no", "off", "")

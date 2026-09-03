@@ -12,6 +12,7 @@ Official (as filed) — every row carries its filing doc_id, filed date and the
 archived file's SHA-256. Year-on-year changes are derived client-side and carry
 their formula there.
 """
+import datetime
 import pathlib
 import threading
 
@@ -53,6 +54,51 @@ def _rows(cur, sql, params=()):
     cur.execute(sql, params)
     cols = [d[0] for d in cur.description]
     return [dict(zip(cols, r)) for r in cur.fetchall()]
+
+
+# How far each extractor has read the EDINET archive. This is the equity
+# equivalent of the ingest health report, and it exists because nothing like
+# it did: when the 5% filings stopped advancing on 2026-08-06 every dashboard
+# still rendered, every endpoint still answered 200, and the only way to see
+# the problem was to notice that the newest filing was a month old.
+#
+# EDINET publishes on business days, and Japan's longest normal closure (the
+# New Year period, plus the weekends either side) runs to about six days, so
+# seven is the shortest threshold that never cries wolf.
+EXTRACT_STALE_AFTER_DAYS = 7
+
+
+def coverage():
+    """[(extractor, through_date, ran_at)] — empty if never recorded."""
+    if not DB_PATH.exists():
+        return []
+    cur = _cur()
+    names = {r[0] for r in cur.execute(
+        "SELECT table_name FROM duckdb_tables()").fetchall()}
+    if "eq_extract_runs" not in names:
+        return []
+    cur.execute("SELECT extractor, through_date, ran_at FROM eq_extract_runs "
+                "ORDER BY extractor")
+    return cur.fetchall()
+
+
+def health():
+    """Per-extractor freshness, in the shape /catalog/health uses."""
+    today = datetime.date.today()
+    out = []
+    for extractor, through, ran in coverage():
+        days = (today - through).days if through else None
+        stale = days is None or days > EXTRACT_STALE_AFTER_DAYS
+        out.append({
+            "dataset": extractor,
+            "status": "attention" if stale else "ok",
+            "archive_read_through": through.isoformat() if through else None,
+            "days_behind": days,
+            "stale_after_days": EXTRACT_STALE_AFTER_DAYS,
+            "stale": stale,
+            "last_extracted_at": ran.isoformat() + "Z" if ran else None,
+        })
+    return out
 
 
 # The archive holds five fiscal years, so "one row per filing" is never the
