@@ -59,7 +59,16 @@ EXTRACTORS = [
     # once seed/equity.duckdb carries a "financials" row in eq_extract_runs.
     # ("fin_extract.py",      "financials",           []),
     ("lvh_extract.py",        "5pct-filings",         []),
-    ("agm_extract.py",        "agm-votes",            []),
+    # Withdrawn for the same reason as financials, and it is the same defect:
+    # agm_extract with no watermark takes `since = None` and lists the entire
+    # archive (agm_extract.py:590-595). The shipped seed HAS the AGM tables
+    # (23,444 meetings) but will not install, because the volume's other
+    # extractors have read further than the seed and a seed never overwrites
+    # fresher data. So the volume has no agm-votes watermark, and the next
+    # refresh cycle would have done the full pass with the port closed — an
+    # outage on the clock rather than on a deploy, where no healthcheck would
+    # even have caught it. Re-enable once the volume carries an agm-votes row.
+    # ("agm_extract.py",      "agm-votes",            []),
     ("buyback.py",            "buybacks",             []),
 ]
 
