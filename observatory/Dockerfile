@@ -14,6 +14,12 @@ COPY seed ./seed
 # August 2026 while the archive kept growing. Code and the filer registry
 # only — the raw archive itself lives in the bucket.
 COPY equity ./equity
+# Hand-typed party curation. The live store is data/admin/parties.json on the
+# volume; this is the git-committed copy, and it seeds an ABSENT store on a
+# fresh volume. Left out of the image, the admin console comes up with zero
+# profiles on a machine that has never had them — which is exactly what it did
+# on the first deploy that shipped the registry.
+COPY curation ./curation
 COPY start.sh ./
 RUN chmod +x start.sh
 
