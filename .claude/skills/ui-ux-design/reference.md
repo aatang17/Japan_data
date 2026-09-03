@@ -348,10 +348,18 @@ h2 {
   background: var(--obs-band-bg);
   border-radius: 3px;
   padding: 10px 16px;
+  margin-top: 32px;
   margin-bottom: 14px;
 }
 ```
 
+- **The band owns its own spacing — never delegate it to wrappers.** The `margin-top: 32px` above is
+  load-bearing: the global reset zeroes default heading margins, and not every page wraps sections in
+  `<section>` or `.prose`, so a band without its own top margin sits flush against whatever precedes
+  it (this shipped once — the landing page's footnotes touched the next band). Margin collapsing keeps
+  wrapped pages from doubling up, so the rule is safe everywhere. Corollary: never use a negative
+  margin to tuck text closer under a band — tighten the band's own `margin-bottom` instead, keeping
+  the ≥8px floor.
 - **Uppercase, tracked, and small** — the band carries the emphasis, so the type does not also need to
   be large. A 20px uppercase title inside a filled bar is shouting twice.
 - **The band spans its container**, full-bleed to the content column. Never a band that hugs its text.

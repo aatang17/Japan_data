@@ -49,7 +49,9 @@ Hard rules:
 - **Every top-level `h2` is a filled navy band** across the content width — uppercase, tracked, white on
   `--obs-band-bg`, with at most one short qualifier (a count, an as-of) right-aligned inside it. This is
   the platform's section marker; `h3` stays plain text, and a section that is already a bordered panel
-  gets a plain title instead. Spec → [reference.md](reference.md#section-header-band).
+  gets a plain title instead. **The band carries its own top margin (32px)** — its clearance from the
+  content above must never depend on a `<section>`/`.prose` wrapper, and no negative margins to
+  tighten text against it. Spec → [reference.md](reference.md#section-header-band).
 - Dashboard order: headline stat row → the primary chart → supporting breakdown → the full table → provenance/methodology. Not a grid of equal-weight boxes.
 - One border, one background per panel. **No box nested inside a box.** No scrollable inner box except a genuinely wide data table wrapped in `overflow-x: auto`.
 - Spacing: nothing touches. Min 8px between unrelated elements, 4px between closely related.

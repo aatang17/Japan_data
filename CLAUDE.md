@@ -174,6 +174,13 @@ All UI rules live in the **`ui-ux-design` skill**. P0 rules repeated for visibil
   dark) and true-390. Headless Chrome floors layout at ~500px even in `--headless=new` —
   true-390 checks need the iframe harness; `--virtual-time-budget` does not wait for
   fetches inside iframes.
+- **Never kill a browser by application name (P0).** `pkill -f "Google Chrome"` (or
+  `killall`, or any pattern matching the app bundle path) terminates my real browser
+  window and every other agent's browser on this machine — unsaved tabs and all. Kill
+  only the process you launched: match on `--headless=new`, on a `--user-data-dir` you
+  chose, or on the PID you started. This rule covers Chrome, Chromium, Safari, Edge and
+  the Playwright MCP browsers. The same applies to any long-lived app I might be using;
+  scope every `pkill` to something only your own process matches.
 
 ## Ingest Guardrails (P0)
 
