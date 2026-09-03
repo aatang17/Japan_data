@@ -227,6 +227,68 @@
     that one causes the other.</li>
   </ul>
 
+  <h3 id="calc-semis">Semiconductor trade data</h3>
+  <ul>
+    <li>Values and quantities are the Ministry of Finance's customs figures for Japan's
+    trade in semiconductors, semiconductor components and semiconductor manufacturing
+    equipment, by partner country, from January 2001 — taken from the principal-commodity by
+    country tables (概況品別国別表) of the Trade Statistics of Japan and shown exactly as
+    published. Value is published in <b>thousands of yen</b>; pages show it in billions of
+    yen (<code>value ÷ 1,000,000</code>), and no other transformation is applied to a
+    published figure. Quantity is published in the commodity's own unit — pieces for a chip,
+    kilograms for a machine — which is why unit values are never compared between
+    commodities.</li>
+    <li><b>Export and import commodity codes are separate vocabularies and do not
+    correspond.</b> Code <code>70311000</code> is semiconductors and electronic components
+    on the import side and audio equipment on the export side. Every surface here validates
+    a commodity against the direction being read, and the two directions are never joined on
+    a code.</li>
+    <li><b>A published group is never the sum of the items shown beneath it.</b> The Ministry
+    publishes components inside a group that this dataset does not carry, so
+    <code>Semiconductors &amp; electronic components</code> always exceeds integrated
+    circuits plus discrete semiconductors plus thermionic tubes. Groups and items are drawn
+    together for comparison and must not be added.</li>
+    <li><b>Months the table has not reached are published as zero, and are dropped.</b> The
+    current-year table returns <code>0</code> for every month after the last one the Ministry
+    has compiled. Coverage is therefore derived per year as the last month carrying any
+    non-zero value anywhere in the slice, and later months are not stored. Zeros inside the
+    covered window are real — they mean no customs entry was recorded with that partner that
+    month — and are kept.</li>
+    <li>World totals: <code>world[commodity, t] = Σ value[partner, commodity, t]</code> over
+    every partner the Ministry publishes for that commodity, including the non-country
+    entries (goods shipped to order, unknown destinations, bonded areas). This table
+    publishes no world row, so the total is summed here and carries no official badge.</li>
+    <li>Twelve-month total: <code>12-month total[t] = Σ value[t−11 … t]</code>. Trade is
+    lumpy month to month and a single large shipment moves a partner's monthly figure
+    several-fold, so shares, unit values and the destination mix are all read off this sum
+    rather than off one month. A month in which the Ministry records no customs entry for a
+    partner contributes nothing to the sum; the sum is left blank until twelve months of
+    history exist.</li>
+    <li>Growth: <code>growth[t] = (value[t] / value[t−12 months] − 1) × 100</code>, in
+    percent, from published values. Month-over-month rates are not shown: the series is
+    seasonal and lumpy and an unadjusted monthly change is not interpretable.</li>
+    <li>Share: <code>share[partner, t] = (12-month total[partner, t] / 12-month total[world,
+    t]) × 100</code>. The destination-mix residual is
+    <code>100 − Σ share[named partners, t]</code>, so the bands sum to 100% in every month
+    and no partner is dropped.</li>
+    <li>Unit value: <code>unit value[t] = (12-month total of value[t] × 1,000) / 12-month
+    total of quantity[t]</code>, in yen per unit shipped. This is an average realised price
+    across a year of shipments — not a price index, not quality-adjusted, and not comparable
+    between commodities or against the consumer price index.</li>
+    <li>A figure too small to show at the displayed scale reads as <code>&lt;0.1</code>
+    rather than rounding to <code>0.0</code>, so that a rounded-down value can never be
+    mistaken for a genuine zero or for a month with no entry.</li>
+    <li><b>Revision status is not a trust level.</b> The Ministry publishes each month
+    through four named stages — preliminary (速報), confirmed (確報), revised (確々報) and
+    final (確定). All four are official statistics. The current year moves through all of
+    them, so a recent month will change; a new vintage is stored here whenever the Ministry
+    republishes any year of the table, and the point-in-time history below returns the
+    figures as they stood on any past date.</li>
+    <li>Trade values are a flow of money and quantities a physical count — different measures
+    from a price index, a yen stock or a count of people. They are never ranked against or
+    plotted on the same axis as any of those.</li>
+  </ul>
+
   <h3 id="calc-population">Population by prefecture</h3>
   <ul>
     <li>Two datasets sit behind the population surface and they are not interchangeable.
@@ -287,6 +349,50 @@
     is labelled "log scale" wherever it is on. Nothing about the underlying values changes.</li>
     <li>The ministry keeps only the current year's workbooks online — last year's file is
     deleted and its URL reused — so the archive of past releases here is the history.</li>
+  </ul>
+
+  <h3 id="calc-financials">Financial statements and key indicators</h3>
+  <ul>
+    <li><b>Nothing is recomputed.</b> Every figure on the Financials page and under
+    <code>/api/v1/equity/financials/</code> is the value tagged in the company's own annual
+    securities report (有価証券報告書) on EDINET: the filer's five-year summary
+    (主要な経営指標等の推移) and its balance sheet, income statement, statement of comprehensive
+    income, cash flow statement and statement of changes in equity, consolidated and parent-only.
+    ROE, equity ratio, PER and payout ratio are the <i>filer's</i> figures — filers differ in how
+    they compute them (average versus year-end equity, for instance) and this platform does not
+    harmonise them.</li>
+    <li><b>Percent fields.</b> The taxonomy stores ratios as fractions (0.101 for 10.1%); fields
+    named <code>*_pct</code> are that fraction × 100 and nothing else.</li>
+    <li><b>Statement order and membership</b> come from the filing's own presentation linkbase,
+    so a statement prints line for line as the filer laid it out, including the filer's own
+    extension line items. A line the filer marks with a negated label is one it prints with the
+    sign reversed (a cost shown positive); the API flags it and the value is left as tagged.</li>
+    <li><b>Standardised field names</b> (<code>revenue</code>, <code>profit</code>,
+    <code>roe_pct</code>…) are a mapping from element names, one entry covering the Japan GAAP
+    element and its IFRS twin; every row names the element behind each field. Where a filer tags
+    no standard revenue element — Toyota's summary, for example, uses its own element — revenue
+    is the first yen line of the filer's summary table and the row says so
+    (<code>revenue_source = first_line</code>). Bank and insurer "revenue" is 経常収益
+    (ordinary income), as those filers report it.</li>
+    <li><b>Restatements are kept.</b> Each filing restates five fiscal years. The company panel
+    takes each fiscal year from the latest accepted filing that covers it and names that filing
+    on the row; <code>?as_filed_in=YYYY</code> serves one filing's five years exactly as first
+    published, which is the point-in-time view.</li>
+    <li><b>Fiscal-year labels</b> are the filing's period end shifted by whole years. A filer that
+    changed its year-end inside the window is labelled by that arithmetic, not by its old
+    year-end.</li>
+    <li><b>The only derived numbers</b> are the change columns on a statement:
+    <code>change = current − prior</code> on the tagged values and
+    <code>change % = change ÷ |prior| × 100</code>, shown as — where the prior value is missing
+    or zero.</li>
+    <li><b>Labels.</b> Japanese labels are the filer's own. English labels are the filer's own
+    where the filing carries one; otherwise a readable form of the XBRL element name, marked
+    <i>derived</i> — never a translation of the Japanese by this platform.</li>
+    <li><b>Gate.</b> A filing is accepted as <i>clean</i> when its tagged balance sheet satisfies
+    assets = liabilities + net assets on every basis it reports, and its summary's net assets do
+    not exceed total assets; otherwise it is <i>partial</i> with the reason stated, and a
+    cross-section says which. A filer whose statements are not tagged (US GAAP filers tag them
+    as text) still has its summary figures.</li>
   </ul>
 
   <h2 id="flags">Footnote flags</h2>
@@ -366,6 +472,12 @@
   <p>JGB yields are published by the Ministry of Finance every business day, usually with a
   one-business-day lag, and re-ingested on the platform's daily refresh. The yield curve page
   turns stale — with the same red banner — when its newest data is more than a week old.</p>
+
+  <p>Semiconductor trade is the slowest of the sources. The Ministry adds a month to the
+  principal-commodity by country table around the end of the following month, so the newest
+  figure on that page is routinely about two months old and reaches roughly three just before
+  the next release. Its staleness banner therefore only fires past 100 days — a tighter limit
+  would cry stale every month of a perfectly healthy ingest.</p>
 
   <h2 id="limits">Known limitations of this version</h2>
   <ul>

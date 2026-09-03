@@ -48,7 +48,9 @@ EXTRACTORS = [
     ("board_extract.py",      "boards-and-pay",       ["--all"]),
     ("facility_extract.py",   "facilities",           ["--all"]),
     ("rental_extract.py",     "rental-property",      ["--all"]),
+    ("fin_extract.py",        "financials",           []),
     ("lvh_extract.py",        "5pct-filings",         []),
+    ("agm_extract.py",        "agm-votes",            []),
     ("buyback.py",            "buybacks",             []),
 ]
 

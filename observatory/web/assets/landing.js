@@ -68,6 +68,22 @@ function fillRates() {
     }).catch(() => rowFailed("r-rates", "a-rates"));
 }
 
+function fillSemis() {
+  // The headline the page itself leads with: what Japan shipped in chips last
+  // month, summed across every partner.
+  return getJSON("/api/v1/trade-semis/trade").then(d => {
+    const totals = d.world["exp.70323050"];
+    let last = -1;
+    for (let i = totals.length - 1; i >= 0; i--) {
+      if (totals[i] !== null && totals[i] !== undefined) { last = i; break; }
+    }
+    if (last < 0) throw new Error("no value");
+    setReading("r-semis", "\u00a5" + fmtNum(totals[last] / 1e6, 0) + "bn",
+               "integrated circuits exported");
+    setAsOf("a-semis", fmtPeriodLong(d.periods[last]), d.stale);
+  }).catch(() => rowFailed("r-semis", "a-semis"));
+}
+
 function fillInbound() {
   return getJSON("/api/v1/jnto-visitors/arrivals").then(d => {
     const totals = d.values.total;
@@ -137,6 +153,15 @@ function fillFacilities() {
   }).catch(() => rowFailed("r-fac", "a-fac"));
 }
 
+function fillFinancials() {
+  return getJSON("/api/v1/equity/financials/summary").then(d => {
+    const t = d.totals;
+    setReading("r-fin", fmtNum(t.companies, 0) + " companies",
+      fmtNum(t.facts, 0) + " tagged values, as filed");
+    setAsOf("a-fin", t.latest_filed ? "filed to " + dayLong(t.latest_filed) : "—");
+  }).catch(() => rowFailed("r-fin", "a-fin"));
+}
+
 /* ---- MCP url copy ---- */
 
 function wireCopy(btnId, textId) {
@@ -168,6 +193,7 @@ fillCpi();
 fillBoj();
 fillRates();
 fillInbound();
+fillSemis();
 fillPop();
 fillHoldings();
 fillOwnership();
@@ -175,4 +201,5 @@ fillStakes();
 fillGovernance();
 fillBuyback();
 fillFacilities();
+fillFinancials();
 wireCopy("copy-url", "mcp-url");

@@ -2,6 +2,9 @@
 
 > **Status:** PROPOSAL — plan only, awaiting go-ahead. No code written.
 >
+> **Decided 2026-09-03:** quarantine (not fatal) at boot; cross-shareholdings id is
+> `cross-shareholdings`; scaffold command included in M1 (§2.7).
+>
 > **Parent:** [PLAN-API-MCP-V2.md](PLAN-API-MCP-V2.md) §2.2–2.3, §2.9 M1.
 >
 > **One-liner:** give every one of the 13 live datasets one machine-readable
@@ -182,6 +185,21 @@ warm-up already fills 42, and these payloads are small and rarely fetched.
 Live coverage (latest period, row counts) is **not** in M1. The manifest stays static and
 cacheable; live coverage belongs to M2's `describe_dataset`, which already needs a DB read.
 
+### 2.7 Scaffolding new cards (`--scaffold`)
+
+`python -m app.registry --scaffold <slug>` prints a draft `MANIFEST` for an adapter,
+built from what the adapter already declares: `id`, `name`, `source` and `license_note`
+from `DATASET`/`SOURCE`; `vintage.stale_after_days` from `PRESENTATION`; the four generic
+measures (`index`, `yoy`, `mom`, `ann3m`) with `trust` and `calc` taken from `api.TRUST`
+and `api._calc_for()` in the adapter's own unit; the standard series endpoints. Everything
+it cannot know — `section`, `summary`, `notes`, and above all the `calc` for any
+dataset-specific derived measure — is emitted as a `"TODO"` string.
+
+Rule 9 (Tier A): a manifest containing the string `TODO` anywhere fails validation. A
+scaffold can therefore never reach the shelf half-finished, and the one thing that must
+stay human-written — the formula for a custom calculation — cannot be auto-generated
+around. This is how the seven macro manifests in M1 are produced: generate, then fill.
+
 ## 3. Files / areas
 
 **New**
@@ -253,15 +271,9 @@ cacheable; live coverage belongs to M2's `describe_dataset`, which already needs
 
 ## 6. Open questions
 
-1. **Fatal or quarantine at boot?** I recommend quarantine (§2.4). It's a departure from
-   the parent plan's "validate at import time", and it's the single decision that
-   determines whether M1 can take the live site down. Confirm.
-2. **Equity dataset ids.** `tools.py:list_datasets` already tells MCP clients the
-   cross-shareholding slug is `equity-holdings`; the parent plan names it
-   `cross-shareholdings`. That id appears in no REST contract, only in tool prose, so
-   either works. Recommendation: `cross-shareholdings` (it describes the data, and the
-   v1 tool row is rewritten in M2 anyway) — but say so now, because M2 and the company
-   page inherit it.
+1. ~~Fatal or quarantine at boot?~~ **Decided: quarantine** (§2.4).
+2. ~~Equity dataset ids.~~ **Decided: `cross-shareholdings`.** The `equity-holdings` slug
+   in `tools.py:list_datasets` is tool prose, not a REST contract; M2 rewrites it.
 3. **`pp` vs `%` retro-fit.** Enforcing the closed unit vocabulary will label some
    existing derived measures `pp` where the API today calls them `%`. M1 only records
    the correct unit in the manifest and changes no response. Do you want a follow-up

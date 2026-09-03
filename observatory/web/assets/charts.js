@@ -204,7 +204,10 @@ function stackOptions(cfg, pal, narrow) {
       },
       narrow ? { bottom: 0, left: 0 } : { top: 0, right: 0 }),
     grid: narrow
-      ? { left: 8, right: 12, top: 12, bottom: 56, containLabel: true }
+      // The axis name is drawn above the grid, so a chart that carries one
+      // needs the room or its unit is clipped off the top of the panel.
+      ? { left: 8, right: 12, top: cfg.yAxisName ? 26 : 12, bottom: 56,
+          containLabel: true }
       : { left: 8, right: 20, top: 34, bottom: 8, containLabel: true },
     xAxis: Object.assign(axisCommon(pal), { type: "time", splitLine: { show: false } }),
     yAxis: Object.assign(axisCommon(pal), {
@@ -399,7 +402,12 @@ function colsOptions(cfg, pal, narrow) {
 function obsChart(el, kind, cfg) {
   let chart = null;
   const optionsFor = (pal, widthPx) => {
-    const narrow = (widthPx || el.clientWidth) < 520;
+    // Below this width the legend moves under the plot, where it can wrap.
+    // 520 suits two or three short series names; a chart carrying six long
+    // ones (partner countries, commodity groups) sets cfg.legendFloor higher,
+    // because a legend wider than the plot prints over the y-axis name
+    // instead of wrapping. Opt-in, so no existing chart moves.
+    const narrow = (widthPx || el.clientWidth) < (cfg.legendFloor || 520);
     if (kind === "line") return lineOptions(cfg, pal, narrow);
     if (kind === "stack") return stackOptions(cfg, pal, narrow);
     if (kind === "cols") return colsOptions(cfg, pal, narrow);

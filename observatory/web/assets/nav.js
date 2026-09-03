@@ -28,6 +28,7 @@ var NAV_SECTIONS = [
       { id: "boj", label: "Bank of Japan", href: "boj.html" },
       { id: "rates", label: "Yield Curve", href: "rates.html" },
       { id: "inbound", label: "Inbound", href: "inbound.html" },
+      { id: "semis", label: "Semiconductor Trade", href: "semis.html" },
       { id: "population", label: "Population", href: "population.html" },
     ],
   },
@@ -39,8 +40,10 @@ var NAV_SECTIONS = [
       { id: "ownership", label: "Register", href: "ownership.html" },
       { id: "stakes", label: "5% Filings", href: "stakes.html" },
       { id: "governance", label: "Boards & Pay", href: "governance.html" },
+      { id: "agm", label: "AGM Votes", href: "agm.html" },
       { id: "buyback", label: "Buybacks", href: "buyback.html" },
       { id: "facilities", label: "Facilities & Land", href: "facilities.html" },
+      { id: "financials", label: "Financials", href: "financials.html" },
     ],
   },
   {
