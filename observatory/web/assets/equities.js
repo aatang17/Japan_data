@@ -125,11 +125,29 @@ function fillFacilities() {
   }).catch(() => dropStats("fac-stats", "fac-foot"));
 }
 
+function fillFinancials() {
+  return getJSON("/api/v1/equity/financials/summary").then(d => {
+    const t = d.totals;
+    const clean = (d.status.find(x => x.status === "clean") || {}).n || 0;
+    const years = d.years.map(y => y.year);
+    document.getElementById("fin-stats").innerHTML = [
+      eqStat("Companies", fmtNum(t.companies, 0), "one accepted annual report each"),
+      eqStat("Tagged Values", fmtNum(t.facts, 0), fmtNum(t.elements, 0) + " distinct line items"),
+      eqStat("Balance Sheets Reconciled", fmtNum(clean, 0),
+        "filings where assets = liabilities + net assets"),
+    ].join("");
+    document.getElementById("fin-foot").textContent =
+      "Fiscal years ending " + (years.length ? years[years.length - 1] + "–" + years[0] : "—") +
+      " · every value exactly as tagged; ratios are the filer's own";
+  }).catch(() => dropStats("fin-stats", "fin-foot"));
+}
+
 fillHoldings();
 fillOwnership();
 fillStakes();
 fillGovernance();
 fillBuyback();
 fillFacilities();
+fillFinancials();
 
 initThemeToggle();

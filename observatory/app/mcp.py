@@ -123,6 +123,9 @@ TOOL_TITLES = {
     "get_board_history": "Board and pay history",
     "get_governance_screen": "Board and pay screen",
     "get_top_paid_officers": "Highest-paid officers",
+    "get_financials": "Company key indicators",
+    "get_financial_statement": "Financial statement as filed",
+    "get_financials_screen": "Financials screen",
 }
 
 

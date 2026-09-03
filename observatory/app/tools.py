@@ -22,7 +22,7 @@ import os
 from urllib.parse import urlencode
 
 from . import api
-from . import equity_api, governance_api
+from . import equity_api, financials_api, governance_api
 
 # Tool results are the bulk of an LLM caller's input tokens. These bound how
 # much a single lookup can pull into context.
@@ -747,7 +747,81 @@ def get_top_paid_officers(year="", limit=25):
     return json.dumps(raw, ensure_ascii=False, default=str)
 
 
+def _fin_guard(fn):
+    return _eq_guard(fn)
+
+
+def get_financials(sec_code, basis="", as_filed_in=""):
+    """One company's key indicators across fiscal years, as filed."""
+    code = (sec_code or "").strip()
+    if not code:
+        return _fail("No securities code given.")
+    raw, err = _fin_guard(lambda: financials_api.company(
+        code, basis=basis or "", as_filed_in=as_filed_in or ""))
+    if err:
+        return _fail(err)
+    # Compact: the standardised fields per fiscal year, with the element
+    # behind each and the filing each year came from. The full as-filed line
+    # list stays on the API.
+    panel = []
+    for r in raw["panel"]:
+        panel.append({"fiscal_year_end": r["fiscal_year_end"], "basis": r["basis"],
+                      "values": r["values"], "elements": r["elements"],
+                      "source_doc_id": r["source"]["doc_id"],
+                      "filed_date": r["source"]["filed_date"]})
+    out = {k: raw[k] for k in ("sec_code", "filer_name", "filer_name_en", "industry",
+                               "accounting_standard", "consolidated", "latest_filing")}
+    out["panel"] = panel
+    out["fields"] = raw["fields"]
+    out["trust"] = "official"
+    out["unit"] = "yen unless the field says otherwise; *_pct in percent; per in times"
+    out["calc"] = raw["calc"]
+    out["cite"] = _cite("/financials.html", c=code)
+    return json.dumps(out, ensure_ascii=False, default=str)
+
+
+def get_financial_statement(sec_code, statement="bs", basis="", year=""):
+    """One statement of one filing, every line as filed."""
+    code = (sec_code or "").strip()
+    if not code:
+        return _fail("No securities code given.")
+    raw, err = _fin_guard(lambda: financials_api.statements(
+        code, statement=statement or "bs", basis=basis or "", year=year or ""))
+    if err:
+        return _fail(err)
+    raw["lines"] = [{
+        "label_en": l["label_en"], "label_ja": l["label_ja"], "element": l["element"],
+        "depth": l["depth"], "is_heading": l["is_heading"], "is_total": l["is_total"],
+        "negated": l["negated"], "unit": l["unit"], "current": l["current"], "prior": l["prior"],
+    } for l in raw["lines"]]
+    raw["trust"] = "official"
+    raw["unit"] = "yen exactly as tagged (JPYPerShares lines in yen per share)"
+    raw["cite"] = _cite("/financials.html", c=code, st=raw["statement"],
+                        basis=raw["basis"], fy=raw["period_end"][:4])
+    return json.dumps(raw, ensure_ascii=False, default=str)
+
+
+def get_financials_screen(metric="revenue", year="", limit=25):
+    """Ranked cross-section on one key indicator, one filing per company."""
+    raw, err = _fin_guard(lambda: financials_api.screen(
+        metric=metric or "revenue", year=year or "",
+        limit=max(1, min(int(limit or 25), 200))))
+    if err:
+        return _fail(err)
+    raw["rows"] = [{"rank": r["rank"], "sec_code": r["sec_code"], "filer_name": r["filer_name"],
+                    "filer_name_en": r["filer_name_en"], "basis": r["basis"],
+                    "accounting_standard": r["accounting_standard"], "period_end": r["period_end"],
+                    "doc_id": r["doc_id"], "metric_value": r["metric_value"], "values": r["values"]}
+                   for r in raw["rows"]]
+    raw["trust"] = "official"
+    raw["cite"] = _cite("/financials.html", screen=raw["metric"])
+    return json.dumps(raw, ensure_ascii=False, default=str)
+
+
 EQUITY_TOOL_IMPLS = {
+    "get_financials": get_financials,
+    "get_financial_statement": get_financial_statement,
+    "get_financials_screen": get_financials_screen,
     "get_governance_summary": get_governance_summary,
     "get_company_board": get_company_board,
     "get_board_history": get_board_history,
@@ -1036,6 +1110,99 @@ EQUITY_TOOL_SCHEMAS = [
                              "description": "Fiscal year; omit for latest filings."},
                     "limit": {"type": "integer",
                               "description": "Rows to return, 1-200. Default 25."},
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_financials",
+            "description": (
+                "One company's key indicators across fiscal years, exactly as the "
+                "filer prints them in the five-year summary of its annual securities "
+                "report: revenue, operating/ordinary/pre-tax income, profit attributable "
+                "to owners, net assets, total assets, BPS, EPS, equity ratio, ROE, PER "
+                "at year end, operating/investing/financing cash flow, cash, dividend "
+                "per share, payout ratio, employees. Yen values are exact; *_pct fields "
+                "are in percent. Each row names the element behind every field and the "
+                "filing it came from; a fiscal year is taken from the latest filing that "
+                "reports it (a restated figure replaces the original), and as_filed_in=YYYY "
+                "reads one filing's five years as first published. Consolidated by "
+                "default where the filer reports it; basis=parent for the parent-only "
+                "figures. Nothing here is recomputed by the platform: quote ROE, "
+                "equity ratio and PER as the filer's own. Use search_companies to find "
+                "the securities code."),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "sec_code": {"type": "string",
+                                 "description": "4-digit securities code, e.g. '7203'."},
+                    "basis": {"type": "string", "enum": ["", "consolidated", "parent"],
+                              "description": "Omit for both bases."},
+                    "as_filed_in": {"type": "string",
+                                    "description": "Fiscal year (YYYY) of one filing to read as first published; omit for the latest view."},
+                },
+                "required": ["sec_code"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_financial_statement",
+            "description": (
+                "One financial statement of one company's annual securities report, "
+                "every line in the filer's own order with its Japanese label, an English "
+                "label (the filer's own where given, else derived from the element name), "
+                "the current and prior fiscal-year values in yen exactly as tagged, and "
+                "heading/total/sign-reversed markers. statement: bs (balance sheet), pl "
+                "(income statement), ci (comprehensive income), cf (cash flows), ss "
+                "(changes in equity), summary (the five-year key-indicator table). "
+                "Consolidated by default where filed; basis=parent for the parent-only "
+                "statement (a consolidated filer usually has no parent cash flow "
+                "statement). year=YYYY picks the filing for the fiscal year ending then. "
+                "When building a model or a ratio from these lines, say which lines you "
+                "used and that the ratio is your computation, not the filer's."),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "sec_code": {"type": "string",
+                                 "description": "4-digit securities code, e.g. '7203'."},
+                    "statement": {"type": "string",
+                                  "enum": ["bs", "pl", "ci", "cf", "ss", "summary"],
+                                  "description": "Which statement; default bs."},
+                    "basis": {"type": "string", "enum": ["", "consolidated", "parent"]},
+                    "year": {"type": "string",
+                             "description": "Fiscal year (YYYY) of the filing; omit for the latest."},
+                },
+                "required": ["sec_code"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_financials_screen",
+            "description": (
+                "Ranked cross-section of listed companies on one key indicator from "
+                "their latest annual securities report — revenue, profit, total_assets, "
+                "net_assets, roe_pct, equity_ratio_pct, payout_ratio_pct, cf_operating, "
+                "cash, employees. One filing per company, consolidated where the filer "
+                "reports one and parent-only otherwise (the row says which). Use it for "
+                "'largest', 'highest ROE', 'most cash' questions; the values are the "
+                "filer's own and the platform ranks only, never adjusts."),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "metric": {"type": "string",
+                               "enum": ["revenue", "profit", "total_assets", "net_assets",
+                                        "roe_pct", "equity_ratio_pct", "payout_ratio_pct",
+                                        "cf_operating", "cash", "employees"]},
+                    "year": {"type": "string",
+                             "description": "Fiscal year (YYYY) of the filings to rank; omit for each company's latest."},
+                    "limit": {"type": "integer", "description": "Rows to return, default 25, max 200."},
                 },
                 "required": [],
             },

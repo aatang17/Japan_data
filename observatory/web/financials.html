@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Financials · Japan Data Observatory</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/app.css">
+<style>
+/* page-local layout only — tokens and components come from app.css */
+.co-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 14px; margin: 18px 0 4px; }
+.co-head h1 { margin: 0; }
+.co-code { font-family: var(--obs-mono, monospace); color: var(--obs-text-muted); font-size: 15px; }
+.co-industry { font-size: 13px; color: var(--obs-text-muted); }
+.co-name-ja { margin: 0; font-size: 13px; color: var(--obs-text-muted); }
+.filing-meta { font-size: 12.5px; color: var(--obs-text-muted); margin: 6px 0 0; line-height: 1.6; }
+.filing-meta .mono { font-family: var(--obs-mono, monospace); }
+
+.fact-row { display: flex; flex-wrap: wrap; gap: 10px 44px; margin: 14px 0 4px;
+  padding-left: 14px; border-left: 2px solid var(--obs-border); }
+.fact-row div { margin: 0; }
+.fact-row dt { font-size: 12px; font-weight: 600; color: var(--obs-text-muted);
+  text-transform: uppercase; letter-spacing: 0.04em; margin: 0 0 3px; }
+.fact-row dd { margin: 0; font-size: 21px; font-weight: 600; color: var(--obs-ink);
+  font-variant-numeric: tabular-nums; line-height: 1.15; }
+.fact-row dd .unit { font-size: 13px; font-weight: 400; color: var(--obs-text-muted); }
+.fact-row .qual { display: block; font-size: 12px; font-weight: 400;
+  color: var(--obs-text-muted); margin-top: 2px; }
+
+.disclose { margin: 12px 0 0; padding-left: 14px; border-left: 2px solid var(--obs-border);
+  font-size: 12.5px; line-height: 1.6; color: var(--obs-text-muted); text-wrap: pretty; }
+.disclose b { color: var(--obs-ink); }
+.disclose.flagged { border-left-color: var(--obs-warn); }
+
+.sec-actions { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px 16px; margin: 0 0 10px; }
+.sec-note { font-size: 12.5px; color: var(--obs-text-muted); margin: 0; line-height: 1.55; text-wrap: pretty; }
+.sec-note b { color: var(--obs-ink); font-weight: 600; }
+.chart-foot { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline;
+  font-size: 12px; color: var(--obs-text-faint); margin-top: 4px; }
+.chart-foot .grow { flex: 1; }
+#ki-chart { width: 100%; height: 360px; }
+
+/* The panel reads across: one indicator per row, one fiscal year per column,
+   the way an analyst lays out a company's record. */
+.tbl-fin { width: 100%; border-collapse: collapse; }
+.tbl-fin th, .tbl-fin td { padding: 7px 10px; font-size: 13px; border-bottom: 1px solid var(--obs-grid);
+  white-space: nowrap; }
+.tbl-fin thead th { font-size: 11px; font-weight: 600; color: var(--obs-text-muted);
+  text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid var(--obs-border); }
+.tbl-fin .r, .tbl-fin th.r { text-align: right; font-variant-numeric: tabular-nums; }
+.tbl-fin tbody tr:hover td { background: var(--obs-surface-subtle); }
+.tbl-fin td.lbl { white-space: normal; min-width: 220px; }
+.tbl-fin td.lbl .ja { display: block; font-size: 11.5px; color: var(--obs-text-muted); }
+.tbl-fin td.lbl .el { display: block; font-size: 10.5px; color: var(--obs-text-faint);
+  font-family: var(--obs-mono, monospace); }
+.tbl-fin tr.total td { font-weight: 600; color: var(--obs-ink); border-top: 1px solid var(--obs-border); }
+.tbl-fin tr.heading td { font-weight: 600; color: var(--obs-ink); background: var(--obs-surface-subtle);
+  font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+.tbl-fin td.lbl[data-depth="1"] { padding-left: 24px; }
+.tbl-fin td.lbl[data-depth="2"] { padding-left: 38px; }
+.tbl-fin td.lbl[data-depth="3"] { padding-left: 52px; }
+.tbl-fin td.lbl[data-depth="4"] { padding-left: 66px; }
+.tbl-fin a { color: var(--obs-primary); text-decoration: none; }
+.tbl-fin a:hover { text-decoration: underline; }
+.tbl-fin .sub { display: block; font-size: 11px; color: var(--obs-text-muted); margin-top: 1px; }
+.tbl-fin td.src { font-size: 11px; color: var(--obs-text-muted); }
+.pill { display: inline-block; font-size: 10.5px; line-height: 1.5; padding: 0 6px; margin-left: 6px;
+  border: 1px solid var(--obs-border); border-radius: 3px; color: var(--obs-text-muted);
+  vertical-align: middle; text-transform: uppercase; letter-spacing: 0.04em; }
+.tbl-formula { font-size: 12px; color: var(--obs-text-muted); margin: 8px 0 0; }
+/* Narrow screens: the table keeps its columns and scrolls inside .table-wrap
+   rather than wrapping every label into a ragged column. */
+@media (max-width: 700px) { #ki-chart { height: 300px; } .tbl-fin { min-width: 640px; } .tbl-fin td.lbl { min-width: 200px; } }
+</style>
+</head>
+<body class="page-wide">
+
+<header class="site-header" data-section="equities" data-page="financials"></header>
+<script src="assets/nav.js"></script>
+
+<main class="container">
+
+  <!-- market view -->
+  <section id="market-view">
+    <div class="page-head">
+      <h1>Financials</h1>
+      <p class="page-sub">Every listed company's financial statements and its own five-year record
+      of key indicators — revenue, profit, ROE, equity ratio, cash flows, dividends — exactly as
+      tagged in the annual securities report. Balance sheet, income statement and cash flow
+      statement line by line, in the filer's own order, consolidated and parent-only.</p>
+    </div>
+
+    <div class="explorer-controls">
+      <div class="search-rail">
+        <div class="search-field">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"
+               class="search-icon"><circle cx="7" cy="7" r="4.6"></circle><path d="M10.4 10.4 14 14"></path></svg>
+          <input type="search" id="q" placeholder="Company name in English or Japanese, or securities code. E.g. Toyota, トヨタ, 7203"
+                 aria-label="Search companies" autocomplete="off">
+        </div>
+      </div>
+    </div>
+    <div id="search-results"></div>
+
+    <div class="strip" id="stat-strip"></div>
+
+    <h2>Largest Companies <span class="h2-note" id="screen-count"></span></h2>
+    <div class="controls">
+      <label for="screen-select">Rank by</label>
+      <select id="screen-select" aria-label="Screen"></select>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="screen-csv">Download CSV</button>
+    </div>
+    <p class="sec-note" id="screen-meta"></p>
+    <div class="table-wrap"><table class="tbl-fin" id="screen-table"></table></div>
+    <p class="tbl-formula" id="screen-formula"></p>
+  </section>
+
+  <!-- company view -->
+  <section id="company-view" hidden>
+    <p style="margin:16px 0 0"><a href="financials.html" id="back-link">← All companies</a></p>
+    <div class="co-head">
+      <h1 id="co-name"></h1>
+      <span class="co-code" id="co-code"></span>
+      <span class="co-industry" id="co-industry"></span>
+    </div>
+    <p class="co-name-ja" id="co-name-ja" hidden></p>
+    <p class="filing-meta" id="co-filing"></p>
+    <dl class="fact-row" id="co-facts"></dl>
+    <p class="disclose flagged" id="co-flag" hidden></p>
+
+    <h2>Key Indicators <span class="h2-note" id="ki-note"></span></h2>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Basis" id="basis-seg">
+        <button type="button" data-basis="consolidated" aria-pressed="true">Consolidated</button>
+        <button type="button" data-basis="parent" aria-pressed="false">Parent only</button>
+      </div>
+      <label for="chart-select">Chart</label>
+      <select id="chart-select" aria-label="Chart measure">
+        <option value="revenue_profit">Revenue and profit (¥bn)</option>
+        <option value="returns">ROE and equity ratio (%)</option>
+        <option name="cf" value="cf">Cash flows (¥bn)</option>
+        <option value="dividends">Dividend per share and payout</option>
+      </select>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="ki-png">Download PNG</button>
+      <button type="button" class="btn" id="ki-csv">Download CSV</button>
+    </div>
+    <div class="chart-block">
+      <div id="ki-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+      <div class="chart-foot">
+        <span id="ki-source"></span>
+        <span class="grow"></span>
+      </div>
+    </div>
+    <p class="sec-note" style="margin:12px 0 8px">The filer's own 主要な経営指標等の推移 table.
+      <b>Official statistics</b> as filed; nothing is recomputed. Each fiscal year is taken from the
+      latest filing that reports it, so a restated figure replaces the original here — the
+      filing behind each column is named in the last row. Ratios are the filer's; a missing value
+      is shown as —, never as zero.</p>
+    <div class="table-wrap"><table class="tbl-fin" id="ki-table" data-no-enhance></table></div>
+    <details class="calc-note"><summary>Show calculation</summary>
+      <span id="ki-calc"></span>
+    </details>
+
+    <h2>Financial Statements <span class="h2-note" id="st-note"></span></h2>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Statement" id="st-seg">
+        <button type="button" data-st="bs" aria-pressed="true">Balance sheet</button>
+        <button type="button" data-st="pl" aria-pressed="false">Income statement</button>
+        <button type="button" data-st="ci" aria-pressed="false">Comprehensive income</button>
+        <button type="button" data-st="cf" aria-pressed="false">Cash flows</button>
+      </div>
+      <label for="fy-select">Filing</label>
+      <select id="fy-select" aria-label="Fiscal year of the filing"></select>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="st-csv">Download CSV</button>
+    </div>
+    <p class="sec-note" id="st-meta"></p>
+    <div class="table-wrap"><table class="tbl-fin" id="st-table" data-no-enhance></table></div>
+    <details class="calc-note"><summary>Show calculation</summary>
+      <span id="st-calc"></span>
+    </details>
+    <p class="disclose" id="st-labels"></p>
+  </section>
+
+  <footer class="page-foot" id="page-foot">
+    <p>Source: 有価証券報告書 (annual securities reports) via EDINET, Financial Services Agency of
+    Japan. Every figure is exactly as tagged in the filing and links to it; every raw file is
+    archived with its SHA-256. Japanese line labels are the filer's own; English labels are the
+    filer's where it gave one, otherwise a readable form of the XBRL element name. Extraction status
+    is stated per filing — gaps are disclosed, never filled.</p>
+  </footer>
+</main>
+
+<script src="assets/echarts.min.js"></script>
+<script src="assets/format.js"></script>
+<script src="assets/charts.js"></script>
+<script src="assets/sortable.js"></script>
+<script src="assets/financials.js"></script>
+</body>
+</html>
