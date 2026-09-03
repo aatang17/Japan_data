@@ -33,185 +33,135 @@
   </div>
 
   <h2 id="macro">Macro <span class="h2-note">Prices, money and the balance sheet</span></h2>
-  <ul class="prod-list">
+  <p class="section-sub"><a href="macro.html">Open the Macro overview</a> — the section's
+  live datasets on one screen. The readings below are live.</p>
 
-    <li class="prod">
-      <div class="prod-head">
-        <a class="prod-name" href="cpi.html">Japan Consumer Price Index</a>
-        <span class="status status-live">Live</span>
-      </div>
-      <p class="prod-desc">822 series from the national middle-class and detailed-item tables —
-      headline, both cores, the ten major expenditure groups, and 582 individually priced items.
-      Monthly, January 1970 onward, 2020&nbsp;=&nbsp;100.</p>
-      <div class="prod-stats" id="cpi-stats">
-        <div class="prod-stat skeleton" style="min-height:52px"></div>
-        <div class="prod-stat skeleton" style="min-height:52px"></div>
-        <div class="prod-stat skeleton" style="min-height:52px"></div>
-      </div>
-      <p class="prod-foot" id="cpi-foot"></p>
-      <p class="prod-links">
-        <a href="cpi.html">Overview</a>
-        <a href="explorer.html">Item Explorer</a>
-        <a href="methodology.html">Methodology</a>
-      </p>
-    </li>
-
-    <li class="prod">
-      <div class="prod-head">
-        <a class="prod-name" href="boj.html">Bank of Japan balance sheet and monetary base</a>
-        <span class="status status-live">Live</span>
-      </div>
-      <p class="prod-desc">23 series of end-of-month holdings and during-month flows from the
-      Bank's own time-series API — JGBs with gross purchases and redemptions split out, ETFs,
-      J-REITs, corporate bonds, and the monetary base. Monthly, July 1996 onward, in ¥100
-      million as published.</p>
-      <div class="prod-stats" id="boj-stats">
-        <div class="prod-stat skeleton" style="min-height:52px"></div>
-        <div class="prod-stat skeleton" style="min-height:52px"></div>
-        <div class="prod-stat skeleton" style="min-height:52px"></div>
-      </div>
-      <p class="prod-foot" id="boj-foot"></p>
-      <p class="prod-links">
-        <a href="boj.html">JGB Holdings &amp; QT</a>
-        <a href="methodology.html">Methodology</a>
-      </p>
-    </li>
-
-    <li class="prod">
-      <div class="prod-head">
-        <a class="prod-name" href="rates.html">JGB yield curve</a>
-        <span class="status status-live">Live</span>
-      </div>
-      <p class="prod-desc">The Ministry of Finance's daily constant-maturity yields for 15
-      tenors from 1 to 40 years, every business day since September 1974 — scrub or replay
-      the whole curve through ZIRP, QQE, negative rates, yield curve control and the current
-      hiking cycle. Yields exactly as published; spreads calculated from them.</p>
-      <div class="prod-stats" id="rates-stats">
-        <div class="prod-stat skeleton" style="min-height:52px"></div>
-        <div class="prod-stat skeleton" style="min-height:52px"></div>
-        <div class="prod-stat skeleton" style="min-height:52px"></div>
-      </div>
-      <p class="prod-foot" id="rates-foot"></p>
-      <p class="prod-links">
-        <a href="rates.html">Yield Curve</a>
-        <a href="methodology.html">Methodology</a>
-      </p>
-    </li>
-
-    <li class="prod">
-      <div class="prod-head">
-        <span class="prod-name">JGB holdings by individual issue</span>
-        <span class="status status-planned">Planned</span>
-      </div>
-      <p class="prod-desc">Which bonds the Bank of Japan holds, issue by issue, alongside
-      flow-of-funds ownership by sector. Not available yet.</p>
-    </li>
-
-    <li class="prod">
-      <div class="prod-head">
-        <span class="prod-name">Producer and services price statistics</span>
-        <span class="status status-planned">Planned</span>
-      </div>
-      <p class="prod-desc">Corporate goods, services producer and import price indices, to
-      complete the pass-through chain from import to consumer prices. Not available yet.</p>
-    </li>
-
-    <li class="prod">
-      <div class="prod-head">
-        <span class="prod-name">Tokyo advance and regional CPI</span>
-        <span class="status status-planned">Planned</span>
-      </div>
-      <p class="prod-desc">The Tokyo index published two to three weeks ahead of the national
-      release, plus prefectural detail. Not available yet.</p>
-    </li>
-
-  </ul>
+  <div class="table-wrap">
+    <table class="data dir" data-no-enhance>
+      <thead>
+        <tr>
+          <th>Dataset</th>
+          <th class="col-desc">What's In It</th>
+          <th class="num">Latest Reading</th>
+          <th>As Of</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="col-name"><a href="cpi.html">Inflation</a></td>
+          <td class="col-desc">Headline and core CPI, the ten major expenditure groups and 582
+          individually priced items — 822 series, monthly from January 1970.</td>
+          <td class="num" id="r-cpi"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
+          <td class="col-asof" id="a-cpi"></td>
+        </tr>
+        <tr>
+          <td class="col-name"><a href="explorer.html">Item Explorer</a></td>
+          <td class="col-desc">Every CPI series, searchable in English and Japanese, with full
+          history, weights and provenance per item.</td>
+          <td class="num muted">822 series</td>
+          <td class="col-asof" id="a-explorer"></td>
+        </tr>
+        <tr>
+          <td class="col-name"><a href="boj.html">Bank of Japan</a></td>
+          <td class="col-desc">End-of-month holdings and during-month flows — JGBs with
+          purchases and redemptions split out, ETFs, J-REITs, corporate bonds and the monetary
+          base, from July 1996.</td>
+          <td class="num" id="r-boj"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
+          <td class="col-asof" id="a-boj"></td>
+        </tr>
+        <tr>
+          <td class="col-name"><a href="rates.html">Yield Curve</a></td>
+          <td class="col-desc">The Ministry of Finance's constant-maturity yields for 15
+          tenors, every business day since September 1974 — replay the curve through ZIRP,
+          QQE, negative rates and yield curve control.</td>
+          <td class="num" id="r-rates"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
+          <td class="col-asof" id="a-rates"></td>
+        </tr>
+        <tr>
+          <td class="col-name"><a href="inbound.html">Inbound</a></td>
+          <td class="col-desc">Foreign visitor arrivals by market, monthly from 2003, from
+          JNTO — with recovery versus 2019 and market shares.</td>
+          <td class="num" id="r-inbound"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
+          <td class="col-asof" id="a-inbound"></td>
+        </tr>
+        <tr>
+          <td class="col-name"><a href="population.html">Population</a></td>
+          <td class="col-desc">Residents by prefecture, age band and nationality from the
+          Basic Resident Register, with national totals back to 1975.</td>
+          <td class="num" id="r-pop"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
+          <td class="col-asof" id="a-pop"></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="dir-foot">Index levels, yields and counts are official statistics exactly as
+  published; rates of change and spreads are calculated from them, and each page shows the
+  formula. On the roadmap: producer and services prices · Tokyo advance and regional CPI ·
+  BOJ holdings by individual issue.</p>
 
   <h2 id="equities">Equities <span class="h2-note">Ownership and governance</span></h2>
-  <ul class="prod-list">
+  <p class="section-sub"><a href="equities.html">Open the Equities overview</a> — every
+  dataset with its live coverage figures. All of it from companies' own filings on EDINET.</p>
 
-    <li class="prod">
-      <div class="prod-head">
-        <a class="prod-name" href="holdings.html">Cross-shareholdings (政策保有株式)</a>
-        <span class="status status-live">Live · partial coverage</span>
-      </div>
-      <p class="prod-desc">Policy shareholdings exactly as disclosed in annual securities
-      reports: what each company holds, who holds it back, the stated reason for every holding,
-      and how fast the unwind is running. Financial sector first; coverage is stated on every
-      figure and grows as filings are extracted.</p>
-      <div class="prod-stats" id="eq-stats">
-        <div class="prod-stat skeleton" style="min-height:52px"></div>
-        <div class="prod-stat skeleton" style="min-height:52px"></div>
-        <div class="prod-stat skeleton" style="min-height:52px"></div>
-      </div>
-      <p class="prod-foot" id="eq-foot"></p>
-      <p class="prod-links">
-        <a href="holdings.html">Cross-Shareholdings</a>
-      </p>
-    </li>
-
-    <li class="prod">
-      <div class="prod-head">
-        <a class="prod-name" href="governance.html">Boards &amp; pay (役員の状況・報酬)</a>
-        <span class="status status-live">Live</span>
-      </div>
-      <p class="prod-desc">Every director of every listed company — name, role, age, board seat
-      and shareholding — with officer remuneration by category and every individual disclosed at
-      ¥100m or more, from the same annual securities reports. Five fiscal years, so a board can
-      be read against itself.</p>
-      <div class="prod-stats" id="gov-stats">
-        <div class="prod-stat skeleton" style="min-height:52px"></div>
-        <div class="prod-stat skeleton" style="min-height:52px"></div>
-        <div class="prod-stat skeleton" style="min-height:52px"></div>
-      </div>
-      <p class="prod-foot" id="gov-foot"></p>
-      <p class="prod-links">
-        <a href="governance.html">Boards &amp; Pay</a>
-      </p>
-    </li>
-
-    <li class="prod">
-      <div class="prod-head">
-        <a class="prod-name" href="buyback.html">Buybacks (自己株券買付状況報告書)</a>
-        <span class="status status-live">Live</span>
-      </div>
-      <p class="prod-desc">What each company said it would buy back, what it actually bought,
-      and whether the shares were cancelled — from the monthly status report filed while a
-      programme runs. The authorising resolution and its acquisition period, the buying month by
-      month, and the shares retired outright. EDINET deletes these filings after about a year,
-      so the record starts where our archive does and can only grow.</p>
-      <div class="prod-stats" id="bb-stats">
-        <div class="prod-stat skeleton" style="min-height:52px"></div>
-        <div class="prod-stat skeleton" style="min-height:52px"></div>
-        <div class="prod-stat skeleton" style="min-height:52px"></div>
-      </div>
-      <p class="prod-foot" id="bb-foot"></p>
-      <p class="prod-links">
-        <a href="buyback.html">Buybacks</a>
-      </p>
-    </li>
-
-    <li class="prod">
-      <div class="prod-head">
-        <span class="prod-name">Large shareholding reports (5% filings)</span>
-        <span class="status status-progress">Archiving now</span>
-      </div>
-      <p class="prod-desc">Every 大量保有報告書 and amendment is captured and archived daily with
-      its checksum, ahead of extraction — the filing record accumulates from today even though
-      the screens are not built yet.</p>
-    </li>
-
-    <li class="prod">
-      <div class="prod-head">
-        <span class="prod-name">Unwind and activist-overlap screens</span>
-        <span class="status status-planned">Planned</span>
-      </div>
-      <p class="prod-desc">Ranked screens over the two datasets above: largest remaining
-      holders, fastest and stalled unwinds, and overlap with disclosed activist positions.
-      Not available yet.</p>
-    </li>
-
-  </ul>
+  <div class="table-wrap">
+    <table class="data dir" data-no-enhance>
+      <thead>
+        <tr>
+          <th>Dataset</th>
+          <th class="col-desc">What's In It</th>
+          <th class="num">Latest Reading</th>
+          <th>As Of</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="col-name"><a href="holdings.html">Cross-Shareholdings</a></td>
+          <td class="col-desc">Policy shareholdings as disclosed in annual reports — what each
+          company holds, who holds it back, the stated reason, and how fast the unwind runs.</td>
+          <td class="num" id="r-hold"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
+          <td class="col-asof" id="a-hold"></td>
+        </tr>
+        <tr>
+          <td class="col-name"><a href="ownership.html">Register</a></td>
+          <td class="col-desc">Who owns each listed company: named large holders and the whole
+          register split by investor category, nominees marked.</td>
+          <td class="num" id="r-own"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
+          <td class="col-asof" id="a-own"></td>
+        </tr>
+        <tr>
+          <td class="col-name"><a href="stakes.html">5% Filings</a></td>
+          <td class="col-desc">Every large-shareholding report: who crossed 5%, in whom, how
+          the stake moved, and who reserves the right to make proposals to the board.</td>
+          <td class="num" id="r-stk"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
+          <td class="col-asof" id="a-stk"></td>
+        </tr>
+        <tr>
+          <td class="col-name"><a href="governance.html">Boards &amp; Pay</a></td>
+          <td class="col-desc">Every director of every listed company — role, age, seat and
+          shareholding — with officer pay by category and every individual at ¥100m or more.</td>
+          <td class="num" id="r-gov"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
+          <td class="col-asof" id="a-gov"></td>
+        </tr>
+        <tr>
+          <td class="col-name"><a href="buyback.html">Buybacks</a></td>
+          <td class="col-desc">What each company said it would buy back, what it actually
+          bought month by month, and whether the shares were cancelled.</td>
+          <td class="num" id="r-bb"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
+          <td class="col-asof" id="a-bb"></td>
+        </tr>
+        <tr>
+          <td class="col-name"><a href="facilities.html">Facilities &amp; Land</a></td>
+          <td class="col-desc">Every disclosed plant, office, store and landholding, geocoded
+          and mapped, with land at book value and headcount by site.</td>
+          <td class="num" id="r-fac"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
+          <td class="col-asof" id="a-fac"></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="dir-foot">Figures exactly as filed on EDINET; aggregates and comparisons are
+  calculated, and each page states its coverage. On the roadmap: ranked unwind screens and
+  overlap with disclosed activist positions.</p>
 
   <h2 id="ai">Use It From Your AI</h2>
   <p class="section-sub">Connect Claude — or any assistant that supports the Model Context
@@ -230,8 +180,9 @@
   <h2 id="how">How This Is Built</h2>
   <ul class="build-list">
     <li><b>Primary sources only.</b> Consumer prices come from the Statistics Bureau of Japan
-    via e-Stat; cross-shareholdings come from companies' own filings on EDINET. Every source
-    file is archived with its SHA-256 checksum before anything is parsed.</li>
+    via e-Stat; monetary data from the Bank of Japan; yields from the Ministry of Finance;
+    ownership and governance from companies' own filings on EDINET. Every source file is
+    archived with its SHA-256 checksum before anything is parsed.</li>
     <li><b>Official and calculated are never blurred.</b> Index levels and filed figures are
     published exactly as they came. Anything this platform computes — year-over-year rates,
     contributions, breadth, unwind pace — carries its formula instead of a badge.</li>
@@ -248,15 +199,15 @@
 
 <footer class="site-footer">
   <div class="inner">
-    Sources: Statistics Bureau of Japan, via e-Stat · company filings via EDINET (Financial
-    Services Agency). Index values and filed figures are official; rates of change and
-    aggregates are calculated on this platform.
+    Sources: Statistics Bureau of Japan via e-Stat · Bank of Japan · Ministry of Finance ·
+    Japan National Tourism Organization · Ministry of Internal Affairs and Communications ·
+    company filings via EDINET (Financial Services Agency). Published values are official;
+    rates of change and aggregates are calculated on this platform.
     <a href="methodology.html">Methodology</a>
   </div>
 </footer>
 
 <script src="assets/format.js"></script>
-<script src="assets/sortable.js"></script>
 <script src="assets/landing.js"></script>
 <script>initThemeToggle();</script>
 </body>

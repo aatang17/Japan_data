@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Japan Equities — Overview · Japan Data Observatory</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+
+<header class="site-header" data-section="equities" data-page="overview"></header>
+<script src="assets/nav.js"></script>
+
+<main class="container">
+  <div class="page-head">
+    <h1>Japan Equities</h1>
+    <p class="page-sub">Ownership and governance of listed Japan, extracted from companies'
+    own filings on EDINET — who holds what, who sits where, what is being bought back and
+    what is being unwound. Figures are exactly as filed; anything aggregated or compared
+    across filings carries its formula on the page.</p>
+  </div>
+
+  <ul class="prod-list">
+
+    <li class="prod">
+      <div class="prod-head">
+        <a class="prod-name" href="holdings.html">Cross-Shareholdings (政策保有株式)</a>
+        <span class="status status-live">Live · partial coverage</span>
+      </div>
+      <p class="prod-desc">Policy shareholdings exactly as disclosed in annual securities
+      reports: what each company holds, who holds it back, the stated reason for every holding,
+      and how fast the unwind is running. Coverage is stated on every figure and grows as
+      filings are extracted.</p>
+      <div class="prod-stats" id="hold-stats">
+        <div class="prod-stat skeleton" style="min-height:52px"></div>
+        <div class="prod-stat skeleton" style="min-height:52px"></div>
+        <div class="prod-stat skeleton" style="min-height:52px"></div>
+      </div>
+      <p class="prod-foot" id="hold-foot"></p>
+    </li>
+
+    <li class="prod">
+      <div class="prod-head">
+        <a class="prod-name" href="ownership.html">Shareholder Register (大株主の状況)</a>
+        <span class="status status-live">Live</span>
+      </div>
+      <p class="prod-desc">Who owns each listed company: the named large holders in the annual
+      report's register table, and the whole register split by investor category — foreign
+      institutions, individuals, banks and insurers, other companies. Nominee trust-bank
+      accounts are marked, because they hold for someone else.</p>
+      <div class="prod-stats" id="own-stats">
+        <div class="prod-stat skeleton" style="min-height:52px"></div>
+        <div class="prod-stat skeleton" style="min-height:52px"></div>
+        <div class="prod-stat skeleton" style="min-height:52px"></div>
+      </div>
+      <p class="prod-foot" id="own-foot"></p>
+    </li>
+
+    <li class="prod">
+      <div class="prod-head">
+        <a class="prod-name" href="stakes.html">5% Filings (大量保有報告書)</a>
+        <span class="status status-live">Live</span>
+      </div>
+      <p class="prod-desc">Every large-shareholding report filed on a Japanese listed company:
+      who crossed 5%, in whom, how the stake has moved since, and whether the filer states it
+      may make important proposals to the board — the filed line between a passive stake and
+      a campaign.</p>
+      <div class="prod-stats" id="stk-stats">
+        <div class="prod-stat skeleton" style="min-height:52px"></div>
+        <div class="prod-stat skeleton" style="min-height:52px"></div>
+        <div class="prod-stat skeleton" style="min-height:52px"></div>
+      </div>
+      <p class="prod-foot" id="stk-foot"></p>
+    </li>
+
+    <li class="prod">
+      <div class="prod-head">
+        <a class="prod-name" href="governance.html">Boards &amp; Pay (役員の状況・報酬)</a>
+        <span class="status status-live">Live</span>
+      </div>
+      <p class="prod-desc">Every director of every listed company — name, role, age, board seat
+      and shareholding — with officer remuneration by category and every individual disclosed
+      at ¥100m or more. Five fiscal years, so a board can be read against itself.</p>
+      <div class="prod-stats" id="gov-stats">
+        <div class="prod-stat skeleton" style="min-height:52px"></div>
+        <div class="prod-stat skeleton" style="min-height:52px"></div>
+        <div class="prod-stat skeleton" style="min-height:52px"></div>
+      </div>
+      <p class="prod-foot" id="gov-foot"></p>
+    </li>
+
+    <li class="prod">
+      <div class="prod-head">
+        <a class="prod-name" href="buyback.html">Buybacks (自己株券買付状況報告書)</a>
+        <span class="status status-live">Live</span>
+      </div>
+      <p class="prod-desc">What each company said it would buy back, what it actually bought,
+      and whether the shares were cancelled — from the monthly status report filed while a
+      programme runs. EDINET deletes these filings after about a year, so the record starts
+      where our archive does and can only grow.</p>
+      <div class="prod-stats" id="bb-stats">
+        <div class="prod-stat skeleton" style="min-height:52px"></div>
+        <div class="prod-stat skeleton" style="min-height:52px"></div>
+        <div class="prod-stat skeleton" style="min-height:52px"></div>
+      </div>
+      <p class="prod-foot" id="bb-foot"></p>
+    </li>
+
+    <li class="prod">
+      <div class="prod-head">
+        <a class="prod-name" href="facilities.html">Facilities &amp; Land (主要な設備の状況)</a>
+        <span class="status status-live">Live</span>
+      </div>
+      <p class="prod-desc">Every plant, office, store and landholding disclosed in the major
+      facilities section of annual securities reports — geocoded and mapped, with land at
+      book value, floor area and headcount by site.</p>
+      <div class="prod-stats" id="fac-stats">
+        <div class="prod-stat skeleton" style="min-height:52px"></div>
+        <div class="prod-stat skeleton" style="min-height:52px"></div>
+        <div class="prod-stat skeleton" style="min-height:52px"></div>
+      </div>
+      <p class="prod-foot" id="fac-foot"></p>
+    </li>
+
+  </ul>
+
+  <p class="dir-foot" style="margin-top:16px">On the roadmap: ranked unwind screens across
+  holders, and overlap of cross-shareholdings with disclosed activist positions.</p>
+
+</main>
+
+<footer class="site-footer">
+  <div class="inner">
+    Source: company filings via EDINET (Financial Services Agency). Filed figures are
+    official; aggregates, averages and year-on-year comparisons are calculated on this
+    platform.
+    <a href="methodology.html">Methodology</a>
+  </div>
+</footer>
+
+<script src="assets/format.js"></script>
+<script src="assets/equities.js"></script>
+</body>
+</html>

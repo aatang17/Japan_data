@@ -22,7 +22,8 @@ var NAV_SECTIONS = [
   {
     id: "macro", label: "Macro", suffix: "Macro",
     pages: [
-      { id: "overview", label: "Overview", href: "cpi.html" },
+      { id: "overview", label: "Overview", href: "macro.html" },
+      { id: "inflation", label: "Inflation", href: "cpi.html" },
       { id: "explorer", label: "Item Explorer", href: "explorer.html" },
       { id: "boj", label: "Bank of Japan", href: "boj.html" },
       { id: "rates", label: "Yield Curve", href: "rates.html" },
@@ -33,6 +34,7 @@ var NAV_SECTIONS = [
   {
     id: "equities", label: "Equities", suffix: "Equities",
     pages: [
+      { id: "overview", label: "Overview", href: "equities.html" },
       { id: "holdings", label: "Cross-Shareholdings", href: "holdings.html" },
       { id: "ownership", label: "Register", href: "ownership.html" },
       { id: "stakes", label: "5% Filings", href: "stakes.html" },

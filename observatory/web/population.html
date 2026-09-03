@@ -83,6 +83,7 @@
     the natural part (births less deaths) and the social part (everything else the register
     recorded, which is mostly moves but also includes naturalisations and corrections).
     Click a prefecture to put it in the chart below.</p>
+    <div class="chart-panel">
     <div class="controls">
       <div class="seg" role="group" aria-label="Measure shown" id="measure-seg">
         <button type="button" data-measure="change_pct" aria-pressed="true">Change</button>
@@ -102,6 +103,7 @@
     </div>
     <p class="source-line" id="map-source"></p>
     <details class="calc" id="map-calc"></details>
+    </div>
   </section>
 
   <section aria-labelledby="h-history">
@@ -112,6 +114,7 @@
     joined the register; the total population line is the census and population estimate,
     measured at 1 October on a different basis, so the two are close but not the same number
     and neither is read off the other.</p>
+    <div class="chart-panel">
     <div class="controls">
       <label class="visually-hidden" for="pref-select">Prefecture</label>
       <select class="pop-select" id="pref-select"></select>
@@ -128,6 +131,7 @@
     <div class="chart" id="hist-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
     <p class="source-line" id="hist-source"></p>
     <details class="calc" id="hist-calc"></details>
+    </div>
   </section>
 
   <section aria-labelledby="h-table">

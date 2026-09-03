@@ -38,6 +38,7 @@
     <p class="section-sub">End-of-month holdings of Japanese government bonds on the Bank of
     Japan's balance sheet, exactly as published in the Bank's “Monetary Base and the BOJ's
     Transactions” table. Published in ¥100 million; displayed in ¥ trillion.</p>
+    <div class="chart-panel">
     <div class="controls">
       <div class="seg" role="group" aria-label="Date range" id="range-seg">
         <button type="button" data-range="5">5Y</button>
@@ -51,6 +52,7 @@
     </div>
     <div class="chart" id="main-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
     <p class="source-line" id="main-source"></p>
+    </div>
   </section>
 
   <section aria-labelledby="h-flows">
@@ -59,6 +61,7 @@
     redemptions below; the line is the net flow as published. A month with the line above
     zero means the Bank added JGBs on net. A small calculated balancing item makes the bars
     sum exactly to the line.</p>
+    <div class="chart-panel">
     <div class="controls">
       <div class="seg" role="group" aria-label="Flow date range" id="flow-seg">
         <button type="button" data-range="1">1Y</button>
@@ -73,6 +76,7 @@
     <div class="chart" id="flow-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
     <p class="source-line" id="flow-source"></p>
     <details class="calc" id="flow-calc"></details>
+    </div>
   </section>
 
   <section aria-labelledby="h-series">

@@ -107,7 +107,10 @@ h1 { font-size: 22px; color: var(--obs-ink); font-weight: 700; }
 section { margin-top: 32px; }
 
 /* Section headers are a filled blue band, not underlined text — it is the one
-   place a filled colour block is house style. Panels opt out (.detail-head h2). */
+   place a filled colour block is house style. Panels opt out (.detail-head h2).
+   The band owns its own spacing on both sides: pages are not required to wrap
+   sections in <section> or .prose for a band to clear the content above it.
+   (Adjacent/parent margins collapse, so wrapped pages don't double up.) */
 h2 {
   display: flex;
   align-items: baseline;
@@ -122,6 +125,7 @@ h2 {
   background: var(--obs-band-bg);
   border-radius: 3px;
   padding: 10px 16px;
+  margin-top: 32px;
   margin-bottom: 14px;
 }
 .h2-note {
@@ -135,7 +139,7 @@ h2 {
   font-size: 13px;
   color: var(--obs-text-muted);
   max-width: 74ch;
-  margin: -6px 0 12px;
+  margin: 0 0 12px;
 }
 h3 { font-size: 13.5px; color: var(--obs-ink); font-weight: 600; margin: 16px 0 6px; }
 
@@ -516,6 +520,18 @@ input[type="search"] { width: 300px; max-width: 100%; }
 
 /* ---------- charts ---------- */
 
+/* A chart travels with its controls and source line in one bordered panel —
+   the same edge the tables and stat strips already carry. Chart containers
+   that already sit inside a bordered panel (.ov-panel, .detail) stay bare:
+   no box inside a box. */
+.chart-panel,
+.chart-block {
+  border: 1px solid var(--obs-border);
+  border-radius: 3px;
+  background: var(--obs-surface);
+  padding: 12px 14px;
+  margin: 12px 0 4px;
+}
 .chart { width: 100%; height: 380px; }
 .chart-bars { width: 100%; height: 400px; }
 .source-line { font-size: 11px; color: var(--obs-text-muted); margin-top: 6px; }
@@ -1053,7 +1069,6 @@ table.data.tbl-bands td.trend-decel { color: var(--obs-trust-official); }
 /* ---------- prose (methodology) ---------- */
 
 .prose { max-width: 74ch; font-size: 14.5px; line-height: 1.6; }
-.prose h2 { margin-top: 32px; }
 .prose p { margin: 10px 0; }
 .prose ul, .prose ol { margin: 10px 0 10px 22px; }
 .prose li { margin: 4px 0; }
@@ -1309,4 +1324,84 @@ a.prod-name:hover { color: var(--obs-primary); text-decoration: underline; }
   .prod-stats { grid-template-columns: 1fr; }
   .prod-stat { border-right: none; border-bottom: 1px solid var(--obs-border); }
   .prod-stat:last-child { border-bottom: none; }
+}
+
+/* ---------- landing: dataset directory tables ---------- */
+
+/* The description column carries a sentence, so it wraps; the reading and
+   as-of are short and never wrap. On a phone the description goes — name,
+   reading and as-of fit 390px without a sideways scroll. */
+.dir td.col-desc, .dir th.col-desc { white-space: normal; }
+.dir td.col-desc { max-width: 46ch; color: var(--obs-text-muted); }
+.dir td.col-name { white-space: nowrap; }
+.dir td.col-name a { font-weight: 600; }
+.dir td.col-asof { white-space: nowrap; color: var(--obs-text-muted); }
+.dir .reading-note { color: var(--obs-text-muted); font-weight: 400; }
+@media (max-width: 700px) {
+  .dir td.col-desc, .dir th.col-desc { display: none; }
+}
+/* On a phone the qualifier drops under its value so the as-of column stays
+   on screen instead of forcing a sideways scroll. */
+@media (max-width: 560px) {
+  .dir .reading-note { display: block; font-size: 11px; }
+  .dir td.col-asof { white-space: normal; }
+}
+.dir-foot { margin: 8px 0 0; font-size: 12px; color: var(--obs-text-faint); }
+.dir-foot a { color: inherit; text-decoration: underline; }
+
+/* ---------- section overview panels (macro.html / equities.html) ---------- */
+
+/* One bordered panel per dataset: its latest readings, a small chart where
+   the data is a time series, and the page it opens. The lead panel spans the
+   row — an overview ranks its datasets rather than boxing them equally. */
+.ov-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px; }
+.ov-panel {
+  min-width: 0;
+  border: 1px solid var(--obs-border);
+  border-radius: 4px;
+  background: var(--obs-surface);
+  padding: 14px 16px 10px;
+}
+.ov-panel.span-2 { grid-column: 1 / -1; }
+.ov-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.ov-title { font-size: 15px; font-weight: 700; color: var(--obs-ink); }
+a.ov-title:hover { color: var(--obs-primary); text-decoration: underline; }
+.ov-asof { margin-left: auto; font-size: 11.5px; color: var(--obs-text-faint); white-space: nowrap; }
+.ov-readings { display: flex; flex-wrap: wrap; gap: 10px 32px; margin-top: 12px; }
+.ov-reading { min-width: 0; }
+.ov-reading-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: var(--obs-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ov-reading-value {
+  margin-top: 4px;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.5px;
+  color: var(--obs-ink);
+}
+.ov-reading-value .unit {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--obs-text-muted);
+  margin-left: 2px;
+  letter-spacing: normal;
+}
+.ov-reading-note { margin-top: 3px; font-size: 11.5px; color: var(--obs-text-faint); }
+.ov-chart { width: 100%; height: 250px; margin-top: 10px; }
+.ov-panel.span-2 .ov-chart { height: 330px; }
+.ov-foot { display: flex; align-items: baseline; gap: 4px 16px; flex-wrap: wrap; margin-top: 4px; }
+.ov-foot .source-line { flex: 1 1 auto; min-width: 16ch; margin-top: 0; }
+.ov-dls { display: inline-flex; gap: 14px; white-space: nowrap; }
+.ov-dl { font-size: 11px; white-space: nowrap; }
+@media (max-width: 840px) {
+  .ov-grid { grid-template-columns: 1fr; }
+  .ov-panel.span-2 .ov-chart { height: 260px; }
 }

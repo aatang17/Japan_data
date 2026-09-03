@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Japan CPI — Overview · Japan Data Observatory</title>
+<title>Japan CPI — Inflation · Japan Data Observatory</title>
 <link rel="stylesheet" href="assets/tokens.css">
 <link rel="stylesheet" href="assets/app.css">
 </head>
 <body>
 
-<header class="site-header" data-section="macro" data-page="overview"></header>
+<header class="site-header" data-section="macro" data-page="inflation"></header>
 <script src="assets/nav.js"></script>
 
 <main class="container">
@@ -38,6 +38,7 @@
 
   <section aria-labelledby="h-main">
     <h2 id="h-main">Inflation Over Time</h2>
+    <div class="chart-panel">
     <div class="controls">
       <label for="measure-select">Measure</label>
       <select id="measure-select" aria-label="Transformation">
@@ -60,6 +61,7 @@
     <div class="chart" id="main-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
     <p class="source-line" id="main-source"></p>
     <details class="calc" id="main-calc"></details>
+    </div>
   </section>
 
   <section aria-labelledby="h-contrib">
@@ -67,6 +69,7 @@
     <p class="section-sub">Each bar splits headline year-over-year inflation into the
     percentage-point contribution of the major expenditure groups; the line is headline CPI
     itself. The five largest current contributors are shown separately, the rest are bundled.</p>
+    <div class="chart-panel">
     <div class="controls">
       <div class="seg" role="group" aria-label="Contribution date range" id="contrib-seg">
         <button type="button" data-range="1">1Y</button>
@@ -81,10 +84,12 @@
     <div class="chart" id="contrib-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
     <p class="source-line" id="contrib-source"></p>
     <details class="calc" id="contrib-calc"></details>
+    </div>
   </section>
 
   <section aria-labelledby="h-groups">
     <h2 id="h-groups">Major Expenditure Groups <span class="h2-note" id="groups-note"></span></h2>
+    <div class="chart-panel">
     <div class="controls">
       <div class="seg" role="group" aria-label="Group metric" id="groups-seg">
         <button type="button" data-view="yoy" aria-pressed="true">Group inflation (%)</button>
@@ -93,6 +98,7 @@
     </div>
     <div class="chart-bars" id="groups-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
     <p class="source-line" id="groups-source"></p>
+    </div>
   </section>
 
   <section aria-labelledby="h-breadth">
@@ -100,6 +106,7 @@
     <p class="section-sub">Computed over the individually priced items of the detailed-item
     table: the share whose price is up at least 2% on a year earlier, and the share falling.
     Broad inflation means most items rising, not a few large movers.</p>
+    <div class="chart-panel">
     <div class="controls">
       <div class="seg" role="group" aria-label="Breadth date range" id="breadth-seg">
         <button type="button" data-range="5">5Y</button>
@@ -114,6 +121,7 @@
     <div class="chart" id="breadth-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
     <p class="source-line" id="breadth-source"></p>
     <details class="calc" id="breadth-calc"></details>
+    </div>
   </section>
 
   <!-- No h2 band here: the card carries its own "Data Source" head, and two

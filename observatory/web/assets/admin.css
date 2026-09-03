@@ -1,0 +1,311 @@
+/* Admin console — the GSA-platform admin shell (persistent navy sidebar,
+   nav-as-data, KPI summary cards, outline badges, centred login card),
+   restated in Observatory tokens so light and dark both work.
+
+   Loaded only by admin.html, after tokens.css and app.css; tables, badges,
+   banners and inputs come from app.css and are not restated here. */
+
+/* ---------- shell: sidebar + main ---------- */
+
+.admin-shell { display: flex; min-height: 100vh; }
+
+.admin-sidebar {
+  width: 220px;
+  flex: 0 0 220px;
+  background: var(--obs-header-bg);
+  color: var(--obs-header-text);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-side-head {
+  padding: 14px 20px 12px;
+  border-bottom: 1px solid var(--obs-header-border);
+}
+.admin-side-head .brand {
+  display: block;
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--obs-header-ink);
+  letter-spacing: 0.01em;
+}
+.admin-side-head .brand .ds { font-weight: 400; color: var(--obs-header-muted); }
+
+.admin-nav { padding: 10px 0; flex: 1; }
+.admin-nav-group {
+  padding: 12px 20px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--obs-header-muted);
+  opacity: 0.8;
+}
+.admin-nav-item {
+  display: block;
+  padding: 7px 20px;
+  color: var(--obs-header-text);
+  font-size: 13.5px;
+  text-decoration: none;
+}
+.admin-nav-item:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--obs-header-ink);
+  text-decoration: none;
+}
+.admin-nav-item[aria-current="page"] {
+  background: rgba(255, 255, 255, 0.16);
+  color: var(--obs-header-ink);
+  box-shadow: inset 3px 0 0 var(--obs-header-ink);
+}
+
+.admin-side-foot {
+  padding: 12px 20px 16px;
+  border-top: 1px solid var(--obs-header-border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.admin-side-foot .side-btn {
+  font: inherit;
+  font-size: 12px;
+  color: var(--obs-header-text);
+  background: transparent;
+  border: 1px solid var(--obs-header-border);
+  border-radius: 3px;
+  padding: 4px 10px;
+  cursor: pointer;
+  text-align: center;
+  text-decoration: none;
+}
+.admin-side-foot .side-btn:hover { color: var(--obs-header-ink); border-color: var(--obs-header-ink); }
+
+.admin-menu-btn { display: none; }
+
+.admin-main {
+  flex: 1;
+  min-width: 0; /* wide tables scroll in their own wrapper, never the page */
+  background: var(--obs-surface-subtle);
+}
+.admin-container { max-width: 1100px; padding: 28px 36px 56px; }
+
+/* ---------- page header: h1 + subtitle, action right-aligned ---------- */
+
+.admin-page-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.admin-page-head h1 {
+  font-size: 21px;
+  font-weight: 700;
+  color: var(--obs-ink);
+  margin: 0;
+}
+.admin-page-sub { flex: 1 0 100%; font-size: 13px; color: var(--obs-text-muted); margin-top: 2px; }
+.admin-page-head .spacer { flex: 1; }
+
+/* ---------- KPI summary cards ---------- */
+
+.kpi-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
+.kpi {
+  flex: 1 1 150px;
+  min-width: 150px;
+  background: var(--obs-surface);
+  border: 1px solid var(--obs-border);
+  border-radius: 3px;
+  padding: 12px 14px;
+}
+.kpi .kpi-value {
+  font-size: 21px;
+  font-weight: 600;
+  color: var(--obs-primary);
+  font-variant-numeric: tabular-nums;
+}
+.kpi .kpi-value.danger { color: var(--obs-trust-stale); }
+.kpi .kpi-value.ok { color: var(--obs-trust-official); }
+.kpi .kpi-label {
+  margin-top: 3px;
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--obs-text-muted);
+}
+
+/* ---------- section heading: uppercase eyebrow with a brand tick ---------- */
+
+.admin-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--obs-text-muted);
+  border-bottom: 1px solid var(--obs-border);
+  padding-bottom: 6px;
+  margin: 26px 0 12px;
+}
+.admin-section::before {
+  content: "";
+  width: 3px;
+  height: 12px;
+  background: var(--obs-primary);
+  display: inline-block;
+}
+.admin-section .note { margin-left: auto; font-weight: 400; text-transform: none; letter-spacing: 0; font-size: 12px; }
+
+/* ---------- dataset selector cards (the jobs-page queue cards) ---------- */
+
+.ds-cards { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+.ds-card {
+  font: inherit;
+  text-align: left;
+  min-width: 180px;
+  background: var(--obs-surface);
+  border: 1px solid var(--obs-border);
+  border-radius: 3px;
+  padding: 9px 12px;
+  cursor: pointer;
+}
+.ds-card .t { font-size: 13px; font-weight: 600; color: var(--obs-ink); }
+.ds-card .s { font-size: 11.5px; color: var(--obs-text-muted); margin-top: 2px; font-variant-numeric: tabular-nums; }
+.ds-card:hover { border-color: var(--obs-primary); }
+.ds-card[aria-pressed="true"] {
+  background: var(--obs-surface-subtle);
+  border-color: var(--obs-primary);
+}
+.ds-card[aria-pressed="true"] .t { color: var(--obs-primary); }
+
+/* ---------- extra badge tones (base .badge is in app.css) ---------- */
+
+.badge-ok      { color: var(--obs-trust-official); border-color: var(--obs-trust-official); }
+.badge-warn    { color: var(--obs-trust-model);    border-color: var(--obs-trust-model); }
+.badge-danger  { color: var(--obs-trust-stale);    border-color: var(--obs-trust-stale); }
+.badge-info    { color: var(--obs-primary);        border-color: var(--obs-primary); }
+.badge-neutral { color: var(--obs-text-muted);     border-color: var(--obs-text-faint); }
+
+/* ---------- alert banner: white card with a red left bar ---------- */
+
+.admin-alert {
+  background: var(--obs-surface);
+  border: 1px solid var(--obs-border);
+  border-left: 3px solid var(--obs-trust-stale);
+  border-radius: 3px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--obs-text);
+  margin-bottom: 18px;
+}
+.admin-alert .head { font-weight: 600; color: var(--obs-trust-stale); }
+
+/* ---------- expanded release detail ---------- */
+
+tr.detail-row > td {
+  background: var(--obs-surface-subtle);
+  padding: 12px 14px;
+}
+.detail-block { margin-bottom: 14px; }
+.detail-block:last-child { margin-bottom: 0; }
+.detail-block .h {
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--obs-text-muted);
+  margin-bottom: 6px;
+}
+.was {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  color: var(--obs-text-muted);
+  text-decoration: line-through;
+}
+.now {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  color: var(--obs-ink);
+}
+.mono {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+td .chev { color: var(--obs-text-faint); font-size: 10px; }
+
+/* ---------- login ---------- */
+
+.admin-login-wrap { max-width: 420px; margin: 64px auto; padding: 0 20px; }
+.admin-login-card {
+  background: var(--obs-surface);
+  border: 1px solid var(--obs-border);
+  border-radius: 3px;
+  padding: 28px;
+}
+.admin-login-card h1 { font-size: 22px; font-weight: 700; color: var(--obs-ink); margin: 0 0 6px; }
+.admin-login-card .sub { font-size: 13px; color: var(--obs-text-muted); margin-bottom: 18px; }
+.admin-login-card label {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--obs-text);
+  margin-bottom: 4px;
+}
+.admin-login-card input[type="password"] {
+  font: inherit;
+  font-size: 13.5px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  color: var(--obs-ink);
+  background: var(--obs-surface);
+  border: 1px solid var(--obs-border);
+  border-radius: 3px;
+  margin-bottom: 14px;
+}
+.admin-login-card input[type="password"]:focus {
+  outline: none;
+  border-color: var(--obs-primary);
+  box-shadow: 0 0 0 2px var(--obs-focus-soft);
+}
+.admin-login-card .btn-primary { width: 100%; padding: 8px 16px; }
+.login-alert {
+  border: 1px solid var(--obs-trust-stale);
+  color: var(--obs-trust-stale);
+  border-radius: 3px;
+  padding: 8px 12px;
+  font-size: 13px;
+  margin-bottom: 14px;
+  background: transparent;
+}
+
+.admin-loading { font-size: 13px; color: var(--obs-text-muted); padding: 24px 0; }
+
+/* ---------- small screens: sidebar collapses behind a menu button ---------- */
+
+@media (max-width: 700px) {
+  .admin-shell { display: block; }
+  .admin-sidebar { width: auto; position: relative; height: auto; flex: none; }
+  .admin-menu-btn {
+    display: block;
+    font: inherit;
+    font-size: 12px;
+    color: var(--obs-header-text);
+    background: transparent;
+    border: 1px solid var(--obs-header-border);
+    border-radius: 3px;
+    padding: 4px 10px;
+    margin: 10px 20px;
+    cursor: pointer;
+  }
+  .admin-sidebar:not([data-menu-open]) .admin-nav,
+  .admin-sidebar:not([data-menu-open]) .admin-side-foot { display: none; }
+  .admin-container { padding: 20px 16px 48px; }
+}

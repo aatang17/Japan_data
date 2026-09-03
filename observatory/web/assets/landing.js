@@ -1,201 +1,143 @@
-/* Landing page: the current state of each live product, pulled from the same
-   API the product pages use.
+/* Landing page: one live reading and an as-of per dataset, pulled from the
+   same API the product pages use.
 
-   The point of putting live figures on a front door is to prove the pipeline
-   is running, so these must never be stubs or last-known values baked into
-   the markup. If a product's API cannot be reached, its figures are removed
-   rather than faked — the product's description and links stay, and the page
-   is silent about numbers it does not have. */
+   The point of putting live figures on the front door is to prove the
+   pipeline is running, so these must never be stubs or last-known values
+   baked into the markup. If a dataset's API cannot be reached, its cells show
+   an em dash — missing, never faked and never zero. */
 "use strict";
 
-/* One figure in a product row. `note` names the measure's status where it
-   matters (as filed, calculated); the row's footer carries the as-of. */
-function landingStat(label, value, note) {
-  return '<div class="prod-stat">' +
-    '<div class="prod-stat-label">' + escapeHtml(label) + "</div>" +
-    '<div class="prod-stat-value">' + value + "</div>" +
-    (note ? '<div class="prod-stat-note">' + escapeHtml(note) + "</div>" : "") +
-    "</div>";
+function getJSON(url) {
+  return fetch(url).then(r => (r.ok ? r.json() : Promise.reject(new Error(url + " " + r.status))));
 }
 
-function dropStats(statsId, footId) {
-  const stats = document.getElementById(statsId);
-  const foot = document.getElementById(footId);
-  if (stats) stats.remove();
-  if (foot) foot.remove();
+/* value + quiet qualifier in the reading column; as-of in its own column */
+function setReading(id, value, note) {
+  document.getElementById(id).innerHTML =
+    escapeHtml(value) + (note ? ' <span class="reading-note">' + escapeHtml(note) + "</span>" : "");
 }
+
+function setAsOf(id, text, stale) {
+  document.getElementById(id).innerHTML =
+    escapeHtml(text) + (stale ? " · <b>behind schedule</b>" : "");
+}
+
+function rowFailed(rid, aid) {
+  document.getElementById(rid).textContent = MISSING;
+  document.getElementById(aid).textContent = MISSING;
+}
+
+function dayLong(iso) {   // "2026-08-27" -> "27 August 2026"
+  return Number(iso.slice(8, 10)) + " " + fmtPeriodLong(iso);
+}
+
+/* ---- macro ---- */
 
 function fillCpi() {
-  return fetch("/api/v1/cpi-jp/overview")
-    .then(r => (r.ok ? r.json() : Promise.reject(r.status)))
-    .then(d => {
-      const byKey = {};
-      d.tiles.forEach(t => { byKey[t.key] = t; });
-      const wanted = [
-        ["Headline · YoY", byKey.headline_yoy],
-        ["Core · YoY", byKey.core_yoy],
-        ["Headline · 3m annualized", byKey.headline_ann3m],
-      ].filter(pair => pair[1]);
-      if (!wanted.length) return dropStats("cpi-stats", "cpi-foot");
-
-      document.getElementById("cpi-stats").innerHTML = wanted.map(
-        pair => landingStat(pair[0], fmtRate(pair[1].value, 1))).join("");
-
-      // Rates are calculated here, so they carry their formula rather than a
-      // trust badge — the same rule the product pages follow.
-      document.getElementById("cpi-foot").innerHTML =
-        "Latest month " + escapeHtml(fmtPeriodLong(d.release.latest_period)) +
-        " · index levels are official statistics, rates calculated from them" +
-        ' (<a href="cpi.html">formula</a>)' +
-        (d.stale ? " · <b>this release is behind schedule</b>" : "");
-    })
-    .catch(() => dropStats("cpi-stats", "cpi-foot"));
+  return getJSON("/api/v1/cpi-jp/overview").then(d => {
+    const t = d.tiles.find(x => x.key === "headline_yoy");
+    setReading("r-cpi", fmtRate(t.value, 1), "headline YoY, calculated");
+    setAsOf("a-cpi", fmtPeriodLong(d.release.latest_period), d.stale);
+    setAsOf("a-explorer", fmtPeriodLong(d.release.latest_period), d.stale);
+  }).catch(() => { rowFailed("r-cpi", "a-cpi"); document.getElementById("a-explorer").textContent = MISSING; });
 }
 
 function fillBoj() {
-  return fetch("/api/v1/boj-assets/overview")
-    .then(r => (r.ok ? r.json() : Promise.reject(r.status)))
-    .then(d => {
-      const byKey = {};
-      d.tiles.forEach(t => { byKey[t.key] = t; });
-      const h = byKey.holdings, p = byKey.from_peak, f = byKey.pace_12m;
-      if (!h || !p || !f) return dropStats("boj-stats", "boj-foot");
-      // Published in ¥100mn; ¥tn (an exact ÷10,000) is the readable unit.
-      const tn = v => (v === null || v === undefined ? null : v / 10000);
-      document.getElementById("boj-stats").innerHTML = [
-        landingStat("JGB holdings", "¥" + fmtNum(tn(h.value), 1) + "tn", "as published"),
-        landingStat("From the peak", fmtSigned(p.pct, 1, "%"),
-          "vs " + fmtPeriodLong(p.peak_period) + ", calculated"),
-        landingStat("Net flow, 12m pace", fmtSigned(tn(f.value), 2) + " ¥tn/mo",
-          "negative is runoff, calculated"),
-      ].join("");
-      document.getElementById("boj-foot").innerHTML =
-        "Latest month " + escapeHtml(fmtPeriodLong(d.release.latest_period)) +
-        " · holdings and flows are official values, peak distance and pace calculated" +
-        ' (<a href="boj.html">formula</a>)' +
-        (d.stale ? " · <b>this release is behind schedule</b>" : "");
-    })
-    .catch(() => dropStats("boj-stats", "boj-foot"));
+  return getJSON("/api/v1/boj-assets/overview").then(d => {
+    const h = d.tiles.find(x => x.key === "holdings");
+    setReading("r-boj", "¥" + fmtNum(h.value / 10000, 1) + "tn", "JGB holdings, as published");
+    setAsOf("a-boj", fmtPeriodLong(d.release.latest_period), d.stale);
+  }).catch(() => rowFailed("r-boj", "a-boj"));
 }
 
 function fillRates() {
-  // A short recent window is enough for the card; the page loads the
-  // full history itself.
-  const now = new Date();
-  const from = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+  // a short recent window: two months back always contains a business day
+  const from = new Date();
+  from.setMonth(from.getMonth() - 2);
   const start = from.getFullYear() + "-" + String(from.getMonth() + 1).padStart(2, "0");
-  return fetch("/api/v1/jgb-yields/observations?series=10Y,2Y,30Y&measure=index&start=" + start)
-    .then(r => (r.ok ? r.json() : Promise.reject(r.status)))
+  return getJSON("/api/v1/jgb-yields/observations?series=10Y&measure=index&start=" + start)
     .then(d => {
-      const latest = {};
-      d.series.forEach(s => {
-        for (let i = s.points.length - 1; i >= 0; i--) {
-          if (s.points[i][1] !== null) { latest[s.code] = s.points[i][1]; break; }
-        }
-      });
-      if (latest["10Y"] === undefined || latest["2Y"] === undefined) {
-        return dropStats("rates-stats", "rates-foot");
+      const pts = d.series[0].points;
+      let v = null;
+      for (let i = pts.length - 1; i >= 0; i--) {
+        if (pts[i][1] !== null) { v = pts[i][1]; break; }
       }
-      document.getElementById("rates-stats").innerHTML = [
-        landingStat("10-year yield", fmtRate(latest["10Y"], 3), "as published"),
-        landingStat("2-year yield", fmtRate(latest["2Y"], 3), "as published"),
-        landingStat("2s10s spread",
-          fmtSigned(latest["10Y"] - latest["2Y"], 3, "pp"), "calculated"),
-      ].join("");
-      const day = d.release.latest_period;   // "2026-08-27" -> "27 August 2026"
-      const dayLong = Number(day.slice(8, 10)) + " " + fmtPeriodLong(day);
-      document.getElementById("rates-foot").innerHTML =
-        "Latest business day " + escapeHtml(dayLong) +
-        " · yields are official statistics, the spread calculated from them" +
-        ' (<a href="rates.html">formula</a>)';
-    })
-    .catch(() => dropStats("rates-stats", "rates-foot"));
+      if (v === null) throw new Error("no yield");
+      setReading("r-rates", fmtRate(v, 3), "10-year yield, as published");
+      setAsOf("a-rates", dayLong(d.release.latest_period), d.stale);
+    }).catch(() => rowFailed("r-rates", "a-rates"));
 }
 
-function fillEquity() {
-  return fetch("/api/v1/equity/summary")
-    .then(r => (r.ok ? r.json() : Promise.reject(r.status)))
-    .then(d => {
-      // Book values are filed in yen; trillions is the only readable unit at
-      // this scale, and the label carries it.
-      const tn = d.total_book_value_yen === null || d.total_book_value_yen === undefined
-        ? null : d.total_book_value_yen / 1e12;
-      document.getElementById("eq-stats").innerHTML = [
-        landingStat("Named policy holdings", "¥" + fmtNum(tn, 2) + "tn", "as filed"),
-        landingStat("Filers extracted", fmtNum(d.filers, 0), "of ~3,800 eventually"),
-        landingStat("Positions cut · added", fmtNum(d.positions_reduced, 0) +
-          " · " + fmtNum(d.positions_increased, 0), "year on year, calculated"),
-      ].join("");
-
-      const st = d.extraction_status || {};
-      const parts = Object.keys(st).sort().map(k => fmtNum(st[k], 0) + " " + k);
-      document.getElementById("eq-foot").innerHTML =
-        "From " + escapeHtml(fmtNum(d.named_holdings, 0)) +
-        " named holdings in annual securities reports" +
-        (parts.length ? " · extraction status " + escapeHtml(parts.join(", ")) : "") +
-        " · coverage grows as filings are extracted";
-    })
-    .catch(() => dropStats("eq-stats", "eq-foot"));
+function fillInbound() {
+  return getJSON("/api/v1/jnto-visitors/arrivals").then(d => {
+    const totals = d.values.total;
+    let last = -1;
+    for (let i = totals.length - 1; i >= 0; i--) {
+      if (totals[i] !== null && totals[i] !== undefined) { last = i; break; }
+    }
+    setReading("r-inbound", fmtNum(totals[last] / 1e6, 2) + "mn", "visitors in the month");
+    setAsOf("a-inbound", fmtPeriodLong(d.periods[last]), d.stale);
+  }).catch(() => rowFailed("r-inbound", "a-inbound"));
 }
 
-// Never render a raw status slug. One map per surface, Title-Case-free because
-// these read inside a sentence.
-const GOV_STATUS_LABELS = {
-  clean: "clean",
-  partial: "partial",
-  no_tagged_board: "no tagged board",
-  unsupported_form: "unsupported form",
-  failed: "failed",
-};
+function fillPop() {
+  return getJSON("/api/v1/population-jp/prefectures").then(d => {
+    const col = d.values[(d.national || "00") + ".all.population"];
+    const v = col[col.length - 1];
+    setReading("r-pop", fmtNum(v / 1e6, 2) + "mn", "registered residents");
+    setAsOf("a-pop", "1 January " + d.periods[d.periods.length - 1].slice(0, 4), d.stale);
+  }).catch(() => rowFailed("r-pop", "a-pop"));
+}
+
+/* ---- equities ---- */
+
+function fillHoldings() {
+  return getJSON("/api/v1/equity/summary").then(d => {
+    setReading("r-hold", "¥" + fmtNum(d.total_book_value_yen / 1e12, 2) + "tn",
+      "held at book, as filed");
+    setAsOf("a-hold", "FY to " + fmtPeriodLong(d.latest_period_end));
+  }).catch(() => rowFailed("r-hold", "a-hold"));
+}
+
+function fillOwnership() {
+  return getJSON("/api/v1/equity/ownership/summary").then(d => {
+    setReading("r-own", fmtNum(d.companies, 0), "companies covered");
+    setAsOf("a-own", "FY to " + fmtPeriodLong(d.latest_period_end));
+  }).catch(() => rowFailed("r-own", "a-own"));
+}
+
+function fillStakes() {
+  return getJSON("/api/v1/equity/stakes/summary").then(d => {
+    setReading("r-stk", fmtNum(d.filings, 0), "filings parsed");
+    setAsOf("a-stk", "filed to " + dayLong(d.latest_filed));
+  }).catch(() => rowFailed("r-stk", "a-stk"));
+}
 
 function fillGovernance() {
-  return fetch("/api/v1/equity/governance/summary?listed=true")
-    .then(r => (r.ok ? r.json() : Promise.reject(r.status)))
-    .then(d => {
-      document.getElementById("gov-stats").innerHTML = [
-        landingStat("Companies", fmtNum(d.companies, 0), "latest filing each"),
-        landingStat("Average director age", fmtNum(d.avg_director_age, 1) + " yrs",
-          fmtNum(d.directors_70_plus_pct, 1) + "% aged 70+, calculated"),
-        landingStat("Female officers", fmtRate(d.avg_female_officer_pct, 1),
-          fmtNum(d.boards_with_no_women, 0) + " boards with none"),
-      ].join("");
-
-      const st = d.extraction_status || {};
-      const parts = Object.keys(st).sort().map(
-        k => fmtNum(st[k], 0) + " " + (GOV_STATUS_LABELS[k] || k));
-      document.getElementById("gov-foot").innerHTML =
-        "From " + escapeHtml(fmtNum(d.board_seats, 0)) +
-        " board seats in annual securities reports" +
-        (parts.length ? " · extraction status " + escapeHtml(parts.join(", ")) : "") +
-        " · names, titles and pay as filed; ages and ratios calculated";
-    })
-    .catch(() => dropStats("gov-stats", "gov-foot"));
+  return getJSON("/api/v1/equity/governance/summary?listed=true").then(d => {
+    setReading("r-gov", fmtNum(d.companies, 0), "listed companies");
+    setAsOf("a-gov", "FY to " + fmtPeriodLong(d.latest_period_end));
+  }).catch(() => rowFailed("r-gov", "a-gov"));
 }
 
 function fillBuyback() {
-  return fetch("/api/v1/equity/buyback/summary")
-    .then(r => (r.ok ? r.json() : Promise.reject(r.status)))
-    .then(d => {
-      // Authorised and bought are different measures — shown side by side,
-      // never as one "buyback" number.
-      const closed = (d.lifecycle || []).find(x => x.lifecycle === "expired_unspent");
-      document.getElementById("bb-stats").innerHTML = [
-        landingStat("Authorised", "¥" + fmtNum(d.authorised_yen / 1e12, 2) + "tn",
-          fmtNum(d.authorisations, 0) + " authorisations, as filed"),
-        landingStat("Actually bought", "¥" + fmtNum(d.acquired_yen / 1e12, 2) + "tn",
-          "cumulative against those authorisations"),
-        landingStat("Shares retired", fmtNum(d.shares_retired / 1e9, 2) + "bn",
-          "¥" + fmtNum(d.retired_yen / 1e12, 2) + "tn cancelled outright"),
-      ].join("");
-      document.getElementById("bb-foot").innerHTML =
-        "From " + escapeHtml(fmtNum(d.filings, 0)) + " monthly buyback reports by " +
-        escapeHtml(fmtNum(d.companies, 0)) + " companies" +
-        (closed ? " · " + escapeHtml(fmtNum(closed.authorisations, 0)) +
-          " acquisition periods closed with the authorisation unspent" : "") +
-        " · figures as filed; completion calculated";
-    })
-    .catch(() => dropStats("bb-stats", "bb-foot"));
+  return getJSON("/api/v1/equity/buyback/summary").then(d => {
+    setReading("r-bb", "¥" + fmtNum(d.authorised_yen / 1e12, 2) + "tn",
+      "authorised, as filed");
+    setAsOf("a-bb", "filed to " + dayLong(d.last_submitted));
+  }).catch(() => rowFailed("r-bb", "a-bb"));
 }
+
+function fillFacilities() {
+  return getJSON("/api/v1/equity/facilities/summary").then(d => {
+    const s = d.summary || d;
+    setReading("r-fac", "¥" + fmtNum(s.land_book_yen / 1e12, 2) + "tn",
+      "land at book, as filed");
+    setAsOf("a-fac", "FY to " + fmtPeriodLong(s.last_period_end));
+  }).catch(() => rowFailed("r-fac", "a-fac"));
+}
+
+/* ---- MCP url copy ---- */
 
 function wireCopy(btnId, textId) {
   const btn = document.getElementById(btnId);
@@ -225,7 +167,12 @@ function wireCopy(btnId, textId) {
 fillCpi();
 fillBoj();
 fillRates();
-fillEquity();
+fillInbound();
+fillPop();
+fillHoldings();
+fillOwnership();
+fillStakes();
 fillGovernance();
 fillBuyback();
+fillFacilities();
 wireCopy("copy-url", "mcp-url");

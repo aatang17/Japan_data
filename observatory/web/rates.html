@@ -39,6 +39,7 @@
     as published by the Ministry of Finance — no fitting, no interpolation. Drag the slider
     to any business day back to September 1974, or press Play to watch the curve move.
     A maturity that was not yet quoted on a date is simply absent.</p>
+    <div class="chart-panel">
     <div class="controls">
       <div class="band-toggles" id="cmp-toggles" role="group" aria-label="Comparison curves">
         <span class="band-toggles-label">Compare</span>
@@ -61,6 +62,7 @@
     </div>
     <div class="chart" id="curve-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
     <p class="source-line" id="curve-source"></p>
+    </div>
   </section>
 
   <section aria-labelledby="h-history">
@@ -69,6 +71,7 @@
     policy dates marked. The 10-year constant-maturity series begins in July 1986 and the
     30-year in September 1999; short maturities have real gaps where the tenor was not
     quoted — gaps stay gaps.</p>
+    <div class="chart-panel">
     <div class="controls">
       <div class="seg" role="group" aria-label="History date range" id="hist-seg">
         <button type="button" data-range="5">5Y</button>
@@ -83,6 +86,7 @@
     <div class="chart" id="hist-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
     <p class="source-line" id="hist-source"></p>
     <details class="calc" id="hist-calc"></details>
+    </div>
   </section>
 
   <section aria-labelledby="h-maturities">

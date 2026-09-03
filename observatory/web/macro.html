@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Japan Macro — Overview · Japan Data Observatory</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+
+<header class="site-header" data-section="macro" data-page="overview"></header>
+<script src="assets/nav.js"></script>
+
+<main class="container">
+  <div id="stale-banner"></div>
+
+  <div class="page-head">
+    <h1>Japan Macro</h1>
+    <p class="page-sub">The section's live datasets on one screen — prices, the Bank of
+    Japan's balance sheet, the yield curve, visitor arrivals and population. Each panel
+    opens the full page; every figure carries its source and, where we calculated it,
+    its formula on that page.</p>
+  </div>
+
+  <div class="ov-grid">
+
+    <section class="ov-panel span-2" aria-labelledby="t-cpi" id="panel-cpi">
+      <div class="ov-head">
+        <a class="ov-title" id="t-cpi" href="cpi.html">Inflation — Consumer Price Index</a>
+        <span class="ov-asof" id="cpi-asof"></span>
+      </div>
+      <div class="ov-readings" id="cpi-readings">
+        <div class="skeleton" style="width:140px;height:58px"></div>
+        <div class="skeleton" style="width:140px;height:58px"></div>
+      </div>
+      <div class="ov-chart" id="cpi-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+      <div class="ov-foot">
+        <p class="source-line" id="cpi-source"></p>
+        <span class="ov-dls"><a class="ov-dl" href="#" id="cpi-png">Download PNG</a> <a class="ov-dl" href="#" id="cpi-csv">Download CSV</a></span>
+      </div>
+    </section>
+
+    <section class="ov-panel" aria-labelledby="t-boj" id="panel-boj">
+      <div class="ov-head">
+        <a class="ov-title" id="t-boj" href="boj.html">Bank of Japan — JGB Holdings</a>
+        <span class="ov-asof" id="boj-asof"></span>
+      </div>
+      <div class="ov-readings" id="boj-readings">
+        <div class="skeleton" style="width:140px;height:58px"></div>
+        <div class="skeleton" style="width:140px;height:58px"></div>
+      </div>
+      <div class="ov-chart" id="boj-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+      <div class="ov-foot">
+        <p class="source-line" id="boj-source"></p>
+        <span class="ov-dls"><a class="ov-dl" href="#" id="boj-png">Download PNG</a> <a class="ov-dl" href="#" id="boj-csv">Download CSV</a></span>
+      </div>
+    </section>
+
+    <section class="ov-panel" aria-labelledby="t-rates" id="panel-rates">
+      <div class="ov-head">
+        <a class="ov-title" id="t-rates" href="rates.html">Yield Curve — JGB Yields</a>
+        <span class="ov-asof" id="rates-asof"></span>
+      </div>
+      <div class="ov-readings" id="rates-readings">
+        <div class="skeleton" style="width:140px;height:58px"></div>
+        <div class="skeleton" style="width:140px;height:58px"></div>
+      </div>
+      <div class="ov-chart" id="rates-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+      <div class="ov-foot">
+        <p class="source-line" id="rates-source"></p>
+        <span class="ov-dls"><a class="ov-dl" href="#" id="rates-png">Download PNG</a> <a class="ov-dl" href="#" id="rates-csv">Download CSV</a></span>
+      </div>
+    </section>
+
+    <section class="ov-panel" aria-labelledby="t-inbound" id="panel-inbound">
+      <div class="ov-head">
+        <a class="ov-title" id="t-inbound" href="inbound.html">Inbound — Visitor Arrivals</a>
+        <span class="ov-asof" id="inbound-asof"></span>
+      </div>
+      <div class="ov-readings" id="inbound-readings">
+        <div class="skeleton" style="width:140px;height:58px"></div>
+        <div class="skeleton" style="width:140px;height:58px"></div>
+      </div>
+      <div class="ov-chart" id="inbound-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+      <div class="ov-foot">
+        <p class="source-line" id="inbound-source"></p>
+        <span class="ov-dls"><a class="ov-dl" href="#" id="inbound-png">Download PNG</a> <a class="ov-dl" href="#" id="inbound-csv">Download CSV</a></span>
+      </div>
+    </section>
+
+    <section class="ov-panel" aria-labelledby="t-pop" id="panel-pop">
+      <div class="ov-head">
+        <a class="ov-title" id="t-pop" href="population.html">Population</a>
+        <span class="ov-asof" id="pop-asof"></span>
+      </div>
+      <div class="ov-readings" id="pop-readings">
+        <div class="skeleton" style="width:140px;height:58px"></div>
+        <div class="skeleton" style="width:140px;height:58px"></div>
+      </div>
+      <div class="ov-chart" id="pop-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+      <div class="ov-foot">
+        <p class="source-line" id="pop-source"></p>
+        <span class="ov-dls"><a class="ov-dl" href="#" id="pop-png">Download PNG</a> <a class="ov-dl" href="#" id="pop-csv">Download CSV</a></span>
+      </div>
+    </section>
+
+  </div>
+
+  <p class="dir-foot" style="margin-top:16px">Also in this section:
+  <a href="explorer.html">Item Explorer</a> — every one of the 822 CPI series, searchable in
+  English and Japanese with full history and provenance.</p>
+
+</main>
+
+<footer class="site-footer">
+  <div class="inner">
+    Sources: Statistics Bureau of Japan via e-Stat · Bank of Japan · Ministry of Finance ·
+    Japan National Tourism Organization (JNTO) · Ministry of Internal Affairs and
+    Communications. Published values are official statistics; rates of change and spreads
+    are calculated on this platform.
+    <a href="methodology.html">Methodology</a>
+  </div>
+</footer>
+
+<script src="assets/echarts.min.js"></script>
+<script src="assets/format.js"></script>
+<script src="assets/charts.js"></script>
+<script src="assets/macro.js"></script>
+</body>
+</html>
