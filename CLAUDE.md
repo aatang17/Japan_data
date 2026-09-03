@@ -141,9 +141,12 @@ cd observatory
 
 - Built from `observatory/Dockerfile`; config pinned in `observatory/railway.json`
   (healthcheck `/api/v1/catalog/datasets`).
-- `start.sh` runs both ingests, then uvicorn. Ingest is fail-safe by design: an unreachable
-  source or failed validation publishes nothing and the last good release stays live — a
-  boot with no upstream still serves data. **Never make ingest failure fatal to boot.**
+- `start.sh` runs the seven macro ingests, then the equity refresh
+  (`observatory/equity/refresh_equity.py` — all seven EDINET-derived datasets, incremental
+  from the S3 archive), then uvicorn. Both are fail-safe by design: an unreachable source,
+  a failed validation or a failing extractor publishes nothing and the last good data stays
+  live — a boot with no upstream still serves data. **Never make ingest or extraction
+  failure fatal to boot.**
 - `data/` is a mounted volume in production — the DuckDB file and raw archive must survive
   redeploys. Never write anything that matters outside `data/`.
 
@@ -196,6 +199,16 @@ All UI rules live in the **`ui-ux-design` skill**. P0 rules repeated for visibil
 4. e-Stat CSVs are cp932-encoded; blank cells are missing, never zero.
 5. One DuckDB writer at a time: ingest runs before the API starts (see `start.sh`); never
    add a write path to the serving process.
+6. **Every dataset reports its own freshness.** A dataset absent from
+   `/api/v1/catalog/health` goes stale silently: the 5% filings stopped on 2026-08-06 and
+   nothing noticed for four weeks, because the health report only knew about the macro
+   adapters while every page still rendered a healthy-looking dashboard over month-old
+   data. A dataset is not done until its staleness shows up there.
+7. **A shipped seed never overwrites fresher data on the volume.** `data/equity.duckdb` is
+   topped up nightly inside the container; the image's `seed/equity.duckdb` is installed
+   only when its recorded watermark (`eq_extract_runs`) is *ahead* of the volume's. Copying
+   a seed over a live volume unconditionally is a P0 defect — it silently discards every
+   night of extraction since the image was built.
 
 ---
 
