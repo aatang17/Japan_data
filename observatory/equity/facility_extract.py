@@ -61,7 +61,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import duckdb
 
 from extract import (LocalSource, S3Source, load_codelist, compact, DB_PATH,
-                     ARCHIVE, incremental_window, record_run)
+                     ARCHIVE, incremental_window, record_run,
+                     seek_key)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 GAZETTEER = os.path.join(HERE, "gazetteer_municipalities.csv")
@@ -907,10 +908,12 @@ def main():
     codelist = load_codelist()
     listed = {d[u"ＥＤＩＮＥＴコード"] for d in codelist if d[u"上場区分"] == u"上場"}
 
-    filings = src.filings()
-    through = max((r["date"] for r in filings.values()), default=None)
+    # Window first, then discovery: knowing `since` lets the bucket listing
+    # seek to it instead of paging five years of keys.
     since, have = (incremental_window(args.db, "facilities", "eq_fac_filings")
                    if args.new_only else (None, set()))
+    filings = src.filings(seek_key(since))
+    through = max((r["date"] for r in filings.values()), default=None)
     pending = dict(filings) if since is None else {
         d: r for d, r in filings.items() if r["date"] >= since and d not in have}
     if since is not None:

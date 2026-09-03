@@ -66,7 +66,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import duckdb
 
 from extract import (LocalSource, S3Source, load_codelist, compact,
-                     DB_PATH, incremental_window, record_run)
+                     DB_PATH, incremental_window, record_run,
+                     seek_key)
 
 PARSER_VERSION = "board-m2-2"
 
@@ -409,10 +410,12 @@ def main():
     codelist = load_codelist()
     listed = {d["ＥＤＩＮＥＴコード"] for d in codelist if d["上場区分"] == "上場"}
 
-    filings = src.filings()
-    through = max((r["date"] for r in filings.values()), default=None)
+    # Window first, then discovery: knowing `since` lets the bucket listing
+    # seek to it instead of paging five years of keys.
     since, have = (incremental_window(args.db, "boards-and-pay", "eq_board")
                    if args.new_only else (None, set()))
+    filings = src.filings(seek_key(since))
+    through = max((r["date"] for r in filings.values()), default=None)
     pending = dict(filings) if since is None else {
         d: r for d, r in filings.items() if r["date"] >= since and d not in have}
     if since is not None:

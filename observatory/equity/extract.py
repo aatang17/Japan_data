@@ -515,16 +515,9 @@ def record_run(db_path, extractor, through_date, docs_seen, parser_version):
         con.close()
 
 
-def apply_window(targets, since, have, date_of, id_of=lambda t: t[0]):
-    """Drop targets older than `since` or already stored.
-
-    Kept separate from the window lookup so every extractor filters the same
-    way whatever shape its target tuples have.
-    """
-    if since is None:
-        return targets
-    return [t for t in targets
-            if date_of(t) >= since and id_of(t) not in have]
+def seek_key(since):
+    """The S3 StartAfter for an incremental window, or None for a full pass."""
+    return ("docs/%s" % since) if since else None
 
 
 class LocalSource(object):
@@ -532,7 +525,7 @@ class LocalSource(object):
 
     name = "local"
 
-    def filings(self):
+    def filings(self, start_after=None):
         out = {}
         for line in open(os.path.join(ARCHIVE, "manifest.jsonl"), encoding="utf-8"):
             r = json.loads(line)
@@ -587,14 +580,26 @@ class S3Source(object):
     # hour: comfortably longer than one refresh, far shorter than the gap
     # between two, so a night never reuses the previous night's listing).
     # Unset by default, so a laptop run is exactly as it was.
-    def _cache_path(self, prefix):
+    def _cache_path(self, prefix, start_after):
         root = os.environ.get("EDINET_LISTING_CACHE")
         if not root:
             return None
-        return os.path.join(root, "keys-%s.txt" % prefix.strip("/").replace("/", "-"))
+        name = prefix.strip("/").replace("/", "-")
+        if start_after:
+            name += "-from-" + start_after.strip("/").replace("/", "-")
+        return os.path.join(root, "keys-%s.txt" % name)
 
-    def _keys(self, prefix):
-        path = self._cache_path(prefix)
+    def _keys(self, prefix, start_after=None):
+        """Object keys under `prefix`, optionally starting after `start_after`.
+
+        Document keys are docs/YYYY-MM-DD/DOCID_tN.zip and S3 returns keys in
+        lexicographic order, so an incremental run can seek straight to its
+        window instead of paging the whole archive. That is the difference
+        between 182 round trips and two — 261 seconds and about one — for a
+        container in US West reading a bucket in Singapore, and the nightly
+        refresh happens with nothing serving, so it is outage time.
+        """
+        path = self._cache_path(prefix, start_after)
         ttl = int(os.environ.get("EDINET_LISTING_TTL", "3600"))
         if path and os.path.exists(path) and time.time() - os.path.getmtime(path) < ttl:
             with open(path, encoding="utf-8") as f:
@@ -605,6 +610,8 @@ class S3Source(object):
         token = None
         while True:
             kw = {"Bucket": self.bucket, "Prefix": prefix, "MaxKeys": 1000}
+            if start_after:
+                kw["StartAfter"] = start_after
             if token:
                 kw["ContinuationToken"] = token
             r = self.c.list_objects_v2(**kw)
@@ -624,11 +631,11 @@ class S3Source(object):
         for k in keys:
             yield k
 
-    def filings(self):
+    def filings(self, start_after=None):
         """doc_id -> {date} for every archived CSV package. Type filtering is
         done later against the daily list, which is the authority on doc type."""
         out = {}
-        for key in self._keys("docs/"):
+        for key in self._keys("docs/", start_after):
             parts = key.split("/")                     # docs/YYYY-MM-DD/DOCID_t5.zip
             if len(parts) != 3 or not parts[2].endswith("_t5.zip"):
                 continue
@@ -975,15 +982,15 @@ def main():
                  if d["上場区分"] == "上場"
                  and any(k in d["提出者業種"] for k in FIN_INDUSTRIES)}
 
-    filings = src.filings()
-    through = max((r["date"] for r in filings.values()), default=None)
-    # Discovery first, then the window, then metadata for only the days the
-    # window left standing: the daily lists are the expensive part of an
-    # incremental run and there is no point fetching five years of them to
-    # extract one day of filings.
+    # Window first, then discovery, then metadata for only the days the window
+    # leaves standing. Both the bucket listing and the daily lists are the
+    # expensive part of an incremental run, and neither is worth paying five
+    # years of to extract one day of filings.
     since, have = (incremental_window(db_path, "cross-shareholdings",
                                       "eq_company_year")
                    if args.new_only else (None, set()))
+    filings = src.filings(seek_key(since))
+    through = max((r["date"] for r in filings.values()), default=None)
     pending = dict(filings) if since is None else {
         d: r for d, r in filings.items() if r["date"] >= since and d not in have}
     if since is not None:

@@ -88,7 +88,8 @@ import duckdb
 
 from extract import (LocalSource, S3Source, load_codelist, build_index, pick,
                      norm, core_name, base_name, is_foreign, compact,
-                     DB_PATH, ARCHIVE, incremental_window, record_run)
+                     DB_PATH, ARCHIVE, incremental_window, record_run,
+                     seek_key)
 
 PARSER_VERSION = "lvh-1"
 
@@ -705,9 +706,9 @@ def local_t1_filings():
     return out
 
 
-def s3_t1_filings(src):
+def s3_t1_filings(src, start_after=None):
     out = {}
-    for key in src._keys("docs/"):
+    for key in src._keys("docs/", start_after):
         parts = key.split("/")                    # docs/YYYY-MM-DD/DOCID_t1.zip
         if len(parts) != 3 or not parts[2].endswith("_t1.zip"):
             continue
@@ -754,10 +755,12 @@ def main():
         if sec:
             by_sec.setdefault(sec, []).append(d)
 
-    filings = local_t1_filings() if src.name == "local" else s3_t1_filings(src)
-    through = max((r["date"] for r in filings.values()), default=None)
+    # Window first, so the bucket listing can seek to it.
     since, have = (incremental_window(args.db, "5pct-filings", "eq_lvh_filings")
                    if args.new_only else (None, set()))
+    filings = (local_t1_filings() if src.name == "local"
+               else s3_t1_filings(src, seek_key(since)))
+    through = max((r["date"] for r in filings.values()), default=None)
     pending = dict(filings) if since is None else {
         d: r for d, r in filings.items() if r["date"] >= since and d not in have}
     if since is not None:

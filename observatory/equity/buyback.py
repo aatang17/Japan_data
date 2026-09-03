@@ -42,7 +42,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import duckdb
 
-from extract import S3Source, incremental_window, record_run
+from extract import S3Source, incremental_window, record_run, seek_key
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 _ARCHIVE = os.environ.get(
@@ -338,7 +338,7 @@ def targets_from_s3(src, since, have):
     and only the surviving days' lists are read.
     """
     filings = {}
-    for key in src._keys("docs/"):
+    for key in src._keys("docs/", seek_key(since)):
         parts = key.split("/")                      # docs/YYYY-MM-DD/DOCID_t1.zip
         if len(parts) != 3 or not parts[2].endswith("_t1.zip"):
             continue
