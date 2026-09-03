@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AGM Votes · Japan Data Observatory</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/app.css">
+<style>
+/* page-local layout only — tokens and components come from app.css */
+.co-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 14px; margin: 18px 0 4px; }
+.co-head h1 { margin: 0; }
+.co-code { font-family: var(--obs-mono, monospace); color: var(--obs-text-muted); font-size: 15px; }
+.filing-meta { font-size: 12.5px; color: var(--obs-text-muted); margin: 2px 0 0; }
+.filing-meta .mono { font-family: var(--obs-mono, monospace); }
+
+.tbl-agm { width: 100%; border-collapse: collapse; min-width: 720px; }
+.tbl-agm.wide { min-width: 940px; }
+.tbl-agm th, .tbl-agm td { padding: 9px 12px; font-size: 13.5px; border-bottom: 1px solid var(--obs-grid); }
+.tbl-agm thead th { font-size: 12px; font-weight: 600; color: var(--obs-text-muted);
+  text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid var(--obs-border); }
+.tbl-agm .r, .tbl-agm th.r { text-align: right; font-variant-numeric: tabular-nums; }
+.tbl-agm tbody tr:hover td { background: var(--obs-surface-subtle); }
+.tbl-agm a { color: var(--obs-primary); text-decoration: none; }
+.tbl-agm a:hover { text-decoration: underline; }
+.tbl-agm .cell-item { max-width: 300px; text-wrap: pretty; }
+.tbl-agm .sub { display: block; font-size: 11px; color: var(--obs-text-muted); margin-top: 1px; }
+.tbl-agm .nowrap { white-space: nowrap; }
+/* the name of a person is the row's subject: it must not wrap mid-name */
+.tbl-agm .who { white-space: nowrap; font-weight: 600; }
+/* the approval figure is what the row is for — one column, one precision */
+.tbl-agm .pct { font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
+
+.badge-note { color: var(--obs-text-muted); border-color: var(--obs-border);
+  text-transform: none; letter-spacing: 0; font-weight: 500; }
+.badge-warn { color: var(--obs-warn); border-color: var(--obs-warn);
+  text-transform: none; letter-spacing: 0; font-weight: 500; }
+
+.sec-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline; }
+.sec-note { font-size: 12.5px; line-height: 1.6; color: var(--obs-text-muted);
+  margin: 0 0 8px; text-wrap: pretty; }
+.sec-note b { color: var(--obs-ink); font-weight: 600; }
+.tbl-formula { font-size: 12px; line-height: 1.55; color: var(--obs-text-muted);
+  margin: 10px 0 0; text-wrap: pretty; }
+.tbl-formula summary { cursor: pointer; }
+.tbl-formula[open] summary { color: var(--obs-primary); }
+.tbl-formula p { margin: 6px 0 0; }
+.tbl-formula code { font-family: var(--obs-mono, monospace); font-size: 11.5px; }
+
+#dist-chart { width: 100%; height: 340px; }
+
+.crumb { font-size: 12.5px; margin: 0 0 8px; }
+.meeting { border: 1px solid var(--obs-border); padding: 14px 16px; margin: 0 0 14px; }
+.meeting h3 { margin: 0 0 2px; font-size: 15px; }
+.meeting .mt-meta { font-size: 12.5px; color: var(--obs-text-muted); margin: 0 0 10px; }
+</style>
+</head>
+<body class="page-wide">
+
+<header class="site-header" data-section="equities" data-page="agm"></header>
+<script src="assets/nav.js"></script>
+
+<main class="container">
+
+  <!-- market view -->
+  <section id="market-view">
+    <div class="page-head">
+      <h1>AGM Votes</h1>
+      <p class="page-sub">How every resolution at a Japanese shareholder meeting was actually
+      voted — and, for board elections, how much support each named director received.
+      Companies must file this within days of the meeting. It is the only public record that
+      puts a number on a director's mandate, and the low end of that number is where the
+      disagreements are.</p>
+    </div>
+
+    <div class="explorer-controls">
+      <div class="search-rail">
+        <div class="search-field">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"
+               class="search-icon"><circle cx="7" cy="7" r="4.6"></circle><path d="M10.4 10.4 14 14"></path></svg>
+          <input type="search" id="q" placeholder="Company name in English or Japanese, or securities code. E.g. Sekisui, 積水, 4212"
+                 aria-label="Search issuers" autocomplete="off">
+        </div>
+      </div>
+    </div>
+    <div id="search-results"></div>
+
+    <div class="strip" id="stat-strip"></div>
+
+    <h2>Director Support, Distribution <span class="h2-note" id="dist-count"></span></h2>
+    <p class="sec-note">Every director election result we hold, by the approval percentage the
+      company filed. Almost all sit above 95% — which is what makes the left-hand tail worth
+      reading, not the bulk.</p>
+    <div id="dist-chart"></div>
+    <p class="sec-note" id="dist-source"></p>
+
+    <h2>Lowest Support <span class="h2-note" id="dir-count"></span></h2>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Vote type" id="kind-seg">
+        <button type="button" data-kind="election" aria-pressed="true">Elections</button>
+        <button type="button" data-kind="dismissal">Removal votes</button>
+      </div>
+      <div class="seg" role="group" aria-label="Threshold" id="dir-seg">
+        <button type="button" data-max="100" aria-pressed="true">All results</button>
+        <button type="button" data-max="90">Below 90%</button>
+        <button type="button" data-max="80">Below 80%</button>
+        <button type="button" data-max="70">Below 70%</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="dir-csv">Download CSV</button>
+    </div>
+    <p class="sec-note" id="dir-meta"></p>
+    <div class="table-wrap"><table class="tbl-agm wide" id="dir-table"></table></div>
+    <details class="tbl-formula" id="dir-formula"></details>
+
+    <h2>Contested Business <span class="h2-note" id="prop-count"></span></h2>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Proposal type" id="prop-seg">
+        <button type="button" data-cat="" data-sh="true" aria-pressed="true">Shareholder proposals</button>
+        <button type="button" data-cat="takeover_defence" data-sh="">Takeover defences</button>
+        <button type="button" data-cat="dismissal" data-sh="">Dismissals</button>
+        <button type="button" data-cat="compensation" data-sh="">Pay</button>
+        <button type="button" data-cat="articles_amendment" data-sh="">Articles</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="prop-csv">Download CSV</button>
+    </div>
+    <p class="sec-note" id="prop-meta"></p>
+    <div class="table-wrap"><table class="tbl-agm wide" id="prop-table"></table></div>
+
+    <h2>By Proposal Type <span class="h2-note" id="cat-count"></span></h2>
+    <p class="sec-note">Median approval is the middle filed percentage in each group. A type
+      with few resolutions has a median that moves on one result — the count is beside it.</p>
+    <div class="table-wrap"><table class="tbl-agm" id="cat-table"></table></div>
+  </section>
+
+  <!-- company view -->
+  <section id="company-view" hidden>
+    <p style="margin:16px 0 0"><a href="agm.html">← All meetings</a></p>
+    <div class="co-head"><h1 id="co-name"></h1><span class="co-code" id="co-code"></span></div>
+    <p class="filing-meta" id="co-meta"></p>
+    <div id="co-meetings"></div>
+  </section>
+
+  <footer class="page-foot">
+    <p>Source: 臨時報告書 (extraordinary reports) via EDINET, Financial Services Agency. Vote
+    counts are voting rights (個), one per trading unit — not shares, and not comparable with
+    the share counts on the 5% Filings or Register pages. Approval percentages are exactly as
+    each company filed them; they are not recomputed here, because issuers routinely stop
+    counting attending votes once the outcome is settled and do not publish the base they
+    used. Every raw file is archived with its SHA-256. Coverage begins in April 2024, when
+    these filings first became reachable — earlier ones had already left EDINET's public
+    inspection window.</p>
+  </footer>
+</main>
+
+<script src="assets/echarts.min.js"></script>
+<script src="assets/format.js"></script>
+<script src="assets/sortable.js"></script>
+<script src="assets/agm.js"></script>
+</body>
+</html>
