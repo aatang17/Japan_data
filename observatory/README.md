@@ -16,6 +16,24 @@ plus two monetary datasets:
 - **jgb-yields** — the JGB yield curve: Ministry of Finance daily constant-maturity yields,
   15 tenors (1–40Y), every business day since September 1974
 
+and one trade dataset:
+
+- **trade-semis** — Japan's semiconductor trade by partner country: monthly customs value
+  (¥1,000) and quantity for integrated circuits, discrete semiconductors, thermionic tubes,
+  the published component group, and semiconductor manufacturing equipment, in **both
+  directions**, from January 2001 (2,544 series, 225 partners). From the principal-commodity
+  by country tables (概況品別国別表) of the Ministry of Finance's Trade Statistics of Japan,
+  via the e-Stat API. **Needs `ESTAT_APP_ID`.** Three things to know before using it:
+  export and import commodity codes are separate vocabularies whose codes do not correspond
+  (`70311000` is semiconductors on the import side, audio equipment on the export side); a
+  published group always exceeds the sum of the items carried beneath it; and the Ministry
+  publishes months it has not yet compiled as `0`, which the adapter drops rather than
+  storing as fabricated zeros. Uniquely among the sources here the data is **natively
+  vintaged** — every month passes through 速報 → 確報 → 確々報 → 確定 — so the point-in-time
+  history is the source's own revision cycle rather than an artefact of when we fetched.
+  Year-blocks the Ministry has closed are cached on the data volume under its own
+  `UPDATED_DATE`, so a routine run re-downloads only the current year.
+
 and one demand dataset:
 
 - **jnto-visitors** — monthly foreign visitor arrivals to Japan by market (54 series: the
@@ -59,6 +77,7 @@ python3 -m venv .venv
 ./.venv/bin/python -m app.ingest jnto-visitors
 ./.venv/bin/python -m app.ingest population-jp
 ./.venv/bin/python -m app.ingest population-jp-history   # needs ESTAT_APP_ID
+./.venv/bin/python -m app.ingest trade-semis             # needs ESTAT_APP_ID
 
 # serve API + frontend on one port
 ./.venv/bin/uvicorn app.main:app --port 8007
@@ -75,18 +94,56 @@ live. Every downloaded file is archived under `data/raw/` with its SHA-256.
 
 ## Admin console
 
-`/admin.html` — internal operations, unlisted from the public nav. Three views: **Ingest
+`/admin.html` — internal operations, unlisted from the public nav. Five views: **Ingest
 Health** (per-dataset currency, quiet-ingest detection, artifact fingerprints), **Vintage
-Browser** (every stored release and exactly what it introduced, revised, or withdrew), and
-**Audit Log** (every sign-in and admin action).
+Browser** (every stored release and exactly what it introduced, revised, or withdrew),
+**Curation Queue** and **Party Profiles** (below), and **Audit Log** (every sign-in and
+admin action).
 
 - Enabled only when `ADMIN_PASSWORD` is set (environment or `.env`); without it every
   `/admin/api` endpoint answers 503 and the page says so. Sessions are HttpOnly cookies
   signed with a per-boot secret — a restart signs everyone out.
-- The admin surface is read-only against DuckDB (the one-writer rule holds). Its only write
-  anywhere is its own audit trail, an append-only JSONL at `data/admin/audit.jsonl`.
+- The admin surface is read-only against DuckDB (the one-writer rule holds). Everything it
+  writes is a file under `data/admin/`: the append-only audit trail `audit.jsonl`, and the
+  party registry `parties.json`.
 - Routes live under `/admin/api` (`app/admin_api.py`), outside `/api/v1`, so authenticated
   responses never touch the shared response cache.
+
+### Party profiles (`#parties`, `#queue`)
+
+Who each fund, company and person IS, curated by hand — see
+[`docs/plans/PLAN-PARTY-PROFILES.md`](../docs/plans/PLAN-PARTY-PROFILES.md). The store is
+`app/parties.py`; nothing here touches an `eq_*` table, so no vintage can be rewritten from
+the console.
+
+- **Its own identifier, not EDINET's.** BlackRock files under sixteen codes, 17,345 of
+  25,320 register rows carry no code at all, and no director has one — so a party has our
+  id, and the source keys (`edinet_code`, `name_key`, `sec_code`, `person_key`) hang off it
+  as aliases. One key belongs to one profile; a duplicate is refused, because it would
+  double-count a ranking.
+- **Two levels.** A group parent ("Nomura") plus its arms, each with its own `group_role`
+  (Asset management · Securities · Banking · Trust). An arm is never made to stand for the
+  group, and the roll-up is never the default arithmetic — Nomura Securities' 5% stake is a
+  trading book and Nomura Asset Management's is client money.
+- **Three type fields, not one list.** `party_class` (what it legally is) · `strategy`
+  (how it invests, zero or many) · `holder_role` (why it is on the register). The third is
+  what separates a 信託口 nominee from a beneficial owner — the two most frequent names on
+  the Japanese register are custodian trust accounts, not owners.
+- **Curated, never Official.** These are our judgement; no filing states a category such as
+  "hedge fund". `app/filer_labels.py` keeps deriving `filer_type` from the filing's own
+  事業内容 and the form shows it beside the curated class, flagged where the two differ.
+  Nothing reaches `/api/v1` in this milestone; every profile carries a `public` flag for
+  when something does.
+
+Seed the group structure once from the already-curated group map:
+
+```bash
+./.venv/bin/python -m app.parties_seed [--dry-run]   # 19 parents + 109 arms
+```
+
+**Back it up.** The live store is on the mounted volume; `Export To Repo` copies it to
+`curation/parties.json`, which seeds an *absent* store on boot and is meant to be committed.
+An unreadable live store is never silently replaced by the seed.
 
 ## Deploy
 
@@ -135,7 +192,7 @@ development `uvicorn app.main:app` therefore never ends itself, whatever the clo
 ### The nightly equity refresh
 
 The EDINET-derived datasets — 5% filings, cross-shareholdings, boards and pay, buybacks,
-facilities, rental property, shareholder registers — refresh in the same cycle, from the
+facilities, rental property, shareholder registers, financial statements — refresh in the same cycle, from the
 same S3 bucket the capture jobs write to:
 
 ```
@@ -262,6 +319,14 @@ GET /api/v1/cpi-jp/contributions?start=2023-01     # pp decomposition of headlin
 GET /api/v1/cpi-jp-items/breadth?threshold=2       # share of the 582 priced items rising/falling
 GET /api/v1/jgb-yields/curve                       # every date x every tenor, one payload
 GET /api/v1/jnto-visitors/arrivals                 # every market x every month, plus the hierarchy
+GET /api/v1/trade-semis/trade?flow=exp&commodity=70323050
+                                                   # one commodity x every partner x every month,
+                                                   #   plus world totals for all eleven commodity-flows.
+                                                   #   trade-semis series codes are flow.commodity.partner.measure:
+                                                   #     flow      exp | imp
+                                                   #     commodity the Ministry's 概況品 code, per direction
+                                                   #     partner   e-Stat area code (MoF country code + '50')
+                                                   #     measure   val (¥1,000) | qty (commodity's own unit)
 GET /api/v1/population-jp/observations?series=13.all.population,13.fgn.population
                                                    # population-jp series codes are geo.segment.measure:
                                                    #   geo     '00' Japan, '01'-'47' JIS prefecture code
@@ -421,6 +486,49 @@ a company view at `?c={sec_code}` with the board, the pay table, the individuals
 disclosed and a five-year record. The URL encodes the measure, the screen and the
 scope, so any view is citable.
 
+### Financials (`/api/v1/equity/financials/...`)
+
+Every tagged number in the annual securities report, kept long
+(`observatory/equity/fin_extract.py`, parser `fin-1`; extractor name `financials`
+in `eq_extract_runs`, so it reports its own freshness). Four tables:
+`eq_fin_filings` (one row per filing: status, accounting standard, the
+balance-sheet gate per basis, which statements the filing carries),
+`eq_fin_facts` (one row per element × context: every numeric fact in a plain
+year context, current and up to four prior years, consolidated and parent),
+`eq_fin_lines` (the filing's own presentation order for the five-year summary
+and each primary statement, from the t1 package's presentation linkbase) and
+`eq_fin_elements` (the element dictionary with the filer's Japanese label and,
+where the filing carries one, its English label). Statements and the
+key-indicator panel are both views over those tables; adding a note or a
+dimensional breakdown later is a filter change in the extractor, not a schema
+change.
+
+| Endpoint | What it returns |
+| --- | --- |
+| `/financials/company/{sec_code}` | the key-indicator panel across fiscal years — each year from the latest filing covering it, the element behind every field, the summary lines as filed; `?basis=`, `?as_filed_in=YYYY` for one filing's five years as first published |
+| `/financials/statements/{sec_code}?statement=bs\|pl\|ci\|cf\|ss\|summary` | one statement of one filing, every line in the filer's order with Japanese and English labels, current and prior values; `?basis=`, `?year=` |
+| `/financials/facts/{sec_code}?element=` | one element's every filed value across filings and restated years |
+| `/financials/elements?q=` | the element dictionary |
+| `/financials/screen?metric=` | ranked cross-section, one filing per company; `/screen/metrics` lists them |
+| `/financials/summary`, `/financials/companies?q=` | coverage; search scoped to this dataset |
+
+Nothing is recomputed: ratios are the filer's own (`*_pct` = filed fraction ×
+100), and the only derived figures are a statement's change columns, computed
+on the page. Methodology is on the site's Methodology page under *Financial
+statements and key indicators*.
+
+The page is `web/financials.html` (**Equities → Financials**): a market view —
+coverage strip and a ranking on any key indicator — and a company view at
+`?c={sec_code}` with the record chart, the five-year table and each statement
+under tabs. The URL encodes basis, statement, filing year and chart. MCP tools:
+`get_financials`, `get_financial_statement`, `get_financials_screen`.
+
+Running it locally reads the laptop archive; `--sec-codes 7203,8306` narrows a
+run, `--all --source s3 --new-only` is what the nightly refresh does. The first
+production run has no watermark and therefore reads the whole bucket — every
+annual report since 2021 — which is hours, not minutes; run it once by hand
+before relying on the nightly window.
+
 ### Buybacks (`/api/v1/equity/buyback/...`)
 
 The fourth surface, and the only one not built from annual reports: EDINET type
@@ -566,6 +674,58 @@ tape with filters for important proposals, new 5% holders and moves of a point
 or more, plus the most active filers — and a company view at `?c={sec_code}`
 with each disclosed group, its members and its stated purpose as filed, and a
 holder view at `?h={edinet_code}`.
+
+### AGM votes (`/api/v1/equity/agm/...`)
+
+How every resolution at a Japanese shareholder meeting was voted, and — for
+board elections — how much support each named director received
+(`observatory/equity/agm_extract.py`, parser `agm-1`; see
+`docs/METHODOLOGY-AGM-VOTES.md`). **9,690 meetings, 32,204 resolutions and
+62,021 individual director results.** It is the only free, public, structured
+measure of a named director's mandate in Japan.
+
+| Endpoint | What it answers |
+| --- | --- |
+| `/agm/summary` | coverage, the distribution of director support, and medians by proposal type |
+| `/agm/directors?order=lowest` | named directors ranked by the support they received — the point of the dataset |
+| `/agm/proposals?category=` | resolutions by kind; `?shareholder=true` for shareholder proposals |
+| `/agm/company/{sec_code}` | one issuer's meetings, each resolution and each candidate underneath it |
+
+Three things the responses carry because a reader will otherwise get them
+wrong. **The percentage is the company's and cannot be rebuilt from the counts
+beside it**: 95% of these filings disclose that the issuer stopped counting
+attending votes once the outcome was settled, so the denominator behind 賛成割合
+is never published. It is stored and shown exactly as filed; our own arithmetic
+is served separately as `approval_pct_of_counted` and never sits in the same
+column. **A board election has no proposal-level vote** — one result per
+candidate and no total — so those vote columns are null by structure, not
+missing. **Counts are voting rights (個), not shares**, and are not comparable
+with the share counts anywhere else in the product.
+
+Rankings show only rows whose filed percentage the platform can reproduce from
+the counts printed beside it (`pct_consistent`). That check exists because it
+caught a real bug: a minority of filers publish a trailing `(参考) 反対率`
+column, and reading it as the approval rate turned Omron's 99.1% into 0.1% and
+put it top of "lowest support". Failing rows are kept and returned by
+`include_unverified=true`, flagged — never deleted.
+
+Unlike every other extractor here there is almost nothing to read from the
+XBRL: type 180 is 98% "XBRL" by EDINET's flag, but the tagged facts are
+cover-page boilerplate plus one free-text block. The substance is an HTML table
+in the t1 honbun, parsed with the grid machinery from `facility_extract.py`.
+That document type is also a grab-bag — mergers, subsidiary changes, officer
+changes — so only about 42% of type-180 filings produce rows, and the rest are
+recorded as examined-and-not-a-meeting so the count reconciles with the archive.
+
+**Coverage begins in April 2024 and nothing earlier can be recovered.** 臨時報告書
+leave EDINET's public inspection window far sooner than annual reports do; the
+earliest one still carrying metadata is 2024-04-01, against 2021-08 for annual
+reports and 5% filings. History accumulates forward from here.
+
+The page is `web/agm.html` (**Equities → AGM Votes**): the distribution of
+director support, a lowest-support league table with thresholds, contested
+business (shareholder proposals, takeover defences, dismissals, pay), medians
+by proposal type, and a company view at `?company={sec_code}`.
 
 Companies in that dataset are named in Japanese in the filings, but every
 annual report states the filer's own English name on its cover page, so both

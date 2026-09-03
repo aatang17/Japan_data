@@ -16,6 +16,10 @@ var ADMIN_NAV = [
     { id: "health", label: "Ingest Health", hash: "#health" },
     { id: "vintages", label: "Vintage Browser", hash: "#vintages" },
   ]},
+  { group: "Curation", pages: [
+    { id: "queue", label: "Curation Queue", hash: "#queue" },
+    { id: "parties", label: "Party Profiles", hash: "#parties" },
+  ]},
   { group: "System", pages: [
     { id: "audit", label: "Audit Log", hash: "#audit" },
   ]},
@@ -28,6 +32,10 @@ var RELEASE_STATUS = {
   rejected: { label: "Rejected", cls: "badge-danger" },
 };
 var AUDIT_ACTIONS = {
+  party_created: { label: "Profile Created", cls: "badge-info" },
+  party_updated: { label: "Profile Edited", cls: "badge-info" },
+  party_deleted: { label: "Profile Deleted", cls: "badge-warn" },
+  party_exported: { label: "Curation Exported", cls: "badge-neutral" },
   login: { label: "Signed In", cls: "badge-ok" },
   logout: { label: "Signed Out", cls: "badge-neutral" },
   login_failed: { label: "Failed Login", cls: "badge-danger" },
@@ -187,8 +195,11 @@ function renderShell() {
 
 function route() {
   var hash = location.hash || "#health";
-  var view = hash.slice(1).split("/")[0] || "health";
-  var arg = hash.slice(1).split("/")[1] || null;
+  var parts = hash.slice(1).split("/");
+  var view = parts[0] || "health";
+  var arg = parts[1] || null;
+  /* #parties/new/<edinet-code> carries the filer to prefill from. */
+  var arg2 = parts[2] || null;
   var links = document.querySelectorAll(".admin-nav-item");
   for (var i = 0; i < links.length; i++) {
     if (links[i].getAttribute("data-view") === view) links[i].setAttribute("aria-current", "page");
@@ -200,7 +211,11 @@ function route() {
   if (!target) return;
   if (view === "vintages") viewVintages(target, arg);
   else if (view === "audit") viewAudit(target);
-  else viewHealth(target);
+  else if (view === "queue") viewQueue(target);
+  else if (view === "parties") {
+    if (arg) viewPartyDetail(target, arg, arg2);
+    else viewParties(target);
+  } else viewHealth(target);
 }
 
 /* ---------- ingest health ---------- */
