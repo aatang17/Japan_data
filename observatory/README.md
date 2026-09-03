@@ -73,6 +73,21 @@ Re-run the ingest command any time; it is idempotent. A file identical to the la
 one is skipped; a file that fails validation publishes nothing and leaves the previous release
 live. Every downloaded file is archived under `data/raw/` with its SHA-256.
 
+## Admin console
+
+`/admin.html` — internal operations, unlisted from the public nav. Three views: **Ingest
+Health** (per-dataset currency, quiet-ingest detection, artifact fingerprints), **Vintage
+Browser** (every stored release and exactly what it introduced, revised, or withdrew), and
+**Audit Log** (every sign-in and admin action).
+
+- Enabled only when `ADMIN_PASSWORD` is set (environment or `.env`); without it every
+  `/admin/api` endpoint answers 503 and the page says so. Sessions are HttpOnly cookies
+  signed with a per-boot secret — a restart signs everyone out.
+- The admin surface is read-only against DuckDB (the one-writer rule holds). Its only write
+  anywhere is its own audit trail, an append-only JSONL at `data/admin/audit.jsonl`.
+- Routes live under `/admin/api` (`app/admin_api.py`), outside `/api/v1`, so authenticated
+  responses never touch the shared response cache.
+
 ## Deploy
 
 `Dockerfile` + `start.sh` build a container that ingests both datasets and then serves them.
@@ -88,12 +103,57 @@ Ingest runs before uvicorn binds, because DuckDB takes a single writer and the A
 read-only connections. A cold boot on network-backed storage therefore takes ~4–5 minutes,
 and a redeploy is a short outage. Refreshing data means restarting the service.
 
-**Daily refresh (needed for jgb-yields, which publishes every business day):** add Railway's
-cron template ([railway-cron](https://github.com/brody192/railway-cron)) as a second service
-in the project, pointed at the web service with action `restart` and schedule `0 9 * * 1-5`
-(18:00 JST, after the Ministry of Finance updates the day's file). The restart re-runs
-`start.sh`, so all ingests refresh; monthly sources are simply skipped as unchanged. Nothing
-about the web service itself changes — ingest stays boot-time-only, one DuckDB writer.
+**Daily refresh.** `start.sh` is a supervisor, not a one-shot: it ingests, serves, and when
+the server ends, ingests again. `app/refresh.py` ends the server once a day — 09:00 UTC by
+default, which is 18:00 in Tokyo, after the Ministry of Finance posts the day's yield curve.
+So the container refreshes itself and the platform's restart policy is never load-bearing;
+the container itself never exits.
+
+This replaces the second Railway cron service this file used to recommend. That service was
+never created, and between 1 and 3 September 2026 the site quietly served three-day-old
+yields because nothing restarted it. A loop in the repo cannot be forgotten and needs no API
+token.
+
+Refreshing still means a short outage — the ingests run with nothing serving, which on the
+network-mounted volume takes about four minutes. The next step, if that becomes a problem,
+is for ingest to build a new DuckDB file beside the live one and rename it into place:
+`db.read_cursor()` already reopens when the file changes underneath it.
+
+| Variable | Default | What it does |
+| --- | --- | --- |
+| `REFRESH_AT` | `09:00` | Daily refresh time, **UTC**. Japan has no daylight saving, so this is 18:00 JST all year. |
+| `REFRESH_ENABLED` | `1` | Kill switch for both the refresh and the health watch. |
+| `REFRESH_MAX_AGE_HOURS` | `26` | How old the ingest stamp may get before the refresh counts as broken. |
+| `ALERT_WEBHOOK_URL` | unset | Slack-shaped webhook; the server posts to it when something needs attention. |
+
+`REFRESH_SUPERVISED` is set by `start.sh` alone and is what arms the daily shutdown. A
+development `uvicorn app.main:app` therefore never ends itself, whatever the clock says.
+
+### Knowing when it stops
+
+The per-dataset staleness limits run from 7 days to 950, so a refresh that stops is invisible
+inside them for days. The machinery gets its own signal: `start.sh` stamps
+`data/ingest_heartbeat.json` at the end of every cycle, and the health report says how long
+ago that was.
+
+```bash
+curl https://web-production-c9178.up.railway.app/api/v1/catalog/health           # always 200
+curl https://web-production-c9178.up.railway.app/api/v1/catalog/health?strict=1  # 503 when unwell
+```
+
+Point an uptime monitor at the `strict=1` URL every five minutes and one check covers both
+failure modes: stale data or a stopped refresh answers 503, and a service that is down
+answers nothing at all. **Do not point Railway's own healthcheck at it** — it would refuse a
+deploy over a late source file; that stays on `/api/v1/catalog/datasets`.
+
+The report is deliberately excluded from the response cache (`cache.py`, `NEVER_CACHE`).
+Cached, it froze the boot-time answer for the life of the process, so the one endpoint meant
+to reveal staleness was the one that could never go stale.
+
+The server also watches itself every 15 minutes, logs `ATTENTION` lines a log rule can key
+on, and posts to `ALERT_WEBHOOK_URL` if one is set, at most once every six hours per distinct
+fault. That covers detail; it cannot cover the service being down, which is what the external
+monitor is for.
 
 ## Layout
 
@@ -111,15 +171,19 @@ app/
                      path for the ask agent and the MCP endpoint
   agent.py           ask (LLM Q&A) loop; off unless ASK_ENABLED is set
   mcp.py             remote MCP server (POST /mcp) for external AI clients
+  refresh.py         daily self-restart (under start.sh only) + the health watch
+  heartbeat.py       when the ingest cycle last ran — the stopped-refresh signal
   main.py            FastAPI app: API + static frontend
 web/
   assets/tokens.css  design tokens (single source of truth for colour, incl. dark mode)
   assets/format.js   centralised number/date/trust-label formatters
   assets/charts.js   house chart chrome for ECharts (vendored, self-hosted)
   assets/nav.js      the site header, rendered from one list of sections/pages
-  index.html         Landing: what is live, what is planned (+ assets/landing.js)
-  cpi.html           Macro / CPI Overview  (+ assets/overview.js)
+  index.html         Landing: live directory of every dataset (+ assets/landing.js)
+  macro.html         Macro / Overview — all five datasets on one screen (+ assets/macro.js)
+  cpi.html           Macro / Inflation (CPI)  (+ assets/overview.js)
   explorer.html      Macro / Item Explorer (+ assets/explorer.js)
+  equities.html      Equities / Overview — live summary per dataset (+ assets/equities.js)
   holdings.html      Equities / Cross-Shareholdings (+ assets/holdings.js)
   ownership.html     Equities / Register           (+ assets/ownership.js)
   stakes.html        Equities / 5% Filings         (+ assets/stakes.js)

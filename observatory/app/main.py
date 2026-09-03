@@ -2,6 +2,7 @@
 
 Run:  ./.venv/bin/uvicorn app.main:app --port 8007
 """
+import asyncio
 import contextlib
 import pathlib
 
@@ -15,6 +16,7 @@ from . import cache, db, env
 env.load()
 
 from . import api  # noqa: E402 — must follow env.load()
+from .admin_api import router as admin_router  # noqa: E402
 from .api import router  # noqa: E402
 from .buyback_api import router as buyback_router  # noqa: E402
 from .equity_api import router as equity_router  # noqa: E402
@@ -22,6 +24,7 @@ from .facility_api import router as facility_router  # noqa: E402
 from .governance_api import router as governance_router  # noqa: E402
 from .lvh_api import router as lvh_router  # noqa: E402
 from .ownership_api import router as ownership_router  # noqa: E402
+from . import refresh  # noqa: E402
 from .mcp import router as mcp_router  # noqa: E402
 
 WEB_DIR = pathlib.Path(__file__).resolve().parent.parent / "web"
@@ -49,7 +52,16 @@ async def lifespan(app):
     # Prime the cache before the port takes traffic, so no real visitor pays
     # the cost of building the large payloads from cold.
     await cache.warm(app, api.warm_paths())
-    yield
+    # Watches ingest health for as long as we serve, and — only under
+    # start.sh, which sets REFRESH_SUPERVISED — ends the process once a day so
+    # the supervisor can re-run the ingests. See refresh.py.
+    task = asyncio.ensure_future(refresh.run())
+    try:
+        yield
+    finally:
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
 
 
 app = FastAPI(title="Observatory", docs_url="/api/docs", openapi_url="/api/openapi.json",
@@ -75,4 +87,7 @@ app.include_router(router)
 # /mcp sits outside /api/v1 on purpose: the response cache only touches GETs
 # under that prefix, so JSON-RPC POSTs can never be served stale.
 app.include_router(mcp_router)
+# /admin/api also sits outside /api/v1: authenticated responses must never be
+# served from (or into) the shared response cache.
+app.include_router(admin_router)
 app.mount("/", RevalidatedStatic(directory=str(WEB_DIR), html=True), name="web")

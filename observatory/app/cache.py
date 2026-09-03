@@ -40,6 +40,18 @@ MAX_BODY_BYTES = 32 * 1024 * 1024
 MAX_AGE = 60
 STALE_WHILE_REVALIDATE = 600
 
+# Paths that must never be cached, however cacheable they look.
+#
+# Entries are invalidated by the database file changing, which in production
+# happens only at boot. That is right for data — a release is immutable — and
+# exactly wrong for the health report, whose whole job is to answer "how old
+# is this now?". Cached, it froze the boot-time answer for the life of the
+# process: `checked_at`, the day counts and every `stale` flag stopped moving,
+# so a dataset that went stale at midnight went on reporting `ok` until the
+# next deploy. The endpoint meant to reveal staleness was the one thing that
+# could not go stale.
+NEVER_CACHE = ("/api/v1/catalog/health",)
+
 
 async def warm(app, paths):
     """Fill the cache by driving `app` directly, before it serves anyone.
@@ -104,7 +116,8 @@ class ResponseCache(object):
         # HEAD is deliberately not cached: it shares a URL with GET but carries
         # no body, and one key must not hold both.
         if (scope["type"] != "http" or scope.get("method") != "GET"
-                or not scope["path"].startswith(self.prefix)):
+                or not scope["path"].startswith(self.prefix)
+                or scope["path"] in NEVER_CACHE):
             await self.app(scope, receive, send)
             return
 

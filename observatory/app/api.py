@@ -17,9 +17,10 @@ import time
 from typing import List
 
 from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from . import db, vintages
+from . import db, heartbeat, vintages
 from .adapters import (boj_assets, cpi_jp, cpi_jp_items, jnto_visitors,
                        juki_population, mof_jgb, ssds_population)
 
@@ -270,7 +271,6 @@ def catalog():
         con.close()
 
 
-@router.get("/catalog/health")
 def health():
     """Whether each dataset is current, and whether an ingest went quiet.
 
@@ -322,12 +322,41 @@ def health():
                 "last_fetch_at": newest_fetch.isoformat() + "Z" if newest_fetch else None,
                 "vintages": vintage_count,
             })
-        return {"checked_at": today.isoformat(),
-                "status": "attention" if any(d["status"] == "attention" for d in out) else "ok",
-                "datasets": out}
+        # The machinery's own signal, independent of any dataset's threshold:
+        # a refresh that has stopped running is a fault even while every
+        # series is still comfortably inside its staleness allowance.
+        machine = heartbeat.status()
+        attention = (any(d["status"] == "attention" for d in out)
+                     or bool(machine["refresh_overdue"]))
+        report = {"checked_at": datetime.datetime.now(datetime.timezone.utc)
+                                .replace(microsecond=0).isoformat()
+                                .replace("+00:00", "Z"),
+                  "status": "attention" if attention else "ok",
+                  "datasets": out}
+        report.update(machine)
+        return report
     finally:
         con.close()
 
+
+@router.get("/catalog/health")
+def health_endpoint(strict: int = Query(
+        0, description="Return 503 instead of 200 when anything needs attention, "
+                       "so an uptime monitor can alert on data going stale or the "
+                       "refresh stopping. Never point a platform healthcheck at "
+                       "this: it would refuse a deploy over a late source file.")):
+    """Ingest health. Deliberately outside the response cache — see cache.py.
+
+    Two shapes, one report. Default: always 200, for the admin console and for
+    anyone reading it. `?strict=1`: 503 when the report says attention, which
+    is the only form a plain uptime check can act on. The same URL then covers
+    both failure modes — stale data answers 503, and a service that is down
+    answers nothing at all.
+    """
+    report = health()
+    if strict and report["status"] != "ok":
+        return JSONResponse(report, status_code=503)
+    return report
 
 # --- natural-language questions -------------------------------------------
 #
