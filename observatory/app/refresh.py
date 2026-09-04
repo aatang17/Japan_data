@@ -131,6 +131,11 @@ def problems(report):
                                  "the daily refresh has stopped"
                       % (report.get("hours_since_ingest"),
                          report.get("refresh_max_age_hours"))))
+    for bad in (report.get("manifests") or {}).get("errors", []):
+        name = bad.get("id") or bad.get("module")
+        found.append(("manifest:" + str(name),
+                      "%s manifest quarantined: %s"
+                      % (name, "; ".join(bad.get("errors", [])))))
     for row in report.get("datasets", []):
         slug = row.get("dataset")
         if not row.get("published"):

@@ -127,8 +127,8 @@ release-in-force semantics. Immutability guardrail untouched: this is a read fil
 ### 2.9 Milestones
 | M | Deliverable | Risk to live site |
 | --- | --- | --- |
-| M1 | Manifests for all 13 live datasets, `registry.py`, `/catalog/manifests`, validation tests | none — additive endpoints only |
-| M2 | `tools_v2.py`, resources, `MCP_TOOLSET` flag (default `v1`), parity tests, generated instructions; fix the `lvh_api` 404-formatting bug found in mockup work | none until the flag flips |
+| M1 | ✅ **Built 2026-09-04** (16 datasets) — see [PLAN-API-MCP-V2-M1.md](PLAN-API-MCP-V2-M1.md) | none — additive endpoints only |
+| M2 | ✅ **Built 2026-09-04** — `tools_v2.py` (six tools, envelope, row budgets), `resources/*`, `MCP_TOOLSET` (default **`both`**, not `v1`: no known external users, and the transition window is free while both surfaces coexist), instructions generated from the registry, `lvh_api` 404 `%` bug fixed, 19 tests incl. the per-dataset × capability contract and v1 parity. `get_company` without a dataset already composes across datasets (facts + coverage) — the HTTP composed endpoint stays M3. | none — v1 tools untouched |
 | M3 | `company_api.py` composed endpoint + coverage; equity `as_of` ceilings | none — new endpoint; readers gain an optional arg |
 | M4 | `auth.py`: keys, tiers, limits, usage; admin keys tab; OpenAPI descriptions from manifests | middleware touches every request — see §4 |
 | M5 | Flip `MCP_TOOLSET` default to `v2`; retire v1 tools after the transition window | existing connector users see new tool names |

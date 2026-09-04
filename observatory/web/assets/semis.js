@@ -33,7 +33,9 @@ let TR = null;              // the /trade payload for the current slice
 let PERIODS = [], PIDX = {}, LAST = 0;
 let PARTNER = {};           // code -> partner record
 const CACHE = {};           // "flow|commodity" -> payload
-let partnerChart = null, mixChart = null, commodityChart = null;
+let partnerChart = null, mixChart = null, commodityChart = null, chainChart = null;
+let HS = null;                // /api/v1/trade-inputs/trade payload (wafers), exports
+let SEMI_EXP = {};            // trade-semis export payloads by commodity, for the chain
 
 /* One colour per partner for the whole page. Slot 1 is the platform's navy
    and always means the aggregate — the world total on the partner chart, the
@@ -180,6 +182,9 @@ function urlState() {
     mrange: p.get("mrange") || "10",
     crange: p.get("crange") || "10",
     rows: p.get("rows") === "all" ? "all" : "countries",
+    dest: p.get("dest") || "50106",
+    cview: p.get("cview") === "level" ? "level" : "index",
+    chrange: p.get("chrange") || "10",
     sort: p.get("sort") || "",
     dir: p.get("dir") === "asc" ? "asc" : "desc",
   };
@@ -196,6 +201,9 @@ function setUrlState(next) {
   if (s.mrange !== "10") p.set("mrange", s.mrange);
   if (s.crange !== "10") p.set("crange", s.crange);
   if (s.rows !== "countries") p.set("rows", s.rows);
+  if (s.dest !== "50106") p.set("dest", s.dest);
+  if (s.cview !== "index") p.set("cview", s.cview);
+  if (s.chrange !== "10") p.set("chrange", s.chrange);
   if (s.sort) p.set("sort", s.sort);
   if (s.dir !== "desc") p.set("dir", s.dir);
   const qs = p.toString();
@@ -289,7 +297,7 @@ function renderProvenance() {
         '<div class="prov-field">' +
           '<div class="prov-label">Release</div>' +
           '<div class="prov-value">' + escapeHtml(rel.label) + "</div>" +
-          '<div class="prov-sub">A new vintage is stored whenever the Ministry ' +
+          '<div class="prov-sub">A new release is stored whenever the Ministry ' +
             "republishes any year of the table</div>" +
         "</div>" +
         '<div class="prov-field">' +
@@ -605,6 +613,92 @@ function renderCommodityChart() {
     csvHeader("Semiconductor commodities, world totals", formulas)));
 }
 
+/* ---- the supply chain by destination ---- */
+
+const CHAIN_STEPS = [
+  { key: "wafers", name: "Silicon wafers", src: "hs", commodity: "381800100", slot: 3 },
+  { key: "ics", name: "Integrated circuits", src: "semis", commodity: "70323050", slot: 2 },
+  { key: "equipment", name: "Chipmaking equipment", src: "semis", commodity: "70131000", slot: 1 },
+];
+const DEST_NAMES = { "50106": "Taiwan", "50103": "Korea", "50105": "China", "50304": "United States", world: "World" };
+
+/* trailing-twelve-month totals per month for one step and one destination,
+   as {iso: value} — from the wafer payload or a trade-semis export payload */
+function chainSeries(step, dest) {
+  const payload = step.src === "hs" ? HS : SEMI_EXP[step.commodity];
+  if (!payload) return null;
+  const periods = payload.periods;
+  const col = dest === "world" ? payload.world["exp." + step.commodity] : payload.values[dest];
+  if (!col) return null;
+  const out = {};
+  for (let i = 11; i < periods.length; i++) {
+    let total = 0, any = false;
+    for (let k = i - 11; k <= i; k++) { const v = col[k]; if (v !== null && v !== undefined) { total += v; any = true; } }
+    out[periods[i]] = any ? total : null;
+  }
+  return out;
+}
+
+function renderChain() {
+  const st = urlState();
+  const el = document.getElementById("chain-chart");
+  const ready = HS && CHAIN_STEPS.every(s => s.src === "hs" || SEMI_EXP[s.commodity]);
+  if (!ready) return;
+  const dest = st.dest;
+  const series = [];
+  const all = CHAIN_STEPS.map(s => ({ step: s, ttm: chainSeries(s, dest) })).filter(x => x.ttm);
+  const months = Object.keys(all[0].ttm).sort();
+  const from = st.chrange === "max" ? 0 : Math.max(0, months.length - Number(st.chrange) * 12);
+  const window = months.slice(from);
+  // the first month in the window at which every step has a value is the base
+  const base = window.find(m => all.every(x => x.ttm[m] !== null && x.ttm[m]));
+  all.forEach(x => {
+    series.push({ name: x.step.name, slot: x.step.slot,
+      points: window.map(m => {
+        const v = x.ttm[m];
+        if (v === null || v === undefined) return [m, null];
+        if (st.cview === "index") return [m, base && x.ttm[base] ? v / x.ttm[base] * 100 : null];
+        return [m, bn(v)];
+      }) });
+  });
+  const cfg = st.cview === "index"
+    ? { series, unitSuffix: "", dp: 1, yAxisName: "12-month total, " + (base ? fmtPeriod(base) : "") + " = 100",
+        refLine: { y: 100 }, legendFloor: 900, trust: "derived",
+        sourceLine: sourceLine("supply chain to " + DEST_NAMES[dest] + ", indexed 12-month totals") }
+    : { series, unitSuffix: "¥bn", dp: 1, yAxisName: "¥bn, 12-month total", legendFloor: 900, trust: "derived",
+        sourceLine: sourceLine("supply chain to " + DEST_NAMES[dest] + ", 12-month totals") };
+  cfg.sourceLine = cfg.sourceLine.replace("Source: Ministry of Finance, Japan · " + TR.release.source_id,
+    "Source: Ministry of Finance, Japan · " + TR.release.source_id + " + " + HS.release.source_id);
+  el.innerHTML = "";
+  if (chainChart) chainChart.dispose();
+  chainChart = obsChart(el, "line", cfg);
+  document.getElementById("chain-source").textContent = cfg.sourceLine;
+  document.getElementById("chain-note").textContent = DEST_NAMES[dest] + " · exports";
+  const formulas = [CALCS.units, CALCS.ttm,
+    "index[step, t] = 12-month total[step, t] / 12-month total[step, base month] × 100, the base being the first " +
+    "month in the window at which all three steps have a value" + (base ? " (" + fmtPeriod(base) + ")" : "") + ".",
+    "Wafers: HS 3818.00-100 from the HS-detail tables (dataset trade-inputs). Integrated circuits: concept commodity " +
+    "70323050; chipmaking equipment: 70131000 (dataset trade-semis). Three different products, never added.",
+    dest === "world" ? CALCS.world : "Destination = the customs partner " + DEST_NAMES[dest] + " (" + dest + ")."];
+  calcBlock("chain-calc", formulas);
+  const name = "japan-semiconductor-chain-" + dest + "-" + st.cview;
+  wire("chain-png", () => chainChart.exportPNG(name + ".png"));
+  wire("chain-csv", () => chainChart.exportCSV(name + ".csv", csvHeader("Supply chain to " + DEST_NAMES[dest], formulas)));
+}
+
+function loadChain() {
+  const need = [["hs", "/api/v1/trade-inputs/trade?flow=exp&commodity=381800100"],
+                ["70323050", "/api/v1/trade-semis/trade?flow=exp&commodity=70323050"],
+                ["70131000", "/api/v1/trade-semis/trade?flow=exp&commodity=70131000"]];
+  Promise.all(need.map(([k, url]) => fetch(url).then(r => r.ok ? r.json() : null).then(d => [k, d])))
+    .then(results => {
+      results.forEach(([k, d]) => { if (!d) return; if (k === "hs") HS = d; else SEMI_EXP[k] = d; });
+      if (HS) renderChain();
+      else document.getElementById("chain-chart").innerHTML =
+        '<p class="table-foot" style="padding:24px">The wafer layer (dataset trade-inputs) is not ingested yet.</p>';
+    });
+}
+
 /* ---- partner table ---- */
 
 function partnerRows() {
@@ -830,6 +924,10 @@ function renderAll() {
   renderCommodityChart();
   renderPartnersTable();
   renderProvenance();
+  pressGroup("dest-seg", "data-dest", urlState().dest);
+  pressGroup("chain-view-seg", "data-cview", urlState().cview);
+  pressGroup("chrange-seg", "data-chrange", urlState().chrange);
+  if (HS) renderChain(); else loadChain();
 }
 
 function load(flow, commodity) {
@@ -876,6 +974,9 @@ function load(flow, commodity) {
   bindSeg("mixrange-seg", "data-mrange", "mrange", renderMixChart);
   bindSeg("crange-seg", "data-crange", "crange", renderCommodityChart);
   bindSeg("rows-seg", "data-rows", "rows", renderPartnersTable);
+  bindSeg("dest-seg", "data-dest", "dest", renderChain);
+  bindSeg("chain-view-seg", "data-cview", "cview", renderChain);
+  bindSeg("chrange-seg", "data-chrange", "chrange", renderChain);
 
   load(st.flow, st.commodity);
 })();

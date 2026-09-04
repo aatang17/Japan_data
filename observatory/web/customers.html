@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Customer Concentration · Japan Data Observatory</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+
+<header class="site-header" data-section="equities" data-page="customers"></header>
+<script src="assets/nav.js"></script>
+
+<main class="container">
+  <div id="stale-banner"></div>
+
+  <div class="metric-card">
+    <div class="metric-card-head">
+      <h1>Who Depends on Whom</h1>
+      <span class="metric-asof" id="page-asof"></span>
+      <p class="metric-sub" id="page-sub">Every listed Japanese company must name any customer
+      worth ten percent or more of its revenue, and state the amount. This is that disclosure,
+      assembled — the only company-to-company revenue link in the public record.</p>
+    </div>
+    <div class="strip">
+      <div class="strip-grid cols-4" id="tiles">
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+      </div>
+    </div>
+    <p class="strip-foot" id="strip-foot"></p>
+    <details class="calc" id="strip-calc" style="display:none"></details>
+  </div>
+
+  <section aria-labelledby="h-buyer">
+    <h2 id="h-buyer">Look Up a Buyer <span class="h2-note" id="buyer-note"></span></h2>
+    <p class="section-sub">Type a customer's name to see every Japanese company that discloses
+    depending on it, and how much of each supplier's revenue that relationship represents.
+    Names match the text as each filer wrote it, so try more than one spelling — Samsung
+    appears as three different strings because three filers wrote it three ways.</p>
+    <div class="controls">
+      <input type="search" id="buyer-search" placeholder="Samsung, Toyota, TSMC, キオクシア…"
+             aria-label="Search customer names">
+      <span class="table-count" id="buyer-count"></span>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="buyer-csv">Download CSV</button>
+    </div>
+    <div class="band-toggles" id="buyer-suggest" role="group" aria-label="Suggested buyers">
+      <span class="band-toggles-label">Try</span>
+    </div>
+    <div class="band-toggles" id="theme-picker" role="group" aria-label="Themes">
+      <span class="band-toggles-label">Or a theme</span>
+    </div>
+    <div class="table-wrap" id="buyer-table"><div class="skeleton" style="width:100%;height:220px"></div></div>
+    <p class="table-foot" id="buyer-foot"></p>
+    <details class="calc" id="buyer-calc"></details>
+  </section>
+
+  <section aria-labelledby="h-reach">
+    <h2 id="h-reach">Buyers With the Most Japanese Suppliers <span class="h2-note" id="reach-note"></span></h2>
+    <p class="section-sub">Ranked by how many listed Japanese companies name them, then by the
+    revenue those companies book from them. A name appearing twice in different spellings is
+    counted twice — the platform never merges names the filers wrote differently.</p>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Rank by" id="reach-seg">
+        <button type="button" data-reach="suppliers" aria-pressed="true">Number of Suppliers</button>
+        <button type="button" data-reach="value">Combined Revenue</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="reach-csv">Download CSV</button>
+    </div>
+    <div class="table-wrap" id="reach-table"></div>
+    <p class="table-foot" id="reach-foot"></p>
+  </section>
+
+  <section aria-labelledby="h-dep">
+    <h2 id="h-dep">Most Dependent Suppliers <span class="h2-note" id="dep-note"></span></h2>
+    <p class="section-sub">Every company that names a customer, ranked by the share of its own
+    revenue those named relationships account for. A company absent from this list has no
+    customer at or above the ten percent threshold — which is not the same as having a
+    diversified book, only that nothing crossed the line it must report.</p>
+    <div class="controls">
+      <label for="min-share">Minimum dependence</label>
+      <select id="min-share" aria-label="Minimum dependence">
+        <option value="0">Any</option>
+        <option value="10">10% or more</option>
+        <option value="25" selected>25% or more</option>
+        <option value="50">50% or more</option>
+      </select>
+      <label for="min-rev">Minimum revenue</label>
+      <select id="min-rev" aria-label="Minimum revenue">
+        <option value="0" selected>Any</option>
+        <option value="10">&#165;10bn or more</option>
+        <option value="50">&#165;50bn or more</option>
+        <option value="100">&#165;100bn or more</option>
+        <option value="500">&#165;500bn or more</option>
+      </select>
+      <div class="seg" role="group" aria-label="Which buyers to count" id="buyers-seg">
+        <button type="button" data-buyers="all" aria-pressed="true">All Buyers</button>
+        <button type="button" data-buyers="end">End Customers Only</button>
+      </div>
+      <span class="table-count" id="dep-count"></span>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="dep-csv">Download CSV</button>
+    </div>
+    <div class="table-wrap" id="dep-table"></div>
+    <p class="table-foot" id="dep-foot"></p>
+    <details class="calc" id="dep-calc"></details>
+  </section>
+
+  <section aria-label="Data source and provenance" class="prov">
+    <div id="prov-card"></div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="inner">
+    <span id="credit-line">Source: company filings on EDINET (Financial Services Agency of Japan).</span>
+    Customer names and amounts are exactly as filed; the dependence percentages are calculated
+    from them and carry their formula.
+    <a href="methodology.html">Methodology</a>
+  </div>
+</footer>
+
+<script src="assets/format.js"></script>
+<script src="assets/sortable.js"></script>
+<script src="assets/customers.js"></script>
+</body>
+</html>

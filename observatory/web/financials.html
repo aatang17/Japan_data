@@ -68,6 +68,9 @@
   border: 1px solid var(--obs-border); border-radius: 3px; color: var(--obs-text-muted);
   vertical-align: middle; text-transform: uppercase; letter-spacing: 0.04em; }
 .tbl-formula { font-size: 12px; color: var(--obs-text-muted); margin: 8px 0 0; }
+.calc-list { margin: 6px 0 0 18px; font-size: 12.5px; line-height: 1.55; }
+.calc-list b { color: var(--obs-ink); font-weight: 600; }
+.tbl-fin .flag { font-size: 11.5px; color: var(--obs-warn); white-space: nowrap; }
 /* Narrow screens: the table keeps its columns and scrolls inside .table-wrap
    rather than wrapping every label into a ragged column. */
 @media (max-width: 700px) { #ki-chart { height: 300px; } .tbl-fin { min-width: 640px; } .tbl-fin td.lbl { min-width: 200px; } }
@@ -161,6 +164,17 @@
     <div class="table-wrap"><table class="tbl-fin" id="ki-table" data-no-enhance></table></div>
     <details class="calc-note"><summary>Show calculation</summary>
       <span id="ki-calc"></span>
+    </details>
+
+    <h2>Calculated Ratios <span class="h2-note" id="dr-note"></span></h2>
+    <p class="sec-note" style="margin:0 0 8px">Computed on this platform from the statements above —
+      no badge, a formula instead. ROE and ROA use average opening and closing balances; the filer's
+      own figure is shown beside ours where it prints one. Ratios marked implied use the price implied
+      by the filer's own year-end PER; there is no market data here. Missing is —, never zero.</p>
+    <div class="table-wrap"><table class="tbl-fin" id="dr-table" data-no-enhance></table></div>
+    <p class="disclose flagged" id="dr-flags" hidden></p>
+    <details class="calc-note"><summary>Show calculation</summary>
+      <div id="dr-calc"></div>
     </details>
 
     <h2>Financial Statements <span class="h2-note" id="st-note"></span></h2>

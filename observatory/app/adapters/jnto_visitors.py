@@ -508,3 +508,84 @@ PRESENTATION = {
         "feature_markets": ["cn", "kr", "tw", "hk", "us", "au"],
     },
 }
+
+
+# The dataset's card. Counts of people; the growth, recovery, share and
+# contribution figures on the inbound page are computed there and their
+# formulas are recorded here.
+MANIFEST = {
+    "id": DATASET["slug"],
+    "section": "tourism",
+    "name": {"en": "Visitor arrivals to Japan — by market",
+             "ja": "訪日外客数（国籍・月別）"},
+    "shape": "series",
+    "summary": ("Monthly foreign visitor arrivals by market from January 2003 "
+                "— national total, regional totals and individual countries — "
+                "as published by JNTO from Ministry of Justice immigration "
+                "statistics; the two most recent months are estimates."),
+    "source": {
+        "publisher": DATASET["agency"],
+        "publisher_ja": DATASET["agency_ja"],
+        "document": SOURCE["name"],
+        "url": SOURCE["url"],
+        "credit": PRESENTATION["credit_line"],
+        "license_note": SOURCE["license_note"],
+    },
+    "keys": ["series_code", "period"],
+    "frequency": DATASET["frequency"],
+    "vintage": {
+        "unit": "release", "as_of_basis": "release-in-force",
+        "as_of_supported": True, "history_from": "2003-01",
+        "stale_after_days": PRESENTATION["stale_after_days"],
+    },
+    "measures": [
+        {"id": "index", "label": "Visitor arrivals, persons", "unit": "persons",
+         "trust": "official"},
+        {"id": "yoy", "label": "Year over year", "unit": "%", "trust": "derived",
+         "calc": "(value[t] / value[t−12 months] − 1) × 100, from published values."},
+        {"id": "mom", "label": "Month over month", "unit": "%", "trust": "derived",
+         "calc": "(value[t] / value[t−1 month] − 1) × 100, from published values."},
+        {"id": "ann3m", "label": "3-month annualized", "unit": "%", "trust": "derived",
+         "calc": "((value[t] / value[t−3 months]) ^ 4 − 1) × 100, from published values."},
+        {"id": "ytd_growth", "label": "Year-to-date growth", "unit": "%", "trust": "derived",
+         "calc": ("year to date[y] = Σ arrivals[January…latest published month of y]; "
+                  "growth = (year to date[y] / year to date[y−1] − 1) × 100, over the same "
+                  "months of both years.")},
+        {"id": "ex_china_growth", "label": "Year-to-date growth excluding China",
+         "unit": "%", "trust": "derived",
+         "calc": ("ex-China[t] = arrivals[Total, t] − arrivals[China, t], then the "
+                  "year-to-date growth formula above. Total and China are both published "
+                  "counts; the difference is calculated here.")},
+        {"id": "recovery", "label": "Recovery vs the same month of the baseline year",
+         "unit": "%", "trust": "derived",
+         "calc": ("recovery[t] = (arrivals[t] / arrivals[same month of 2019]) × 100. "
+                  "100 = the same month of 2019, the last full year before the border closed.")},
+        {"id": "market_contrib_pp", "label": "Contribution of a market to total growth",
+         "unit": "pp", "trust": "derived",
+         "calc": ("contribution[market, t] = (arrivals[market, t] − arrivals[market, t−12]) "
+                  "/ arrivals[Total, t−12] × 100, in percentage points. The residual is "
+                  "growth[Total, t] − Σ contribution[named markets, t], so the segments sum "
+                  "to the headline growth rate exactly, including in months where JNTO has "
+                  "not yet published every market.")},
+        {"id": "share_pct", "label": "Market share of arrivals", "unit": "%",
+         "trust": "derived",
+         "calc": ("share[market] = (arrivals[market] / arrivals[Total]) × 100, both for "
+                  "the same month, from published counts.")},
+    ],
+    "endpoints": {
+        "series": "/api/v1/%s/observations" % DATASET["slug"],
+        "arrivals": "/api/v1/%s/arrivals" % DATASET["slug"],
+        "releases": "/api/v1/%s/releases" % DATASET["slug"],
+        "revisions": "/api/v1/%s/revisions" % DATASET["slug"],
+    },
+    "capabilities": ["series"],
+    "cite": "/inbound.html",
+    "page": "/inbound.html",
+    "notes": [
+        "The two most recent months are JNTO estimates: official, but rounded to "
+        "the nearest 100 and covering only the largest markets.",
+        "A region is the sum of its member markets — never add a parent to its "
+        "children. The hierarchy is served, not assumed: it changed in 2020 and 2023.",
+        "Counts of people, never comparable with or rankable against a price index.",
+    ],
+}

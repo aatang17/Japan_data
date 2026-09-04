@@ -1,6 +1,6 @@
 # PLAN — API & MCP v2, milestone M1: manifests, registry, catalog
 
-> **Status:** PROPOSAL — plan only, awaiting go-ahead. No code written.
+> **Status:** BUILT 2026-09-04 — see §7 for what changed against this plan.
 >
 > **Decided 2026-09-03:** quarantine (not fatal) at boot; cross-shareholdings id is
 > `cross-shareholdings`; scaffold command included in M1 (§2.7).
@@ -287,3 +287,30 @@ around. This is how the seven macro manifests in M1 are produced: generate, then
 6. **Formula authorship.** Where a derived measure has no written formula today (risk
    table), do you want me to draft the wording and bring it back for approval, or write
    it and flag the ones you should read?
+
+## 7. As built (2026-09-04)
+
+- **16 datasets, not 13.** Between the plan and the build, `trade-semis` (8th macro),
+  `financials` and `agm-votes` (7th and 8th equity) landed and were wired into `main.py`.
+  The registry covers every registered module, so it covers all 16; the count in tests is
+  `len(api.ADAPTERS) + len(registry.EQUITY_MODULES)`, not a literal. Sections grew to
+  eleven: `trade` and `financials` were added.
+- **No formula had to be authored.** Every calculated number already had one — in
+  `api.py`'s `CALC` constants, in each equity module's `CALC` dict, in
+  `fin_metrics.FORMULAS`, or in the page scripts. The cards copy those strings, and
+  `tests/test_manifests.py` asserts the copies still match the originals (the API's by
+  cross-check in `registry.validate`; the page scripts' by reading the JS).
+- **Route resolution is of the concrete path.** `registry.resolves(app, path)` fills
+  placeholders and matches through Starlette's own router, so it proves the URL a client
+  will call routes to a handler — not merely that a template of the same shape exists.
+  The static mount at `/` is excluded (it matches everything).
+- Two units were added to the vocabulary during the audit: `per_10000` (CPI basket
+  weights — the mis-scaling bug class named in CLAUDE.md now has a unit) and `quantity`
+  (customs quantities in the commodity's published unit).
+- `refresh.problems()` gained a `manifest:<id>` fault so a quarantined card reaches the
+  alert webhook, not only the health JSON.
+- Equity `vintage.stale_after_days` is `null`: those datasets have no release clock;
+  freshness is reported per extractor in `equity_extractors` on `/catalog/health`.
+- Equity manifests are appended at the END of each API module (the tree was being edited
+  concurrently; end-of-file was the smallest collision surface). They import
+  `EDINET_SOURCE` from `equity_api` for the shared publisher block.

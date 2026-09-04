@@ -19,6 +19,9 @@ import threading
 import duckdb
 from fastapi import APIRouter, HTTPException, Query
 
+from . import aliases
+from . import basis as basis_mod
+
 DB_PATH = pathlib.Path(__file__).resolve().parent.parent / "data" / "equity.duckdb"
 
 router = APIRouter(prefix="/api/v1/equity")
@@ -649,6 +652,10 @@ def summary(year: str = Query("", description="fiscal year, e.g. 2025; default l
                                     "'increased' overstates buying; most positions "
                                     "are unchanged.")
     head["provenance"] = PROVENANCE
+    # Every yen figure on this response is a sum across filers with staggered
+    # year ends, so the basis carries no single as_of -- the composition above
+    # is the honest answer to "as of when".
+    head["basis"] = basis_mod.market_basis()
     return head
 
 
@@ -657,6 +664,10 @@ def companies(q: str = Query("", description="name or code substring")):
     """Search box feed: filers with extracted tables and/or companies that are held."""
     cur = _cur()
     like = "%" + q.strip() + "%"
+    # A market nickname is not in any of the three fields: MUFG appears neither
+    # in the filed Japanese name nor in "Mitsubishi UFJ Financial Group, Inc.".
+    # aliases.clause adds the codes such a query names, and nothing else.
+    alias_sql, alias_params = aliases.clause(cur, "sec_code", q)
     # Match the code, the as-filed Japanese name and the registry English name.
     # The match runs AFTER the filer and held rows are grouped into one row per
     # company: filtering the two branches separately would drop a company's
@@ -683,9 +694,10 @@ def companies(q: str = Query("", description="name or code substring")):
             GROUP BY u.sec_code)
         SELECT * FROM combined
         WHERE sec_code LIKE ? OR name LIKE ?
-           OR lower(coalesce(name_en, '')) LIKE lower(?)
+           OR lower(coalesce(name_en, '')) LIKE lower(?)"""
+        + alias_sql + """
         ORDER BY holdings_count + held_by_count DESC LIMIT 25
-    """, _year_params("") + [like, like, like]),
+    """, _year_params("") + [like, like, like] + alias_params),
         "names_note": NAMES_NOTE}
 
 
@@ -849,12 +861,35 @@ def company(sec_code: str):
             FROM eq_filing_flows WHERE doc_id = ?
             ORDER BY holder_table, share_class""", [doc])
         _annotate(holdings, notes, reclassified)
+        # Typed basis for every yen figure below. entity_scope is READ off the
+        # filing's own disclosing entities rather than assumed: a bank group
+        # that reports its reduction at commercial-bank level is quoting
+        # largest_holding_company, not the consolidated group, and the two
+        # differ by hundreds of billions of yen at SMFG.
+        for e in scale_entities:
+            e["entity_scope"] = basis_mod.ENTITY_SCOPE_BY_HOLDER_TABLE.get(
+                e["holder_table"], "holdco_consolidated")
+            e["share_scope"] = basis_mod.SHARE_SCOPE_BY_SHARE_CLASS.get(
+                e["share_class"], "both")
+        for fl in flows:
+            fl["entity_scope"] = basis_mod.ENTITY_SCOPE_BY_HOLDER_TABLE.get(
+                fl["holder_table"], "holdco_consolidated")
+            fl["share_scope"] = basis_mod.SHARE_SCOPE_BY_SHARE_CLASS.get(
+                fl["share_class"], "both")
 
     if not ent and not filing and not holders:
         raise HTTPException(404, "no data for securities code %s" % sec_code)
+    period_end = filing[0]["period_end"] if filing else None
     return {"entity": ent[0] if ent else None,
             "names_note": NAMES_NOTE,
             "filing": filing[0] if filing else None,
+            "basis": basis_mod.basis_for_rows(scale_entities, as_of=period_end),
+            "basis_note": ("The basis every yen figure on this response is on. "
+                           "entity_scope is read from the filing's own "
+                           "disclosing entities, not assumed: scale_entities "
+                           "and flows each carry their own entity_scope and "
+                           "share_scope, and a figure quoted for one entity is "
+                           "not the group figure."),
             "holdings": holdings,
             "holders": holders,
             "reclassified": reclassified,
@@ -864,6 +899,7 @@ def company(sec_code: str):
             "notes_note": FILING_NOTES_NOTE,
             "flows": flows,
             "flows_note": FLOWS_NOTE,
+            "no_reduction_measure": basis_mod.NO_REDUCTION_MEASURE,
             "scale": scale,
             "scale_entities": scale_entities,
             "scale_history": scale_history,
@@ -914,6 +950,7 @@ def history(limit: int = Query(40, ge=1, le=500)):
     """, [limit]),
         "provenance": PROVENANCE,
         "names_note": NAMES_NOTE,
+        "basis": basis_mod.market_basis(),
         "derived_note": ("Each point is the sum of named policy holdings as filed "
                          "for that fiscal year. Book values are fair-valued at "
                          "period end, so a fall reflects both selling and market "
@@ -939,6 +976,7 @@ def unwind(year: str = Query("", description="fiscal year, e.g. 2025; default la
         GROUP BY f.sec_code ORDER BY book_value_yen DESC NULLS LAST
     """, _year_params(year)), "provenance": PROVENANCE,
         "names_note": NAMES_NOTE,
+        "basis": basis_mod.market_basis(),
         "derived_note": ("Value change and reduced/increased counts compare the "
                          "current and prior-year columns of the same filing — "
                          "derived; formula shown on the page.")}
@@ -997,6 +1035,7 @@ def reclassified(year: str = Query("", description="fiscal year, e.g. 2025; defa
     return {"filers": filers,
             "totals": totals[0] if totals else None,
             "provenance": PROVENANCE,
+            "basis": basis_mod.market_basis(),
             "names_note": NAMES_NOTE,
             "reclassified_note": RECLASSIFIED_NOTE,
             "flows_note": FLOWS_NOTE,
@@ -1006,3 +1045,282 @@ def reclassified(year: str = Query("", description="fiscal year, e.g. 2025; defa
                               "reclassification for several years after the "
                               "change, so this is the standing disclosed stock "
                               "of reclassified holdings, not one year's flow.")}
+
+
+# ---------------------------------------------------------------------------
+# The dataset's card (app/registry.py). Pure data: the formulas are the same
+# constants the responses carry, so the card and the API cannot disagree.
+# ---------------------------------------------------------------------------
+EDINET_SOURCE = {
+    "publisher": "Financial Services Agency of Japan — EDINET",
+    "publisher_ja": "金融庁 EDINET",
+    "url": "https://disclosure2.edinet-fsa.go.jp/",
+    "license_note": ("Statutory disclosure documents published on EDINET under the "
+                     "Financial Instruments and Exchange Act. Reproduced exactly as "
+                     "filed; every row carries the doc_id of its source document and "
+                     "the archived file's SHA-256. Filer errors are published as "
+                     "filed and flagged, never corrected."),
+}
+
+MANIFEST = {
+    "id": "cross-shareholdings",
+    "section": "ownership",
+    "name": {"en": "Cross-shareholdings", "ja": "政策保有株式"},
+    "shape": "company",
+    "summary": ("Every named policy shareholding disclosed in annual securities "
+                "reports — shares, book value, purpose and whether the holding "
+                "is reciprocal — both directions, one filing per company per "
+                "fiscal year, from FY2021."),
+    "source": dict(EDINET_SOURCE,
+                   document="有価証券報告書 · 株式の保有状況 (annual securities report, "
+                            "shareholding section)",
+                   credit="Source: company filings on EDINET (Financial Services "
+                          "Agency of Japan)."),
+    "keys": ["sec_code", "fiscal_year"],
+    "frequency": "per-filing",
+    "vintage": {
+        "unit": "filing", "as_of_basis": "captured_at", "as_of_supported": False,
+        "history_from": "FY2021", "stale_after_days": None,
+    },
+    "measures": [
+        {"id": "shares", "label": "Shares held", "unit": "shares", "trust": "official"},
+        {"id": "book_value_yen", "label": "Book value (carrying amount)", "unit": "JPY",
+         "trust": "official"},
+        {"id": "prior_shares", "label": "Shares held a year earlier", "unit": "shares",
+         "trust": "official"},
+        {"id": "purpose", "label": "Stated purpose of holding", "unit": "text",
+         "trust": "official"},
+        {"id": "holds_us", "label": "Reciprocal: the issuer holds the filer's shares",
+         "unit": "boolean", "trust": "official"},
+        {"id": "policy_total_yen", "label": "Total policy shareholdings, as filed",
+         "unit": "JPY", "trust": "official"},
+        {"id": "pct_outstanding", "label": "Stake as a share of the issuer's shares",
+         "unit": "%", "trust": "derived", "calc": OWNERSHIP_CALC},
+        {"id": "pct_of_holder_equity", "label": "Position as a share of the holder's equity",
+         "unit": "%", "trust": "derived", "calc": HOLDER_SHARE_CALC},
+        {"id": "pct_of_equity", "label": "Policy book as a share of shareholders' equity",
+         "unit": "%", "trust": "derived", "calc": SCALE_EQUITY_CALC},
+        {"id": "pct_of_assets", "label": "Policy book as a share of total assets",
+         "unit": "%", "trust": "derived", "calc": SCALE_ASSETS_CALC},
+        {"id": "corporate_action", "label": "Corporate action noted in the filing",
+         "unit": "category", "trust": "derived", "calc": ACTION_CALC},
+        {"id": "split_ratio", "label": "Implied split or consolidation ratio",
+         "unit": "x", "trust": "derived", "calc": RATIO_CALC},
+        {"id": "implausible", "label": "Filed figures mutually impossible",
+         "unit": "boolean", "trust": "derived",
+         "calc": ("book value ÷ shares of ¥%s or more — a filer scale error; the row "
+                  "is returned as filed and excluded from yen aggregates"
+                  % "{:,}".format(IMPLAUSIBLE_YEN_PER_SHARE))},
+    ],
+    "endpoints": {
+        "company": "/api/v1/equity/company/{sec_code}",
+        "search": "/api/v1/equity/companies",
+        "summary": "/api/v1/equity/summary",
+        "screen": "/api/v1/equity/unwind",
+        "history": "/api/v1/equity/history",
+        "reclassified": "/api/v1/equity/reclassified",
+        "years": "/api/v1/equity/years",
+    },
+    "capabilities": ["company", "search", "summary", "screen"],
+    "screens": [
+        {"id": "unwind", "title": "Named policy-holding value change per filer"},
+        {"id": "reclassified",
+         "title": "Filers ranked by holdings reclassified to pure investment, not sold"},
+    ],
+    "cite": "/holdings.html?c={sec_code}",
+    "page": "/holdings.html",
+    "notes": [PROVENANCE["note"], SCALE_NOTE, NAMES_NOTE],
+}
+
+
+# ---------------------------------------------------------------------------
+# Claim check
+#
+# The gap this closes: a figure quoted in the press and a figure from this
+# product can differ by 4.5x and both be right. Nikkei Asia put the three
+# megabanks' cross-shareholdings at ¥2.56tn at 30 September 2025; we hold
+# ¥11.5085tn at 31 March 2026. Acquisition cost vs carrying amount, interim vs
+# annual. Without somewhere to put that, one of those numbers gets quoted as a
+# correction of the other.
+#
+# The design rule that makes this trustworthy: THIS CODE NEVER INFERS THE
+# CLAIM'S BASIS. The caller states it, in typed fields, or does not state it —
+# and where it is not stated we say the gap cannot be classified rather than
+# picking the explanation that fits. `context` is echoed back and never parsed.
+# ---------------------------------------------------------------------------
+
+# Deliberately not a truth vocabulary. The strongest verdict available is
+# "not consistent with any basis we hold": this reports what we can and cannot
+# corroborate from filings, and never grades a publisher.
+VERDICTS = {
+    "consistent": "Matches a figure we hold, at the precision the claim states.",
+    "date_mismatch": "We hold no figure at that date.",
+    "basis_mismatch": "The claim is on a measurement basis we do not hold.",
+    "scope_mismatch": "The claim covers a different entity or share scope.",
+    "coverage_gap": "One or more companies are not in this dataset.",
+    "basis_not_supplied": ("The claim's basis was not given, so the gap cannot "
+                           "be classified."),
+    "not_consistent": ("Dates and basis line up and the figures still differ."),
+    "measure_not_held": ("This product holds sale proceeds for a fiscal year, "
+                         "not a reduction in book value. No figure here can "
+                         "confirm or contradict a book-value-reduction claim."),
+}
+
+CLAIM_NOTE = (
+    "This compares a figure you supply with figures extracted from annual "
+    "securities reports. It never infers the claim's measurement basis: state "
+    "it in claimed_* or accept that the gap cannot be classified. A verdict "
+    "is a statement about what this dataset can corroborate, never a judgement "
+    "on the source of the claim."
+)
+
+
+def _sig_figures(value):
+    """How many significant figures a published number is stated to.
+
+    Published figures are rounded — ¥2.56tn is three significant figures — so
+    a match is tested at the claim's OWN precision rather than against an
+    arbitrary percentage tolerance.
+    """
+    if not value:
+        return 1
+    digits = str(int(abs(value))).rstrip("0")
+    return max(1, len(digits))
+
+
+def _rounds_to(ours, claim):
+    """True when our figure rounds to the claim at the claim's precision."""
+    if not ours or not claim:
+        return False
+    import math
+    sig = _sig_figures(claim)
+    exp = math.floor(math.log10(abs(ours))) - (sig - 1)
+    step = 10 ** exp
+    return abs(round(ours / step) * step - claim) < step / 2
+
+
+@router.get("/claim-check")
+def claim_check(figure_yen: float = Query(..., description="the figure to check, in yen"),
+                companies: str = Query(..., description="comma-separated securities codes"),
+                as_of: str = Query("", description="date the claim refers to, YYYY-MM-DD"),
+                measure: str = Query("holdings", description="holdings | reduction"),
+                claimed_measurement: str = Query("", description="carrying_amount | acquisition_cost"),
+                claimed_entity_scope: str = Query("", description="parent_only | largest_holding_company | second_largest_holding_company | holdco_consolidated"),
+                claimed_share_scope: str = Query("", description="listed | unlisted | both"),
+                claimed_period_type: str = Query("", description="annual | interim"),
+                context: str = Query("", description="the claim's own wording; echoed, never parsed")):
+    """Check a published figure against what the filings support."""
+    codes = [c.strip() for c in (companies or "").split(",") if c.strip()]
+    if not codes:
+        raise HTTPException(400, "no securities codes given")
+    cur = _cur()
+
+    target = None
+    if as_of:
+        try:
+            target = datetime.date(*[int(x) for x in as_of.split("-")])
+        except (ValueError, TypeError):
+            raise HTTPException(400, "as_of must be YYYY-MM-DD")
+
+    ours, missing, reasons = [], [], []
+    for code in codes:
+        rows = _rows(cur, """
+            WITH tot AS (
+                SELECT doc_id,
+                       sum(book_value_yen) AS policy_total_yen,
+                       sum(CASE WHEN share_class = 'listed'
+                                THEN book_value_yen END) AS listed_yen
+                FROM eq_filing_totals GROUP BY 1)
+            SELECT f.sec_code, f.doc_id, f.period_end, f.sha256,
+                   coalesce(f.filer_name_en, f.filer_name) AS name,
+                   t.policy_total_yen, t.listed_yen
+            FROM eq_filings f JOIN tot t USING (doc_id)
+            WHERE f.sec_code = ? AND f.status IN ('clean','partial')
+              AND t.policy_total_yen IS NOT NULL
+            ORDER BY f.period_end""", [code])
+        if not rows:
+            missing.append(code)
+            continue
+        if target:
+            best = min(rows, key=lambda r: abs((r["period_end"] - target).days))
+        else:
+            best = rows[-1]
+        entities = _rows(cur, "SELECT DISTINCT holder_table, share_class "
+                              "FROM eq_filing_totals WHERE doc_id = ?",
+                         [best["doc_id"]])
+        best = dict(best)
+        best["days_from_as_of"] = (
+            (best["period_end"] - target).days if target else None)
+        best["basis"] = basis_mod.basis_for_rows(
+            entities, as_of=best["period_end"])
+        best["periods_held"] = [r["period_end"] for r in rows]
+        ours.append(best)
+
+    if missing:
+        reasons.append("coverage_gap")
+    total = sum(r["policy_total_yen"] for r in ours if r["policy_total_yen"])
+
+    # Date. The policy shareholding table exists only in the annual report, so
+    # an interim as_of can never match, however close the calendar gets.
+    worst_days = max((abs(r["days_from_as_of"]) for r in ours
+                      if r["days_from_as_of"] is not None), default=None)
+    if worst_days is not None and worst_days > 0:
+        reasons.append("date_mismatch")
+
+    # Basis. Stated or not stated — never guessed.
+    if measure == "holdings":
+        if not claimed_measurement:
+            reasons.append("basis_not_supplied")
+        elif claimed_measurement != basis_mod.EDINET_MEASUREMENT:
+            reasons.append("basis_mismatch")
+    if claimed_period_type and claimed_period_type != basis_mod.EDINET_PERIOD_TYPE:
+        if "date_mismatch" not in reasons:
+            reasons.append("date_mismatch")
+    ours_scopes = {r["basis"]["entity_scope"] for r in ours}
+    if claimed_entity_scope and claimed_entity_scope not in ours_scopes:
+        reasons.append("scope_mismatch")
+    if claimed_share_scope and claimed_share_scope not in ("both", ""):
+        reasons.append("scope_mismatch")
+
+    matched = bool(ours) and not reasons and _rounds_to(total, figure_yen)
+    if matched:
+        verdict = "consistent"
+    elif not ours:
+        verdict = "coverage_gap"
+    elif reasons:
+        verdict = "cannot_verify"
+    elif _rounds_to(total, figure_yen):
+        verdict = "consistent"
+    else:
+        verdict = "not_consistent"
+
+    # A book-value-reduction claim has no counterpart here at all. Saying so is
+    # the correct answer: it is what stops ¥160bn of interim, cost-basis
+    # reduction being reported as contradicting ¥1.48tn of annual sale
+    # proceeds, which is a different measure over a different period.
+    if measure == "reduction":
+        reasons.append("measure_not_held")
+        verdict = "cannot_verify"
+
+    return {
+        "claim": {"figure_yen": figure_yen, "companies": codes,
+                  "as_of": as_of or None, "measure": measure,
+                  "claimed_basis": {
+                      "measurement": claimed_measurement or None,
+                      "entity_scope": claimed_entity_scope or None,
+                      "share_scope": claimed_share_scope or None,
+                      "period_type": claimed_period_type or None},
+                  "context": context or None},
+        "verdict": verdict,
+        "reasons": [{"reason": r, "meaning": VERDICTS.get(r)}
+                    for r in dict.fromkeys(reasons)],
+        "ours": ours,
+        "ours_total_yen": total if ours else None,
+        "companies_not_covered": missing,
+        "gap_yen": (total - figure_yen) if ours else None,
+        "ratio_ours_to_claim": (round(total / figure_yen, 3)
+                                if ours and figure_yen else None),
+        "claim_note": CLAIM_NOTE,
+        "no_reduction_measure": basis_mod.NO_REDUCTION_MEASURE,
+        "provenance": PROVENANCE,
+    }

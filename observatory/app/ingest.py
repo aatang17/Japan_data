@@ -27,13 +27,15 @@ from . import db, env
 env.load()
 
 from .adapters import (boj_assets, cpi_jp, cpi_jp_items, jnto_visitors,
-                       juki_population, mof_jgb, mof_trade, ssds_population)
+                       juki_municipal, juki_population, mof_jgb, mof_trade,
+                       mof_trade_hs, ssds_population)
 
 ADAPTERS = {"cpi-jp": cpi_jp, "cpi-jp-items": cpi_jp_items, "boj-assets": boj_assets,
             "jgb-yields": mof_jgb, "jnto-visitors": jnto_visitors,
             "population-jp": juki_population,
             "population-jp-history": ssds_population,
-            "trade-semis": mof_trade}
+            "population-jp-municipal": juki_municipal,
+            "trade-semis": mof_trade, "trade-inputs": mof_trade_hs}
 
 # "this (series, period) had no prior value at all" — distinct from a prior
 # value that happens to be None.
@@ -137,7 +139,14 @@ def run(slug, from_file=None):
 
         series, observations = adapter.parse(raw)
         summary = adapter.validate(series, observations)
-        print("validated: %s" % json.dumps(summary))
+        # The whole summary is stored on the release, but a dataset that
+        # carries its geography in it (every municipality in Japan) would
+        # otherwise put 230KB of it into the boot log on every ingest. Long
+        # lists are summarised for the log only.
+        printable = dict(
+            (k, "<%d items>" % len(v) if isinstance(v, (list, dict)) and len(v) > 20 else v)
+            for k, v in summary.items())
+        print("validated: %s" % json.dumps(printable))
 
         latest = datetime.date.fromisoformat(summary["latest_period"])
         # A daily dataset gets daily vintages; a month-only label would give

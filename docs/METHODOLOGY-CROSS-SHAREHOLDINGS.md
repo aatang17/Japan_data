@@ -671,6 +671,69 @@ book value is impossible, so it does not separate the two completely. The share
 count and book value are returned alongside so an extreme value can be checked
 against the filing.
 
+### 8.8 Measurement basis — why our figure and a published one differ
+
+Every yen figure in this dataset is on one convention, and until it was stated
+it was invisible:
+
+| Field | Value here | Read from |
+| --- | --- | --- |
+| `measurement` | `carrying_amount` | constant — balance-sheet carrying amount |
+| `entity_scope` | varies | **`holder_table`** |
+| `share_scope` | varies | **`share_class`** |
+| `trust_included` | `unknown` | never guessed |
+| `as_of` | fiscal year end | `eq_filings.period_end` |
+| `period_type` | `annual` | the table exists only in the annual report |
+
+The basis is **derived at serialization, not stored.** Two of the six fields
+were already in the schema and are not constant, which is why they must be read
+rather than assumed:
+
+- `entity_scope` comes from `holder_table` — `reporting` → `parent_only`,
+  `largest` → `largest_holding_company`, `second_largest` →
+  `second_largest_holding_company`. A figure spanning more than one is
+  `holdco_consolidated`. **SMFG discloses ¥3.458tn of listed policy shares
+  under SMBC and ¥153.8bn at the holding company itself** (2026-03-31): a
+  figure quoted for one entity is not the group figure, and this is precisely
+  the axis a bank group uses when it reports reduction progress at commercial-
+  bank level. Backfilling every row as `holdco_consolidated` would have written
+  a falsehood into the field that exists to prevent them.
+- `share_scope` comes from `share_class`. Only a figure summed across both is
+  `both`, and reduction targets are usually listed-only.
+
+Because nothing is stored, there is no backfill and no stored release is
+written to — the vintage rule (§11) is untouched. `app/basis.py` is the source
+of truth; `eq_basis_labels` and the view `v_holdings_basis` are projections of
+it for SQL, and the API reads neither, so a database an extract has not yet
+touched still serves a correct basis.
+
+**The reconciliation that motivated this.** Nikkei Asia reported the three
+megabanks holding **¥2.56tn** of cross-shareholdings at 2025-09-30, "down 60%
+from a decade earlier by book value". This dataset returns **¥11.5085tn** for
+the same three at 2026-03-31 (MUFG ¥4.111tn, SMFG ¥4.022tn, Mizuho ¥3.376tn;
+documents `S100YJQO`, `S100YERK`, `S100YF8Y`). Both are correct. They differ on
+measurement (acquisition cost vs carrying amount — under JGAAP listed equities
+are carried at market with the valuation difference in OCI, so the two diverge
+enormously on positions bought decades ago) and on date (interim vs annual).
+A 4.5× discrepancy with no explanation is worse than no answer.
+
+The same trap on flows: that article cites ¥160bn of book-value reduction at
+end-September, while `flows` reports ¥1.48tn of listed sale proceeds for the
+full year to March 2026. **This product holds no book-value-reduction measure
+at all.** Sale proceeds are cash received on disposals over a fiscal year, as
+filed. The two are different measures and are never presented as equivalent.
+
+**`/api/v1/equity/claim-check`** (MCP tool `check_claim`) does this
+reconciliation. Its one design rule: it **never infers the claim's basis from
+the claim's wording.** The caller states the basis in `claimed_*` arguments, or
+the answer says the gap cannot be classified — `context` is echoed for the
+record and never parsed. A match is tested at the claim's own precision (¥2.56tn
+is three significant figures), not against an arbitrary tolerance. Verdicts
+(`consistent`, `cannot_verify`, with reasons `date_mismatch`, `basis_mismatch`,
+`scope_mismatch`, `measure_not_held`, `basis_not_supplied`, `coverage_gap`)
+describe what this dataset can corroborate. **No verdict asserts that a
+published figure is wrong**, and none may be reported as if it did.
+
 ## 9. Known limitations
 
 1. **Correction filings are not folded in** (§1).
@@ -800,6 +863,25 @@ name (`name_en`, `filer_name_en`, `held_name_en`, `holder_name_en`), plus a
 `industry_en`.
 
 ---
+
+### 10.1 The `basis` object
+
+Returned on every response carrying a yen figure. Derived, never stored (§8.8).
+
+| Field | Values | Meaning |
+| --- | --- | --- |
+| `measurement` | `carrying_amount`, `acquisition_cost` | Only `carrying_amount` is held here. |
+| `entity_scope` | `parent_only`, `largest_holding_company`, `second_largest_holding_company`, `holdco_consolidated` | Which disclosing entity of the group the figure covers. Read from `holder_table`. |
+| `share_scope` | `listed`, `unlisted`, `both` | Read from `share_class`. |
+| `trust_included` | `true`, `false`, `unknown` | Whether 退職給付信託 shares are in the tally. Always `unknown` here — the filings do not state it and it is never guessed. |
+| `as_of` | date | The fiscal year end the figure is measured at. |
+| `period_type` | `annual`, `interim` | Only `annual` is held here. |
+| `labels` | object | One sentence of definition per value above. |
+| `not_comparable` | text | The standing warning against setting these figures beside press or IR figures without `check_claim`. |
+
+On `/api/v1/equity/company/{sec_code}`, `scale_entities` and `flows` each carry
+their own `entity_scope` and `share_scope`, so the group split is visible row by
+row rather than collapsed into the filing-level tuple.
 
 ## 11. Reproducibility
 

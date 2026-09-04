@@ -321,3 +321,68 @@ def company(sec_code: str):
     return _notes({"sec_code": code, "name": meetings[0]["issuer_name"],
                    "meetings": meetings,
                    "cite": "/agm.html?company=%s" % code})
+
+
+# The dataset's card (app/registry.py). The filed percentage is the company's
+# and cannot be rebuilt from the counts; the platform's own arithmetic over
+# the disclosed counts is returned beside it, never instead.
+from .equity_api import EDINET_SOURCE as _EDINET_SOURCE  # noqa: E402
+
+MANIFEST = {
+    "id": "agm-votes",
+    "section": "governance",
+    "name": {"en": "AGM voting results", "ja": "株主総会決議（臨時報告書）"},
+    "shape": "events",
+    "summary": ("What shareholders actually did at general meetings — every "
+                "proposal's result and, for board elections, every director's "
+                "own approval percentage — from the extraordinary reports that "
+                "disclose the vote."),
+    "source": dict(_EDINET_SOURCE,
+                   document="臨時報告書 · 株主総会における議決権行使の結果 (extraordinary "
+                            "report, EDINET types 180/190)",
+                   credit="Source: extraordinary reports filed on EDINET "
+                          "(Financial Services Agency of Japan)."),
+    "keys": ["doc_id", "sec_code", "meeting_date"],
+    "frequency": "per-event",
+    "vintage": {
+        "unit": "filing", "as_of_basis": "captured_at", "as_of_supported": False,
+        "history_from": "2024-04 (filings; meetings from 2023-06)",
+        "stale_after_days": None,
+    },
+    "measures": [
+        {"id": "approval_pct", "label": "Approval, as filed by the company (賛成割合)",
+         "unit": "%", "trust": "official"},
+        {"id": "for_votes", "label": "Votes for (voting-right units)", "unit": "voting_rights",
+         "trust": "official"},
+        {"id": "against_votes", "label": "Votes against", "unit": "voting_rights",
+         "trust": "official"},
+        {"id": "abstain_votes", "label": "Abstentions", "unit": "voting_rights",
+         "trust": "official"},
+        {"id": "partial_tally", "label": "Filer stopped tallying once the outcome was settled",
+         "unit": "boolean", "trust": "official"},
+        {"id": "approval_pct_of_counted", "label": "Approval over the disclosed counts",
+         "unit": "%", "trust": "derived", "calc": CALC["approval_pct_of_counted"]},
+        {"id": "against_pct_of_counted", "label": "Against over the disclosed counts",
+         "unit": "%", "trust": "derived", "calc": CALC["against_pct_of_counted"]},
+        {"id": "dissent_pct", "label": "Dissent", "unit": "%", "trust": "derived",
+         "calc": CALC["dissent_pct"]},
+        {"id": "pct_consistent", "label": "Filed and computed percentages agree within 15 pp",
+         "unit": "boolean", "trust": "derived", "calc": CALC["pct_consistent"]},
+    ],
+    "endpoints": {
+        "company": "/api/v1/equity/agm/company/{sec_code}",
+        "summary": "/api/v1/equity/agm/summary",
+        "screen": "/api/v1/equity/agm/directors",
+        "proposals": "/api/v1/equity/agm/proposals",
+    },
+    "capabilities": ["company", "summary", "screen"],
+    "screens": [
+        {"id": "lowest", "title": "Directors elected on the lowest approval"},
+        {"id": "highest", "title": "Directors elected on the highest approval"},
+        {"id": "dismissal", "title": "Votes to remove a director (read the other way up)"},
+        {"id": "proposals", "title": "Proposals by category, including shareholder proposals"},
+    ],
+    "cite": "/agm.html?company={sec_code}",
+    "page": "/agm.html",
+    "notes": [TALLY_NOTE, ELECTION_NOTE, UNIT_NOTE, VERIFY_NOTE, COVERAGE_NOTE],
+}

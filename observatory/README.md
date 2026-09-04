@@ -34,6 +34,14 @@ and one trade dataset:
   Year-blocks the Ministry has closed are cached on the data volume under its own
   `UPDATED_DATE`, so a routine run re-downloads only the current year.
 
+- **trade-inputs** — the step upstream of `trade-semis`: silicon wafers (HS 3818.00) by partner
+  country, monthly from January 2001, both directions, value (¥1,000) and quantity (kg), from the
+  HS-detail commodity by country tables (品別国別表). Same adapter machinery and series-code shape
+  as `trade-semis`, so `/trade` serves it unchanged. Two traps it carries so you don't have to:
+  e-Stat publishes **no names** for HS lines (they are curated here from the tariff schedule), and
+  the export and import schedules split 3818.00 differently (`-100`/`-900` vs `-010`/`-020`).
+  **Needs `ESTAT_APP_ID`.**
+
 and one demand dataset:
 
 - **jnto-visitors** — monthly foreign visitor arrivals to Japan by market (54 series: the
@@ -51,6 +59,18 @@ and one demographic dataset:
   dated to the calendar year they cover, so population(Y+1) − population(Y) equals the flows
   dated Y. **The ministry keeps only the current year online** — last year's workbook is
   deleted — so the vintage archive here is the history.
+- **population-jp-municipal** — the same register release at municipality level: every city,
+  town, village and ward in Japan, about **1,900 of them**, three resident segments deep, with
+  the year's register flows and five-year age bands (584,781 series). The workbook mixes four
+  levels of area in one column — adding every municipality row gives 160 million people in a
+  country of 124 million — because designated cities are published alongside their own wards,
+  districts alongside their towns, and Tokyo's islands as one `島しょ` row. The 328 grouping
+  rows are identified by name containment plus the workbook's outline structure and **proved**
+  by reconciliation: the 1,898 municipalities sum to their prefecture exactly, in all three
+  segments. Grouping rows are stored but carry `level: "group"` and must never be added to the
+  rest. Small cells are suppressed by the ministry (17,829 of them, foreign age bands only) and
+  are missing, never zero. Because 584,781 series is not a payload,
+  `/api/v1/population-jp-municipal/prefectures` **requires** `?prefecture=NN`.
 - **population-jp-history** — the long run behind it: population, age structure, foreign
   residents, households, births, deaths and migration for the same 47 prefectures back to
   **1975**, from the System of Social and Demographic Statistics (社会・人口統計体系, table A)
@@ -61,6 +81,22 @@ and one demographic dataset:
   here, which is the 123,767,642 at 1 Jan 2026 in `population-jp` plus that year's decline.
   **Needs `ESTAT_APP_ID`** (free, https://www.e-stat.go.jp/mypage/view/api); every other
   dataset works without a key.
+
+### Hand-edited reference lists
+
+Two curated Python modules, both applied at serve time so an edit costs a redeploy and never a
+re-extraction or a rewritten vintage:
+
+- [`app/filer_labels.py`](app/filer_labels.py) — **investors.** What kind of institution a
+  5%-filer is (read from its own filed 事業内容) and which family it belongs to (curated:
+  BlackRock files under sixteen EDINET codes and no document names the parent).
+- [`app/company_labels.py`](app/company_labels.py) — **companies.** English names, the
+  alternative spellings filers actually use for the same buyer, corporate families, and theme
+  tags (`memory`, `semicap`, `wafer`, `materials`, …). Toyota is written two ways and Honda
+  three; no filing says they are the same company. The name as filed is never replaced, nothing
+  is translated, and a subsidiary is never rolled into its parent.
+  `python -m app.company_labels --check` reports aliases that no longer appear in any filing
+  and the most-named companies still missing from the list.
 
 ## Run it
 
@@ -77,7 +113,13 @@ python3 -m venv .venv
 ./.venv/bin/python -m app.ingest jnto-visitors
 ./.venv/bin/python -m app.ingest population-jp
 ./.venv/bin/python -m app.ingest population-jp-history   # needs ESTAT_APP_ID
+./.venv/bin/python -m app.ingest population-jp-municipal # ~12 min: 585k series
 ./.venv/bin/python -m app.ingest trade-semis             # needs ESTAT_APP_ID
+./.venv/bin/python -m app.ingest trade-inputs            # needs ESTAT_APP_ID
+
+# segment notes (revenue by region, named customers, reportable segments) from the
+# annual reports already archived — the company side of the Company Lens
+cd equity && ../.venv/bin/python seg_extract.py --all --source local --workers 8 && cd ..
 
 # serve API + frontend on one port
 ./.venv/bin/uvicorn app.main:app --port 8007
@@ -220,6 +262,53 @@ still rendered a healthy-looking dashboard over month-old data.
   block: how far each extractor has read, and whether that is more than 7 days behind
   (long enough to survive the New Year closure without crying wolf).
 
+### The MCP surface (v2)
+
+`POST /mcp` serves two tool surfaces, chosen by `MCP_TOOLSET` (`v1` · `v2` · `both`, default
+`both`). v2 is six generic tools whose `dataset` argument is resolved through the registry, so
+a new dataset needs a manifest and a dispatch row, not a new tool:
+
+| Tool | What it answers |
+| --- | --- |
+| `list_datasets` | what is published — id, section, shape, capabilities, screens, coverage |
+| `describe_dataset` | one dataset's card: source, every measure with its trust label and formula, endpoints, notes, live coverage |
+| `search` | companies (name or code) and series (name or code) across datasets, one ranked list |
+| `get_company` | one company in one dataset, or — with no dataset — a compact profile across every dataset that knows it, with a coverage list |
+| `get_series` | a series' history as the published value or a calculated rate, with `as_of` |
+| `screen` | a ranked cross-section from the dataset's own screens; an unknown sort answers with the valid ones |
+
+Every result is one envelope — `tool · dataset · data · provenance · calc · vintage · cite ·
+coverage` — and no-data is an answer (`data: null`, `missing: why`), never a JSON-RPC error.
+The manifests are also served as MCP resources (`observatory://datasets/{id}`,
+`observatory://sections`, `observatory://methodology`), and the `initialize` instructions are
+generated from the registry so they name every dataset on the server.
+
+### The dataset registry
+
+Every dataset module exports a `MANIFEST` — one plain dict saying what the dataset is,
+where its numbers come from, which measures are official and which are calculated (with
+the exact formula), where to fetch it and where to cite it. `app/registry.py` collects them
+and refuses a card that breaks the trust contract: a calculated measure with no formula, an
+official one with a formula, a unit outside the vocabulary (`%` is a share of a level, `pp`
+a change of a percentage), a formula for the generic rates that differs from what `api.py`
+computes, or an endpoint that is not a real route on the app.
+
+A bad card is **quarantined, never fatal**: the serving process drops that one dataset from
+the catalog, keeps serving the rest, and reports it in the `manifests` block of
+`/api/v1/catalog/health` (which turns the report to `attention` and alerts). Set
+`MANIFEST_STRICT=1` to make a fault refuse to boot instead — for staging, not production.
+
+```bash
+./.venv/bin/python -m app.registry --check            # validate every card; exit 1 on a fault
+./.venv/bin/python -m app.registry --scaffold cpi-jp  # draft a card for a macro adapter
+./.venv/bin/python -m unittest tests.test_manifests
+```
+
+A new macro dataset gets its card from `--scaffold`: everything the adapter already declares
+is filled in, and what only a person can write — the section, the summary, and above all the
+formula for any dataset-specific calculation — is left as `TODO`, which the validator treats
+as an error. A draft can never reach the shelf half-finished.
+
 ### Knowing when it stops
 
 The per-dataset staleness limits run from 7 days to 950, so a refresh that stops is invisible
@@ -319,6 +408,14 @@ GET /api/v1/cpi-jp/contributions?start=2023-01     # pp decomposition of headlin
 GET /api/v1/cpi-jp-items/breadth?threshold=2       # share of the 582 priced items rising/falling
 GET /api/v1/jgb-yields/curve                       # every date x every tenor, one payload
 GET /api/v1/jnto-visitors/arrivals                 # every market x every month, plus the hierarchy
+GET /api/v1/trade-semis/observations?series=exp.70131000.50105.val&period=fiscal_quarter&fy_end=3
+                                                   # any monthly FLOW summed into a company's fiscal
+                                                   #   quarters or years (period=fiscal_year); refuses an
+                                                   #   index, a stock or a rate; complete periods only
+GET /api/v1/equity/segments/lens/8035              # Company Lens: filed regions, customers and segments
+GET /api/v1/equity/segments/lens/8035.csv          #   beside the customs flows the company is mapped to,
+GET /api/v1/equity/segments/customers?name=Taiwan  #   in its own fiscal periods; who names whom
+GET /api/v1/equity/segments/supply-chain           #   the editorial commodity -> company mapping
 GET /api/v1/trade-semis/trade?flow=exp&commodity=70323050
                                                    # one commodity x every partner x every month,
                                                    #   plus world totals for all eleven commodity-flows.
@@ -337,6 +434,9 @@ GET /api/v1/population-jp/observations?series=13.all.population,13.fgn.populatio
                                                    #           age_65_69_female, age_total_male, ...
 GET /api/v1/cpi-jp/releases
 GET /api/v1/catalog/health                         # is every dataset current, and did an ingest go quiet
+GET /api/v1/catalog/manifests                      # every dataset's card: source, measures, formulas, endpoints
+GET /api/v1/catalog/manifests/cpi-jp               # one card; an unknown id answers with the valid ids
+GET /api/v1/catalog/sections                       # the fixed section list and which datasets sit in each
 ```
 
 Interactive docs at `/api/docs`.
@@ -445,6 +545,41 @@ through to the parent-only figure and reads several times too high. A
 parent-only denominator is labelled, never silently mixed with a group one.
 See §4.8–4.9 and §8.7.
 
+**Measurement basis.** Every yen figure in this dataset is on one convention —
+balance-sheet **carrying amount**, at fiscal year end, from an **annual**
+securities report — and that convention is now returned as a typed `basis`
+tuple on every response that carries a yen figure (`measurement`,
+`entity_scope`, `share_scope`, `trust_included`, `as_of`, `period_type`).
+It is *derived*, not stored: `entity_scope` is read from `holder_table`
+(`reporting` → `parent_only`, `largest` → `largest_holding_company`,
+`second_largest` → …) and `share_scope` from `share_class`, both of which the
+filings have always carried. Nothing is backfilled and no stored row is
+written to. `app/basis.py` is the source of truth; `equity/extract.py`
+projects the vocabulary into `eq_basis_labels` and the view
+`v_holdings_basis` so it is queryable in SQL, and the API never reads either —
+a database an extract has not touched still serves a correct basis.
+
+This matters because it is *not* the basis the press and IR decks use.
+Reduction targets and progress figures are quoted on acquisition cost, often
+at commercial-bank level rather than group level, often listed-only, and often
+at a half-year date this product does not hold. The differences run to
+multiples: Nikkei Asia put the three megabanks at ¥2.56tn at 2025-09-30; the
+filings give ¥11.5085tn at 2026-03-31. Both are right.
+`entity_scope` is the axis that hides in plain sight — SMFG discloses ¥3.458tn
+of listed policy shares under SMBC and ¥153.8bn at the holding company, so a
+figure quoted for one entity is not the group figure.
+
+`GET /api/v1/equity/claim-check` (MCP tool `check_claim`) reconciles an
+external figure against what the filings support. It **never infers the
+claim's basis from its wording**: the caller states it in `claimed_*`
+arguments, or the answer says the gap cannot be classified. `context` is
+echoed for the record and never parsed. Verdicts describe what this dataset
+can corroborate (`consistent`, `cannot_verify`, `date_mismatch`,
+`basis_mismatch`, `scope_mismatch`, `measure_not_held`, `coverage_gap`) and
+are never a judgement that a published figure is wrong. There is no
+book-value-reduction measure here: `sale_proceeds_yen` is cash received over a
+fiscal year, and the two are never presented as equivalent.
+
 ### Boards and pay (`/api/v1/equity/governance/...`)
 
 The third surface, from the same annual reports and the same DuckDB file
@@ -528,6 +663,26 @@ run, `--all --source s3 --new-only` is what the nightly refresh does. The first
 production run has no watermark and therefore reads the whole bucket — every
 annual report since 2021 — which is hours, not minutes; run it once by hand
 before relying on the nightly window.
+
+#### Calculated ratios and the screener
+
+`app/fin_metrics.py` is the one place a financial number is *computed*: ROE and
+ROA on average balances, margins, equity ratio, asset turnover, growth, cash
+conversion, simple free cash flow, cash to assets, and implied PBR / dividend
+yield from the filer's own year-end PER (no price feed exists). Every row
+carries the formula, the inputs used (value, element, fiscal-year offset) and
+the filer's own ROE and equity ratio with the difference — our ROE reconciles
+to the filer's within 0.5 pp for over 99% of companies. Computed on request
+over the latest filing per company and memoised per database version (about
+0.3 s for the universe).
+
+| Endpoint | What it returns |
+| --- | --- |
+| `/financials/metrics/{sec_code}` | one company's ratios with formulas, inputs and the filer's own figures |
+| `/financials/screener?sort=&order=&industry=&standard=&roe_min=&…` | filtered, ranked cross-section; `/screener/options` lists industries, standards, metrics and formulas |
+
+The page is `web/screener.html` (**Equities → Screener**); the URL carries every
+filter and the sort. MCP tools: `get_financial_metrics`, `screen_financial_metrics`.
 
 ### Buybacks (`/api/v1/equity/buyback/...`)
 
@@ -734,6 +889,29 @@ names are as filed. Every name-bearing response carries the English one
 Japanese, and `/companies?q=` matches code, Japanese name and English name
 alike. EDINET's filer registry is the fallback for a company that files no
 annual report of its own. See `docs/METHODOLOGY-CROSS-SHAREHOLDINGS.md` §5.1.
+
+Nobody types the filed name, though: "MUFG" is in neither
+株式会社三菱ＵＦＪフィナンシャル・グループ nor "Mitsubishi UFJ Financial Group,
+Inc.", so every `/companies?q=` search also matches a market nickname
+(`app/aliases.py`). Two layers, both applied at serve time and neither stored:
+initials generated from the filed English name (MUFG, SMFG, MHI), and
+`app/curation/company_aliases.json` for what initials cannot reach — JAL,
+TEPCO, JR East, Uniqlo, Docomo, brands, and operating subsidiaries that do not
+list, each row naming the listed filer and the reason it is there. Matching is
+exact on the nickname, so an alias only ever ADDS the company it names; it
+never reorders or removes anything the name search already found.
+
+Nor does anyone type the filed name the way EDINET filed it. 181 listed filers
+carry a space inside their own name (`株式会社　りそなホールディングス`), 543
+carry full-width latin (`ＮＴＴ株式会社`), and 株式会社 sits at whichever end
+the company chose — so typing a company's own full legal name returned nothing
+at all. Both sides of the name comparison are now folded (`aliases.fold`):
+NFKC, upper-case, legal form and punctuation removed, and spaces dropped where
+they touch a kana or kanji. A space between two latin words survives on
+purpose — welding `ＴＯＹＯ　ＴＡＮＳＯ` into one word would answer a search for
+Toyota with a graphite maker — so a name typed with no spaces at all is matched
+against the whole de-spaced name only, never a fragment of it. As with the
+nicknames, the fold contributes only what the plain substring search missed.
 
 Quick check:
 

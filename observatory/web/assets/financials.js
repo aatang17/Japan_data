@@ -385,6 +385,62 @@
       }));
   }
 
+  // ---- calculated ratios ---------------------------------------------------
+  var METRIC_FMT = { "%": pct, "×": times2, "¥": yenBn };
+  function times2(v) { return v == null ? MISSING : fmtNum(v, 2) + "×"; }
+
+  function renderMetrics(d) {
+    var m = d.metrics;
+    var filed = { roe_pct: d.filed.roe_pct, equity_ratio_pct: d.filed.equity_ratio_pct };
+    var chk = { roe_pct: d.checks.roe_vs_filed_pp, equity_ratio_pct: d.checks.equity_ratio_vs_filed_pp };
+    $("dr-note").textContent = "FY ended " + d.period_end + " · " +
+      (d.basis === "parent" ? "parent only" : "consolidated") + " · derived";
+    $("dr-table").innerHTML = "<thead><tr><th>Ratio</th><th class=r>This platform</th>" +
+      "<th class=r>Filer's own</th><th class=r>Difference</th></tr></thead><tbody>" +
+      d.metric_defs.map(function (def) {
+        var f = METRIC_FMT[def.unit] || pct;
+        var own = filed[def.metric];
+        var diff = chk[def.metric];
+        var withheld = d.checks[def.metric.replace(/_pct$/, "").replace(/_x$/, "") + "_withheld"] ||
+          (def.metric === "roe_pct" ? d.checks.roe_withheld : null) ||
+          (def.metric === "dividend_yield_implied_pct" ? d.checks.dividend_yield_withheld : null);
+        var shown = m[def.metric] == null && withheld
+          ? "<span class='flag' title='" + esc(withheld) + "'>not shown</span>"
+          : f(m[def.metric]);
+        return "<tr><td class='lbl' title='" + esc(def.formula) + "'>" + esc(def.label) +
+          " <span class='unit'>(" + esc(def.unit) + ")</span></td>" +
+          "<td class=r>" + shown + "</td>" +
+          "<td class=r>" + (own == null ? MISSING : f(own)) + "</td>" +
+          "<td class=r>" + (diff == null ? MISSING : fmtSigned(diff, 2, "pp")) + "</td></tr>";
+      }).join("") + "</tbody>";
+    var inputs = Object.keys(d.inputs).map(function (k) {
+      var i = d.inputs[k];
+      var v = i.value;
+      var shown = Math.abs(v) >= 1e6 ? "¥" + fmtNum(v / 1e6, 0) + "mn" : fmtNum(v, 2);
+      return "<li><b>" + esc(k) + "</b> = " + shown + " <span class='unit'>(" + esc(i.element) +
+        ", FY" + (i.year_offset === 0 ? "" : i.year_offset) + ")</span></li>";
+    }).join("");
+    var withheldAll = Object.keys(d.checks).filter(function (k) { return /_withheld$/.test(k); });
+    $("dr-flags").innerHTML = withheldAll.length
+      ? "<b>Not calculated for this company:</b> " + withheldAll.map(function (k) {
+          return esc(d.checks[k]); }).join(" · ")
+      : "";
+    $("dr-flags").hidden = !withheldAll.length;
+    $("dr-calc").innerHTML = "<ul class='calc-list'>" + d.metric_defs.map(function (def) {
+      return "<li><b>" + esc(def.label) + "</b> — " + esc(def.formula) + "</li>";
+    }).join("") + "<li><b>Equity attributable to owners</b> — " + esc(d.calc.equity_owners_yen) + "</li></ul>" +
+      "<p class='sec-note' style='margin-top:8px'><b>Inputs used</b> (value, XBRL element, fiscal year):</p>" +
+      "<ul class='calc-list'>" + inputs + "</ul>";
+  }
+
+  function loadMetrics() {
+    getJSON(API + "/metrics/" + encodeURIComponent(state.code)).then(renderMetrics).catch(function (e) {
+      $("dr-table").innerHTML = "";
+      $("dr-note").textContent = "";
+      $("dr-calc").innerHTML = "<span class='state-error'>Ratios unavailable — " + esc(e.message) + "</span>";
+    });
+  }
+
   // ---- statements ----------------------------------------------------------
   var stReq = 0;
   function loadStatement() {
@@ -525,7 +581,7 @@
       if (d.consolidated === false && state.basis === "consolidated") {
         state.basis = "parent"; setSeg("basis-seg", "data-basis", "parent");
       }
-      renderFacts(); renderPanel(); loadStatement();
+      renderFacts(); renderPanel(); loadStatement(); loadMetrics();
     }).catch(function (e) {
       $("co-name").textContent = code;
       $("co-filing").textContent = e.message.indexOf("404") > -1

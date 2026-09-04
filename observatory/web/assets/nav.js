@@ -40,10 +40,13 @@ var NAV_SECTIONS = [
       { id: "ownership", label: "Register", href: "ownership.html" },
       { id: "stakes", label: "5% Filings", href: "stakes.html" },
       { id: "governance", label: "Boards & Pay", href: "governance.html" },
+      { id: "company", label: "Company Lens", href: "company.html" },
+      { id: "customers", label: "Customers", href: "customers.html" },
       { id: "agm", label: "AGM Votes", href: "agm.html" },
       { id: "buyback", label: "Buybacks", href: "buyback.html" },
       { id: "facilities", label: "Facilities & Land", href: "facilities.html" },
       { id: "financials", label: "Financials", href: "financials.html" },
+      { id: "screener", label: "Screener", href: "screener.html" },
     ],
   },
   {

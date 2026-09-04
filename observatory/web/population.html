@@ -134,6 +134,26 @@
     </div>
   </section>
 
+  <section aria-labelledby="h-muni">
+    <h2 id="h-muni">Inside One Prefecture <span class="h2-note" id="muni-note"></span></h2>
+    <p class="section-sub">Every city, town, village and ward in the prefecture chosen above, on
+    the same register year. A prefecture average hides what is happening inside it: a village
+    losing 8% of its people can sit in a prefecture that looks merely flat. Designated cities and
+    districts are also published as totals of the municipalities inside them — those rows are
+    left out by default, because adding them to the rest counts the same people twice.</p>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Rows shown" id="muni-seg">
+        <button type="button" data-muni="leaves" aria-pressed="true">Municipalities</button>
+        <button type="button" data-muni="all">Include City &amp; District Totals</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="muni-csv">Download CSV</button>
+    </div>
+    <div class="table-wrap" id="muni-table"><div class="skeleton" style="width:100%;height:320px"></div></div>
+    <p class="table-foot" id="muni-foot"></p>
+    <details class="calc" id="muni-calc"></details>
+  </section>
+
   <section aria-labelledby="h-table">
     <h2 id="h-table">All 47 Prefectures <span class="h2-note" id="table-note"></span></h2>
     <p class="section-sub">Every prefecture on the latest register year. Counts are official

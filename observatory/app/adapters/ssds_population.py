@@ -439,3 +439,59 @@ PRESENTATION = {
         "companion_dataset": "population-jp",
     },
 }
+
+
+# The dataset's card. Long-run counts with indicator-specific reference dates
+# (served as `bases` on /prefectures) — a surface must say which applies.
+MANIFEST = {
+    "id": DATASET["slug"],
+    "section": "demography",
+    "name": {"en": "Prefecture population, long run — regional statistics",
+             "ja": "社会・人口統計体系 都道府県データ（人口・世帯）"},
+    "shape": "series",
+    "summary": ("Population, age structure, foreign residents, households, "
+                "births, deaths and migration for all 47 prefectures and the "
+                "nation back to 1975, compiled by the Statistics Bureau from "
+                "the census, population estimates, vital statistics and the "
+                "Basic Resident Register."),
+    "source": {
+        "publisher": DATASET["agency"],
+        "publisher_ja": DATASET["agency_ja"],
+        "document": SOURCE["name"],
+        "url": SOURCE["url"],
+        "credit": PRESENTATION["credit_line"],
+        "license_note": SOURCE["license_note"],
+    },
+    "keys": ["series_code", "period"],
+    "frequency": DATASET["frequency"],
+    "vintage": {
+        "unit": "release", "as_of_basis": "release-in-force",
+        "as_of_supported": True, "history_from": "1975",
+        "stale_after_days": PRESENTATION["stale_after_days"],
+    },
+    "measures": [
+        {"id": "index", "label": "Published count (persons, households, or a calendar-year flow)",
+         "unit": "persons", "trust": "official"},
+        {"id": "yoy", "label": "Year over year", "unit": "%", "trust": "derived",
+         "where": "annual series: t−12 months is the previous year",
+         "calc": "(value[t] / value[t−12 months] − 1) × 100, from published values."},
+    ],
+    "endpoints": {
+        "series": "/api/v1/%s/observations" % DATASET["slug"],
+        "prefectures": "/api/v1/%s/prefectures" % DATASET["slug"],
+        "releases": "/api/v1/%s/releases" % DATASET["slug"],
+        "revisions": "/api/v1/%s/revisions" % DATASET["slug"],
+    },
+    "capabilities": ["series"],
+    "cite": "/population.html",
+    "page": "/population.html",
+    "notes": [
+        "Reference dates differ by indicator: register counts are as of 1 January "
+        "of the following year, estimates as of 1 October, and births, deaths and "
+        "migration are calendar-year flows. /prefectures serves the rule per series.",
+        "Coverage varies by indicator — foreign register counts begin in 2013 and "
+        "household counts appear only in census years. Gaps are gaps, never zero.",
+        "Shares and change rates are computed on the page from these counts and "
+        "carry their formula there.",
+    ],
+}

@@ -31,6 +31,7 @@ roughly a year, so nothing before 2025-08-12 is retrievable by anyone.
 """
 from fastapi import APIRouter, HTTPException, Query
 
+from . import aliases
 from .equity_api import NAME_CTES, _cur, _rows
 
 router = APIRouter(prefix="/api/v1/equity/buyback")
@@ -304,6 +305,7 @@ def companies(q: str = Query("", description="name or code substring")):
     cur = _require()
     term = (q or "").strip()
     like = "%" + term.lower() + "%"
+    alias_sql, alias_params = aliases.clause(cur, "f.sec_code", term)
     return {"companies": _rows(cur, """
         WITH x AS (SELECT 1)""" + NAME_CTES + """
         SELECT f.sec_code, f.edinet_code,
@@ -316,9 +318,10 @@ def companies(q: str = Query("", description="name or code substring")):
         WHERE CAST(? AS VARCHAR) = ''
            OR lower(coalesce(es.name_en, ee.name_en, '')) LIKE CAST(? AS VARCHAR)
            OR lower(f.filer_name) LIKE CAST(? AS VARCHAR)
-           OR coalesce(f.sec_code, '') LIKE CAST(? AS VARCHAR)
+           OR coalesce(f.sec_code, '') LIKE CAST(? AS VARCHAR)"""
+        + alias_sql + """
         GROUP BY 1, 2 ORDER BY count(*) DESC, f.sec_code
-        LIMIT 40""", [term, like, like, like])}
+        LIMIT 40""", [term, like, like, like] + alias_params)}
 
 
 @router.get("/company/{sec_code}")
@@ -369,3 +372,75 @@ def company(sec_code: str):
     head["calc"] = CALC
     head["provenance"] = PROVENANCE
     return head
+
+
+# The dataset's card (app/registry.py). Authorised and acquired are different
+# measures (MEASURE_NOTE); the filer's own progress figure is official and the
+# platform's completion figure is derived, returned beside it.
+from .equity_api import EDINET_SOURCE as _EDINET_SOURCE  # noqa: E402
+
+MANIFEST = {
+    "id": "buybacks",
+    "section": "capital-returns",
+    "name": {"en": "Buybacks", "ja": "自己株券買付状況報告書"},
+    "shape": "events",
+    "summary": ("Share buyback programmes from announcement to execution to "
+                "cancellation — what a board authorised, what was actually "
+                "bought month by month, what is left unspent, and shares "
+                "retired — from the monthly buyback status reports."),
+    "source": dict(_EDINET_SOURCE,
+                   document="自己株券買付状況報告書 (monthly buyback status report, "
+                            "EDINET type 220)",
+                   credit="Source: buyback status reports filed on EDINET "
+                          "(Financial Services Agency of Japan)."),
+    "keys": ["sec_code", "resolution_date"],
+    "frequency": "per-event",
+    "vintage": {
+        "unit": "filing", "as_of_basis": "captured_at", "as_of_supported": False,
+        "history_from": "2025-08 (archive start; EDINET purges these filings after a year)",
+        "stale_after_days": None,
+    },
+    "measures": [
+        {"id": "authorised_yen", "label": "Yen authorised by the board", "unit": "JPY",
+         "trust": "official"},
+        {"id": "authorised_shares", "label": "Shares authorised", "unit": "shares",
+         "trust": "official"},
+        {"id": "cumulative_yen", "label": "Cumulative yen acquired", "unit": "JPY",
+         "trust": "official"},
+        {"id": "cumulative_shares", "label": "Cumulative shares acquired", "unit": "shares",
+         "trust": "official"},
+        {"id": "progress_yen_pct", "label": "Progress, as published by the filer (進捗状況)",
+         "unit": "%", "trust": "official"},
+        {"id": "shares_retired", "label": "Shares retired (消却)", "unit": "shares",
+         "trust": "official"},
+        {"id": "completion_pct", "label": "Completion, computed", "unit": "%",
+         "trust": "derived", "calc": CALC["completion_pct"]},
+        {"id": "unspent_yen", "label": "Authorisation left unspent", "unit": "JPY",
+         "trust": "derived", "calc": CALC["unspent_yen"]},
+        {"id": "lifecycle", "label": "Programme state", "unit": "category",
+         "trust": "derived",
+         "calc": "; ".join("%s: %s" % (k, v) for k, v in sorted(LIFECYCLE_LABELS.items()))},
+        {"id": "pct_of_pre_shares", "label": "Shares retired as a share of the pre-retirement count",
+         "unit": "%", "trust": "derived",
+         "calc": ("100 × shares retired ÷ (shares outstanding at month end + shares "
+                  "retired). Derived; the share counts are as filed.")},
+        {"id": "dates_inconsistent", "label": "Filing's own dates contradict each other",
+         "unit": "boolean", "trust": "derived",
+         "calc": "raised when the resolution date post-dates the acquisition window it authorises"},
+    ],
+    "endpoints": {
+        "company": "/api/v1/equity/buyback/company/{sec_code}",
+        "search": "/api/v1/equity/buyback/companies",
+        "summary": "/api/v1/equity/buyback/summary",
+        "screen": "/api/v1/equity/buyback/programs",
+        "screen_sorts": "/api/v1/equity/buyback/programs/sorts",
+        "monthly": "/api/v1/equity/buyback/monthly",
+        "retirements": "/api/v1/equity/buyback/retirements",
+    },
+    "capabilities": ["company", "search", "summary", "screen"],
+    "screens": [{"id": k, "title": "Programmes ranked by %s" % k.replace("_", " ")}
+                for k in sorted(SORTS)],
+    "cite": "/buyback.html?c={sec_code}",
+    "page": "/buyback.html",
+    "notes": [MEASURE_NOTE, RETIREMENT_NOTE, COVERAGE_NOTE, CALC["note"]],
+}

@@ -16,12 +16,14 @@ nothing here turns a gap into a zero.
 """
 import contextvars
 import datetime
+import inspect
 import json
 import os
 
 from urllib.parse import urlencode
 
 from . import api
+from . import basis as basis_mod
 from . import equity_api, financials_api, governance_api
 
 # Tool results are the bulk of an LLM caller's input tokens. These bound how
@@ -74,6 +76,30 @@ def _record(tool, args, release=None, note=None):
 # ---------------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------------
+
+def call_api(fn, **kwargs):
+    """Call an API handler directly, resolving its FastAPI defaults.
+
+    Handlers carry Query()/Path() defaults, which are *objects* rather than
+    values when the function is called in-process rather than through a
+    request. Every parameter therefore has to be passed explicitly — and every
+    time a handler gains one, every caller here silently breaks (`as_of` did
+    it once, `period` and `fy_end` again). Filling the gaps from the signature
+    kills the whole bug class: a new query parameter now arrives with its own
+    default instead of a Query object.
+    """
+    for name, param in inspect.signature(fn).parameters.items():
+        if name in kwargs:
+            continue
+        default = param.default
+        if default is inspect.Parameter.empty:
+            continue
+        inner = getattr(default, "default", inspect.Parameter.empty)
+        if inner is not inspect.Parameter.empty:
+            # Ellipsis marks a required query parameter with no default.
+            kwargs[name] = None if inner is Ellipsis else inner
+    return fn(**kwargs)
+
 
 def _fail(message):
     """Tool-level failure the caller can recover from, not a request failure."""
@@ -196,8 +222,8 @@ def get_series_values(series_codes, measure="yoy", dataset="cpi-jp",
         return _fail("No series codes given.")
     try:
         from_month = start or _window_start(_release_of(dataset), DEFAULT_MONTHS)
-        raw = api.observations(dataset, series=codes, measure=measure,
-                               start=from_month, end=end or None)
+        raw = call_api(api.observations, dataset=dataset, series=codes,
+                       measure=measure, start=from_month, end=end or None)
     except Exception as exc:  # noqa: BLE001
         _record("get_series_values", args, note="failed")
         return _fail(str(exc))
@@ -660,7 +686,8 @@ def get_company_holdings(sec_code):
     if err:
         return _fail(err)
     raw["trust"] = "official"
-    raw["unit"] = "book values in yen, as filed"
+    raw["unit"] = "book values in yen, carrying amount as filed"
+    raw["not_comparable"] = basis_mod.NOT_COMPARABLE
     raw["cite"] = _cite("/holdings.html", c=code)
     return json.dumps(raw, ensure_ascii=False, default=str)
 
@@ -671,7 +698,8 @@ def get_unwind_ranking():
     if err:
         return _fail(err)
     raw["trust"] = "official"
-    raw["unit"] = "book values in yen, as filed"
+    raw["unit"] = "book values in yen, carrying amount as filed"
+    raw["not_comparable"] = basis_mod.NOT_COMPARABLE
     raw["cite"] = _cite("/holdings.html")
     return json.dumps(raw, ensure_ascii=False, default=str)
 
@@ -681,6 +709,38 @@ def get_holdings_summary():
     raw, err = _eq_guard(lambda: equity_api.summary(year=""))
     if err:
         return _fail(err)
+    raw["not_comparable"] = basis_mod.NOT_COMPARABLE
+    raw["cite"] = _cite("/holdings.html")
+    return json.dumps(raw, ensure_ascii=False, default=str)
+
+
+def check_claim(figure_yen, companies, as_of="", measure="holdings",
+                claimed_measurement="", claimed_entity_scope="",
+                claimed_share_scope="", claimed_period_type="", context=""):
+    """Check a published figure against what the filings support.
+
+    Never infers the claim's basis from `context`: the caller states it in the
+    claimed_* arguments, or the answer says the gap cannot be classified.
+    """
+    codes = companies if isinstance(companies, str) else ",".join(
+        str(c) for c in (companies or []))
+    if not (codes or "").strip():
+        return _fail("No securities codes given.")
+    try:
+        figure = float(figure_yen)
+    except (TypeError, ValueError):
+        return _fail("figure_yen must be a number of yen.")
+    raw, err = _eq_guard(lambda: equity_api.claim_check(
+        figure_yen=figure, companies=codes, as_of=as_of or "",
+        measure=measure or "holdings",
+        claimed_measurement=claimed_measurement or "",
+        claimed_entity_scope=claimed_entity_scope or "",
+        claimed_share_scope=claimed_share_scope or "",
+        claimed_period_type=claimed_period_type or "",
+        context=context or ""))
+    if err:
+        return _fail(err)
+    raw["trust"] = "official"
     raw["cite"] = _cite("/holdings.html")
     return json.dumps(raw, ensure_ascii=False, default=str)
 
@@ -818,7 +878,55 @@ def get_financials_screen(metric="revenue", year="", limit=25):
     return json.dumps(raw, ensure_ascii=False, default=str)
 
 
+def get_financial_metrics(sec_code):
+    """One company's platform-calculated ratios with formulas and inputs."""
+    code = (sec_code or "").strip()
+    if not code:
+        return _fail("No securities code given.")
+    raw, err = _fin_guard(lambda: financials_api.metrics(code))
+    if err:
+        return _fail(err)
+    raw["trust"] = "derived"
+    raw["cite"] = _cite("/financials.html", c=code)
+    return json.dumps(raw, ensure_ascii=False, default=str)
+
+
+def screen_financial_metrics(sort="roe_pct", order="desc", industry="", standard="",
+                             min_revenue_yen="", min_assets_yen="", roe_min="", roe_max="",
+                             roa_min="", operating_margin_min="", equity_ratio_min="",
+                             equity_ratio_max="", revenue_growth_min="", pbr_implied_max="",
+                             dividend_yield_min="", cash_to_assets_min="", limit=25):
+    """Filtered, ranked cross-section on platform-calculated ratios."""
+    raw, err = _fin_guard(lambda: financials_api.screener(
+        industry=industry or "", standard=standard or "",
+        min_revenue_yen=str(min_revenue_yen or ""), min_assets_yen=str(min_assets_yen or ""),
+        roe_min=str(roe_min or ""), roe_max=str(roe_max or ""), roa_min=str(roa_min or ""),
+        operating_margin_min=str(operating_margin_min or ""),
+        equity_ratio_min=str(equity_ratio_min or ""), equity_ratio_max=str(equity_ratio_max or ""),
+        revenue_growth_min=str(revenue_growth_min or ""), pbr_implied_max=str(pbr_implied_max or ""),
+        dividend_yield_min=str(dividend_yield_min or ""), cash_to_assets_min=str(cash_to_assets_min or ""),
+        sort=sort or "roe_pct", order=order or "desc",
+        limit=max(1, min(int(limit or 25), 200)), offset=0))
+    if err:
+        return _fail(err)
+    raw["rows"] = [{"rank": r["rank"], "sec_code": r["sec_code"], "filer_name": r["filer_name"],
+                    "filer_name_en": r["filer_name_en"], "industry": r["industry"],
+                    "industry_en": r["industry_en"], "accounting_standard": r["accounting_standard"],
+                    "basis": r["basis"], "period_end": r["period_end"], "doc_id": r["doc_id"],
+                    "sort_value": r["sort_value"], "metrics": r["metrics"], "size": r["size"],
+                    "filed": r["filed"], "checks": r["checks"], "flags": r["flags"]} for r in raw["rows"]]
+    raw.pop("metric_defs", None)
+    raw["trust"] = "derived"
+    q = {"sort": raw["sort"]}
+    if industry:
+        q["industry"] = industry
+    raw["cite"] = _cite("/screener.html", **q)
+    return json.dumps(raw, ensure_ascii=False, default=str)
+
+
 EQUITY_TOOL_IMPLS = {
+    "get_financial_metrics": get_financial_metrics,
+    "screen_financial_metrics": screen_financial_metrics,
     "get_financials": get_financials,
     "get_financial_statement": get_financial_statement,
     "get_financials_screen": get_financials_screen,
@@ -831,6 +939,7 @@ EQUITY_TOOL_IMPLS = {
     "get_company_holdings": get_company_holdings,
     "get_unwind_ranking": get_unwind_ranking,
     "get_holdings_summary": get_holdings_summary,
+    "check_claim": check_claim,
 }
 
 # Same OpenAI function shape as TOOL_SCHEMAS; mcp.py reshapes both. Kept in a
@@ -948,7 +1057,7 @@ EQUITY_TOOL_SCHEMAS = [
                 "is how much of ITSELF the holder has committed to that name. "
                 "A value above 100 is possible and is sometimes genuine, so do "
                 "not treat it as an error on its own; check `implausible` and "
-                "the filing."),
+                "the filing." + " " + basis_mod.NOT_COMPARABLE),
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -970,8 +1079,84 @@ EQUITY_TOOL_SCHEMAS = [
                 "value in yen, with prior-year value and counts of positions "
                 "reduced versus increased — the cross-shareholding unwind "
                 "picture. Yen values are levels as filed; never rank or mix "
-                "them with CPI index numbers."),
+                "them with CPI index numbers. " + basis_mod.NOT_COMPARABLE),
             "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "check_claim",
+            "description": (
+                "Check a cross-shareholding figure quoted somewhere else — a "
+                "news article, an IR deck, a broker note — against what the "
+                "annual securities reports support. USE THIS BEFORE setting "
+                "any figure from this dataset against a published one: the "
+                "two are routinely on different bases and can differ several-"
+                "fold while both are correct. "
+                "CRITICAL: this tool does NOT read the claim's basis out of "
+                "its wording, and neither should you. If the article states "
+                "its measurement basis, entity scope, share scope or period "
+                "type, pass them in the claimed_* arguments; if it does not, "
+                "leave them empty and the answer will say the gap cannot be "
+                "classified. Never fill a claimed_* argument with a guess. "
+                "The verdict describes what this dataset can corroborate — it "
+                "is never a judgement that a published figure is wrong, and "
+                "must not be reported as one."),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "figure_yen": {
+                        "type": "number",
+                        "description": "The claimed figure, in yen. ¥2.56tn is 2560000000000.",
+                    },
+                    "companies": {
+                        "type": "string",
+                        "description": "Comma-separated 4-digit securities codes, e.g. '8306,8316,8411'.",
+                    },
+                    "as_of": {
+                        "type": "string",
+                        "description": "The date the claim refers to, YYYY-MM-DD.",
+                    },
+                    "measure": {
+                        "type": "string",
+                        "enum": ["holdings", "reduction"],
+                        "description": ("'holdings' for a stock of shares held; "
+                                        "'reduction' for a claimed fall in book "
+                                        "value, which this product does not hold."),
+                    },
+                    "claimed_measurement": {
+                        "type": "string",
+                        "enum": ["carrying_amount", "acquisition_cost"],
+                        "description": "Only if the source states it. Reduction targets are usually acquisition cost.",
+                    },
+                    "claimed_entity_scope": {
+                        "type": "string",
+                        "enum": ["parent_only", "largest_holding_company",
+                                 "second_largest_holding_company", "holdco_consolidated"],
+                        "description": ("Only if the source states it. A bank group "
+                                        "quoting progress at commercial-bank level is "
+                                        "largest_holding_company, not the group."),
+                    },
+                    "claimed_share_scope": {
+                        "type": "string",
+                        "enum": ["listed", "unlisted", "both"],
+                        "description": "Only if the source states it. Reduction targets are usually listed-only.",
+                    },
+                    "claimed_period_type": {
+                        "type": "string",
+                        "enum": ["annual", "interim"],
+                        "description": "Only if the source states it. Half-year figures are interim and are not held here.",
+                    },
+                    "context": {
+                        "type": "string",
+                        "description": ("The claim's own wording, pasted. Echoed back "
+                                        "for the record and never parsed — it does not "
+                                        "affect the verdict."),
+                    },
+                },
+                "required": ["figure_yen", "companies"],
+            },
         },
     },
     {
@@ -1202,6 +1387,71 @@ EQUITY_TOOL_SCHEMAS = [
                                         "cf_operating", "cash", "employees"]},
                     "year": {"type": "string",
                              "description": "Fiscal year (YYYY) of the filings to rank; omit for each company's latest."},
+                    "limit": {"type": "integer", "description": "Rows to return, default 25, max 200."},
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_financial_metrics",
+            "description": (
+                "One company's ratios CALCULATED BY THIS PLATFORM from its latest "
+                "annual securities report: ROE and ROA on average balances, operating "
+                "and net margin, equity ratio, asset turnover, revenue and profit "
+                "growth, cash conversion, simple free cash flow and FCF margin, cash "
+                "to assets, and implied PBR / dividend yield from the filer's own "
+                "year-end PER (no market data exists here). Every metric carries its "
+                "formula and the inputs used (value, XBRL element, fiscal-year offset), "
+                "and `filed` holds the filer's own ROE and equity ratio with the "
+                "difference in `checks`. Quote these as platform calculations with "
+                "the formula, never as the company's reported figure; use "
+                "get_financials for the figures as filed."),
+            "parameters": {
+                "type": "object",
+                "properties": {"sec_code": {"type": "string",
+                                            "description": "4-digit securities code, e.g. '7203'."}},
+                "required": ["sec_code"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "screen_financial_metrics",
+            "description": (
+                "The screener: every listed company's latest annual report ranked on a "
+                "platform-calculated ratio, with optional filters. sort: roe_pct, "
+                "roa_pct, operating_margin_pct, net_margin_pct, equity_ratio_pct, "
+                "asset_turnover_x, revenue_growth_pct, profit_growth_pct, "
+                "cash_conversion_x, fcf_yen, fcf_margin_pct, cash_to_assets_pct, "
+                "pbr_implied_x, dividend_yield_implied_pct, or a size field "
+                "(revenue_yen, profit_yen, total_assets_yen, equity_owners_yen, "
+                "cf_operating_yen). Filters are floors/caps in the metric's own unit "
+                "(percent for *_pct, yen for *_yen). industry is the EDINET industry "
+                "in Japanese (e.g. 銀行業, 電気機器); standard is Japan GAAP, IFRS or "
+                "US GAAP. ROE and ROA use average opening/closing balances; "
+                "'implied' ratios come from the filer's own year-end PER, not a "
+                "market price. A company whose average equity is not positive gets no "
+                "ROE and is flagged negative_equity instead — say that rather than "
+                "treating it as a missing number. Companies missing the sort metric "
+                "are excluded and counted. Say that the ranking is on platform-calculated figures and "
+                "give the formula from `calc` for the metric you quote."),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "sort": {"type": "string", "description": "Metric or size field to rank on; default roe_pct."},
+                    "order": {"type": "string", "enum": ["desc", "asc"]},
+                    "industry": {"type": "string", "description": "EDINET industry, Japanese; omit for all."},
+                    "standard": {"type": "string", "enum": ["", "Japan GAAP", "IFRS", "US GAAP"]},
+                    "min_revenue_yen": {"type": "number"}, "min_assets_yen": {"type": "number"},
+                    "roe_min": {"type": "number"}, "roe_max": {"type": "number"},
+                    "roa_min": {"type": "number"}, "operating_margin_min": {"type": "number"},
+                    "equity_ratio_min": {"type": "number"}, "equity_ratio_max": {"type": "number"},
+                    "revenue_growth_min": {"type": "number"}, "pbr_implied_max": {"type": "number"},
+                    "dividend_yield_min": {"type": "number"}, "cash_to_assets_min": {"type": "number"},
                     "limit": {"type": "integer", "description": "Rows to return, default 25, max 200."},
                 },
                 "required": [],

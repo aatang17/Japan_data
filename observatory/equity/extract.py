@@ -47,6 +47,12 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import duckdb
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+# The measurement-basis vocabulary is defined once, in the serving code, and
+# projected into the database from there — so the table and the API can never
+# disagree about what "carrying amount" means.
+sys.path.insert(0, os.path.join(HERE, ".."))
+from app import basis  # noqa: E402
+
 # Both paths are environment-overridable because these extractors now run in
 # two places: on the laptop against the local archive, and inside the serving
 # container against the bucket, where the only writable disk is the mounted
@@ -879,6 +885,13 @@ SCHEMA_SQL = """
         CREATE TABLE IF NOT EXISTS eq_filing_totals (
             doc_id VARCHAR, holder_table VARCHAR, share_class VARCHAR,
             book_value_yen BIGINT, issue_count INTEGER);
+        -- The measurement-basis vocabulary, one row per field value. Registry
+        -- data, not vintage data: definitions of how a figure is measured, no
+        -- figures. Rewritten wholesale each run like eq_entities. app/basis.py
+        -- is the source of truth; this table exists so the vocabulary is
+        -- queryable in SQL, and nothing in the API depends on it.
+        CREATE TABLE IF NOT EXISTS eq_basis_labels (
+            field VARCHAR, value VARCHAR, note VARCHAR);
         CREATE TABLE IF NOT EXISTS eq_holdings (
             doc_id VARCHAR, holder_table VARCHAR, row_no VARCHAR,
             held_name_raw VARCHAR, held_edinet_code VARCHAR, held_sec_code VARCHAR,
@@ -1027,6 +1040,33 @@ def main():
                      ("total_assets_yen", "BIGINT"), ("assets_basis", "VARCHAR")):
         if col not in have:
             con.execute("ALTER TABLE eq_filings ADD COLUMN %s %s" % (col, typ))
+
+    # The basis vocabulary, and a view that projects the basis tuple onto the
+    # fact rows. Both are derived from app/basis.py, so a schema that has drifted
+    # is corrected by the next run rather than migrated. entity_scope and
+    # share_scope are READ from holder_table and share_class, which the filings
+    # have always carried -- there is nothing to backfill and no stored row is
+    # written to.
+    con.execute("DELETE FROM eq_basis_labels")
+    con.executemany("INSERT INTO eq_basis_labels VALUES (?,?,?)",
+                    basis.label_rows())
+    con.execute("""
+        CREATE OR REPLACE VIEW v_holdings_basis AS
+        SELECT h.doc_id, h.holder_table, h.row_no, h.held_sec_code,
+               h.shares, h.book_value_yen,
+               '%s' AS measurement,
+               CASE h.holder_table WHEN 'reporting' THEN 'parent_only'
+                                   WHEN 'largest' THEN 'largest_holding_company'
+                                   WHEN 'second_largest'
+                                        THEN 'second_largest_holding_company'
+                                   ELSE 'holdco_consolidated' END AS entity_scope,
+               'both' AS share_scope,
+               '%s' AS trust_included,
+               f.period_end AS as_of,
+               '%s' AS period_type
+        FROM eq_holdings h JOIN eq_filings f USING (doc_id)
+    """ % (basis.EDINET_MEASUREMENT, basis.EDINET_TRUST_INCLUDED,
+           basis.EDINET_PERIOD_TYPE))
 
     # entities (refresh wholesale — registry data, not vintage data)
     con.execute("DELETE FROM eq_entities")

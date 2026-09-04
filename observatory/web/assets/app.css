@@ -658,6 +658,26 @@ table.data tbody tr.clickable { cursor: pointer; }
 .cell-item .ja { color: var(--obs-text-muted); font-size: 12px; }
 .cell-item { max-width: 320px; overflow: hidden; text-overflow: ellipsis; }
 
+/* A platform classification sitting beside a filed name. Outline only, so it
+   never reads as part of the disclosure it annotates. */
+.tag-note {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--obs-text-muted);
+  border: 1px solid var(--obs-border);
+  border-radius: 2px;
+  padding: 0 4px;
+  white-space: nowrap;
+}
+
+/* A table whose last column carries a sentence-length list rather than a
+   value. Squeezed below its floor width the browser crushes that column to a
+   few characters and every row grows to a dozen lines of ragged text, so the
+   table keeps a minimum width and the wrapper scrolls instead. */
+.tbl-roomy { min-width: 900px; }
+.tbl-roomy td:last-child { min-width: 340px; }
+
 /* ---------- footnote flags ---------- */
 
 /* The lane is reserved on every row, flagged or not, so a marker never pushes a

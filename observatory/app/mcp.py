@@ -15,6 +15,12 @@ Implemented directly rather than via the official MCP SDK because the SDK
 requires Python 3.10+ and app/ code must run on the 3.9 used locally. The
 protocol methods a stateless tools-only server must answer are few:
 initialize, the initialized notification, ping, tools/list, and tools/call.
+Plus resources/list and resources/read, which serve the dataset manifests
+(app/registry.py) as `observatory://datasets/{id}`.
+
+Two tool surfaces coexist behind MCP_TOOLSET (v1 | v2 | both, default both):
+the original per-dataset tools in tools.py, and the six generic tools in
+tools_v2.py whose `dataset` argument is resolved through the registry.
 
 Kill switch: MCP_ENABLED — on by default (unlike ASK_ENABLED, nothing here
 generates text or spends money; it serves the same bytes as the API), set it
@@ -22,6 +28,7 @@ to a falsy value to turn the endpoint off.
 """
 import json
 import os
+import pathlib
 import time
 
 from fastapi import APIRouter, Request
@@ -30,6 +37,7 @@ from starlette.concurrency import run_in_threadpool
 
 from .tools import (EQUITY_TOOL_IMPLS, EQUITY_TOOL_SCHEMAS, TOOL_IMPLS,
                     TOOL_SCHEMAS, equity_available, run_tool)
+from . import registry, tools_v2
 
 # Newest first; initialize echoes the client's version when we support it and
 # offers the newest otherwise, per the negotiation rules.
@@ -88,7 +96,16 @@ This server also publishes Japanese cross-shareholding (policy shareholding, \
 政策保有株式) data extracted from companies' annual securities reports filed \
 on EDINET: named holdings with share counts, yen book values, prior-year \
 figures, and the stated purpose of each holding, plus the reverse view of \
-who holds a company. Figures are exactly as filed. The dataset accumulates \
+who holds a company. Figures are exactly as filed, and every one of them is \
+balance-sheet CARRYING AMOUNT at fiscal year end from an annual report. That \
+basis is returned with each response and must be stated with any figure you \
+quote. It is NOT the basis the press and IR decks usually use: reduction \
+targets and progress figures are quoted on acquisition cost, often at \
+commercial-bank level rather than group level, often listed shares only, and \
+often at a half-year date this product does not hold. Those differences run \
+to several times the figure, not a few percent. Before you set a number from \
+here against a published one, call check_claim; never reconcile the two \
+yourself by assuming a convention. The dataset accumulates \
 filing by filing and does not yet cover the whole market — call \
 get_holdings_summary first and state its coverage with any aggregate you \
 quote. Yen book values are levels, a different measure from CPI indices; \
@@ -118,6 +135,7 @@ TOOL_TITLES = {
     "search_companies": "Search companies",
     "get_company_holdings": "Company holdings (both directions)",
     "get_unwind_ranking": "Unwind ranking",
+    "check_claim": "Check a published figure",
     "get_governance_summary": "Boards and pay coverage",
     "get_company_board": "Company board and pay",
     "get_board_history": "Board and pay history",
@@ -126,6 +144,8 @@ TOOL_TITLES = {
     "get_financials": "Company key indicators",
     "get_financial_statement": "Financial statement as filed",
     "get_financials_screen": "Financials screen",
+    "get_financial_metrics": "Calculated ratios (ROE, ROA, margins)",
+    "screen_financial_metrics": "Ratio screener",
 }
 
 
@@ -156,6 +176,83 @@ def _current_tools():
     if equity_available():
         return MCP_TOOLS + EQUITY_MCP_TOOLS
     return MCP_TOOLS
+
+
+def _toolset():
+    """Which tool surface to advertise: v1 (the per-dataset tools), v2 (the six
+    generic tools over the registry), or both. `both` is the transition
+    default — existing connectors keep their tool names while new ones get the
+    generic surface; flip to v2 once nobody depends on the old names."""
+    v = os.environ.get("MCP_TOOLSET", "both").strip().lower()
+    return v if v in ("v1", "v2", "both") else "both"
+
+
+def _tools_for(toolset):
+    out = []
+    if toolset in ("v2", "both"):
+        out.extend(tools_v2.descriptors())
+    if toolset in ("v1", "both"):
+        out.extend(_current_tools())
+    return out
+
+
+def _instructions(toolset):
+    if toolset == "v1":
+        text = INSTRUCTIONS
+        if equity_available():
+            text += EQUITY_INSTRUCTIONS
+        return text
+    text = tools_v2.instructions()
+    if toolset == "both":
+        text += ("\n\nThe older per-dataset tools (get_overview, get_company_holdings, "
+                 "get_governance_screen, …) remain available for compatibility; prefer "
+                 "the six generic tools above.")
+    return text
+
+
+# ---------------------------------------------------------------------------
+# Resources: the dataset manifests, readable by any MCP client
+# ---------------------------------------------------------------------------
+
+METHODOLOGY_PATH = pathlib.Path(__file__).resolve().parent.parent / "web" / "methodology.html"
+
+
+def _resources():
+    out = [{"uri": "observatory://sections", "name": "sections",
+            "title": "Dataset sections",
+            "description": "The fixed section list and which datasets sit in each.",
+            "mimeType": "application/json"}]
+    for m in registry.datasets(with_availability=False):
+        out.append({"uri": "observatory://datasets/%s" % m["id"], "name": m["id"],
+                    "title": m["name"]["en"], "description": m["summary"],
+                    "mimeType": "application/json"})
+    out.append({"uri": "observatory://methodology", "name": "methodology",
+                "title": "Methodology",
+                "description": "Every formula, trust label and limitation, as published.",
+                "mimeType": "text/html"})
+    return out
+
+
+def _read_resource(uri):
+    """(contents list) or None when the uri is unknown."""
+    if uri == "observatory://sections":
+        return [{"uri": uri, "mimeType": "application/json",
+                 "text": json.dumps({"sections": registry.by_section()}, ensure_ascii=False)}]
+    if uri == "observatory://methodology":
+        try:
+            text = METHODOLOGY_PATH.read_text(encoding="utf-8")
+        except OSError:
+            return None
+        return [{"uri": uri, "mimeType": "text/html", "text": text}]
+    prefix = "observatory://datasets/"
+    if uri.startswith(prefix):
+        m = registry.get(uri[len(prefix):])
+        if m is None:
+            return None
+        m["available"] = registry.available(m["id"])
+        return [{"uri": uri, "mimeType": "application/json",
+                 "text": json.dumps(m, ensure_ascii=False)}]
+    return None
 
 
 def _enabled():
@@ -216,31 +313,47 @@ def _handle_one(msg):
     if method == "initialize":
         requested = params.get("protocolVersion")
         version = requested if requested in PROTOCOL_VERSIONS else PROTOCOL_VERSIONS[0]
-        instructions = INSTRUCTIONS
-        if equity_available():
-            instructions += EQUITY_INSTRUCTIONS
         return _result(msg_id, {
             "protocolVersion": version,
-            "capabilities": {"tools": {"listChanged": False}},
+            "capabilities": {"tools": {"listChanged": False},
+                             "resources": {"subscribe": False, "listChanged": False}},
             "serverInfo": SERVER_INFO,
-            "instructions": instructions,
+            "instructions": _instructions(_toolset()),
         })
 
     if method == "ping":
         return _result(msg_id, {})
 
     if method == "tools/list":
-        return _result(msg_id, {"tools": _current_tools()})
+        return _result(msg_id, {"tools": _tools_for(_toolset())})
 
     if method == "tools/call":
         name = params.get("name")
-        if name not in TOOL_IMPLS and name not in EQUITY_TOOL_IMPLS:
+        toolset = _toolset()
+        arguments = params.get("arguments") or {}
+        if toolset != "v1" and name in tools_v2.IMPLS:
+            text, is_error = tools_v2.run_tool(name, arguments)
+        elif toolset != "v2" and (name in TOOL_IMPLS or name in EQUITY_TOOL_IMPLS):
+            text, is_error = run_tool(name, arguments)
+        else:
             return _error(msg_id, -32602, "Unknown tool: %s" % name)
-        text, is_error = run_tool(name, params.get("arguments") or {})
         return _result(msg_id, {
             "content": [{"type": "text", "text": text}],
             "isError": is_error,
         })
+
+    if method == "resources/list":
+        return _result(msg_id, {"resources": _resources()})
+
+    if method == "resources/templates/list":
+        return _result(msg_id, {"resourceTemplates": []})
+
+    if method == "resources/read":
+        uri = params.get("uri") or ""
+        contents = _read_resource(uri)
+        if contents is None:
+            return _error(msg_id, -32002, "Resource not found: %s" % uri)
+        return _result(msg_id, {"contents": contents})
 
     return _error(msg_id, -32601, "Method not found: %s" % method)
 

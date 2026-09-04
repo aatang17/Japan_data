@@ -308,3 +308,62 @@ PRESENTATION = {
         "history_series": ["2Y", "10Y", "30Y"],
     },
 }
+
+
+# The dataset's card. Daily yields in percent; the spreads and changes shown
+# on the rates page are computed there and their formulas are recorded here.
+MANIFEST = {
+    "id": DATASET["slug"],
+    "section": "rates",
+    "name": {"en": "JGB yield curve — constant-maturity yields",
+             "ja": "国債金利情報（残存期間別）"},
+    "shape": "series",
+    "summary": ("Daily constant-maturity yields on Japanese government bonds "
+                "for 15 maturities from 1 to 40 years, in percent per year, "
+                "every business day since September 1974; yields can be "
+                "negative."),
+    "source": {
+        "publisher": DATASET["agency"],
+        "publisher_ja": DATASET["agency_ja"],
+        "document": SOURCE["name"],
+        "url": SOURCE["url"],
+        "credit": PRESENTATION["credit_line"],
+        "license_note": SOURCE["license_note"],
+    },
+    "keys": ["series_code", "period"],
+    "frequency": DATASET["frequency"],
+    "vintage": {
+        "unit": "release", "as_of_basis": "release-in-force",
+        "as_of_supported": True, "history_from": "1974-09-24",
+        "stale_after_days": PRESENTATION["stale_after_days"],
+    },
+    "measures": [
+        {"id": "index", "label": "Constant-maturity yield, % per year", "unit": "%",
+         "trust": "official"},
+        {"id": "s2s10", "label": "2s10s spread", "unit": "pp", "trust": "derived",
+         "calc": ("2s10s spread[t] = 10Y yield[t] − 2Y yield[t], in percentage points, "
+                  "from published yields.")},
+        {"id": "s10s30", "label": "10s30s spread", "unit": "pp", "trust": "derived",
+         "calc": ("10s30s spread[t] = 30Y yield[t] − 10Y yield[t], in percentage points, "
+                  "from published yields.")},
+        {"id": "delta", "label": "Change over 1 month / 1 year", "unit": "pp",
+         "trust": "derived",
+         "calc": ("change[t] = value[t] − value[b], where b is the latest business day "
+                  "on or before the same date 1 month (or 1 year) earlier.")},
+    ],
+    "endpoints": {
+        "series": "/api/v1/%s/observations" % DATASET["slug"],
+        "curve": "/api/v1/%s/curve" % DATASET["slug"],
+        "releases": "/api/v1/%s/releases" % DATASET["slug"],
+        "revisions": "/api/v1/%s/revisions" % DATASET["slug"],
+    },
+    "capabilities": ["series"],
+    "cite": "/rates.html",
+    "page": "/rates.html",
+    "notes": [
+        "Daily series: the monthly rate measures (yoy, mom, ann3m) do not apply "
+        "and are refused; request measure=index for published yields.",
+        "A maturity not yet issued on a date is null, never zero (the 40-year "
+        "begins in 2007).",
+    ],
+}

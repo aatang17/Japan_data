@@ -28,6 +28,7 @@ names, addresses, share counts and ratios are as filed.
 """
 from fastapi import APIRouter, HTTPException, Query
 
+from . import aliases
 from .equity_api import NAMES_NOTE, NAME_CTES, PROVENANCE, _cur, _rows
 
 router = APIRouter(prefix="/api/v1/equity/ownership")
@@ -182,6 +183,7 @@ def companies(q: str = Query("", description="name or code substring")):
     extracted from its annual report."""
     cur = _require()
     like = "%" + q.strip() + "%"
+    alias_sql, alias_params = aliases.clause(cur, "c.sec_code", q)
     return {"companies": _rows(cur, LATEST_OWN + NAME_CTES + """
         SELECT c.sec_code, c.filer_name AS name,
                coalesce(n.name_en, s.name_en) AS name_en, e.industry,
@@ -193,9 +195,10 @@ def companies(q: str = Query("", description="name or code substring")):
         LEFT JOIN en_scode s ON s.sec_code = c.sec_code
         WHERE c.sec_code IS NOT NULL
           AND (c.sec_code LIKE ? OR c.filer_name LIKE ?
-               OR lower(coalesce(n.name_en, s.name_en, '')) LIKE lower(?))
+               OR lower(coalesce(n.name_en, s.name_en, '')) LIKE lower(?)"""
+        + alias_sql + """)
         ORDER BY c.shareholders_total DESC NULLS LAST LIMIT 25""",
-        _params("", "") + [like, like, like]),
+        _params("", "") + [like, like, like] + alias_params),
         "names_note": NAMES_NOTE}
 
 
@@ -398,3 +401,70 @@ def screen(metric: str = Query("foreign_pct", description="one of /screen/metric
 @router.get("/screen/metrics")
 def screen_metrics():
     return {"metrics": sorted(SCREEN_METRICS), "calc": CALC}
+
+
+# The dataset's card (app/registry.py). Two denominators travel with every
+# percentage here — see DENOMINATOR_NOTE — and the card says so.
+from .equity_api import EDINET_SOURCE as _EDINET_SOURCE  # noqa: E402
+
+MANIFEST = {
+    "id": "shareholder-register",
+    "section": "ownership",
+    "name": {"en": "Shareholder register", "ja": "大株主の状況・所有者別状況"},
+    "shape": "company",
+    "summary": ("Who holds each company: the top-ten register with holder "
+                "classification (nominee, bank, employee association, person…) "
+                "and the investor-category split, one annual filing per "
+                "company, from FY2025."),
+    "source": dict(_EDINET_SOURCE,
+                   document="有価証券報告書 · 大株主の状況 / 所有者別状況 (annual "
+                            "securities report, shareholder sections)",
+                   credit="Source: company filings on EDINET (Financial Services "
+                          "Agency of Japan)."),
+    "keys": ["sec_code", "fiscal_year"],
+    "frequency": "per-filing",
+    "vintage": {
+        "unit": "filing", "as_of_basis": "captured_at", "as_of_supported": False,
+        "history_from": "FY2025", "stale_after_days": None,
+    },
+    "measures": [
+        {"id": "ratio_pct", "label": "Register holder's share of shares in issue excluding treasury",
+         "unit": "%", "trust": "official"},
+        {"id": "shares", "label": "Shares held by a register holder", "unit": "shares",
+         "trust": "official"},
+        {"id": "shareholders_total", "label": "Number of shareholders", "unit": "count",
+         "trust": "official"},
+        {"id": "category_pct", "label": "Investor-category share of all issued shares "
+                                        "(foreign, individuals, financial institutions…)",
+         "unit": "%", "trust": "official"},
+        {"id": "top_holder_ratio_pct", "label": "Largest holder's ratio", "unit": "%",
+         "trust": "official"},
+        {"id": "register_concentration_pct", "label": "Top-ten holders' combined ratio, the filer's own 計 row",
+         "unit": "%", "trust": "official"},
+        {"id": "holder_kind", "label": "Holder classification", "unit": "category",
+         "trust": "derived", "calc": KIND_NOTE},
+        {"id": "nominee_ratio_pct", "label": "Share held through nominee accounts",
+         "unit": "%", "trust": "derived", "calc": CALC["nominee_ratio_pct"]},
+        {"id": "avg_foreign_pct", "label": "Average foreign ownership across companies in scope",
+         "unit": "%", "trust": "derived", "calc": CALC["avg_foreign_pct"]},
+    ],
+    "endpoints": {
+        "company": "/api/v1/equity/ownership/company/{sec_code}",
+        "search": "/api/v1/equity/ownership/companies",
+        "summary": "/api/v1/equity/ownership/summary",
+        "screen": "/api/v1/equity/ownership/screen",
+        "screen_metrics": "/api/v1/equity/ownership/screen/metrics",
+        "holders": "/api/v1/equity/ownership/holders",
+        "holder": "/api/v1/equity/ownership/holder/{key}",
+        "years": "/api/v1/equity/ownership/years",
+    },
+    "capabilities": ["company", "search", "summary", "screen"],
+    "screens": [{"id": k, "title": "Companies ranked on %s" % k.replace("_", " ")}
+                for k in sorted(SCREEN_METRICS)],
+    "cite": "/ownership.html?c={sec_code}",
+    "page": "/ownership.html",
+    "notes": [DENOMINATOR_NOTE, PERCENT_NOTE,
+              "The register is custody, not beneficial ownership: two nominee "
+              "trust banks top almost every register in Japan. Nominee-excluded "
+              "rankings are the default."],
+}

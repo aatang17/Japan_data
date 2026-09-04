@@ -28,6 +28,7 @@ import re
 
 from fastapi import APIRouter, HTTPException, Query
 
+from . import aliases
 from .equity_api import (INDUSTRY_EN, NAMES_NOTE, NAME_CTES, PROVENANCE, _cur,
                          _rows)
 
@@ -425,6 +426,7 @@ def companies(q: str = Query("", description="name or code substring")):
     """
     cur = _require()
     like = "%" + q.strip() + "%"
+    alias_sql, alias_params = aliases.clause(cur, "g.sec_code", q)
     return {"companies": _rows(cur, LATEST_GOV + NAME_CTES + """
         SELECT g.sec_code, g.filer_name AS name,
                coalesce(n.name_en, s.name_en) AS name_en, e.industry,
@@ -436,9 +438,10 @@ def companies(q: str = Query("", description="name or code substring")):
         LEFT JOIN en_scode s ON s.sec_code = g.sec_code
         WHERE g.sec_code IS NOT NULL
           AND (g.sec_code LIKE ? OR g.filer_name LIKE ?
-               OR lower(coalesce(n.name_en, s.name_en, '')) LIKE lower(?))
+               OR lower(coalesce(n.name_en, s.name_en, '')) LIKE lower(?)"""
+        + alias_sql + """)
         ORDER BY g.board_size DESC LIMIT 25""",
-        _gov_params("", "") + [like, like, like]),
+        _gov_params("", "") + [like, like, like] + alias_params),
         "names_note": NAMES_NOTE}
 
 
@@ -597,3 +600,87 @@ def named(year: str = Query("", description="fiscal year; default latest filing"
                                "floor: some filers disclose officers voluntarily "
                                "below it — voluntary_below_100m marks those."),
             "names_note": NAMES_EN_NOTE, "provenance": PROVENANCE}
+
+
+# The dataset's card (app/registry.py). Named pay is consolidated; the
+# category table is not — the two bases are never netted (CONSOLIDATED_NOTE).
+from .equity_api import EDINET_SOURCE as _EDINET_SOURCE  # noqa: E402
+
+MANIFEST = {
+    "id": "boards-and-pay",
+    "section": "governance",
+    "name": {"en": "Boards and pay", "ja": "役員の状況・役員の報酬等"},
+    "shape": "company",
+    "summary": ("Every director as filed — name, role, age, shares held — with "
+                "officer remuneration by category and the individually "
+                "disclosed pay of anyone paid ¥100m or more, plus average "
+                "employee salary and the gender pay ratio, one filing per "
+                "company per fiscal year from FY2021."),
+    "source": dict(_EDINET_SOURCE,
+                   document="有価証券報告書 · 役員の状況 / 役員の報酬等 (annual "
+                            "securities report, officer and remuneration sections)",
+                   credit="Source: company filings on EDINET (Financial Services "
+                          "Agency of Japan)."),
+    "keys": ["sec_code", "fiscal_year"],
+    "frequency": "per-filing",
+    "vintage": {
+        "unit": "filing", "as_of_basis": "captured_at", "as_of_supported": False,
+        "history_from": "FY2021", "stale_after_days": None,
+    },
+    "measures": [
+        {"id": "board_size", "label": "Tagged board rows", "unit": "count",
+         "trust": "official"},
+        {"id": "female_officers", "label": "Female officers", "unit": "count",
+         "trust": "official"},
+        {"id": "female_ratio_filed", "label": "Female officer ratio, as filed", "unit": "%",
+         "trust": "official"},
+        {"id": "pay_category_total_yen", "label": "Officer remuneration by category (報酬等の総額)",
+         "unit": "JPY", "trust": "official"},
+        {"id": "named_pay_yen", "label": "Individually disclosed pay (連結報酬等, consolidated)",
+         "unit": "JPY", "trust": "official"},
+        {"id": "avg_salary_yen", "label": "Average employee salary", "unit": "JPY",
+         "trust": "official"},
+        {"id": "gender_pay_gap_all", "label": "Female-to-male wage ratio, as filed",
+         "unit": "%", "trust": "official"},
+        {"id": "age_at_period_end", "label": "Director's age at period end", "unit": "years",
+         "trust": "derived", "calc": CALC["age_at_period_end"]},
+        {"id": "avg_director_age", "label": "Average director age", "unit": "years",
+         "trust": "derived",
+         "calc": "mean of age_at_period_end over the tagged board rows of the filing"},
+        {"id": "female_ratio_calc", "label": "Female officer ratio, computed", "unit": "%",
+         "trust": "derived", "calc": CALC["female_ratio_calc"]},
+        {"id": "per_head_yen", "label": "Pay per officer in a category", "unit": "JPY",
+         "trust": "derived", "calc": CALC["per_head_yen"]},
+        {"id": "directors_70_plus_pct", "label": "Directors aged 70 or over", "unit": "%",
+         "trust": "derived", "calc": CALC["directors_70_plus_pct"]},
+        {"id": "inside_director_pay_per_head_yen", "label": "Inside-director pay per head",
+         "unit": "JPY", "trust": "derived",
+         "calc": ("total of the two standard XBRL officer categories that exclude "
+                  "outside directors ÷ officers paid in them; null for filers using "
+                  "their own categories")},
+        {"id": "pay_per_officer_yen", "label": "Pay per officer, all categories",
+         "unit": "JPY", "trust": "derived",
+         "calc": ("whole filed officer pay table ÷ the officers it covers — mixes "
+                  "inside, outside and audit roles")},
+        {"id": "pay_consistency_flag", "label": "Pay table contradicts the named-pay rule",
+         "unit": "boolean", "trust": "derived",
+         "calc": ("raised when per-head officer pay implies someone paid ¥100m or more "
+                  "while no individual is named — almost always a filer scale error")},
+    ],
+    "endpoints": {
+        "company": "/api/v1/equity/governance/company/{sec_code}",
+        "search": "/api/v1/equity/governance/companies",
+        "summary": "/api/v1/equity/governance/summary",
+        "screen": "/api/v1/equity/governance/screen",
+        "screen_metrics": "/api/v1/equity/governance/screen/metrics",
+        "history": "/api/v1/equity/governance/history",
+        "trend": "/api/v1/equity/governance/trend",
+        "named": "/api/v1/equity/governance/named",
+        "years": "/api/v1/equity/governance/years",
+    },
+    "capabilities": ["company", "search", "summary", "screen"],
+    "screens": [{"id": k, "title": v[2]} for k, v in sorted(SCREENS.items())],
+    "cite": "/governance.html?c={sec_code}",
+    "page": "/governance.html",
+    "notes": [CONSOLIDATED_NOTE, COMPONENTS_NOTE, BOARD_NOTE, PAY_FLAG_NOTE, NAMES_EN_NOTE],
+}

@@ -969,3 +969,68 @@ PRESENTATION = {
         "sexes": [{"code": suffix, "label": en} for _ja, suffix, en in SEXES],
     },
 }
+
+
+# The dataset's card. Administrative counts; the shares and change rates on
+# the population page are computed there and their formulas are recorded here.
+MANIFEST = {
+    "id": DATASET["slug"],
+    "section": "demography",
+    "name": {"en": "Population by prefecture — Basic Resident Register",
+             "ja": "住民基本台帳に基づく人口・世帯数（都道府県別）"},
+    "shape": "series",
+    "summary": ("Registered residents, households and the year's register "
+                "flows for all 47 prefectures and the nation, as of 1 January, "
+                "split into all, Japanese and foreign residents with five-year "
+                "age bands by sex — administrative counts, not survey estimates."),
+    "source": {
+        "publisher": DATASET["agency"],
+        "publisher_ja": DATASET["agency_ja"],
+        "document": SOURCE["name"],
+        "url": SOURCE["url"],
+        "credit": PRESENTATION["credit_line"],
+        "license_note": SOURCE["license_note"],
+    },
+    "keys": ["series_code", "period"],
+    "frequency": DATASET["frequency"],
+    "vintage": {
+        "unit": "release", "as_of_basis": "release-in-force",
+        "as_of_supported": True, "history_from": "2025-01-01",
+        "stale_after_days": PRESENTATION["stale_after_days"],
+    },
+    "measures": [
+        {"id": "index", "label": "Registered residents, households or register flows, as published",
+         "unit": "persons", "trust": "official"},
+        {"id": "yoy", "label": "Year over year", "unit": "%", "trust": "derived",
+         "where": "annual series: t−12 months is the previous 1 January",
+         "calc": "(value[t] / value[t−12 months] − 1) × 100, from published values."},
+        {"id": "change_pct", "label": "Change during the year", "unit": "%",
+         "trust": "derived",
+         "calc": "change % = net change ÷ (population − net change) × 100"},
+        {"id": "natural_pct", "label": "Natural change", "unit": "%", "trust": "derived",
+         "calc": "natural % = (births − deaths) ÷ (population − net change) × 100"},
+        {"id": "social_pct", "label": "Social change", "unit": "%", "trust": "derived",
+         "calc": "social % = (net change − natural change) ÷ (population − net change) × 100"},
+        {"id": "foreign_pct", "label": "Foreign residents' share", "unit": "%",
+         "trust": "derived",
+         "calc": "foreign share % = foreign residents ÷ all residents × 100"},
+        {"id": "aged_pct", "label": "Aged 65 and over", "unit": "%", "trust": "derived",
+         "calc": ("aged 65+ % = (sum of the five-year bands from 65 upward) ÷ all "
+                  "residents × 100")},
+    ],
+    "endpoints": {
+        "series": "/api/v1/%s/observations" % DATASET["slug"],
+        "prefectures": "/api/v1/%s/prefectures" % DATASET["slug"],
+        "releases": "/api/v1/%s/releases" % DATASET["slug"],
+        "revisions": "/api/v1/%s/revisions" % DATASET["slug"],
+    },
+    "capabilities": ["series"],
+    "cite": "/population.html",
+    "page": "/population.html",
+    "notes": [
+        "The ministry keeps only the current year on its site; history "
+        "accumulates here release by release, and the long run is served by "
+        "population-jp-history.",
+        "Counts are as of 1 January; flows cover the preceding calendar year.",
+    ],
+}

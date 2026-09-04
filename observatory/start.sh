@@ -57,7 +57,7 @@ while true; do
         echo "REFRESH restarting without an ingest after $fast_exits fast exit(s)"
     else
         for dataset in cpi-jp cpi-jp-items boj-assets jgb-yields jnto-visitors \
-                       population-jp population-jp-history trade-semis; do
+                       population-jp population-jp-history population-jp-municipal trade-semis trade-inputs; do
             python -m app.ingest "$dataset" \
                 || echo "ingest $dataset did not publish; serving last published release"
         done

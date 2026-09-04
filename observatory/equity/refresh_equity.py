@@ -69,6 +69,12 @@ EXTRACTORS = [
     # outage on the clock rather than on a deploy, where no healthcheck would
     # even have caught it. Re-enable once the volume carries an agm-votes row.
     # ("agm_extract.py",      "agm-votes",            []),
+    # Segment notes (revenue by region, named customers, product segments).
+    # Same rule as financials and AGM: a database with no "segments" row in
+    # eq_extract_runs would do the whole archive with the port closed, so the
+    # first pass runs offline and ships in the seed. Re-enable once the seed
+    # carries the watermark.
+    # ("seg_extract.py",      "segments",             ["--all"]),
     ("buyback.py",            "buybacks",             []),
 ]
 

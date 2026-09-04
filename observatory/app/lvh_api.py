@@ -34,6 +34,7 @@ WHAT A CONSUMER MUST NOT ASSUME, carried in the data rather than in prose:
 """
 from fastapi import APIRouter, HTTPException, Query
 
+from . import aliases
 from .equity_api import NAMES_NOTE, NAME_CTES, PROVENANCE, _cur, _rows
 from .filer_labels import (GROUP_NOTE, TYPE_EN, TYPE_NOTE, group_of, group_size,
                            type_of)
@@ -219,6 +220,7 @@ def companies(q: str = Query("", description="issuer name or code substring")):
     u"""Search feed: issuers that at least one 5% report names."""
     cur = _require()
     like = "%" + q.strip() + "%"
+    alias_sql, alias_params = aliases.clause(cur, "f.issuer_sec_code", q)
     return {"companies": _rows(cur, "WITH x AS (SELECT 1)" + NAME_CTES + """
         SELECT f.issuer_sec_code AS sec_code,
                any_value(f.issuer_name_raw) AS name,
@@ -232,8 +234,10 @@ def companies(q: str = Query("", description="issuer name or code substring")):
         LEFT JOIN en_ecode ee ON ee.edinet_code = f.issuer_edinet_code
         WHERE f.status IN ('clean','partial') AND f.issuer_sec_code IS NOT NULL
           AND (f.issuer_sec_code LIKE ? OR f.issuer_name_raw LIKE ?
-               OR lower(coalesce(es.name_en, ee.name_en, '')) LIKE lower(?))
-        GROUP BY 1 ORDER BY reports DESC LIMIT 25""", [like, like, like]),
+               OR lower(coalesce(es.name_en, ee.name_en, '')) LIKE lower(?)"""
+        + alias_sql + """)
+        GROUP BY 1 ORDER BY reports DESC LIMIT 25""",
+        [like, like, like] + alias_params),
         "names_note": NAMES_NOTE}
 
 
@@ -253,7 +257,7 @@ def company(sec_code: str,
         WHERE f.issuer_sec_code = ? OR f.issuer_edinet_code = ?
         ORDER BY f.ratio_pct DESC NULLS LAST""", [THRESHOLD_PCT, code, code])
     if not current:
-        raise HTTPException(404, "no 5% filings archived for %s" % code)
+        raise HTTPException(404, "no 5%% filings archived for %s" % code)
     for row in current:
         row.pop("rn", None)
         row.pop("issuer_key", None)
@@ -311,7 +315,7 @@ def holder(key: str, limit: int = Query(200, ge=1, le=1000)):
         ORDER BY coalesce(f.requirement_date, f.filed_date) DESC LIMIT ?""",
         [k, limit])
     if not rows:
-        raise HTTPException(404, "no 5% filings archived for holder %s" % k)
+        raise HTTPException(404, "no 5%% filings archived for holder %s" % k)
     latest = {}
     for r in rows:
         latest.setdefault(r["issuer_sec_code"] or r["issuer_name_raw"], r)
@@ -495,3 +499,71 @@ def holder_types():
     return {"types": [{"filer_type": k, "label": TYPE_EN[k], "filers": counts.get(k, 0)}
                       for k in TYPE_EN if counts.get(k)],
             "type_note": TYPE_NOTE, "calc": CALC, "provenance": PROVENANCE}
+
+
+# The dataset's card (app/registry.py). Events, not positions: each row is one
+# report on its own trigger date.
+from .equity_api import EDINET_SOURCE as _EDINET_SOURCE  # noqa: E402
+
+MANIFEST = {
+    "id": "large-shareholdings",
+    "section": "ownership",
+    "name": {"en": "5% shareholding reports", "ja": "大量保有報告書・変更報告書"},
+    "shape": "events",
+    "summary": ("The 5% tape: every large-shareholding report and change "
+                "report as filed — who is accumulating, in whom, how fast, and "
+                "whether the holder states it may make important proposals to "
+                "the board."),
+    "source": dict(_EDINET_SOURCE,
+                   document="大量保有報告書 / 変更報告書 (large shareholding reports, "
+                            "EDINET)",
+                   credit="Source: large shareholding reports filed on EDINET "
+                          "(Financial Services Agency of Japan)."),
+    "keys": ["doc_id", "sec_code"],
+    "frequency": "per-event",
+    "vintage": {
+        "unit": "filing", "as_of_basis": "captured_at", "as_of_supported": False,
+        "history_from": "2026-05 (filed date; capture began then)",
+        "stale_after_days": None,
+    },
+    "measures": [
+        {"id": "ratio_pct", "label": "Statutory holding ratio (株券等保有割合)",
+         "unit": "%", "trust": "official"},
+        {"id": "shares_held", "label": "Shares held by the filing group", "unit": "shares",
+         "trust": "official"},
+        {"id": "requirement_date", "label": "Trigger date (提出義務発生日), as filed",
+         "unit": "date", "trust": "official"},
+        {"id": "filed_date", "label": "Date EDINET received the report", "unit": "date",
+         "trust": "official"},
+        {"id": "important_proposal", "label": "Filed answer to 重要提案行為等",
+         "unit": "boolean", "trust": "official"},
+        {"id": "ratio_change_pp", "label": "Change in holding ratio since the prior report",
+         "unit": "pp", "trust": "derived", "calc": CALC["ratio_change_pp"]},
+        {"id": "is_current", "label": "Latest report still shows 5% or more",
+         "unit": "boolean", "trust": "derived", "calc": CALC["is_current"]},
+        {"id": "activist_filings", "label": "Reports stating an important-proposal act",
+         "unit": "count", "trust": "derived", "calc": CALC["activist_filings"]},
+        {"id": "days_to_file", "label": "Days from trigger date to filing",
+         "unit": "days", "trust": "derived", "calc": CALC["days_to_file"]},
+        {"id": "filer_type", "label": "Filer classification", "unit": "category",
+         "trust": "derived", "calc": TYPE_NOTE},
+    ],
+    "endpoints": {
+        "company": "/api/v1/equity/stakes/company/{sec_code}",
+        "search": "/api/v1/equity/stakes/companies",
+        "summary": "/api/v1/equity/stakes/summary",
+        "screen": "/api/v1/equity/stakes/holders",
+        "recent": "/api/v1/equity/stakes/recent",
+        "holder": "/api/v1/equity/stakes/holder/{key}",
+        "holder_types": "/api/v1/equity/stakes/holder-types",
+    },
+    "capabilities": ["company", "search", "summary", "screen"],
+    "screens": [
+        {"id": "group", "title": "Most active 5% filers, by family (joint filers consolidated)"},
+        {"id": "entity", "title": "Most active 5% filers, by filing entity"},
+        {"id": "activist", "title": "Holders that have stated an important-proposal act"},
+    ],
+    "cite": "/stakes.html?c={sec_code}",
+    "page": "/stakes.html",
+    "notes": [EVENT_NOTE, GROUP_NOTE, RATIO_NOTE, PROPOSAL_NOTE],
+}

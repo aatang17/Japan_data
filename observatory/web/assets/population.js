@@ -82,6 +82,7 @@ function urlState() {
     from: p.get("from") || "",
     to: p.get("to") || "",
     segment: SEGMENT_LABEL[p.get("segment")] ? p.get("segment") : "all",
+    muni: p.get("muni") === "all" ? "all" : "leaves",
     sort: p.get("sort") || "change_pct",
     dir: p.get("dir") === "asc" ? "asc" : "desc",
   };
@@ -97,6 +98,7 @@ function setUrlState(next) {
   if (s.from) p.set("from", s.from);
   if (s.to) p.set("to", s.to);
   if (s.segment !== "all") p.set("segment", s.segment);
+  if (s.muni !== "leaves") p.set("muni", s.muni);
   if (s.sort !== "change_pct") p.set("sort", s.sort);
   if (s.dir !== "desc") p.set("dir", s.dir);
   var qs = p.toString();
@@ -200,6 +202,183 @@ function prefectures() {
    cover — both stated rather than inferred, because they differ by one. */
 function stockPeriod() { return REG.release.latest_period; }
 function flowYear() { return Number(stockPeriod().slice(0, 4)) - 1; }
+
+/* ---------- municipalities ---------- */
+
+/* One prefecture's worth at a time. The dataset is 585,000 series — the whole
+   country in one payload would be tens of megabytes — so the API insists on a
+   prefecture and this keeps what it has already fetched. */
+var MUNI = {};          // prefecture code -> payload
+var MUNI_PENDING = {};
+
+function loadMunicipalities(prefecture, done) {
+  if (MUNI[prefecture]) { done(MUNI[prefecture]); return; }
+  if (MUNI_PENDING[prefecture]) { MUNI_PENDING[prefecture].push(done); return; }
+  MUNI_PENDING[prefecture] = [done];
+  fetch("api/v1/population-jp-municipal/prefectures?prefecture=" + encodeURIComponent(prefecture))
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .catch(function () { return null; })
+    .then(function (payload) {
+      MUNI[prefecture] = payload || {"unavailable": true};
+      var waiting = MUNI_PENDING[prefecture] || [];
+      delete MUNI_PENDING[prefecture];
+      waiting.forEach(function (fn) { fn(MUNI[prefecture]); });
+    });
+}
+
+function muniValue(payload, geo, segment, measure) {
+  var col = payload.values[geo + "." + segment + "." + measure];
+  if (!col) return null;
+  for (var i = col.length - 1; i >= 0; i--) if (col[i] !== null) return col[i];
+  return null;
+}
+
+function muniAged(payload, geo, segment) {
+  var bands = (payload.age_groups || {}).aged_65_plus || [];
+  var sum = 0;
+  for (var i = 0; i < bands.length; i++) {
+    var v = muniValue(payload, geo, segment, bands[i] + "_total");
+    if (v === null) return null;     // a withheld band would understate the sum
+    sum += v;
+  }
+  return bands.length ? sum : null;
+}
+
+var LEVEL_LABEL = { group: "City or district total", municipality: "Municipality",
+                    prefecture: "Prefecture", national: "Japan" };
+
+var MUNI_COLS = [
+  { key: "name", label: "Municipality", type: "text" },
+  { key: "population", label: "Residents", num: true },
+  { key: "net_change", label: "Change", num: true },
+  { key: "change_pct", label: "Change (%)", num: true },
+  { key: "natural_change", label: "Natural", num: true },
+  { key: "social_change", label: "Social", num: true },
+  { key: "births", label: "Births", num: true },
+  { key: "deaths", label: "Deaths", num: true },
+  { key: "foreign_pct", label: "Foreign (%)", num: true },
+  { key: "aged_pct", label: "Aged 65+ (%)", num: true },
+];
+
+function muniRows(payload) {
+  var st = urlState();
+  var seg = st.segment;
+  var wanted = st.muni === "all" ? ["municipality", "group"] : ["municipality"];
+  var out = [];
+  (payload.geographies || []).forEach(function (g) {
+    if (wanted.indexOf(g.level) < 0) return;
+    var pop = muniValue(payload, g.code, seg, "population");
+    var net = muniValue(payload, g.code, seg, "net_change");
+    var all = muniValue(payload, g.code, "all", "population");
+    var fgn = muniValue(payload, g.code, "fgn", "population");
+    var aged = muniAged(payload, g.code, seg);
+    // Six municipalities — the disputed Northern Territories — are on the
+    // register with no residents at all, so every share of them is undefined
+    // rather than zero.
+    var opening = (pop !== null && net !== null) ? pop - net : null;
+    out.push({
+      code: g.code, name: g.name, level: g.level,
+      population: pop, net_change: net,
+      change_pct: (opening && opening > 0 && net !== null) ? net / opening * 100 : null,
+      natural_change: muniValue(payload, g.code, seg, "natural_change"),
+      social_change: muniValue(payload, g.code, seg, "social_change"),
+      births: muniValue(payload, g.code, seg, "births"),
+      deaths: muniValue(payload, g.code, seg, "deaths"),
+      foreign_pct: (all && fgn !== null) ? fgn / all * 100 : null,
+      aged_pct: (pop && aged !== null) ? aged / pop * 100 : null,
+    });
+  });
+  return out;
+}
+
+function muniCell(row, key) {
+  if (key === "name") {
+    return "<td>" + escapeHtml(row.name) +
+      (row.level === "group"
+        ? ' <span class="muted">· total of the areas below it</span>' : "") +
+      "</td>";
+  }
+  var v = row[key];
+  if (key === "change_pct") {
+    return '<td class="num">' + (v === null ? MISSING : fmtSigned(v, 2, "%")) + "</td>";
+  }
+  if (key === "foreign_pct") return '<td class="num">' + fmtRate(v, 2) + "</td>";
+  if (key === "aged_pct") return '<td class="num">' + fmtRate(v, 1) + "</td>";
+  if (key === "net_change" || key === "natural_change" || key === "social_change") {
+    return '<td class="num">' + (v === null ? MISSING : fmtSigned(v, 0, "")) + "</td>";
+  }
+  return '<td class="num">' + fmtNum(v, 0) + "</td>";
+}
+
+function renderMunicipalities() {
+  var st = urlState();
+  var wrap = document.getElementById("muni-table");
+  if (!wrap) return;
+  var prefName = (GEO_BY_CODE[st.pref] || {}).name_en || st.pref;
+  loadMunicipalities(st.pref, function (payload) {
+    if (urlState().pref !== st.pref) return;      // the reader moved on
+    if (!payload || payload.unavailable) {
+      wrap.innerHTML = '<p class="state-empty">Municipality data is not available on ' +
+        "this deployment. Everything above is unaffected.</p>";
+      document.getElementById("muni-foot").textContent = "";
+      return;
+    }
+    var rows = muniRows(payload);
+    var body = rows.map(function (r) {
+      return "<tr>" + MUNI_COLS.map(function (c) { return muniCell(r, c.key); }).join("") + "</tr>";
+    }).join("");
+    wrap.innerHTML = '<table class="data tbl-series" data-filter-placeholder="Filter towns…">' +
+      "<thead><tr>" + MUNI_COLS.map(function (c) {
+        return '<th scope="col"' + (c.num ? ' class="num"' : "") + ">" +
+          escapeHtml(c.label) + "</th>";
+      }).join("") + "</tr></thead><tbody>" + body + "</tbody></table>";
+    if (typeof enhanceTable === "function") enhanceTable(wrap);
+
+    var leaves = rows.filter(function (r) { return r.level === "municipality"; }).length;
+    var groups = rows.length - leaves;
+    document.getElementById("muni-note").textContent =
+      prefName + " · " + leaves + " municipalities" +
+      (groups ? " + " + groups + (groups === 1 ? " total" : " totals") : "");
+
+    var shrinking = rows.filter(function (r) {
+      return r.level === "municipality" && r.net_change !== null && r.net_change < 0; }).length;
+    document.getElementById("muni-foot").textContent =
+      "Residents are counted at 1 January " + stockPeriod().slice(0, 4) +
+      "; every flow column covers calendar " + flowYear() + ". " +
+      shrinking + " of the " + leaves + " shrank over the year. " +
+      (groups
+        ? "The " + groups + " rows marked as a total are designated cities and districts, " +
+          "which contain the municipalities listed separately — never add them to the rest. "
+        : "Designated-city and district totals are hidden; showing them would let a sum " +
+          "count the same people twice. ") +
+      MISSING + " means no value was published: the ministry withholds counts small enough " +
+      "to identify someone, and six municipalities in the disputed Northern Territories are " +
+      "on the register with no residents at all, so every share of them is undefined.";
+
+    document.getElementById("muni-calc").innerHTML =
+      "<summary>Show calculation</summary><div class=\"calc-body\">" +
+      "<code>" + escapeHtml(MEASURES.change_pct.calc) + "</code><br>" +
+      "<code>" + escapeHtml(MEASURES.foreign_pct.calc) + "</code><br>" +
+      "<code>" + escapeHtml(MEASURES.aged_pct.calc) + "</code><br>" +
+      "Municipality names are published in Japanese only. Counts are the ministry's own; " +
+      "the shares and the rate are calculated here. Inputs: release “" +
+      escapeHtml(payload.release.label) + "” (sha256 " +
+      escapeHtml(payload.release.sha256.slice(0, 12)) + "…).</div>";
+  });
+}
+
+function muniCsvRows() {
+  var payload = MUNI[urlState().pref];
+  if (!payload || payload.unavailable) return [["no data"]];
+  var rows = muniRows(payload);
+  var keys = MUNI_COLS.filter(function (c) { return c.key !== "name"; })
+    .map(function (c) { return c.key; });
+  return [["code", "municipality", "level"].concat(keys)].concat(
+    rows.map(function (r) {
+      return [r.code, r.name, r.level].concat(
+        keys.map(function (k) { return r[k] === null ? "" : r[k]; }));
+    }));
+}
 
 /* ---------- header, tiles, provenance ---------- */
 
@@ -890,6 +1069,7 @@ function selectPrefecture(code) {
   if (select) select.value = code;
   renderHistory();
   renderExtremes();
+  renderMunicipalities();
   document.getElementById("hist-chart").scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
@@ -933,6 +1113,13 @@ function wire() {
   wireSeg("segment-seg", "data-segment", function (v) {
     setUrlState({ segment: v });
     renderTable();
+    renderMunicipalities();
+  });
+
+  syncSeg("muni-seg", "data-muni", st.muni);
+  wireSeg("muni-seg", "data-muni", function (v) {
+    setUrlState({ muni: v });
+    renderMunicipalities();
   });
 
   var select = document.getElementById("pref-select");
@@ -971,6 +1158,18 @@ function wire() {
             " value × 100"
           : "# Values are published counts, in persons"),
         "# Trust: official statistics as published" ]);
+  });
+  document.getElementById("muni-csv").addEventListener("click", function () {
+    var name = (GEO_BY_CODE[urlState().pref] || {}).name_en || "prefecture";
+    downloadCsv("japan-" + name.toLowerCase() + "-municipalities.csv", muniCsvRows(),
+      csvHeader(["# Prefecture: " + name,
+                 "# Rows: " + (urlState().muni === "all"
+                   ? "municipalities plus designated-city and district totals — the " +
+                     "totals contain the municipalities, so never add the two together"
+                   : "municipalities only; designated-city and district totals excluded"),
+                 "# " + MEASURES.change_pct.calc,
+                 "# " + MEASURES.foreign_pct.calc,
+                 "# " + MEASURES.aged_pct.calc]));
   });
   document.getElementById("hist-png").addEventListener("click", function () {
     var name = (GEO_BY_CODE[urlState().pref] || {}).name_en || "prefecture";
@@ -1044,6 +1243,7 @@ function boot() {
     wire();
     drawMap();
     renderTable();
+    renderMunicipalities();
     if (HIST) {
       renderHistory();
     } else {

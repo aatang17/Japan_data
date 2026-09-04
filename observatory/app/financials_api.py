@@ -31,6 +31,7 @@ import re
 
 from fastapi import APIRouter, HTTPException, Query
 
+from . import aliases
 from .equity_api import NAME_CTES, _cur, _rows
 
 router = APIRouter(prefix="/api/v1/equity/financials")
@@ -87,11 +88,14 @@ FIELDS = [
                  "TotalNetRevenues", "SalesRevenue", "SalesRevenues"]),
     ("operating_income", ["OperatingIncome", "OperatingProfitLoss",
                           "OperatingIncomeLoss"]),
-    ("ordinary_income", ["OrdinaryIncomeLoss", "OrdinaryIncomeLossBNK"]),
+    ("ordinary_income", ["OrdinaryIncomeLoss", "OrdinaryIncomeLossBNK", "OrdinaryProfit"]),
     ("pretax_income", ["ProfitLossBeforeTax", "IncomeBeforeIncomeTaxes"]),
+    # "Profit" last: a parent-only filer has no minorities and tags plain
+    # 当期純利益, but a consolidated filer's attributable-to-owners element must
+    # always win, so the bare name is only ever the final fallback.
     ("profit", ["ProfitLossAttributableToOwnersOfParent",
                 "NetIncomeLossAttributableToOwnersOfParent", "NetIncomeLoss",
-                "ProfitLoss"]),
+                "ProfitLoss", "Profit"]),
     ("comprehensive_income", ["ComprehensiveIncomeAttributableToOwnersOfParent",
                               "ComprehensiveIncome"]),
     ("net_assets", ["NetAssets", "EquityAttributableToOwnersOfParent",
@@ -378,6 +382,19 @@ def build_panel(cur, filings, basis=None, as_filed_in=None):
             key = (row["fiscal_year_end"], b)
             if key not in panel:                 # latest filing already there
                 panel[key] = row
+    # Per-share dividends are printed in the reporting company's own summary
+    # table, not the group's; a consolidated row takes them from the parent
+    # row of the same fiscal year and says so.
+    for (fy, b), row in panel.items():
+        if b != "consolidated":
+            continue
+        parent = panel.get((fy, "parent"))
+        if not parent:
+            continue
+        for f in ("dps", "dps_interim", "payout_ratio_pct"):
+            if row["values"].get(f) is None and parent["values"].get(f) is not None:
+                row["values"][f] = parent["values"][f]
+                row["elements"][f] = parent["elements"][f] + " (parent table)"
     rows = sorted(panel.values(), key=lambda r: (r["basis"], r["fiscal_year_end"]))
     return rows
 
@@ -683,6 +700,7 @@ def companies(q: str = Query("", description="name or code substring"),
     """Search box feed: companies with an accepted financial filing."""
     cur = _require()
     like = "%" + q.strip() + "%"
+    alias_sql, alias_params = aliases.clause(cur, "l.sec_code", q)
     return {"companies": _rows(cur, "WITH x AS (SELECT 1)" + NAME_CTES + """,
         latest AS (
             SELECT sec_code, max(filer_name) AS name, max(period_end) AS period_end,
@@ -695,5 +713,249 @@ def companies(q: str = Query("", description="name or code substring"),
         LEFT JOIN en_ecode n ON n.edinet_code = l.edinet_code
         LEFT JOIN en_scode s ON s.sec_code = l.sec_code
         LEFT JOIN eq_entities e ON e.edinet_code = l.edinet_code
-        WHERE l.sec_code LIKE ? OR l.name LIKE ? OR lower(coalesce(n.name_en, s.name_en, '')) LIKE lower(?)
-        ORDER BY l.filings DESC, l.sec_code LIMIT ?""", [like, like, like, limit])}
+        WHERE l.sec_code LIKE ? OR l.name LIKE ?
+           OR lower(coalesce(n.name_en, s.name_en, '')) LIKE lower(?)"""
+        + alias_sql + """
+        ORDER BY l.filings DESC, l.sec_code LIMIT ?""",
+        [like, like, like] + alias_params + [limit])}
+
+
+# ---- derived ratios and the screener ----------------------------------------
+from . import fin_metrics  # noqa: E402
+from .equity_api import INDUSTRY_EN  # noqa: E402
+
+DERIVED_PROVENANCE = {
+    "trust": "derived",
+    "note": ("Calculated on this platform from the filed statements and the "
+             "filer's own summary; every metric names its formula and inputs. "
+             "The filer's own ROE and equity ratio are returned beside ours "
+             "with the difference, so the two can be reconciled. Ratios that "
+             "involve a price are implied from the filer's year-end PER — this "
+             "platform has no market data."),
+    "credit": "Financial Services Agency of Japan, EDINET (inputs)",
+}
+
+
+def _metric_defs():
+    return [{"metric": k, "label": fin_metrics.METRIC_LABELS[k][0],
+             "unit": fin_metrics.METRIC_LABELS[k][1], "formula": fin_metrics.FORMULAS[k]}
+            for k in fin_metrics.METRIC_ORDER]
+
+
+@router.get("/metrics/{sec_code}")
+def metrics(sec_code: str):
+    """One company's platform-calculated ratios with formula, inputs and the
+    filer's own figure where it prints one."""
+    cur = _require()
+    code = (sec_code or "").strip()
+    row = next((r for r in fin_metrics.all_rows(cur) if r["sec_code"] == code), None)
+    if row is None:
+        raise HTTPException(404, "no accepted financial filing for %s" % code)
+    out = dict(row)
+    out["industry_en"] = INDUSTRY_EN.get(row.get("industry"))
+    out["metric_defs"] = _metric_defs()
+    out["calc"] = fin_metrics.FORMULAS
+    out["provenance"] = DERIVED_PROVENANCE
+    return out
+
+
+SCREEN_SORTABLE = set(fin_metrics.METRIC_ORDER) | set(fin_metrics.SIZE_FIELDS)
+
+
+def _num(v, name):
+    if v is None or str(v).strip() == "":
+        return None
+    try:
+        return float(v)
+    except ValueError:
+        raise HTTPException(400, "%s must be a number" % name)
+
+
+@router.get("/screener")
+def screener(industry: str = Query("", description="EDINET industry (Japanese), e.g. 銀行業; omit for all"),
+             standard: str = Query("", description="Japan GAAP | IFRS | US GAAP"),
+             min_revenue_yen: str = Query(""), min_assets_yen: str = Query(""),
+             roe_min: str = Query(""), roe_max: str = Query(""),
+             roa_min: str = Query(""), operating_margin_min: str = Query(""),
+             equity_ratio_min: str = Query(""), equity_ratio_max: str = Query(""),
+             revenue_growth_min: str = Query(""), pbr_implied_max: str = Query(""),
+             dividend_yield_min: str = Query(""), cash_to_assets_min: str = Query(""),
+             sort: str = Query("roe_pct", description="metric or size field to rank on"),
+             order: str = Query("desc", description="desc | asc"),
+             limit: int = Query(100, ge=1, le=1000), offset: int = Query(0, ge=0)):
+    """Cross-section of every company's latest filing on platform-calculated
+    ratios, filtered and ranked. Companies missing the sort metric are
+    excluded from the ranking and counted in `excluded_missing_sort`."""
+    cur = _require()
+    rows = fin_metrics.all_rows(cur)
+    if sort not in SCREEN_SORTABLE:
+        raise HTTPException(400, "sort must be one of %s" % ", ".join(sorted(SCREEN_SORTABLE)))
+    asc = (order or "desc").lower() == "asc"
+    ind = industry.strip() or None
+    std = standard.strip() or None
+    f = {k: _num(v, k) for k, v in (
+        ("min_revenue_yen", min_revenue_yen), ("min_assets_yen", min_assets_yen),
+        ("roe_min", roe_min), ("roe_max", roe_max), ("roa_min", roa_min),
+        ("operating_margin_min", operating_margin_min), ("equity_ratio_min", equity_ratio_min),
+        ("equity_ratio_max", equity_ratio_max), ("revenue_growth_min", revenue_growth_min),
+        ("pbr_implied_max", pbr_implied_max), ("dividend_yield_min", dividend_yield_min),
+        ("cash_to_assets_min", cash_to_assets_min))}
+
+    def ge(val, floor):
+        return floor is None or (val is not None and val >= floor)
+
+    def le(val, cap):
+        return cap is None or (val is not None and val <= cap)
+
+    kept = []
+    for r in rows:
+        m, s = r["metrics"], r["size"]
+        if ind and r.get("industry") != ind:
+            continue
+        if std and (r.get("accounting_standard") or "") != std:
+            continue
+        if not (ge(s["revenue_yen"], f["min_revenue_yen"]) and ge(s["total_assets_yen"], f["min_assets_yen"])
+                and ge(m["roe_pct"], f["roe_min"]) and le(m["roe_pct"], f["roe_max"])
+                and ge(m["roa_pct"], f["roa_min"]) and ge(m["operating_margin_pct"], f["operating_margin_min"])
+                and ge(m["equity_ratio_pct"], f["equity_ratio_min"]) and le(m["equity_ratio_pct"], f["equity_ratio_max"])
+                and ge(m["revenue_growth_pct"], f["revenue_growth_min"])
+                and le(m["pbr_implied_x"], f["pbr_implied_max"])
+                and ge(m["dividend_yield_implied_pct"], f["dividend_yield_min"])
+                and ge(m["cash_to_assets_pct"], f["cash_to_assets_min"])):
+            continue
+        kept.append(r)
+
+    def key(r):
+        return r["metrics"].get(sort) if sort in r["metrics"] else r["size"].get(sort)
+    ranked = [r for r in kept if key(r) is not None]
+    missing = len(kept) - len(ranked)
+    ranked.sort(key=key, reverse=not asc)
+    page = []
+    for i, r in enumerate(ranked[offset:offset + limit], offset + 1):
+        page.append({
+            "rank": i, "sec_code": r["sec_code"], "filer_name": r["filer_name"],
+            "filer_name_en": r.get("filer_name_en"), "industry": r.get("industry"),
+            "industry_en": INDUSTRY_EN.get(r.get("industry")),
+            "accounting_standard": r["accounting_standard"], "basis": r["basis"],
+            "status": r["status"], "doc_id": r["doc_id"], "period_end": r["period_end"],
+            "size": r["size"], "metrics": r["metrics"], "filed": r["filed"], "checks": r["checks"],
+            "flags": r.get("flags") or [],
+            "sort_value": key(r),
+        })
+    return {"sort": sort, "order": "asc" if asc else "desc",
+            "filters": {"industry": ind, "standard": std,
+                        **{k: v for k, v in f.items() if v is not None}},
+            "universe": len(rows), "matched": len(kept), "ranked": len(ranked),
+            "excluded_missing_sort": missing, "offset": offset, "limit": limit,
+            "rows": page, "metric_defs": _metric_defs(), "calc": fin_metrics.FORMULAS,
+            "provenance": DERIVED_PROVENANCE}
+
+
+@router.get("/screener/options")
+def screener_options():
+    """What the screener can filter and sort on, with universe counts."""
+    cur = _require()
+    rows = fin_metrics.all_rows(cur)
+    by_ind = {}
+    by_std = {}
+    for r in rows:
+        by_ind[r.get("industry")] = by_ind.get(r.get("industry"), 0) + 1
+        by_std[r.get("accounting_standard")] = by_std.get(r.get("accounting_standard"), 0) + 1
+    return {
+        "universe": len(rows),
+        "industries": sorted([{"industry": k, "industry_en": INDUSTRY_EN.get(k), "companies": v}
+                              for k, v in by_ind.items() if k], key=lambda x: -x["companies"]),
+        "standards": sorted([{"standard": k, "companies": v} for k, v in by_std.items() if k],
+                            key=lambda x: -x["companies"]),
+        "metrics": _metric_defs(),
+        "size_fields": fin_metrics.SIZE_FIELDS,
+        "provenance": DERIVED_PROVENANCE,
+    }
+
+
+# The dataset's card (app/registry.py). Everything under /financials is as
+# filed; the ratios are the one computed layer (fin_metrics) and each carries
+# the formula the screener shows.
+from .equity_api import EDINET_SOURCE as _EDINET_SOURCE  # noqa: E402
+
+_METRIC_UNIT = {"%": "%", "×": "x", "¥": "JPY"}
+
+MANIFEST = {
+    "id": "financials",
+    "section": "financials",
+    "name": {"en": "Financial statements and ratios",
+             "ja": "経営指標等の推移・財務諸表"},
+    "shape": "company",
+    "summary": ("Every tagged number in a company's annual securities report — "
+                "the filer's own five-year summary and the statements as filed "
+                "— plus platform-calculated ratios (ROE, margins, growth, "
+                "implied PBR) with formula and inputs on every row."),
+    "source": dict(_EDINET_SOURCE,
+                   document="有価証券報告書 · 主要な経営指標等の推移 / 財務諸表 (annual "
+                            "securities report, XBRL facts)",
+                   credit="Source: company filings on EDINET (Financial Services "
+                          "Agency of Japan)."),
+    "keys": ["sec_code", "fiscal_year"],
+    "frequency": "per-filing",
+    "vintage": {
+        "unit": "filing", "as_of_basis": "captured_at", "as_of_supported": False,
+        "history_from": "FY2021 (each filing restates five years; filings from FY2025)",
+        "stale_after_days": None,
+    },
+    "measures": [
+        {"id": "revenue_yen", "label": "Revenue", "unit": "JPY", "trust": "official"},
+        {"id": "profit_yen", "label": "Profit attributable to owners", "unit": "JPY",
+         "trust": "official"},
+        {"id": "total_assets_yen", "label": "Total assets", "unit": "JPY", "trust": "official"},
+        {"id": "net_assets_yen", "label": "Net assets", "unit": "JPY", "trust": "official"},
+        {"id": "cf_operating_yen", "label": "Operating cash flow", "unit": "JPY",
+         "trust": "official"},
+        {"id": "cash_yen", "label": "Cash and equivalents", "unit": "JPY", "trust": "official"},
+        {"id": "eps", "label": "Earnings per share", "unit": "JPY", "trust": "official"},
+        {"id": "bps", "label": "Book value per share", "unit": "JPY", "trust": "official"},
+        {"id": "dps", "label": "Dividend per share", "unit": "JPY", "trust": "official"},
+        {"id": "per", "label": "Price-earnings ratio at year end, as filed", "unit": "x",
+         "trust": "official"},
+        {"id": "employees", "label": "Employees", "unit": "count", "trust": "official"},
+        {"id": "equity_ratio_pct_filed", "label": "Equity ratio, as filed", "unit": "%",
+         "trust": "official"},
+        {"id": "roe_pct_filed", "label": "Return on equity, as filed", "unit": "%",
+         "trust": "official"},
+        {"id": "payout_ratio_pct", "label": "Payout ratio, as filed", "unit": "%",
+         "trust": "official"},
+        {"id": "statement_line", "label": "Any statement line, in the filer's own order and label",
+         "unit": "JPY", "trust": "official"},
+    ] + [
+        {"id": k, "label": fin_metrics.METRIC_LABELS[k][0],
+         "unit": _METRIC_UNIT[fin_metrics.METRIC_LABELS[k][1]],
+         "trust": "derived", "calc": fin_metrics.FORMULAS[k]}
+        for k in fin_metrics.METRIC_ORDER
+    ] + [
+        {"id": "equity_owners_yen", "label": "Equity attributable to owners (standardised)",
+         "unit": "JPY", "trust": "derived", "calc": fin_metrics.FORMULAS["equity_owners_yen"]},
+    ],
+    "endpoints": {
+        "company": "/api/v1/equity/financials/company/{sec_code}",
+        "statements": "/api/v1/equity/financials/statements/{sec_code}",
+        "facts": "/api/v1/equity/financials/facts/{sec_code}",
+        "metrics": "/api/v1/equity/financials/metrics/{sec_code}",
+        "search": "/api/v1/equity/financials/companies",
+        "summary": "/api/v1/equity/financials/summary",
+        "screen": "/api/v1/equity/financials/screener",
+        "screen_options": "/api/v1/equity/financials/screener/options",
+        "filed_screen": "/api/v1/equity/financials/screen",
+        "filed_screen_metrics": "/api/v1/equity/financials/screen/metrics",
+        "elements": "/api/v1/equity/financials/elements",
+    },
+    "capabilities": ["company", "search", "summary", "screen"],
+    "screens": (
+        [{"id": k, "title": "Companies ranked on %s (platform-calculated)"
+                            % fin_metrics.METRIC_LABELS[k][0]}
+         for k in fin_metrics.METRIC_ORDER]
+        + [{"id": "filed:" + k, "title": "Companies ranked on %s, as filed" % v[0]}
+           for k, v in sorted(SCREEN_METRICS.items())]),
+    "cite": "/financials.html?c={sec_code}",
+    "page": "/financials.html",
+    "notes": [PROVENANCE["note"], PROVENANCE["labels"], CALC["percent_fields"],
+              CALC["panel"], DERIVED_PROVENANCE["note"]],
+}

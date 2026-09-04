@@ -445,20 +445,23 @@ STATS_CODE = "00350300"      # 普通貿易統計
 LIST_SEARCH = "概況品別国別表"
 
 
-def _updated_dates():
+def _updated_dates(tables=None, search=None):
     """{statsDataId: UPDATED_DATE} for the tables we ingest.
 
     The Ministry's own publication stamp is the cache key: a table whose stamp
     has not moved cannot have changed, and one whose stamp has moved must be
-    re-read even if we already hold a copy.
+    re-read even if we already hold a copy. The HS-detail adapter passes its
+    own table list and search word; everything else about the listing is the
+    same statistic.
     """
+    tables = TABLES if tables is None else tables
     payload = estat_api.call("getStatsList", statsCode=STATS_CODE,
-                             searchWord=LIST_SEARCH, limit=200)
+                             searchWord=search or LIST_SEARCH, limit=200)
     listing = payload["GET_STATS_LIST"]["DATALIST_INF"]["TABLE_INF"]
     if isinstance(listing, dict):
         listing = [listing]
     stamps = dict((t["@id"], str(t.get("UPDATED_DATE"))) for t in listing)
-    missing = [tid for tid, _flow, _era in TABLES if tid not in stamps]
+    missing = [tid for tid, _flow, _era in tables if tid not in stamps]
     if missing:
         raise estat_api.ApiError(
             "e-Stat no longer lists table(s) %s under %s — the Ministry has "
@@ -497,8 +500,9 @@ def _cached(table_id, stamp, kind, produce):
     return value
 
 
-def _table_payload(table_id, flow, stamp):
-    codes = ",".join(c for c, _e, _j, _o, _k, _s in COMMODITIES[flow])
+def _table_payload(table_id, flow, stamp, codes=None):
+    if codes is None:
+        codes = ",".join(c for c, _e, _j, _o, _k, _s in COMMODITIES[flow])
 
     def data():
         return estat_api.strip_timestamps(estat_api.get_stats_data(
@@ -808,4 +812,96 @@ PRESENTATION = {
         "feature_partners": ["50105", "50106", "50103", "50108", "50304", "50112"],
         "value_unit": VALUE_UNIT,
     },
+}
+
+
+# The dataset's card. Customs values in ¥ thousand and quantities in each
+# commodity's published unit; the world totals are summed by the API (this
+# table has no world row) and the rest of the page's arithmetic is recorded
+# here with the formula the page uses.
+MANIFEST = {
+    "id": DATASET["slug"],
+    "section": "trade",
+    "name": {"en": "Semiconductor trade — exports and imports by partner",
+             "ja": "半導体関連品目の輸出入（相手国別）"},
+    "shape": "series",
+    "summary": ("Monthly Japanese exports and imports of semiconductors, "
+                "components and manufacturing equipment by partner country "
+                "from January 2001 — customs value in thousands of yen and "
+                "quantity in the published unit, exactly as released by the "
+                "Ministry of Finance."),
+    "source": {
+        "publisher": DATASET["agency"],
+        "publisher_ja": DATASET["agency_ja"],
+        "document": SOURCE["name"],
+        "url": SOURCE["url"],
+        "credit": PRESENTATION["credit_line"],
+        "license_note": SOURCE["license_note"],
+    },
+    "keys": ["series_code", "period"],
+    "frequency": DATASET["frequency"],
+    "vintage": {
+        "unit": "release", "as_of_basis": "release-in-force",
+        "as_of_supported": True, "history_from": "2001-01",
+        "stale_after_days": PRESENTATION["stale_after_days"],
+    },
+    "measures": [
+        {"id": "index", "label": "Customs value (¥ thousand) or quantity, as published",
+         "unit": "JPY_thousand", "trust": "official"},
+        {"id": "quantity", "label": "Quantity, in the commodity's published unit",
+         "unit": "quantity", "trust": "official"},
+        {"id": "yoy", "label": "Year over year", "unit": "%", "trust": "derived",
+         "calc": "(value[t] / value[t−12 months] − 1) × 100, from published values."},
+        {"id": "world_value", "label": "World total for a commodity", "unit": "JPY_thousand",
+         "trust": "derived",
+         "calc": ("world[commodity, t] = Σ value[partner, commodity, t] over every partner "
+                  "country the Ministry publishes for that commodity, including the "
+                  "non-country entries (For Order, Unknown, bonded areas). The Ministry "
+                  "publishes no world total in this table, so it is summed here rather "
+                  "than read off.")},
+        {"id": "ttm", "label": "12-month total", "unit": "JPY_thousand", "trust": "derived",
+         "calc": ("12-month total[t] = Σ value[t−11 … t]. A month in which the Ministry "
+                  "records no customs entry for that partner contributes nothing to the "
+                  "sum, which is what the absence of an entry means; the sum is left blank "
+                  "until twelve months of history exist.")},
+        {"id": "share_pct", "label": "Partner share of the world total", "unit": "%",
+         "trust": "derived",
+         "calc": ("share[partner, t] = (12-month total[partner, t] / 12-month "
+                  "total[world, t]) × 100, in percent. Both totals are over the same twelve "
+                  "months, so a single strong month cannot move the share on its own.")},
+        {"id": "ttm_yoy", "label": "12-month total, year over year", "unit": "%",
+         "trust": "derived",
+         "calc": ("growth[t] = (12-month total[t] / 12-month total[t−12 months] − 1) "
+                  "× 100, in percent.")},
+        {"id": "unit_value", "label": "Average unit value over 12 months", "unit": "JPY",
+         "trust": "derived",
+         "calc": ("unit value[t] = (12-month total of value[t] × 1,000) / 12-month total "
+                  "of quantity[t], in yen per unit shipped. Value is published in thousands "
+                  "of yen and quantity in the commodity's own published unit, so this is an "
+                  "average realised price across a year of shipments, not a price index and "
+                  "not comparable between commodities.")},
+        {"id": "balance", "label": "Trade balance in semiconductors, 12-month totals",
+         "unit": "JPY_thousand", "trust": "derived",
+         "calc": ("balance[t] = exports[semiconductors & electronic components, t] − "
+                  "imports[semiconductors & electronic components, t], on 12-month totals. "
+                  "The two directions are published under separate commodity codes that "
+                  "carry the same name and are treated by the Ministry as counterparts; "
+                  "they are not two readings of one series.")},
+    ],
+    "endpoints": {
+        "series": "/api/v1/%s/observations" % DATASET["slug"],
+        "trade": "/api/v1/%s/trade" % DATASET["slug"],
+        "releases": "/api/v1/%s/releases" % DATASET["slug"],
+        "revisions": "/api/v1/%s/revisions" % DATASET["slug"],
+    },
+    "capabilities": ["series"],
+    "cite": "/semis.html",
+    "page": "/semis.html",
+    "notes": [
+        "Export and import commodity codes are separate vocabularies and do not "
+        "correspond; a commodity is always resolved within one direction.",
+        "Figures pass through the Ministry's revision stages (preliminary, "
+        "confirmed, revised, final); each stage is stored as its own vintage.",
+        "Value and quantity are different measures and never share an axis.",
+    ],
 }

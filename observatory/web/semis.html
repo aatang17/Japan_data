@@ -123,6 +123,42 @@
     </div>
   </section>
 
+  <section aria-labelledby="h-chain">
+    <h2 id="h-chain">The Supply Chain by Destination <span class="h2-note" id="chain-note"></span></h2>
+    <p class="section-sub">Three steps of the same chain, for one destination: the silicon
+    wafers Japan ships to it, the integrated circuits, and the chipmaking equipment — each a
+    trailing twelve-month total, each indexed to the same starting month so that lines of very
+    different size can be read together. Wafers come from the HS-detail customs tables; chips
+    and equipment from the concept-commodity tables. The three are different products and are
+    never added.</p>
+    <div class="chart-panel">
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Destination" id="dest-seg">
+        <button type="button" data-dest="50106" aria-pressed="true">Taiwan</button>
+        <button type="button" data-dest="50103">Korea</button>
+        <button type="button" data-dest="50105">China</button>
+        <button type="button" data-dest="50304">United States</button>
+        <button type="button" data-dest="world">World</button>
+      </div>
+      <div class="seg" role="group" aria-label="View" id="chain-view-seg">
+        <button type="button" data-cview="index" aria-pressed="true">Indexed</button>
+        <button type="button" data-cview="level">¥bn</button>
+      </div>
+      <div class="seg" role="group" aria-label="Date range" id="chrange-seg">
+        <button type="button" data-chrange="5">5Y</button>
+        <button type="button" data-chrange="10" aria-pressed="true">10Y</button>
+        <button type="button" data-chrange="max">Max</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="chain-png">Download PNG</button>
+      <button type="button" class="btn" id="chain-csv">Download CSV</button>
+    </div>
+    <div class="chart" id="chain-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="chain-source"></p>
+    <details class="calc" id="chain-calc"></details>
+    </div>
+  </section>
+
   <section aria-labelledby="h-partners">
     <h2 id="h-partners">All Partners <span class="h2-note" id="partners-note"></span></h2>
     <p class="section-sub">Every partner the Ministry publishes for this commodity and direction,

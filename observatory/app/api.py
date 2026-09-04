@@ -20,9 +20,10 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from . import db, heartbeat, vintages
+from . import db, fiscal, heartbeat, vintages
 from .adapters import (boj_assets, cpi_jp, cpi_jp_items, jnto_visitors,
-                       juki_population, mof_jgb, mof_trade, ssds_population)
+                       juki_municipal, juki_population, mof_jgb, mof_trade,
+                       mof_trade_hs, ssds_population)
 
 # The agent is optional: without the openai package installed the data API
 # and the site keep working, and /ask reports itself as unavailable.
@@ -44,7 +45,8 @@ ADAPTERS = {"cpi-jp": cpi_jp, "cpi-jp-items": cpi_jp_items, "boj-assets": boj_as
             "jgb-yields": mof_jgb, "jnto-visitors": jnto_visitors,
             "population-jp": juki_population,
             "population-jp-history": ssds_population,
-            "trade-semis": mof_trade}
+            "population-jp-municipal": juki_municipal,
+            "trade-semis": mof_trade, "trade-inputs": mof_trade_hs}
 
 router = APIRouter(prefix="/api/v1")
 
@@ -243,7 +245,7 @@ def _release(con, dataset, as_of=None):
             first = con.execute(
                 "SELECT min(ingested_at) FROM releases WHERE dataset=?", [dataset]).fetchone()[0]
             raise HTTPException(
-                400, "No release of '%s' existed on %s; the first vintage is %s"
+                400, "No release of '%s' existed on %s; the first release is %s"
                      % (dataset, as_of.isoformat(),
                         first.date().isoformat() if first else "not yet recorded"))
     if row is None:
@@ -336,19 +338,30 @@ def health():
         except Exception:                                    # noqa: BLE001
             equity = []
 
+        # The dataset manifests. A card that fails validation is quarantined
+        # rather than fatal (see registry.py), so this is where it is noticed.
+        try:
+            from . import registry
+            manifests = registry.status()
+        except Exception:                                    # noqa: BLE001
+            manifests = {"registered": 0, "bound": False, "quarantined": [],
+                         "errors": []}
+
         # The machinery's own signal, independent of any dataset's threshold:
         # a refresh that has stopped running is a fault even while every
         # series is still comfortably inside its staleness allowance.
         machine = heartbeat.status()
         attention = (any(d["status"] == "attention" for d in out)
                      or any(d["status"] == "attention" for d in equity)
+                     or bool(manifests["quarantined"])
                      or bool(machine["refresh_overdue"]))
         report = {"checked_at": datetime.datetime.now(datetime.timezone.utc)
                                 .replace(microsecond=0).isoformat()
                                 .replace("+00:00", "Z"),
                   "status": "attention" if attention else "ok",
                   "datasets": out,
-                  "equity_extractors": equity}
+                  "equity_extractors": equity,
+                  "manifests": manifests}
         report.update(machine)
         return report
     finally:
@@ -1054,7 +1067,7 @@ PREFECTURES_CALC = (
 
 
 @router.get("/{dataset}/prefectures")
-def prefectures(dataset):
+def prefectures(dataset, prefecture: str = Query(None, max_length=2)):
     """Every area × every measure × every period, plus the geography.
 
     One payload serves a whole population surface — the map, the rankings
@@ -1077,10 +1090,26 @@ def prefectures(dataset):
     if not cfg:
         raise HTTPException(
             404, "Dataset '%s' has no prefecture definition" % dataset)
+    # A municipality dataset is two orders of magnitude larger than a
+    # prefecture one — about 585,000 series — so it is served one prefecture
+    # at a time rather than as one payload nobody can use. The dataset says
+    # whether it needs the filter; the endpoint does not guess from a count.
+    if cfg.get("requires_area_filter") and not prefecture:
+        raise HTTPException(
+            400, "'%s' covers every municipality in Japan and must be asked "
+                 "for one prefecture at a time: add ?prefecture=NN, a "
+                 "two-digit JIS code (13 = Tokyo)." % dataset)
+    if prefecture is not None and (len(prefecture) != 2 or not prefecture.isdigit()):
+        raise HTTPException(400, "prefecture must be a two-digit JIS code")
     con = _con()
     try:
         rel = _release(con, dataset)
         smap = _series_map(con, dataset)
+        if prefecture:
+            national = cfg.get("national") or ""
+            smap = [s for s in smap
+                    if s["code"].startswith(prefecture)
+                    or s["code"].startswith(national + ".")]
         vals = _values_bulk(con, [s["series_id"] for s in smap])
 
         periods = sorted(set(p for sid in vals for p in vals[sid]))
@@ -1115,9 +1144,27 @@ def prefectures(dataset):
         # bases for the historical one.
         for key in ("headline", "national", "geographies", "regions",
                     "segments", "measures", "indicators", "age_bands",
-                    "age_groups", "sexes", "bases", "companion_dataset"):
+                    "age_groups", "sexes", "bases", "levels",
+                    "requires_area_filter", "companion_dataset"):
             if key in cfg:
                 payload[key] = cfg[key]
+        # A dataset whose areas come from the file rather than from a pinned
+        # list carries them in the release it was published from. Serve only
+        # the ones in scope, so a filtered request stays small.
+        if "geographies" not in payload:
+            row = con.execute(
+                "SELECT validation FROM releases "
+                "WHERE dataset=? AND status='published'", [dataset]).fetchone()
+            if row and row[0]:
+                try:
+                    geos = json.loads(row[0]).get("geographies") or []
+                except ValueError:
+                    geos = []
+                if prefecture:
+                    geos = [g for g in geos
+                            if g["code"].startswith(prefecture)
+                            or g["code"] == cfg.get("national")]
+                payload["geographies"] = geos
         return payload
     finally:
         con.close()
@@ -1262,22 +1309,48 @@ def trade(dataset,
         con.close()
 
 
+FISCAL_CALC = (
+    "Σ value[m] over the %d months of each %s of a fiscal year ending in "
+    "month %d, from published monthly values. Only complete periods are "
+    "shown: a period with an unpublished month is left out, never summed "
+    "short. Fiscal years are named for the calendar year in which they begin."
+)
+
+
 @router.get("/{dataset}/observations")
 def observations(dataset,
                  series: str = Query(..., max_length=200),
                  measure: str = Query("index"),
                  start: str = Query(None), end: str = Query(None),
-                 as_of: str = Query(None)):
+                 as_of: str = Query(None),
+                 period: str = Query(
+                     None, description="'fiscal_quarter' or 'fiscal_year': sum monthly "
+                                       "flows into the fiscal periods of a company whose "
+                                       "year ends in month fy_end. Flows only."),
+                 fy_end: int = Query(3, ge=1, le=12,
+                                     description="Month the fiscal year ends (3 = March)")):
     """Published values for up to eight series.
 
     With ``as_of=YYYY-MM-DD`` the response is the data *as it stood on that
     date* — the numbers a reader would have had then, before any later
     revision. That is what makes a chart citable and a backtest honest, and it
     is served from the append-only vintage history, not reconstructed.
+
+    With ``period=fiscal_quarter`` (or ``fiscal_year``) and ``fy_end``, monthly
+    flows are summed into a company's own fiscal periods — what a model built
+    on that company's reported quarters needs. Only published values that are
+    monthly amounts qualify (customs values and quantities, visitor counts);
+    an index, a stock or a rate is refused rather than summed into nonsense,
+    and a period missing any month is left out rather than summed short.
     """
     adapter = _dataset_or_404(dataset)
     if measure not in CALC:
         raise HTTPException(400, "Unknown measure '%s'; one of %s" % (measure, sorted(CALC)))
+    if period is not None and period not in fiscal.GRANULARITIES:
+        raise HTTPException(400, "period must be one of %s" % ", ".join(fiscal.GRANULARITIES))
+    if period is not None and measure != "index":
+        raise HTTPException(
+            400, "Fiscal roll-ups sum published values; request measure=index with period=.")
     # Monthly-lag rates presuppose monthly periods; on a daily series the
     # lag lookup would mostly miss and a %-change of a rate is not a
     # meaningful measure anyway.
@@ -1321,11 +1394,19 @@ def observations(dataset,
             pts = _measure_points(raw, measure)
             pts = [(p, v) for p, v in pts
                    if (p_start is None or p >= p_start) and (p_end is None or p <= p_end)]
-            out.append({
-                "code": code, "name_en": s["name_en"], "name_ja": s["name_ja"],
-                "points": [[p.isoformat(), None if v is None else round(v, 6)]
-                           for p, v in pts],
-            })
+            entry = {"code": code, "name_en": s["name_en"], "name_ja": s["name_ja"]}
+            if period is not None:
+                try:
+                    rolled, dropped = fiscal.roll_up(pts, s.get("unit"), fy_end, period)
+                except fiscal.NotAFlow as exc:
+                    raise HTTPException(400, "'%s': %s" % (code, exc))
+                entry["points"] = [[p.isoformat(), round(v, 6)] for p, v, _l in rolled]
+                entry["labels"] = [l for _p, _v, l in rolled]
+                entry["months_not_summed"] = [d.isoformat() for d in dropped]
+            else:
+                entry["points"] = [[p.isoformat(), None if v is None else round(v, 6)]
+                                   for p, v in pts]
+            out.append(entry)
         # one response, one measure type — never a yen level and an index
         # sharing an axis (they would be silently incomparable)
         if measure == "index" and len(units) > 1:
@@ -1337,6 +1418,14 @@ def observations(dataset,
         body = {"dataset": dataset, "measure": measure, "unit": _unit_for(measure, unit),
                 "trust": TRUST[measure], "calc": _calc_for(measure, unit),
                 "release": rel, "series": out}
+        if period is not None:
+            # A sum of published values is derived, and says which calendar it used.
+            body["trust"] = "derived"
+            body["period"] = period
+            body["fy_end"] = fy_end
+            body["calc"] = FISCAL_CALC % (
+                3 if period == "fiscal_quarter" else 12,
+                "quarter" if period == "fiscal_quarter" else "year", fy_end)
         if p_as_of:
             # The vintage is part of the citation: the same URL must return the
             # same numbers next year, so the response says which one it read.

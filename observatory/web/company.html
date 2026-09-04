@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Company Lens · Japan Data Observatory</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+
+<header class="site-header" data-section="equities" data-page="company"></header>
+<script src="assets/nav.js"></script>
+
+<main class="container">
+  <div id="stale-banner"></div>
+
+  <div class="metric-card">
+    <div class="metric-card-head">
+      <h1 id="co-name">Company Lens</h1>
+      <span class="metric-asof" id="page-asof"></span>
+      <p class="metric-sub" id="page-sub">What a company reports by region and customer, beside
+      the customs flows its business sits in — both in the company's own fiscal year.</p>
+    </div>
+    <div class="controls">
+      <label for="company-select">Company</label>
+      <select id="company-select" aria-label="Company"></select>
+      <span class="spacer"></span>
+      <a class="btn" id="lens-csv" href="#" download>Download CSV</a>
+    </div>
+    <div class="strip">
+      <div class="strip-grid cols-4" id="tiles">
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+      </div>
+    </div>
+    <p class="strip-foot" id="strip-foot"></p>
+    <details class="calc" id="strip-calc" style="display:none"></details>
+  </div>
+
+  <section aria-labelledby="h-regions">
+    <h2 id="h-regions">Revenue by Region, as Filed <span class="h2-note" id="regions-note"></span></h2>
+    <p class="section-sub" id="regions-sub">The company's own regional split from the segment
+    note of its annual securities report — on the basis the filer states, for the latest and
+    prior fiscal year. Sub-notes such as "of which United States" are shown under their parent
+    and never added to it.</p>
+    <div class="table-wrap" id="regions-table"><div class="skeleton" style="width:100%;height:200px"></div></div>
+    <p class="table-foot" id="regions-foot"></p>
+    <details class="calc" id="regions-calc"></details>
+  </section>
+
+  <section aria-labelledby="h-customs">
+    <h2 id="h-customs">Filed Revenue Beside Customs Exports <span class="h2-note" id="customs-note"></span></h2>
+    <p class="section-sub">For each customs commodity this company is mapped to, Japan's
+    exports to the partners each filed region names — summed into the company's fiscal
+    years — next to what the company filed for that region. The ratio is an indicator of
+    size and direction, never an accounting identity: the company ships from overseas plants
+    too, books revenue on acceptance rather than shipment, and shares the customs line with
+    its competitors.</p>
+    <div class="chart-panel">
+    <div class="controls">
+      <label for="commodity-select">Commodity</label>
+      <select id="commodity-select" aria-label="Commodity"></select>
+      <div class="seg" role="group" aria-label="View" id="view-seg">
+        <button type="button" data-view="level" aria-pressed="true">Filed vs Customs</button>
+        <button type="button" data-view="share">Implied Share</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="customs-png">Download PNG</button>
+      <button type="button" class="btn" id="customs-csv">Download CSV</button>
+    </div>
+    <div class="chart" id="customs-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="customs-source"></p>
+    <details class="calc" id="customs-calc"></details>
+    </div>
+    <div class="table-wrap" id="relationship-table"></div>
+    <p class="table-foot" id="relationship-foot"></p>
+  </section>
+
+  <section aria-labelledby="h-quarters">
+    <h2 id="h-quarters">The Customs Driver, Quarterly <span class="h2-note" id="quarters-note"></span></h2>
+    <p class="section-sub">The same customs series in the company's fiscal quarters — the
+    frequency at which the company reports and a model is built. Customs data for a quarter is
+    complete about two months after it ends, before the company prints its own figure. Only
+    complete quarters are shown; a quarter with an unpublished month is left out, never summed
+    short.</p>
+    <div class="chart-panel">
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Date range" id="qrange-seg">
+        <button type="button" data-qrange="5">5Y</button>
+        <button type="button" data-qrange="10" aria-pressed="true">10Y</button>
+        <button type="button" data-qrange="max">Max</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="quarters-png">Download PNG</button>
+      <button type="button" class="btn" id="quarters-csv">Download CSV</button>
+    </div>
+    <div class="chart" id="quarters-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="quarters-source"></p>
+    <details class="calc" id="quarters-calc"></details>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-customers">
+    <h2 id="h-customers">Customers the Company Names <span class="h2-note" id="customers-note"></span></h2>
+    <p class="section-sub">Every customer accounting for ten percent or more of revenue, as the
+    filer discloses it, with the revenue booked from them. This is the only company-to-company
+    revenue link in the public record; names are as the filer wrote them.</p>
+    <div class="table-wrap" id="customers-table"></div>
+    <p class="table-foot" id="customers-foot"></p>
+  </section>
+
+  <section aria-labelledby="h-products">
+    <h2 id="h-products">Reportable Segments <span class="h2-note" id="products-note"></span></h2>
+    <p class="section-sub">External revenue, segment profit and segment assets by reportable
+    segment, as filed. A single-segment company reports none, and says so.</p>
+    <div class="table-wrap" id="products-table"></div>
+    <p class="table-foot" id="products-foot"></p>
+  </section>
+
+  <section aria-label="Data source and provenance" class="prov">
+    <div id="prov-card"></div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="inner">
+    <span id="credit-line">Source: company filings on EDINET (Financial Services Agency of Japan); Ministry of Finance, Trade Statistics of Japan.</span>
+    Filed figures are as the company reported them; fiscal-year sums of customs values, implied
+    shares and the commodity-to-company mapping are the platform's, and carry their formula.
+    <a href="methodology.html">Methodology</a>
+  </div>
+</footer>
+
+<script src="assets/echarts.min.js"></script>
+<script src="assets/format.js"></script>
+<script src="assets/charts.js"></script>
+<script src="assets/sortable.js"></script>
+<script src="assets/company.js"></script>
+</body>
+</html>

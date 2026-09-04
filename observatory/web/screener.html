@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Screener · Japan Data Observatory</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/app.css">
+<style>
+/* page-local layout only — tokens and components come from app.css */
+.filters { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px 16px;
+  margin: 14px 0 10px; padding: 14px 16px; border: 1px solid var(--obs-border); }
+.filters label { display: block; font-size: 11px; font-weight: 600; color: var(--obs-text-muted);
+  text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
+.filters select, .filters input { width: 100%; font-size: 13px; padding: 5px 7px;
+  border: 1px solid var(--obs-border); background: var(--obs-surface); color: var(--obs-ink);
+  font-variant-numeric: tabular-nums; }
+.filters input::placeholder { color: var(--obs-text-faint); }
+.filters .actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
+.filters .actions .hint { font-size: 12px; color: var(--obs-text-muted); flex: 1; }
+
+.tbl-scr { width: 100%; border-collapse: collapse; min-width: 1180px; }
+.tbl-scr th, .tbl-scr td { padding: 7px 9px; font-size: 13px; border-bottom: 1px solid var(--obs-grid); white-space: nowrap; }
+.tbl-scr thead th { font-size: 11px; font-weight: 600; color: var(--obs-text-muted);
+  text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid var(--obs-border); }
+.tbl-scr .r, .tbl-scr th.r { text-align: right; font-variant-numeric: tabular-nums; }
+.tbl-scr tbody tr:hover td { background: var(--obs-surface-subtle); }
+.tbl-scr a { color: var(--obs-primary); text-decoration: none; }
+.tbl-scr a:hover { text-decoration: underline; }
+.tbl-scr .sub { display: block; font-size: 11px; color: var(--obs-text-muted); margin-top: 1px; }
+.tbl-scr th.sorted { color: var(--obs-ink); }
+.tbl-scr th.sortable { cursor: pointer; }
+.tbl-scr th.sortable:hover { color: var(--obs-ink); }
+.tbl-scr td.sorted { font-weight: 600; color: var(--obs-ink); }
+.tbl-scr .cell-name { max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
+.tbl-scr .chk { font-size: 11px; color: var(--obs-text-muted); }
+.tbl-scr .flag { font-size: 11px; color: var(--obs-warn); white-space: nowrap; }
+.tbl-scr .chk.off { color: var(--obs-warn); }
+.tbl-formula { font-size: 12px; color: var(--obs-text-muted); margin: 8px 0 0; }
+.calc-list { margin: 6px 0 0 18px; font-size: 12.5px; line-height: 1.55; }
+.calc-list b { color: var(--obs-ink); font-weight: 600; }
+</style>
+</head>
+<body class="page-wide">
+
+<header class="site-header" data-section="equities" data-page="screener"></header>
+<script src="assets/nav.js"></script>
+
+<main class="container">
+  <div class="page-head">
+    <h1>Screener</h1>
+    <p class="page-sub">Every listed company's latest annual report, ranked on ratios this platform
+    calculates from the filed statements — ROE and ROA on average balances, margins, equity ratio,
+    growth, cash conversion, free cash flow, and valuation implied from the filer's own year-end PER.
+    Each figure carries its formula and the filer's own ROE beside ours. No market data is used.</p>
+  </div>
+
+  <form class="filters" id="filters" autocomplete="off">
+    <div><label for="f-sort">Rank by</label><select id="f-sort"></select></div>
+    <div><label for="f-order">Order</label>
+      <select id="f-order"><option value="desc">Highest first</option><option value="asc">Lowest first</option></select></div>
+    <div><label for="f-industry">Industry</label><select id="f-industry"><option value="">All industries</option></select></div>
+    <div><label for="f-standard">Accounting standard</label><select id="f-standard"><option value="">Any</option></select></div>
+    <div><label for="f-min-rev">Min revenue (¥bn)</label><input id="f-min-rev" type="number" inputmode="decimal" placeholder="any"></div>
+    <div><label for="f-min-assets">Min total assets (¥bn)</label><input id="f-min-assets" type="number" inputmode="decimal" placeholder="any"></div>
+    <div><label for="f-roe-min">Min ROE (%)</label><input id="f-roe-min" type="number" inputmode="decimal" placeholder="any"></div>
+    <div><label for="f-roa-min">Min ROA (%)</label><input id="f-roa-min" type="number" inputmode="decimal" placeholder="any"></div>
+    <div><label for="f-opm-min">Min operating margin (%)</label><input id="f-opm-min" type="number" inputmode="decimal" placeholder="any"></div>
+    <div><label for="f-eqr-min">Min equity ratio (%)</label><input id="f-eqr-min" type="number" inputmode="decimal" placeholder="any"></div>
+    <div><label for="f-eqr-max">Max equity ratio (%)</label><input id="f-eqr-max" type="number" inputmode="decimal" placeholder="any"></div>
+    <div><label for="f-growth-min">Min revenue growth (%)</label><input id="f-growth-min" type="number" inputmode="decimal" placeholder="any"></div>
+    <div><label for="f-pbr-max">Max PBR, implied (×)</label><input id="f-pbr-max" type="number" inputmode="decimal" placeholder="any"></div>
+    <div><label for="f-yield-min">Min dividend yield, implied (%)</label><input id="f-yield-min" type="number" inputmode="decimal" placeholder="any"></div>
+    <div><label for="f-cash-min">Min cash / assets (%)</label><input id="f-cash-min" type="number" inputmode="decimal" placeholder="any"></div>
+    <div class="actions">
+      <button type="submit" class="btn btn-primary" id="f-apply">Apply</button>
+      <button type="button" class="btn" id="f-reset">Reset</button>
+      <span class="hint">Filters are floors and caps in each metric's own unit. Companies without the ranking metric are left out and counted.</span>
+    </div>
+  </form>
+
+  <h2>Results <span class="h2-note" id="res-count"></span></h2>
+  <div class="controls">
+    <p class="sec-note" id="res-meta" style="flex:1"></p>
+    <button type="button" class="btn" id="res-csv">Download CSV</button>
+  </div>
+  <div class="table-wrap"><table class="tbl-scr" id="res-table" data-no-enhance></table></div>
+  <p class="tbl-formula" id="res-formula"></p>
+  <details class="calc-note" open><summary>Show calculation</summary>
+    <ul class="calc-list" id="calc-list"></ul>
+  </details>
+
+  <footer class="page-foot" id="page-foot">
+    <p>Inputs: 有価証券報告書 (annual securities reports) via EDINET, Financial Services Agency of
+    Japan, exactly as tagged. Every ratio on this page is calculated by this platform from those inputs
+    and carries its formula; the filer's own ROE and equity ratio are shown beside ours. Ratios marked
+    implied use the price implied by the filer's own year-end PER — this platform has no market data.
+    A company whose statements are not tagged (US GAAP filers) has only the ratios its summary supports.</p>
+  </footer>
+</main>
+
+<script src="assets/format.js"></script>
+<script src="assets/screener.js"></script>
+</body>
+</html>

@@ -1,0 +1,100 @@
+{
+  "_about": {
+    "what": "Which listed companies' disclosed businesses produce each customs commodity in the trade-semis dataset. Platform curation, not a source classification: customs records carry no company identity, so this file is the only link between a customs line and a filer, and every surface that uses it must say so.",
+    "owner": "Aaron (product)",
+    "reviewed": "2026-09-04",
+    "review_by": "2026-12-31",
+    "rules": [
+      "A company appears under a commodity only if its own annual report describes that product as a reportable segment or a principal product. Market commentary is not evidence.",
+      "role 'maker' = produces the commodity in Japan and exports it; 'buyer' = imports it for its own production; 'both' where the filer does both. Roles are about direction of the customs flow, not size.",
+      "Companies are identified by securities code (sec_code) and EDINET code; names are resolved from eq_entities at read time and never stored here.",
+      "A delisted or merged company is removed with a note in 'retired', never silently.",
+      "Nothing here is a claim about market share. The share of a customs line that a company represents is calculated on the page from the company's filed regional revenue, and carries its formula."
+    ]
+  },
+  "commodities": {
+    "exp.70323050": {
+      "label": "Integrated circuits — exports",
+      "companies": [
+        {"sec_code": "285A", "edinet_code": "E35948", "role": "maker", "why": "NAND flash memory; reportable segment メモリ事業"},
+        {"sec_code": "6723", "edinet_code": "E02081", "role": "maker", "why": "MCUs, SoCs, analog; reportable segments 自動車・産業/インフラ/IoT"},
+        {"sec_code": "6758", "edinet_code": "E01777", "role": "maker", "why": "CMOS image sensors; reportable segment イメージング&センシング・ソリューション"},
+        {"sec_code": "6963", "edinet_code": "E01953", "role": "maker", "why": "LSI reportable segment"},
+        {"sec_code": "6526", "edinet_code": "E37978", "role": "maker", "why": "Custom SoC (fabless); single segment"}
+      ]
+    },
+    "exp.70323030": {
+      "label": "Discrete semiconductors — exports",
+      "companies": [
+        {"sec_code": "6963", "edinet_code": "E01953", "role": "maker", "why": "半導体素子 reportable segment (power devices, diodes, transistors)"},
+        {"sec_code": "6723", "edinet_code": "E02081", "role": "maker", "why": "Power semiconductors within the 自動車 segment"}
+      ]
+    },
+    "exp.70323000": {
+      "label": "Semiconductors & electronic components — exports (group)",
+      "companies": [
+        {"sec_code": "285A", "edinet_code": "E35948", "role": "maker", "why": "as for integrated circuits"},
+        {"sec_code": "6723", "edinet_code": "E02081", "role": "maker", "why": "as for integrated circuits"},
+        {"sec_code": "6758", "edinet_code": "E01777", "role": "maker", "why": "as for integrated circuits"},
+        {"sec_code": "6963", "edinet_code": "E01953", "role": "maker", "why": "LSI, 半導体素子 and モジュール segments"},
+        {"sec_code": "6981", "edinet_code": "E01914", "role": "maker", "why": "Passive components (MLCC) — inside the group, outside the IC line"}
+      ]
+    },
+    "exp.70131010": {
+      "label": "Semiconductor manufacturing equipment — exports",
+      "companies": [
+        {"sec_code": "8035", "edinet_code": "E02652", "role": "maker", "why": "Single segment 半導体製造装置; largest Japanese maker by revenue"},
+        {"sec_code": "6857", "edinet_code": "E01950", "role": "maker", "why": "Test systems (SoC and memory testers); テストシステム事業 segment"},
+        {"sec_code": "7735", "edinet_code": "E02288", "role": "maker", "why": "Cleaning and coating equipment; SPE segment"},
+        {"sec_code": "6146", "edinet_code": "E01506", "role": "maker", "why": "Dicing and grinding equipment; single segment"},
+        {"sec_code": "6525", "edinet_code": "E37488", "role": "maker", "why": "Batch deposition (ALD/CVD) equipment"},
+        {"sec_code": "6920", "edinet_code": "E01991", "role": "maker", "why": "EUV mask inspection; June year-end"},
+        {"sec_code": "7729", "edinet_code": "E02289", "role": "maker", "why": "Wafer probers and dicing; 半導体製造装置 segment"}
+      ]
+    },
+    "exp.70131000": {
+      "label": "Semiconductor machinery & equipment — exports (group)",
+      "companies": [
+        {"sec_code": "8035", "edinet_code": "E02652", "role": "maker", "why": "as for the narrow line"},
+        {"sec_code": "6857", "edinet_code": "E01950", "role": "maker", "why": "as for the narrow line"},
+        {"sec_code": "7735", "edinet_code": "E02288", "role": "maker", "why": "as for the narrow line"},
+        {"sec_code": "6146", "edinet_code": "E01506", "role": "maker", "why": "as for the narrow line"},
+        {"sec_code": "6525", "edinet_code": "E37488", "role": "maker", "why": "as for the narrow line"},
+        {"sec_code": "6920", "edinet_code": "E01991", "role": "maker", "why": "as for the narrow line"},
+        {"sec_code": "7729", "edinet_code": "E02289", "role": "maker", "why": "as for the narrow line"}
+      ]
+    },
+    "imp.70311030": {
+      "label": "Integrated circuits — imports",
+      "companies": [
+        {"sec_code": "6758", "edinet_code": "E01777", "role": "buyer", "why": "Consumer electronics assembly buys logic and memory"},
+        {"sec_code": "6723", "edinet_code": "E02081", "role": "buyer", "why": "Fabless portions of the product line are manufactured abroad and imported"}
+      ]
+    },
+    "imp.70131010": {
+      "label": "Semiconductor manufacturing equipment — imports",
+      "companies": [
+        {"sec_code": "285A", "edinet_code": "E35948", "role": "buyer", "why": "Fab capex (Yokkaichi, Kitakami) buys lithography and process tools from abroad"},
+        {"sec_code": "6963", "edinet_code": "E01953", "role": "buyer", "why": "Fab capex for power devices"},
+        {"sec_code": "6758", "edinet_code": "E01777", "role": "buyer", "why": "Image-sensor fab capex (Nagasaki, Kumamoto)"}
+      ]
+    },
+    "hs.381800100": {
+      "label": "Silicon wafers — exports (HS 3818.00-100; M4 layer, not yet ingested)",
+      "companies": [
+        {"sec_code": "4063", "edinet_code": "E00776", "role": "maker", "why": "電子材料事業 segment: semiconductor silicon"},
+        {"sec_code": "3436", "edinet_code": "E02103", "role": "maker", "why": "Single segment: silicon wafers; December year-end"}
+      ]
+    },
+    "hs.photoresist": {
+      "label": "Photoresists and process chemicals (HS lines to be fixed in M4)",
+      "companies": [
+        {"sec_code": "4186", "edinet_code": "E00854", "role": "maker", "why": "Photoresists; December year-end"},
+        {"sec_code": "4901", "edinet_code": "E00988", "role": "maker", "why": "Electronic materials within the segment; US GAAP filer (no tagged segment note)"},
+        {"sec_code": "4063", "edinet_code": "E00776", "role": "maker", "why": "Photoresists inside 電子材料事業"},
+        {"sec_code": "4004", "edinet_code": "E00751", "role": "maker", "why": "Semiconductor materials segment"}
+      ]
+    }
+  },
+  "retired": []
+}

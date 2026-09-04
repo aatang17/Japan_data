@@ -25,6 +25,9 @@ from .financials_api import router as financials_router  # noqa: E402
 from .governance_api import router as governance_router  # noqa: E402
 from .lvh_api import router as lvh_router  # noqa: E402
 from .agm_api import router as agm_router  # noqa: E402
+from .segments_api import router as segments_router  # noqa: E402
+from .catalog_api import router as catalog_router  # noqa: E402
+from . import registry  # noqa: E402
 from .ownership_api import router as ownership_router  # noqa: E402
 from . import refresh  # noqa: E402
 from .mcp import router as mcp_router  # noqa: E402
@@ -53,6 +56,10 @@ class RevalidatedStatic(StaticFiles):
 async def lifespan(app):
     # Prime the cache before the port takes traffic, so no real visitor pays
     # the cost of building the large payloads from cold.
+    # Every manifest's endpoints must resolve on this app. A card that
+    # names a path that does not exist is quarantined and reported on
+    # /catalog/health — never a reason for the port not to open.
+    registry.bind(app)
     await cache.warm(app, api.warm_paths())
     # Watches ingest health for as long as we serve, and — only under
     # start.sh, which sets REFRESH_SUPERVISED — ends the process once a day so
@@ -85,8 +92,12 @@ app.include_router(lvh_router)
 app.include_router(agm_router)
 app.include_router(facility_router)
 app.include_router(financials_router)
+app.include_router(segments_router)
 app.include_router(buyback_router)
 app.include_router(equity_router)
+# The catalog of manifests ahead of the core router, so its literal
+# /api/v1/catalog/… paths can never be shadowed by /{dataset}/… catch-alls.
+app.include_router(catalog_router)
 app.include_router(router)
 # /mcp sits outside /api/v1 on purpose: the response cache only touches GETs
 # under that prefix, so JSON-RPC POSTs can never be served stale.

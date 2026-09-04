@@ -47,10 +47,11 @@ class ClockTest(unittest.TestCase):
         self.assertTrue(clock.due(at(4, 9)))
 
     def test_bad_schedule_falls_back_instead_of_raising(self):
+        fallback = (int(refresh.DEFAULT_AT[:2]), int(refresh.DEFAULT_AT[3:]))
         os.environ["REFRESH_AT"] = "not-a-time"
-        self.assertEqual(refresh.scheduled_at(), (9, 0))
+        self.assertEqual(refresh.scheduled_at(), fallback)
         os.environ["REFRESH_AT"] = "25:00"
-        self.assertEqual(refresh.scheduled_at(), (9, 0))
+        self.assertEqual(refresh.scheduled_at(), fallback)
 
 
 class LoopTest(unittest.TestCase):

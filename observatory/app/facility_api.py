@@ -32,6 +32,7 @@ them so the literal /equity/facilities/ paths win.
 """
 from fastapi import APIRouter, HTTPException, Query
 
+from . import aliases
 from . import facility_labels
 from .equity_api import NAME_CTES, _cur, _rows
 
@@ -335,6 +336,7 @@ def companies(q: str = Query("", description="name or securities code substring"
     failed. Aggregates still exclude partials; this list labels them."""
     cur = _require()
     like = "%" + q.strip() + "%"
+    alias_sql, alias_params = aliases.clause(cur, "f.sec_code", q)
     return {"companies": _rows(cur, """
         WITH scoped AS (
             SELECT *, coalesce(sec_code, edinet_code, doc_id) AS filer_key
@@ -357,9 +359,10 @@ def companies(q: str = Query("", description="name or securities code substring"
         LEFT JOIN en_scode s ON s.sec_code = f.sec_code
         WHERE f.sec_code IS NOT NULL
           AND (f.sec_code LIKE ? OR f.filer_name LIKE ?
-               OR lower(coalesce(n.name_en, s.name_en, '')) LIKE lower(?))
+               OR lower(coalesce(n.name_en, s.name_en, '')) LIKE lower(?)"""
+        + alias_sql + """)
         ORDER BY coalesce(f.fac_land_book_yen, 0) DESC LIMIT 25""",
-        [like, like, like])}
+        [like, like, like] + alias_params)}
 
 
 @router.get("/company/{sec_code}")
@@ -417,3 +420,78 @@ def company(sec_code: str, year: str = Query("")):
     f["provenance"] = PROVENANCE
     f["calc"] = CALC
     return f
+
+
+# The dataset's card (app/registry.py). Book value is historical cost, not
+# market value — that gap is the point, and nothing here estimates it.
+from .equity_api import EDINET_SOURCE as _EDINET_SOURCE  # noqa: E402
+
+MANIFEST = {
+    "id": "facilities",
+    "section": "assets",
+    "name": {"en": "Facilities and land", "ja": "主要な設備の状況・賃貸等不動産"},
+    "shape": "company",
+    "summary": ("Every facility a company discloses in its annual report — "
+                "site, municipality, book value by asset class and land area "
+                "— with the rental-property note's carrying amount and fair "
+                "value, one filing per company from FY2025."),
+    "source": dict(_EDINET_SOURCE,
+                   document="有価証券報告書 · 主要な設備の状況 / 賃貸等不動産 (annual "
+                            "securities report, facilities and rental property notes)",
+                   credit="Source: company filings on EDINET (Financial Services "
+                          "Agency of Japan). Municipality centroids: Geolonia "
+                          "Japanese-addresses (CC BY 4.0)."),
+    "keys": ["sec_code", "fiscal_year"],
+    "frequency": "per-filing",
+    "vintage": {
+        "unit": "filing", "as_of_basis": "captured_at", "as_of_supported": False,
+        "history_from": "FY2025", "stale_after_days": None,
+    },
+    "measures": [
+        {"id": "book_value_yen", "label": "Book value by asset class (land, buildings, machinery…)",
+         "unit": "JPY", "trust": "official"},
+        {"id": "land_area_m2", "label": "Disclosed land area", "unit": "m2",
+         "trust": "official"},
+        {"id": "employees", "label": "Employees at the site", "unit": "count",
+         "trust": "official"},
+        {"id": "carrying_amount_yen", "label": "Rental property carrying amount",
+         "unit": "JPY", "trust": "official"},
+        {"id": "fair_value_yen", "label": "Rental property year-end fair value (時価), as disclosed",
+         "unit": "JPY", "trust": "official"},
+        {"id": "yen_per_m2", "label": "Land book value per square metre",
+         "unit": "JPY_per_m2", "trust": "derived", "calc": CALC["yen_per_m2"]},
+        {"id": "coordinates", "label": "Map position (municipality centroid)",
+         "unit": "text", "trust": "derived", "calc": PROVENANCE["coordinates"]},
+        {"id": "location_en", "label": "Location in English", "unit": "text",
+         "trust": "derived", "calc": CALC["location_en"]},
+        {"id": "use", "label": "Use category", "unit": "category", "trust": "derived",
+         "calc": CALC["use"]},
+        {"id": "unrealized_yen", "label": "Unrealised gain on rental property",
+         "unit": "JPY", "trust": "derived", "calc": CALC["unrealized_yen"]},
+        {"id": "unlisted_land_yen", "label": "Balance-sheet land not itemised in the facilities table",
+         "unit": "JPY", "trust": "derived", "calc": CALC["unlisted_land_yen"]},
+    ],
+    "endpoints": {
+        "company": "/api/v1/equity/facilities/company/{sec_code}",
+        "search": "/api/v1/equity/facilities/companies",
+        "summary": "/api/v1/equity/facilities/summary",
+        "screen": "/api/v1/equity/facilities/ranking",
+        "map": "/api/v1/equity/facilities/map",
+        "rental_summary": "/api/v1/equity/facilities/rental/summary",
+        "rental_screen": "/api/v1/equity/facilities/rental/ranking",
+        "years": "/api/v1/equity/facilities/years",
+    },
+    "capabilities": ["company", "search", "summary", "screen"],
+    "screens": [
+        {"id": "land_area", "title": "Largest disclosed land area"},
+        {"id": "land_book", "title": "Largest land book value"},
+        {"id": "yen_per_m2", "title": "Cheapest land per square metre on the books"},
+        {"id": "bs_gap", "title": "Most balance-sheet land not itemised as facilities"},
+        {"id": "rental_unrealized", "title": "Largest unrealised gain on rental property"},
+        {"id": "rental_fair_value", "title": "Largest rental property fair value"},
+        {"id": "rental_ratio", "title": "Highest fair value to carrying amount"},
+    ],
+    "cite": "/facilities.html?code={sec_code}",
+    "page": "/facilities.html",
+    "notes": [PROVENANCE["note"], CALC["note"], RENTAL_PROVENANCE["note"]],
+}

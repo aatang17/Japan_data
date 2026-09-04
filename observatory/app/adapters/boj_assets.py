@@ -231,3 +231,84 @@ def validate(series, observations):
         "jgb_holdings_latest_100mn": jgb_latest,
         "jgb_net_flow_latest_100mn": flow[max(flow)],
     }
+
+
+# The dataset's card. Levels and flows in ¥100mn — a different measure type
+# from the price indices, never ranked or charted against them.
+MANIFEST = {
+    "id": DATASET["slug"],
+    "section": "monetary",
+    "name": {"en": "Bank of Japan — asset holdings and transactions",
+             "ja": "日本銀行 資産保有・取引（マネタリーベースと日本銀行の取引）"},
+    "shape": "series",
+    "summary": ("End-of-month stocks and during-month flows of the Bank of "
+                "Japan's principal balance-sheet items — JGBs with gross "
+                "purchases and redemptions, T-bills, corporate bonds, ETFs, "
+                "J-REITs, loans and the monetary base — in ¥100 million, "
+                "monthly from July 1996."),
+    "source": {
+        "publisher": DATASET["agency"],
+        "publisher_ja": DATASET["agency_ja"],
+        "document": SOURCE["name"],
+        "url": SOURCE["url"],
+        "credit": PRESENTATION["credit_line"],
+        "license_note": SOURCE["license_note"],
+    },
+    "keys": ["series_code", "period"],
+    "frequency": DATASET["frequency"],
+    "vintage": {
+        "unit": "release", "as_of_basis": "release-in-force",
+        "as_of_supported": True, "history_from": "1996-07",
+        "stale_after_days": PRESENTATION["stale_after_days"],
+    },
+    "measures": [
+        {"id": "index", "label": "Published level (stock) or flow, ¥100mn",
+         "unit": "JPY_100mn", "trust": "official"},
+        {"id": "delta_1m", "label": "Change on the month", "unit": "JPY_100mn",
+         "trust": "derived",
+         "calc": "value[t] − value[t−1 month], from published values."},
+        {"id": "delta_12m", "label": "Change on the year", "unit": "JPY_100mn",
+         "trust": "derived",
+         "calc": "value[t] − value[t−12 months], from published values."},
+        {"id": "avg_12m", "label": "Trailing 12-month average", "unit": "JPY_100mn",
+         "trust": "derived",
+         "calc": "mean(value[t−11] … value[t]) over the trailing 12 published monthly values."},
+        {"id": "sum_12m", "label": "Trailing 12-month sum", "unit": "JPY_100mn",
+         "trust": "derived",
+         "calc": "sum(value[t−11] … value[t]) over the trailing 12 published monthly values."},
+        {"id": "drawdown", "label": "Distance from the all-time peak", "unit": "JPY_100mn",
+         "trust": "derived",
+         "calc": ("value[latest] − max(value[m]) over all published months m; "
+                  "percent: (value[latest] / max − 1) × 100. From published values.")},
+        {"id": "rolling_avg", "label": "Trailing average (window in the tile)",
+         "unit": "JPY_100mn", "trust": "derived",
+         "calc": ("mean(value[t−(w−1)] … value[t]) over the trailing w published "
+                  "monthly values (w in the tile's 'window' field).")},
+        {"id": "yoy", "label": "Year over year", "unit": "%", "trust": "derived",
+         "where": "stock series only; refused on flows, which cross zero",
+         "calc": "(value[t] / value[t−12 months] − 1) × 100, from published values."},
+        {"id": "mom", "label": "Month over month", "unit": "%", "trust": "derived",
+         "where": "stock series only; refused on flows, which cross zero",
+         "calc": "(value[t] / value[t−1 month] − 1) × 100, from published values."},
+        {"id": "ann3m", "label": "3-month annualized", "unit": "%", "trust": "derived",
+         "where": "stock series only; refused on flows, which cross zero",
+         "calc": "((value[t] / value[t−3 months]) ^ 4 − 1) × 100, from published values."},
+    ],
+    "endpoints": {
+        "series": "/api/v1/%s/observations" % DATASET["slug"],
+        "search": "/api/v1/%s/series" % DATASET["slug"],
+        "summary": "/api/v1/%s/overview" % DATASET["slug"],
+        "releases": "/api/v1/%s/releases" % DATASET["slug"],
+        "revisions": "/api/v1/%s/revisions" % DATASET["slug"],
+    },
+    "capabilities": ["series", "search", "summary"],
+    "cite": "/boj.html",
+    "page": "/boj.html",
+    "notes": [
+        "Flows can be negative: a negative JGB net flow is balance-sheet runoff (QT).",
+        "Stocks are levels and flows are net purchases — different measure types, "
+        "never summed or ranked against each other or against a price index.",
+        "The BOJ's credit line must be displayed wherever the data appears, "
+        "including exports.",
+    ],
+}

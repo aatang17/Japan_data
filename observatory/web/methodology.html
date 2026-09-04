@@ -64,7 +64,7 @@
     copy it and a colleague sees exactly the same numbers.</li>
     <li>Every chart has <b>Download PNG</b> (with the source line embedded) and
     <b>Download CSV</b>. CSV exports begin with a metadata block: provenance, formula, source ID,
-    vintage, retrieval time, and permalink.</li>
+    release, retrieval time, and permalink.</li>
     <li>Cite the underlying data as: Statistics Bureau of Japan, Consumer Price Index,
     2020-base national indices, via e-Stat (middle-class table statInfId 000032103842;
     detailed-item table statInfId 000032103844).</li>
@@ -176,7 +176,7 @@
     All three are official statistics. The estimate covers only the largest markets and is
     rounded to the nearest 100, so on estimate months the named markets do not add up to
     the headline and the regional totals are absent. Those months are marked on every
-    surface. Measured across three vintages of the source workbook, definitive figures are
+    surface. Measured across three releases of the source workbook, definitive figures are
     never subsequently revised; the estimate-to-final change is rounding, about 0.006% at
     the headline.</li>
     <li>Growth: <code>growth[t] = (arrivals[t] / arrivals[t−12 months] − 1) × 100</code>,
@@ -281,12 +281,96 @@
     <li><b>Revision status is not a trust level.</b> The Ministry publishes each month
     through four named stages — preliminary (速報), confirmed (確報), revised (確々報) and
     final (確定). All four are official statistics. The current year moves through all of
-    them, so a recent month will change; a new vintage is stored here whenever the Ministry
+    them, so a recent month will change; a new release is stored here whenever the Ministry
     republishes any year of the table, and the point-in-time history below returns the
     figures as they stood on any past date.</li>
     <li>Trade values are a flow of money and quantities a physical count — different measures
     from a price index, a yen stock or a count of people. They are never ranked against or
     plotted on the same axis as any of those.</li>
+  <li><b>Silicon wafers</b> come from the HS-detail tables (品別国別表), dataset
+    <code>trade-inputs</code>, as HS 3818.00 — doped chemical elements in the form of wafers.
+    e-Stat publishes no names for HS lines, so the names are set from the Customs tariff
+    schedule; the export and import schedules split the heading differently (-100/-900 and
+    -010/-020), and the import silicon line was confirmed by its value-per-kilogram signature.
+    The residual "other doped elements" line is kept separate and never added to silicon. On the
+    supply-chain chart the three steps — wafers, integrated circuits, equipment — are indexed to
+    a common base month so lines of very different size can be read together; they are three
+    different products and are never summed.</li>
+  </ul>
+
+  <h3 id="calc-segments">Segment notes and the Company Lens</h3>
+  <ul>
+    <li>Revenue by region, the customers a company names, and its reportable segments come
+    from the segment-information note (セグメント情報等) of the annual securities report on
+    EDINET, for the current and prior fiscal year. <b>The note is a text block, not tagged
+    numbers</b>: every figure is parsed from the filer's own HTML tables, and each filing
+    carries a status. A filing whose region revenues do not sum to its consolidated revenue
+    within 0.5% is marked <code>partial</code> with the numbers in the reason; nothing is
+    adjusted to make it reconcile. Across the June 2026 filing season, 95.9% of the filings
+    that carry a region table reconcile, and 91% of all filings are <code>clean</code>.</li>
+    <li>Regions are on the filer's own basis — customer location for most, shipping
+    destination for some — and the basis sentence is stored and shown with the figures. The
+    filer's label is kept verbatim; a small lexicon maps it to a key (JP, CN, TW, KR, US, NA,
+    EU…) so two filers' "China" can be read together, and a label the lexicon does not know
+    keeps no key rather than a guess. A sub-note such as 「北米のうち、米国は…」 is its own row,
+    marked as a sub-note of its parent, and is never added to the region it sits inside.</li>
+    <li>A filer that omits the region table says why — no overseas revenue, or domestic revenue
+    above 90% — and that reason is stored. The absence is then a fact, not a gap, and no
+    region row is invented for it.</li>
+    <li>Named customers are every customer the filer discloses at ten percent or more of
+    revenue, with the revenue booked from them, as written. Some filers give them in a table,
+    some in prose; the source is marked. Names are not normalised, so the same customer can
+    appear under several spellings across filers.</li>
+    <li>Fiscal years are named the Japanese way, for the calendar year in which they begin:
+    the year ending March 2026 is FY2025.</li>
+    <li>Fiscal roll-ups of customs data:
+    <code>customs[commodity, region, FY] = Σ over the fiscal year's months of the published
+    customs value for every partner the region key maps to</code>. Only monthly flows are
+    summed — customs values and quantities, visitor counts — and the API refuses to sum an
+    index, a stock or a rate. Only complete periods are shown: a fiscal quarter or year with an
+    unpublished month is left out, never summed short, and the months left out are listed.
+    Values published in thousands of yen are stated in yen.</li>
+    <li><b>The commodity-to-company mapping is a platform classification, not an official
+    source label.</b> Customs records carry no company identity. A company is mapped to a
+    customs line only where its own annual report describes that product as a reportable
+    segment or principal product; the file is versioned in the repository with an owner and a
+    review date, and every surface that uses it says so.</li>
+    <li>Implied share: <code>implied share[FY] = revenue the company filed for a region /
+    customs exports to that region's partners over the same fiscal year × 100</code>. An
+    indicator of size and direction, never an accounting identity. A company ships from
+    overseas plants, sells domestically, and books revenue on acceptance rather than shipment;
+    the customs line includes its competitors and trading houses; and the company's region and
+    the customs partner list are different definitions that share a name. An implied share
+    above 100% is that caveat made visible. Only regions that name a place are joined — China,
+    Taiwan, Korea, the United States, North America, Europe — and "Asia" never is, because one
+    filer's Asia includes Japan and another's excludes China.</li>
+    <li><b>Named customers and dependence.</b> A listed company must disclose any customer
+    worth ten percent or more of consolidated revenue, and state the amount. Those disclosures
+    are assembled on the Customers page:
+    <code>dependence[filer, customer] = customer revenue / the filer's consolidated revenue
+    × 100</code>, both as filed for the same fiscal year, and combined dependence is the sum
+    over every customer that filer names. It cannot exceed 100%: a filing where it did was a
+    parsing fault, and two gates now catch that class of error — a single customer larger than
+    the filer's whole revenue, and a combined total above it. A company absent from the list has
+    no customer at or above the threshold, which is not the same as having a diversified book.
+    Where the consolidated revenue figure has not been extracted the share is blank, never
+    assumed.</li>
+    <li><b>English customer names are looked up, never translated.</b> A filer writes its
+    customer's name in Japanese in its own house style. The English name shown beside it comes
+    from the EDINET company registry where the buyer files its own annual report — which also
+    yields a securities code, so the buyer's own page can be opened from the row — or from a
+    small curated list, versioned in the repository with an owner and a review date, for
+    government bodies, unlisted subsidiaries and foreign affiliates the registry cannot cover.
+    Where no published English name exists, none is invented and the filed name stands alone.
+    Of 1,010 distinct customer names, 363 resolve to an English name and 132 are already in
+    Latin script; the remaining 515 are shown as filed. A subsidiary keeps its own identity —
+    Amazon Japan G.K. is not Amazon.com, and TEPCO Energy Partner is not TEPCO — because
+    rolling a subsidiary up to its parent would state a relationship no filer disclosed.</li>
+    <li><b>Customer names are never merged.</b> They are shown exactly as each filer wrote them:
+    Toyota appears as both 「トヨタ自動車(株)」 and 「トヨタ自動車株式会社」, and Samsung under three
+    different strings, because that is what the filings say. Combining them would state a total
+    no company disclosed, so search matches text and the page tells the reader to try more than
+    one spelling.</li>
   </ul>
 
   <h3 id="calc-population">Population by prefecture</h3>
@@ -347,6 +431,27 @@
     line sits on the baseline with no readable shape. On a logarithmic axis equal vertical
     distances are equal <i>proportional</i> changes, not equal numbers of people; the axis
     is labelled "log scale" wherever it is on. Nothing about the underlying values changes.</li>
+    <li><b>Municipality level mixes four kinds of area in one column, and three of them
+    overlap.</b> Under each prefecture the workbook lists the prefecture, then designated cities
+    <i>and</i> their wards, districts <i>and</i> the towns in them, and — in Tokyo — one
+    <code>島しょ</code> row covering the islands as well as each island town. Adding every
+    municipality row together gives 160 million people in a country of 124 million. The 328
+    rows that are sums of other rows are identified by two independent signals (a grouping
+    row's name is a strict prefix of the rows it groups; and the workbook is an outline in
+    which a grouping row equals the run that follows it) and the result is proved by
+    reconciliation — the 1,898 municipalities add to their prefecture exactly, in all three
+    resident segments. Grouping rows are published here too, marked <code>level: group</code>,
+    and are never included in a total.</li>
+    <li><b>Small cells are suppressed.</b> At municipality level the ministry withholds counts
+    small enough to identify someone — 17,829 cells in the 2026 foreign-resident age workbook.
+    A withheld cell is missing, not zero: a village with three foreign residents has three, and
+    its age bands are simply not published. One Hokkaido village has every foreign age band
+    withheld, so 100% of its foreign residents fall outside the bands, which is correct rather
+    than an error. Across all municipalities the unbanded share is 0.155% of foreign residents
+    and 0.005% of all residents.</li>
+    <li>Six municipalities are carried on the register with a population of exactly zero — the
+    villages of the disputed Northern Territories. Any per-capita figure has to guard against
+    them; none is computed here.</li>
     <li>The ministry keeps only the current year's workbooks online — last year's file is
     deleted and its URL reused — so the archive of past releases here is the history.</li>
   </ul>
@@ -395,6 +500,71 @@
     as text) still has its summary figures.</li>
   </ul>
 
+  <h3 id="calc-screener">Calculated ratios and the screener</h3>
+  <p>The Screener and the "Calculated Ratios" block on each company's Financials page are the one
+  place this platform computes a number from the filed statements. They follow the same rule as
+  every other derived figure here: no badge, the formula on the page, every input named, and the
+  filer's own figure beside ours wherever the filer prints the same ratio.</p>
+  <ul>
+    <li><b>ROE</b> = profit attributable to owners of parent ÷ average of opening and closing equity
+    attributable to owners × 100. <b>ROA</b> = the same profit ÷ average total assets × 100. Averages
+    are the convention Japanese filers use for their own ROE; a filing whose opening balance is not
+    tagged gets no ratio rather than a closing-balance one. Across the current universe our ROE is
+    within 0.5 pp of the filer's own for over 99% of companies; the difference is shown per row, and a
+    gap over 1 pp is marked so the reader can look at the inputs. Every remaining difference is a
+    filer convention, not an error: all six companies that differ from us by more than 2 pp divided
+    by their closing equity rather than the average, and our figure recomputed on their basis
+    reproduces each of them exactly. Filers disagree with one another here — Chiyoda uses the average
+    and matches this platform at 123.1%, Kodama Chemical uses the closing balance and prints 82.8%
+    where the average gives 144.9% — which is why one convention is applied to every company and the
+    filer's own figure is always shown beside it.</li>
+    <li><b>A return is not calculated on a negative base.</b> Where average equity over the year is
+    zero or negative the ROE is withheld and the company is flagged <i>negative equity</i> instead.
+    Dividing a loss by negative equity inverts the sign: Japan Display closed FY2026 with equity of
+    −¥7.5bn against +¥6.7bn a year earlier, and its ¥19.8bn loss over that negative average would
+    otherwise read as an ROE of +4,570% and rank first in the market. The test is applied to the
+    denominator actually used, so a company that recovered from negative equity during the year still
+    gets a ratio; across the universe this withholds exactly the three companies whose own filings
+    also decline to print an ROE, and leaves every company that prints one intact. The equity ratio
+    is still shown for these companies — it is negative, which is the point, and it matches the
+    filer's own figure.</li>
+    <li><b>Where the base is not available, no ratio is invented.</b> US GAAP filers publish their
+    statements as text, so their equity comes from the five-year summary, and only from a line that
+    names the owners of the parent — Komatsu, ORIX, Fujifilm and Omron all reconcile to their own
+    published ROE within 0.05 pp on that basis. Nomura tags only equity including minority interests,
+    which is the wrong base for a return to shareholders, so this platform shows no ROE for it and
+    prints the company's own figure instead.</li>
+    <li><b>Equity attributable to owners</b> (自己資本): under IFRS the tagged element; under Japan GAAP
+    net assets less non-controlling interests less subscription rights to shares. A balance sheet
+    that prints no such line has none, so an absent subtrahend is nil — the only case in which an
+    absent tag is treated as zero, and only for a subtractive component under a total that is present.</li>
+    <li><b>Revenue and profit</b> are the filer's own summary lines (資料 主要な経営指標等の推移), resolved as
+    on the key-indicators panel; banks and insurers report 経常収益 as revenue. <b>Operating income</b>
+    is the summary's where printed, otherwise the income statement's; banks, insurers and most IFRS
+    filers print none, so their operating margin is —.</li>
+    <li><b>Margins</b>: operating income ÷ revenue, profit ÷ revenue. <b>Asset turnover</b>: revenue ÷
+    average total assets. <b>Growth</b>: current ÷ prior − 1 from the same filing; profit growth is
+    not computed off a prior-year loss. <b>Cash conversion</b>: operating cash flow ÷ profit, not
+    computed for a loss. <b>Free cash flow</b> is the simple definition, operating plus investing cash
+    flow, and is labelled as such. <b>Cash / assets</b>: cash and equivalents ÷ total assets.</li>
+    <li><b>Implied valuation.</b> This platform holds no prices. Where the filer prints its own
+    year-end PER, an implied price = PER × EPS gives an implied PBR (÷ book value per share) and an
+    implied dividend yield (DPS ÷ implied price). Both are labelled implied and are only as current
+    as the filer's year-end. Per-share dividends are printed in the reporting company's own summary
+    table, so the yield is computed entirely inside that table — its DPS against its own PER × EPS —
+    and never mixes the group's per-share figures with the parent's. A share split between the
+    fiscal year-end and the filing can still leave the paid dividend and the restated EPS on
+    different share bases; the filer's own payout ratio, printed in the same table, exposes this,
+    and where it disagrees with DPS ÷ EPS by more than 25 pp no yield is derived and the row says
+    why.</li>
+    <li><b>Basis.</b> Consolidated where the filing carries consolidated statements, parent-only
+    otherwise; every row says which. US GAAP filers tag their statements as text, so only the ratios
+    their summary supports exist for them.</li>
+    <li><b>Ranking.</b> One filing per company, its latest accepted annual report. Companies without
+    the ranking metric are left out of the ranking and counted on the page. Filters are floors and
+    caps in each metric's own unit.</li>
+  </ul>
+
   <h2 id="flags">Footnote flags</h2>
   <p>Two flags mark readings whose headline rate is easy to misread. Both are calculated here
   from published index values and are <b>not</b> published by the agency. Thresholds are fixed
@@ -429,7 +599,7 @@
     SHA-256 checksum, parsed, and passed through validation gates (structure, required aggregates,
     plausible latest period and headline level) before anything is published. A file that fails
     validation publishes nothing — the previous release stays live.</li>
-    <li><b>Vintages:</b> every accepted release is kept as a point-in-time vintage, alongside
+    <li><b>Releases:</b> every accepted ingest is kept as a point-in-time release, alongside
     the archived raw file for every ingestion run. See <a href="#pit">Point-in-time data</a>
     below.</li>
     <li><b>Missing values:</b> months where an item was not collected are shown as
@@ -438,14 +608,14 @@
     ends.</li>
   </ul>
 
-  <h2 id="pit">Point-in-time data (vintages)</h2>
+  <h2 id="pit">Point-in-time data (releases)</h2>
   <p>The Statistics Bureau republishes the <em>entire</em> index history every month, and figures
   for past months can change. A site that only ever holds the newest file can answer what the
   Bureau says today, but not what it said in March — and that second question is the one that
   matters for a chart published in March, or for any test run on data as it was actually known
   at the time.</p>
-  <p>Every accepted release here is therefore recorded as a <b>vintage</b>: what each observation
-  was worth at that release. The store is append-only. A revision is written as a new entry
+  <p>Every accepted ingest here is therefore recorded as a <b>release</b>: what each observation
+  was worth at that publication. The store is append-only. A revision is written as a new entry
   carrying the release that introduced it; nothing is ever edited or removed, so a number this
   site once showed can always be recovered.</p>
   <p>Two things follow from that, and both are available through the API:</p>
@@ -485,7 +655,7 @@
     splits are not yet ingested. The Overview page reads the middle-class table only.</li>
     <li>Rates of change are calculated here rather than ingested from the official
     change-rate tables (see Calculations above for the rounding consequence).</li>
-    <li>Vintage history starts on 5 August 2026, the platform's first accepted release. Revisions
+    <li>Release history starts on 5 August 2026, the platform's first accepted release. Revisions
     the Statistics Bureau made before that date are not recoverable here — nobody was saving the
     files. No side-by-side base-revision comparison yet: the 2025-base transition will be handled
     with an explicit item mapping table before any cross-base series is shown.</li>
