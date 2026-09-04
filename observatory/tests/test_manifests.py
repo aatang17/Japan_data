@@ -195,6 +195,13 @@ class BindTest(unittest.TestCase):
             registry.load()
             registry.bind(app)
 
+    def test_static_mount_never_counts_as_a_route(self):
+        """The mount at "/" matches every path; if it counted, every manifest
+        would "resolve" and the check would prove nothing."""
+        self.assertFalse(registry.resolves(app, "/api/v1/definitely-not-a-route"))
+        self.assertFalse(registry.resolves(app, "/cpi.html"))
+        self.assertTrue(len(registry.route_paths(app)) > 40)
+
     def test_resolution_is_of_the_concrete_path(self):
         self.assertTrue(registry.resolves(app, "/api/v1/equity/company/{sec_code}"))
         self.assertTrue(registry.resolves(app, "/api/v1/cpi-jp/observations?series=0001"))

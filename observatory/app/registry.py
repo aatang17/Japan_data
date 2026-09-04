@@ -45,8 +45,6 @@ import pathlib
 import re
 import sys
 
-from starlette.routing import Route
-
 from . import api
 
 WEB_DIR = pathlib.Path(__file__).resolve().parent.parent / "web"
@@ -420,6 +418,7 @@ def bind(app):
     naming a path that does not exist is quarantined; in strict mode it raises.
     """
     global _BOUND
+    seen = route_paths(app)
     faults = {}
     for mid in list(_ORDER):
         m = _REGISTRY[mid]
@@ -440,9 +439,11 @@ def bind(app):
             "module": "registry", "id": None,
             "errors": ["route resolution failed for %d of %d datasets — treating "
                        "this as a resolver fault, not %d bad manifests; every "
-                       "dataset stays registered. First: %s"
+                       "dataset stays registered. First: %s. The app offered "
+                       "%d leaf routes, e.g. %s"
                        % (len(faults), len(_ORDER), len(faults),
-                          "; ".join(sorted(faults)[:1] + faults[sorted(faults)[0]][:1]))]})
+                          "; ".join(sorted(faults)[:1] + faults[sorted(faults)[0]][:1]),
+                          len(seen), ", ".join(p for p, _ in seen[:5]) or "none")]})
     else:
         for mid, bad in faults.items():
             _quarantine(mid, bad)
@@ -452,30 +453,40 @@ def bind(app):
     return _ERRORS
 
 
+def route_paths(app):
+    """Every leaf route's template. Duck-typed on purpose.
+
+    Not `isinstance(r, Route)`: FastAPI's route classes are re-exported and
+    re-based across versions, and requirements pin neither FastAPI nor
+    Starlette, so an isinstance check that holds on the laptop can exclude
+    every route inside the container — which is exactly what rejected all
+    nineteen manifests in production on 2026-09-05, even the ones whose paths
+    matched a route's template character for character.
+
+    A leaf route carries an endpoint; a Mount (the static site at "/") does
+    not, and must never count — it matches every path there is.
+    """
+    out = []
+    for r in app.routes:
+        path = getattr(r, "path", None)
+        if not isinstance(path, str) or not hasattr(r, "endpoint"):
+            continue
+        out.append((path, getattr(r, "path_regex", None)))
+    return out
+
+
 def resolves(app, path):
     """Whether a manifest path routes to a real handler on this app.
 
-    Two checks, both against stable attributes. An exact match on the route's
-    own template covers the literal paths; otherwise the placeholders are
-    filled and the concrete URL is matched against the route's compiled regex,
-    which is what covers a manifest naming `/api/v1/cpi-jp/observations` where
-    the route is `/api/v1/{dataset}/observations`.
-
-    Deliberately NOT `Route.matches()` with a hand-built scope: that reads
-    keys whose names have changed across Starlette releases, and requirements
-    pin neither Starlette nor FastAPI. It matched locally and failed inside the
-    container, which quarantined all nineteen datasets in production on
-    2026-09-05. Only real routes count — the static mount at "/" matches
-    everything.
+    Exact match on the route template covers the literal paths; the compiled
+    regex covers a manifest naming `/api/v1/cpi-jp/observations` where the
+    route is `/api/v1/{dataset}/observations`.
     """
     template = path.split("?")[0]
     concrete = _PLACEHOLDER_RE.sub("0000", template)
-    for r in app.routes:
-        if not isinstance(r, Route):
-            continue
-        if getattr(r, "path", None) == template:
+    for route_path, regex in route_paths(app):
+        if route_path == template:
             return True
-        regex = getattr(r, "path_regex", None)
         if regex is not None and regex.match(concrete):
             return True
     return False
