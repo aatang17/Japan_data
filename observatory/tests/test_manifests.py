@@ -195,12 +195,21 @@ class BindTest(unittest.TestCase):
             registry.load()
             registry.bind(app)
 
+    def test_route_discovery_sees_the_whole_app(self):
+        """Four routes out of a hundred is what the container reported before
+        this read the OpenAPI schema. A resolver that sees only a handful of
+        routes rejects every manifest, so assert it sees them all."""
+        found = registry.route_paths(app)
+        self.assertGreater(len(found), 40)
+        for p in ("/api/v1/{dataset}/observations", "/api/v1/catalog/manifests"):
+            self.assertIn(p, found)
+
     def test_static_mount_never_counts_as_a_route(self):
         """The mount at "/" matches every path; if it counted, every manifest
         would "resolve" and the check would prove nothing."""
         self.assertFalse(registry.resolves(app, "/api/v1/definitely-not-a-route"))
         self.assertFalse(registry.resolves(app, "/cpi.html"))
-        self.assertTrue(len(registry.route_paths(app)) > 40)
+        self.assertNotIn("/", registry.route_paths(app))
 
     def test_resolution_is_of_the_concrete_path(self):
         self.assertTrue(registry.resolves(app, "/api/v1/equity/company/{sec_code}"))

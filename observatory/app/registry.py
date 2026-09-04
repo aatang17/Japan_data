@@ -443,7 +443,7 @@ def bind(app):
                        "%d leaf routes, e.g. %s"
                        % (len(faults), len(_ORDER), len(faults),
                           "; ".join(sorted(faults)[:1] + faults[sorted(faults)[0]][:1]),
-                          len(seen), ", ".join(p for p, _ in seen[:5]) or "none")]})
+                          len(seen), ", ".join(seen[:5]) or "none")]})
     else:
         for mid, bad in faults.items():
             _quarantine(mid, bad)
@@ -453,41 +453,58 @@ def bind(app):
     return _ERRORS
 
 
+_TEMPLATE_PARAM = re.compile(r"\{[^{}]+\}")
+_TEMPLATE_CACHE = {}
+
+
+def _template_regex(template):
+    """A route template as a regex: {param} matches one path segment."""
+    rx = _TEMPLATE_CACHE.get(template)
+    if rx is None:
+        parts = [re.escape(x) for x in _TEMPLATE_PARAM.split(template)]
+        rx = _TEMPLATE_CACHE[template] = re.compile("^" + "[^/]+".join(parts) + "$")
+    return rx
+
+
 def route_paths(app):
-    """Every leaf route's template. Duck-typed on purpose.
+    """Every route template the app documents, from its OpenAPI schema.
 
-    Not `isinstance(r, Route)`: FastAPI's route classes are re-exported and
-    re-based across versions, and requirements pin neither FastAPI nor
-    Starlette, so an isinstance check that holds on the laptop can exclude
-    every route inside the container — which is exactly what rejected all
-    nineteen manifests in production on 2026-09-05, even the ones whose paths
-    matched a route's template character for character.
+    The schema is a public, versioned API and lists exactly the routes the app
+    serves — no framework internals, and no static mount (a mount matches every
+    path there is, so counting it would make this check vacuous).
 
-    A leaf route carries an endpoint; a Mount (the static site at "/") does
-    not, and must never count — it matches every path there is.
+    Two earlier attempts read the router table directly and both failed inside
+    the container while passing on the laptop: `Route.matches()` with a
+    hand-built scope, then `isinstance`/`hasattr` duck-typing that found four
+    routes out of a hundred. Neither FastAPI nor Starlette is pinned, so
+    nothing here may depend on how routes happen to be represented.
     """
-    out = []
-    for r in app.routes:
+    try:
+        paths = app.openapi().get("paths") or {}
+    except Exception:  # noqa: BLE001 — a schema that will not build is not fatal
+        paths = {}
+    if paths:
+        return sorted(paths)
+    # Last resort, so a schema failure degrades rather than rejecting everything.
+    out = set()
+    for r in getattr(app, "routes", []):
         path = getattr(r, "path", None)
-        if not isinstance(path, str) or not hasattr(r, "endpoint"):
-            continue
-        out.append((path, getattr(r, "path_regex", None)))
-    return out
+        if isinstance(path, str) and hasattr(r, "endpoint"):
+            out.add(path)
+    return sorted(out)
 
 
 def resolves(app, path):
     """Whether a manifest path routes to a real handler on this app.
 
-    Exact match on the route template covers the literal paths; the compiled
-    regex covers a manifest naming `/api/v1/cpi-jp/observations` where the
-    route is `/api/v1/{dataset}/observations`.
+    Exact match on the template, else the concrete URL against the template's
+    regex — which is what covers a manifest naming `/api/v1/cpi-jp/observations`
+    where the route is `/api/v1/{dataset}/observations`.
     """
     template = path.split("?")[0]
     concrete = _PLACEHOLDER_RE.sub("0000", template)
-    for route_path, regex in route_paths(app):
-        if route_path == template:
-            return True
-        if regex is not None and regex.match(concrete):
+    for route in route_paths(app):
+        if route == template or _template_regex(route).match(concrete):
             return True
     return False
 
