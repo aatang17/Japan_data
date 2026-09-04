@@ -56,8 +56,16 @@ while true; do
     if [ -n "$skip_ingest" ]; then
         echo "REFRESH restarting without an ingest after $fast_exits fast exit(s)"
     else
-        for dataset in cpi-jp cpi-jp-items boj-assets jgb-yields jnto-visitors \
-                       population-jp population-jp-history population-jp-municipal trade-semis trade-inputs; do
+        # The boot ingest list. Overridable because this loop runs BEFORE the
+        # port is bound — a dataset that takes longer to publish than the
+        # platform's healthcheck window will take the whole site down with it,
+        # which is exactly what population-jp-municipal (584,781 series) did on
+        # 2026-09-05. Naming the list in the environment lets a heavy dataset be
+        # lifted out of the boot path and ingested out of band, without a
+        # deploy. The default stays complete, so a laptop and a fresh container
+        # still build everything.
+        for dataset in ${INGEST_DATASETS:-cpi-jp cpi-jp-items boj-assets jgb-yields jnto-visitors \
+                       population-jp population-jp-history population-jp-municipal trade-semis trade-inputs}; do
             python -m app.ingest "$dataset" \
                 || echo "ingest $dataset did not publish; serving last published release"
         done
