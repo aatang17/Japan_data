@@ -45,7 +45,7 @@ import pathlib
 import re
 import sys
 
-from starlette.routing import Match, Route
+from starlette.routing import Route
 
 from . import api
 
@@ -420,6 +420,7 @@ def bind(app):
     naming a path that does not exist is quarantined; in strict mode it raises.
     """
     global _BOUND
+    faults = {}
     for mid in list(_ORDER):
         m = _REGISTRY[mid]
         bad = []
@@ -427,6 +428,23 @@ def bind(app):
             if not resolves(app, path):
                 bad.append("endpoints.%s: %s is not a route on this app" % (role, path))
         if bad:
+            faults[mid] = bad
+    # Quarantine is for one dataset whose card is wrong. When nearly every
+    # card fails at once the fault is in the resolver, not in nineteen
+    # manifests — and dropping the whole catalogue is never the better answer,
+    # because the endpoints demonstrably exist and are serving. Report it
+    # loudly and keep serving. (This is not hypothetical: a Starlette version
+    # difference between the laptop and the container did exactly that.)
+    if faults and len(faults) > max(1, len(_ORDER) // 2):
+        _ERRORS.append({
+            "module": "registry", "id": None,
+            "errors": ["route resolution failed for %d of %d datasets — treating "
+                       "this as a resolver fault, not %d bad manifests; every "
+                       "dataset stays registered. First: %s"
+                       % (len(faults), len(_ORDER), len(faults),
+                          "; ".join(sorted(faults)[:1] + faults[sorted(faults)[0]][:1]))]})
+    else:
+        for mid, bad in faults.items():
             _quarantine(mid, bad)
     _BOUND = True
     if strict() and _ERRORS:
@@ -437,16 +455,28 @@ def bind(app):
 def resolves(app, path):
     """Whether a manifest path routes to a real handler on this app.
 
-    Placeholders (``{sec_code}``) are filled with a dummy value and the result
-    is matched the way a request would be, so the check proves the concrete
-    URL a client will call — not merely that a template with the same shape
-    exists. Only real routes count: the static mount at "/" matches anything.
+    Two checks, both against stable attributes. An exact match on the route's
+    own template covers the literal paths; otherwise the placeholders are
+    filled and the concrete URL is matched against the route's compiled regex,
+    which is what covers a manifest naming `/api/v1/cpi-jp/observations` where
+    the route is `/api/v1/{dataset}/observations`.
+
+    Deliberately NOT `Route.matches()` with a hand-built scope: that reads
+    keys whose names have changed across Starlette releases, and requirements
+    pin neither Starlette nor FastAPI. It matched locally and failed inside the
+    container, which quarantined all nineteen datasets in production on
+    2026-09-05. Only real routes count — the static mount at "/" matches
+    everything.
     """
-    concrete = _PLACEHOLDER_RE.sub("0000", path.split("?")[0])
-    scope = {"type": "http", "method": "GET", "path": concrete, "root_path": "",
-             "headers": [], "query_string": b""}
+    template = path.split("?")[0]
+    concrete = _PLACEHOLDER_RE.sub("0000", template)
     for r in app.routes:
-        if isinstance(r, Route) and r.matches(scope)[0] == Match.FULL:
+        if not isinstance(r, Route):
+            continue
+        if getattr(r, "path", None) == template:
+            return True
+        regex = getattr(r, "path_regex", None)
+        if regex is not None and regex.match(concrete):
             return True
     return False
 

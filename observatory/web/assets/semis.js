@@ -550,8 +550,8 @@ function renderMixChart() {
 
   document.getElementById("mix-source").textContent = cfg.sourceLine;
   document.getElementById("mix-title").textContent = TR.flow === "exp"
-    ? "How the Destination Mix Has Shifted"
-    : "Where the Imports Come From";
+    ? "Destination Mix Over Time"
+    : "Source Mix Over Time";
   document.getElementById("mix-note").textContent =
     TR.commodity.label + " · " + (TR.flow === "exp" ? "destinations" : "sources");
   const formulas = [CALCS.units, CALCS.world, CALCS.ttm, CALCS.share,

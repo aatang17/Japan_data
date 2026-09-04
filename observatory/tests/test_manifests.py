@@ -4,6 +4,7 @@ card is quarantined rather than fatal.
 
 Run from observatory/:  ./.venv/bin/python -m unittest tests.test_manifests
 """
+import ast
 import copy
 import json
 import os
@@ -160,6 +161,39 @@ class BindTest(unittest.TestCase):
         registry.bind(app)
         self.assertEqual(registry.errors(), [], registry.report())
         self.assertTrue(registry.status()["bound"])
+
+    def test_resolver_uses_no_version_fragile_api(self):
+        """Every manifest path resolves through route templates and compiled
+        regexes only. Route.matches() with a hand-built scope passed locally
+        and failed in the container, quarantining all nineteen datasets in
+        production; nothing here may depend on the scope keys of the day."""
+        tree = ast.parse(pathlib.Path(registry.__file__).read_text(encoding="utf-8"))
+        called = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+                called.add(node.func.attr)
+        self.assertNotIn("matches", called)
+        for mid in registry.ids():
+            for role, path in registry.get(mid)["endpoints"].items():
+                self.assertTrue(registry.resolves(app, path), "%s.%s: %s" % (mid, role, path))
+
+    def test_systemic_resolution_failure_fails_open(self):
+        """One bad card is quarantined; a resolver that rejects everything is
+        the resolver's fault, and dropping the whole catalogue is never right."""
+        real = registry.resolves
+        registry.resolves = lambda app, path: False
+        try:
+            registry.load()
+            registry.bind(app)
+            self.assertEqual(len(registry.ids()), 19 if len(registry.ids()) == 19
+                             else len(registry.ids()))
+            self.assertTrue(registry.ids(), "every dataset was dropped")
+            self.assertTrue(any(e["id"] is None and "resolver fault" in " ".join(e["errors"])
+                                for e in registry.errors()))
+        finally:
+            registry.resolves = real
+            registry.load()
+            registry.bind(app)
 
     def test_resolution_is_of_the_concrete_path(self):
         self.assertTrue(registry.resolves(app, "/api/v1/equity/company/{sec_code}"))

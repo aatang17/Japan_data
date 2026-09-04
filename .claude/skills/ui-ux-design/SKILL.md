@@ -98,6 +98,15 @@ Every number on screen carries its trust label and its as-of. This is the platfo
 ## Step 6 — Copy: instruct, never sell
 
 - Shortest sentence that says what the thing is or what to do next. No hype, no slogans, no time-saving promises.
+- **Section headings name the measure and the cut — they are not headlines.** The audience is
+  sell-side economists and buy-side data teams, not Substack readers. Use a descriptive noun
+  phrase in Title Case: "Contributions to Headline Inflation", "Population Change by Prefecture",
+  "Maturity Detail". Never a rhetorical question ("What Is Driving Inflation", "Who Holds It"),
+  never an editorial flourish ("The Tape", "The Unwind", "One Prefecture, Fifty Years"), and never
+  a bare "All X" where "X Detail" is the convention. The specifics that vary — the company, the
+  date range, the row count — belong in the `h2-note` qualifier, not in the heading. Documentation
+  pages (methodology, manual) are the exception: sentence-case prose headings are the right
+  register for a written guide.
 - **Never render a raw enum/slug/db value** (`published_yoy`, `concept_changed`) — map to a Title-Case label via one `Record<value, label>` per surface. Sentences = sentence case; badges/headings/buttons = Title Case.
 - **Descriptive, never causal.** "Coincides with", "contributed mechanically", "is associated with" — never "because", "driven by", or "caused by" unless a documented research design backs it.
 - **Never name the technology.** Describe what a feature does for the user, not that it uses AI/ML/a model. "Estimated from Tokyo series", not "AI-powered nowcast".

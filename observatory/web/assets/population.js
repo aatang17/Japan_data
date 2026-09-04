@@ -631,7 +631,7 @@ function drawMap() {
     el.innerHTML = "";
     mapChart = echarts.init(el, null, { renderer: "canvas" });
     mapChart.on("click", function (q) {
-      if (q.data && q.data.code) selectPrefecture(q.data.code);
+      if (q.data && q.data.code) selectPrefecture(q.data.code, "hist-chart");
     });
   }
   mapChart.setOption(mapOption(pal), true);
@@ -681,9 +681,14 @@ function renderExtremes() {
     '<p class="pop-ex-note">' + escapeHtml(m.help) +
     ". Click any prefecture, here or on the map, to put it in the chart below.</p>";
   Array.prototype.forEach.call(el.querySelectorAll(".pop-ex-row"), function (row) {
-    row.addEventListener("click", function () { selectPrefecture(row.getAttribute("data-code")); });
+    row.addEventListener("click", function () {
+      selectPrefecture(row.getAttribute("data-code"), "hist-chart");
+    });
     row.addEventListener("keydown", function (e) {
-      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectPrefecture(row.getAttribute("data-code")); }
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        selectPrefecture(row.getAttribute("data-code"), "hist-chart");
+      }
     });
   });
 }
@@ -980,7 +985,9 @@ function renderTable() {
     renderTable();
   });
   Array.prototype.forEach.call(wrap.querySelectorAll("tr.clickable"), function (tr) {
-    tr.addEventListener("click", function () { selectPrefecture(tr.getAttribute("data-code")); });
+    tr.addEventListener("click", function () {
+      selectPrefecture(tr.getAttribute("data-code"), "hist-chart");
+    });
   });
 
   // Sorting is handled above by the row-object helper; this adds the filter
@@ -1062,15 +1069,26 @@ function downloadCsv(filename, rows, headerLines) {
 
 /* ---------- interaction ---------- */
 
-function selectPrefecture(code) {
+var PREF_SELECTS = ["pref-select", "muni-pref-select"];
+
+/* One prefecture drives the chart and the municipality table, and every
+   picker on the page shows it. `scrollTo` is the element to bring into view
+   when the choice came from the map or the ranking — picking from a dropdown
+   must not yank the reader somewhere else on the page. */
+function selectPrefecture(code, scrollTo) {
   if (!code || !GEO_BY_CODE[code] || code === NATIONAL) return;
   setUrlState({ pref: code });
-  var select = document.getElementById("pref-select");
-  if (select) select.value = code;
+  PREF_SELECTS.forEach(function (id) {
+    var select = document.getElementById(id);
+    if (select) select.value = code;
+  });
   renderHistory();
   renderExtremes();
   renderMunicipalities();
-  document.getElementById("hist-chart").scrollIntoView({ behavior: "smooth", block: "center" });
+  if (scrollTo) {
+    var el = document.getElementById(scrollTo);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
 }
 
 function wireSeg(id, attr, onPick) {
@@ -1122,13 +1140,18 @@ function wire() {
     renderMunicipalities();
   });
 
-  var select = document.getElementById("pref-select");
-  select.innerHTML = prefectures().map(function (g) {
+  var options = prefectures().map(function (g) {
     return '<option value="' + g.code + '">' + escapeHtml(g.name_en) + " · " +
       escapeHtml(g.name_ja) + "</option>";
   }).join("");
-  select.value = st.pref;
-  select.addEventListener("change", function () { selectPrefecture(select.value); });
+  PREF_SELECTS.forEach(function (id) {
+    var select = document.getElementById(id);
+    if (!select) return;
+    select.innerHTML = options;
+    select.value = st.pref;
+    // No scroll: the reader is already looking at the thing they just changed.
+    select.addEventListener("change", function () { selectPrefecture(select.value); });
+  });
 
   document.getElementById("map-csv").addEventListener("click", function () {
     var m = MEASURES[urlState().measure];

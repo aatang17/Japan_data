@@ -77,7 +77,7 @@
   </div>
 
   <section aria-labelledby="h-map">
-    <h2 id="h-map">Which Prefectures Are Growing <span class="h2-note" id="map-note"></span></h2>
+    <h2 id="h-map">Population Change by Prefecture <span class="h2-note" id="map-note"></span></h2>
     <p class="section-sub">Every prefecture on one measure at a time. Population is the count
     on the register at 1 January; the change is over the calendar year before it, split into
     the natural part (births less deaths) and the social part (everything else the register
@@ -107,7 +107,7 @@
   </section>
 
   <section aria-labelledby="h-history">
-    <h2 id="h-history">One Prefecture, Fifty Years <span class="h2-note" id="hist-note"></span></h2>
+    <h2 id="h-history">Long-Run Prefecture History <span class="h2-note" id="hist-note"></span></h2>
     <p class="section-sub" id="hist-sub">The long run behind the latest year, from the
     Statistics Bureau's regional series. Registered residents are counted at 1 January and
     are split into Japanese and foreign residents only from 2013, when foreign residents
@@ -135,13 +135,17 @@
   </section>
 
   <section aria-labelledby="h-muni">
-    <h2 id="h-muni">Inside One Prefecture <span class="h2-note" id="muni-note"></span></h2>
-    <p class="section-sub">Every city, town, village and ward in the prefecture chosen above, on
-    the same register year. A prefecture average hides what is happening inside it: a village
-    losing 8% of its people can sit in a prefecture that looks merely flat. Designated cities and
-    districts are also published as totals of the municipalities inside them — those rows are
-    left out by default, because adding them to the rest counts the same people twice.</p>
+    <h2 id="h-muni">Municipality Detail <span class="h2-note" id="muni-note"></span></h2>
+    <p class="section-sub">Every city, town, village and ward in one prefecture, on the same
+    register year. A prefecture average hides what is happening inside it: a village losing 8% of
+    its people can sit in a prefecture that looks merely flat. The prefecture here, in the chart
+    above and on the map is one choice — change it anywhere and all three follow. Designated
+    cities and districts are also published as totals of the municipalities inside them; those
+    rows are left out by default, because adding them to the rest counts the same people
+    twice.</p>
     <div class="controls">
+      <label class="visually-hidden" for="muni-pref-select">Prefecture</label>
+      <select class="pop-select" id="muni-pref-select"></select>
       <div class="seg" role="group" aria-label="Rows shown" id="muni-seg">
         <button type="button" data-muni="leaves" aria-pressed="true">Municipalities</button>
         <button type="button" data-muni="all">Include City &amp; District Totals</button>
@@ -155,7 +159,7 @@
   </section>
 
   <section aria-labelledby="h-table">
-    <h2 id="h-table">All 47 Prefectures <span class="h2-note" id="table-note"></span></h2>
+    <h2 id="h-table">Prefecture Detail <span class="h2-note" id="table-note"></span></h2>
     <p class="section-sub">Every prefecture on the latest register year. Counts are official
     statistics exactly as published; shares and rates are calculated from them and carry their
     formula. The national row is the ministry's own total, not a sum of the rows — and the age
