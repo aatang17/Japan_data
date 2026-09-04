@@ -1,17 +1,17 @@
-/* Party profiles: the curated identity layer, and the screen for filling it in.
+/* Party profiles: the classification layer, and the screen for filling it in.
 
    Three views, in the order the work happens:
 
      #queue          5% filers with no profile yet, ranked by how much they
                      file — the work queue, so the next thing worth typing is
                      always at the top.
-     #parties        what has been curated, sorted least-complete first.
+     #parties        what has been classified, sorted least-complete first.
      #parties/<id>   the profile form.
 
    The form's options are never hard-coded here: /parties/vocab serves the same
    lists the validator enforces, so the dropdown can't offer a value the save
    would reject. And the derived label from the filing's own 事業内容 is shown
-   beside the curated class rather than instead of it — where the two disagree
+   beside the classified class rather than instead of it — where the two disagree
    that is a judgement worth seeing, not an error to hide. */
 "use strict";
 
@@ -53,9 +53,9 @@ function meter(pct) {
     '%"></span></span>' + pct + "%";
 }
 
-/* Curated values are OUR judgement, never a published statistic. They get the
-   neutral outline and the word Curated — never the Official badge, which on
-   this platform means "exactly as the source published it". */
+/* Classification values are OUR judgement, never a published statistic. They get
+   the neutral outline — never the Official badge, which on this platform means
+   "exactly as the source published it". */
 function curatedBadge(text) {
   return '<span class="badge badge-neutral">' + escapeHtml(text) + "</span>";
 }
@@ -81,7 +81,7 @@ function orMissing(v) { return (v === null || v === undefined || v === "") ? MIS
 /* ---------- the work queue ---------- */
 
 function viewQueue(target) {
-  target.innerHTML = '<div class="admin-loading">Loading the curation queue…</div>';
+  target.innerHTML = '<div class="admin-loading">Loading the classification queue…</div>';
   Promise.all([
     api("/parties/candidates?min_filings=" + QUEUE_MIN_FILINGS +
         "&include_individuals=false&unprofiled_only=true&limit=400"),
@@ -90,8 +90,8 @@ function viewQueue(target) {
     var queue = both[0].candidates;
     var store = both[1];
 
-    /* Coverage, not queue length, is the number that says whether curation is
-       getting anywhere: a hundred profiles are worth little if the filers that
+    /* Coverage, not queue length, is the number that says whether classification
+       is getting anywhere: a hundred profiles are worth little if the filers that
        actually file are still unattributed. */
     var covered = both[0].filings_total
       ? (100 * both[0].filings_attributed / both[0].filings_total) : 0;
@@ -122,7 +122,7 @@ function viewQueue(target) {
     }).join("");
 
     target.innerHTML =
-      '<div class="admin-page-head"><h1>Curation Queue</h1><span class="spacer"></span>' +
+      '<div class="admin-page-head"><h1>Classification Queue</h1><span class="spacer"></span>' +
       '<button type="button" class="btn btn-primary" id="new-party">New Profile</button>' +
       '<p class="admin-page-sub">Institutional 5% filers with ' + QUEUE_MIN_FILINGS +
       " or more filings and no profile yet, most active first. Click a row to open a " +
@@ -132,7 +132,7 @@ function viewQueue(target) {
         '<div class="admin-alert"><span class="head">Queue clear.</span> ' +
         "Every institutional filer at this threshold has a profile.</div>") +
       '<div class="admin-section">Unprofiled Filers <span class="note">the business ' +
-      "is quoted from the filing — evidence to start from, not curation</span></div>" +
+      "is quoted from the filing — evidence to start from, not classification</span></div>" +
       '<div class="table-wrap"><table class="data">' +
       "<thead><tr><th>Filer</th><th>EDINET</th><th>Filed Business (事業内容)</th>" +
       '<th class="num">Filings</th><th class="num">Issuers</th>' +
@@ -149,7 +149,7 @@ function viewQueue(target) {
       });
     }
   }).catch(function (err) {
-    target.innerHTML = loadFailed("the curation queue", err);
+    target.innerHTML = loadFailed("the classification queue", err);
   });
 }
 
@@ -208,7 +208,7 @@ function viewParties(target) {
       '<div class="admin-page-head"><h1>Party Profiles</h1><span class="spacer"></span>' +
       '<button type="button" class="btn" id="party-export">Export To Repo</button>' +
       '<button type="button" class="btn btn-primary" id="party-new">New Profile</button>' +
-      '<p class="admin-page-sub">Who each fund, company and person is, curated by hand ' +
+      '<p class="admin-page-sub">Who each fund, company and person is, classified by hand ' +
       "and keyed to our own identifier. Least complete first, so the next thing to " +
       "finish is at the top. Every value here is our judgement — internal only.</p></div>" +
       '<div class="kpi-row">' + kpis + "</div>" +
@@ -245,7 +245,7 @@ function viewParties(target) {
         document.getElementById("export-note").innerHTML =
           '<div class="admin-alert"><span class="head">Exported.</span> ' +
           esc(r.parties) + " profiles written to <code>observatory/curation/parties.json</code>. " +
-          "Commit that file to version this curation.</div>";
+          "Commit that file to version this classification.</div>";
       }).catch(function (err) {
         btn.disabled = false;
         document.getElementById("export-note").innerHTML = loadFailed("the export", err);
@@ -323,7 +323,7 @@ function aliasRow(alias) {
 }
 
 /* The filings' own words about the codes this profile claims. Read-only, and
-   the point of it is the last column: where our curated class disagrees with
+   the point of it is the last column: where our classification disagrees with
    what the filer states, that shows up as a flag rather than being hidden. */
 function evidencePanel(party) {
   var rows = party.evidence || [];
@@ -347,11 +347,11 @@ function evidencePanel(party) {
         : '<span class="badge badge-neutral">Agrees</span>') + "</td>" +
       "</tr>";
   }).join("");
-  return section("Filed Evidence", "what these filers state about themselves — not curation") +
+  return section("Filed Evidence", "what these filers state about themselves — not classification") +
     '<div class="table-wrap"><table class="data" data-no-enhance>' +
     "<thead><tr><th>EDINET</th><th>Filed Name</th><th>Filed Business (事業内容)</th>" +
     '<th>Filed Type</th><th class="num">Filings</th><th class="num">Last Filed</th>' +
-    "<th>Vs Curated Class</th></tr></thead><tbody>" + body + "</tbody></table></div>" +
+    "<th>Vs Classification</th></tr></thead><tbody>" + body + "</tbody></table></div>" +
     '<p class="prov-line">“Differs” is not an error: a filer states a licence, not ' +
     "what kind of investor it is. It is a prompt to check the profile, not to change it.</p>";
 }
@@ -414,7 +414,7 @@ function renderForm(target, party, isNew, allParties) {
     '<p class="admin-page-sub">' +
     (isNew
       ? "Everything on this form is our own judgement and stays internal. Nothing " +
-        "here changes a filing or a stored vintage."
+        "here changes a filing or a stored release."
       : "Identifier <code>" + esc(party.party_id) + "</code> · " +
         (party.completeness || 0) + "% complete · last edited " +
         (party.updated_at ? esc(fmtStamp(party.updated_at)) : MISSING) +
@@ -521,7 +521,7 @@ function renderForm(target, party, isNew, allParties) {
     selectField("f-activist", "Activist", V.activist, party.activist, "Not set") +
     textField("f-confidence", "Confidence", party.confidence,
               "Clear this once you have reviewed the profile") +
-    textField("f-source", "Source", party.source, "Where these curated values came from") +
+    textField("f-source", "Source", party.source, "Where these classification values came from") +
     textField("f-as_of", "As Of", party.as_of, "YYYY-MM-DD") +
     textField("f-tags", "Tags", (party.tags || []).join(", "), "Comma separated") +
     areaField("f-thesis", "Thesis", party.thesis, "One or two lines on why this party matters") +
@@ -595,7 +595,7 @@ function renderForm(target, party, isNew, allParties) {
   if (delBtn) {
     delBtn.addEventListener("click", function () {
       if (!window.confirm("Delete the profile for " + (party.display || party.party_id) +
-                          "? The filings are untouched; only this curation is removed.")) return;
+                          "? The filings are untouched; only this classification is removed.")) return;
       var status = document.getElementById("p-status");
       del("/parties/" + encodeURIComponent(party.party_id)).then(goBack)
         .catch(function (err) {

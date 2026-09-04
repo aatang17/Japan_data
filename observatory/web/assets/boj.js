@@ -268,7 +268,7 @@ async function renderMain() {
       "Trust: " + (TRUST_LABELS[data.trust] || "calculated (formula on the page)") +
         " — values exactly as published, converted from ¥100mn to ¥tn (÷10,000, exact)",
       "Source: Bank of Japan Time-Series Data Search, " + OV.release.source_id,
-      "Vintage: " + OV.release.label,
+      "Release: " + OV.release.label,
       "Retrieved: " + fmtStamp(OV.release.retrieved_at),
       "Permalink: " + location.href,
       OV.credit_line || "",
@@ -357,7 +357,7 @@ async function renderFlows() {
       "Unit: ¥tn, converted from published ¥100mn (÷10,000, exact); " +
         "redemptions are negative as published",
       "Source: Bank of Japan Time-Series Data Search, " + OV.release.source_id,
-      "Vintage: " + OV.release.label,
+      "Release: " + OV.release.label,
       "Retrieved: " + fmtStamp(OV.release.retrieved_at),
       "Permalink: " + location.href,
       OV.credit_line || "",
@@ -455,7 +455,7 @@ async function renderSeriesTables() {
         .map(k => k + " = " + d.calc[k]).join(" | "),
       "Unit: ¥tn, converted from published ¥100mn (÷10,000, exact); empty = not published",
       "Source: Bank of Japan Time-Series Data Search, " + d.release.source_id,
-      "Vintage: " + d.release.label,
+      "Release: " + d.release.label,
       "Retrieved: " + fmtStamp(d.release.retrieved_at),
       "Permalink: " + location.href,
       OV.credit_line || "",

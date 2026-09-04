@@ -1,4 +1,4 @@
-/* Admin console: ingest health, vintage browser, audit log.
+/* Admin console: ingest health, release history, audit log.
 
    Structure follows the GSA-platform admin (persistent sidebar driven by one
    nav description, KPI summary cards, outline-only status badges, rows that
@@ -14,10 +14,10 @@ var ROOT = document.getElementById("admin-root");
 var ADMIN_NAV = [
   { group: "Operations", pages: [
     { id: "health", label: "Ingest Health", hash: "#health" },
-    { id: "vintages", label: "Vintage Browser", hash: "#vintages" },
+    { id: "vintages", label: "Release History", hash: "#vintages" },
   ]},
-  { group: "Curation", pages: [
-    { id: "queue", label: "Curation Queue", hash: "#queue" },
+  { group: "Classification", pages: [
+    { id: "queue", label: "Classification Queue", hash: "#queue" },
     { id: "parties", label: "Party Profiles", hash: "#parties" },
   ]},
   { group: "System", pages: [
@@ -35,7 +35,7 @@ var AUDIT_ACTIONS = {
   party_created: { label: "Profile Created", cls: "badge-info" },
   party_updated: { label: "Profile Edited", cls: "badge-info" },
   party_deleted: { label: "Profile Deleted", cls: "badge-warn" },
-  party_exported: { label: "Curation Exported", cls: "badge-neutral" },
+  party_exported: { label: "Classification Exported", cls: "badge-neutral" },
   login: { label: "Signed In", cls: "badge-ok" },
   logout: { label: "Signed Out", cls: "badge-neutral" },
   login_failed: { label: "Failed Login", cls: "badge-danger" },
@@ -245,7 +245,7 @@ function viewHealth(target) {
       kpi(fmtAgo(report.hours_since_ingest), "Last Ingest", refreshTone) +
       kpi(orphans ? String(orphans) : "All clear", "Unpublished Files", orphans ? "danger" : "ok") +
       kpi(rejected ? String(rejected) : "None", "Rejected Ingests", rejected ? "danger" : "ok") +
-      kpi(String(vintages), "Vintages Stored", "");
+      kpi(String(vintages), "Releases Stored", "");
 
     // The refresh comes first: a pipeline that has stopped is the reason every
     // dataset under it is ageing, so it must not be buried among the symptoms.
@@ -300,12 +300,12 @@ function viewHealth(target) {
       escapeHtml(fmtStamp(report.last_ingest_at)) + ".</p></div>" +
       '<div class="kpi-row">' + kpis + "</div>" + banner +
       '<div class="admin-section">Datasets <span class="note">age is days since the newest ' +
-      "period / the limit before it counts as stale · click a row for its vintages</span></div>" +
+      "period / the limit before it counts as stale · click a row for its releases</span></div>" +
       '<div class="table-wrap"><table class="data" data-no-enhance>' +
       "<thead><tr><th>Dataset</th><th>Status</th>" +
       '<th class="num">Data Through</th><th class="num">Age, Days</th>' +
       '<th class="num">Last Published (UTC)</th><th class="num">Active Series</th>' +
-      '<th class="num">Vintages</th><th>Source File</th></tr></thead>' +
+      '<th class="num">Releases</th><th>Source File</th></tr></thead>' +
       "<tbody>" + rows + "</tbody></table></div>";
 
     document.getElementById("health-refresh").addEventListener("click", function () {
@@ -327,10 +327,10 @@ function kpi(value, label, tone) {
     '</div><div class="kpi-label">' + escapeHtml(label) + "</div></div>";
 }
 
-/* ---------- vintage browser ---------- */
+/* ---------- release history ---------- */
 
 function viewVintages(target, slug) {
-  target.innerHTML = '<div class="admin-loading">Loading vintages…</div>';
+  target.innerHTML = '<div class="admin-loading">Loading releases…</div>';
   api("/overview").then(function (report) {
     var ds = report.datasets;
     if (!slug || !ds.some(function (d) { return d.dataset === slug; })) {
@@ -340,14 +340,14 @@ function viewVintages(target, slug) {
       return '<button type="button" class="ds-card" data-ds="' + escapeHtml(d.dataset) + '"' +
         (d.dataset === slug ? ' aria-pressed="true"' : ' aria-pressed="false"') + ">" +
         '<div class="t">' + escapeHtml(d.dataset) + "</div>" +
-        '<div class="s">' + (d.vintages || 0) + " vintage" + (d.vintages === 1 ? "" : "s") +
+        '<div class="s">' + (d.vintages || 0) + " release" + (d.vintages === 1 ? "" : "s") +
         " · through " + (d.latest_period ? escapeHtml(d.latest_period) : MISSING) + "</div></button>";
     }).join("");
 
     target.innerHTML =
-      '<div class="admin-page-head"><h1>Vintage Browser</h1>' +
+      '<div class="admin-page-head"><h1>Release History</h1>' +
       '<p class="admin-page-sub">Every accepted ingest is a stored release. A stored release is ' +
-      "never edited — a correction arrives as a new vintage, and this page shows exactly what " +
+      "never edited — a correction arrives as a new release, and this page shows exactly what " +
       "each one introduced, revised, or withdrew.</p></div>" +
       '<div class="ds-cards">' + cards + "</div>" +
       '<div id="release-list"><div class="admin-loading">Loading releases…</div></div>';
@@ -416,11 +416,11 @@ function toggleReleaseDetail(tr, slug) {
   detail.appendChild(cell);
   tr.parentNode.insertBefore(detail, tr.nextElementSibling);
 
-  // The first vintage of a dataset is its entire history as first recorded —
+  // The first release of a dataset is its entire history as first recorded —
   // tens of thousands of "new" values with nothing to compare against.
   if (tr.getAttribute("data-first") === "1") {
-    cell.innerHTML = '<div class="detail-block"><div class="h">Initial Vintage</div>' +
-      "This release is the dataset’s first recorded vintage: all " +
+    cell.innerHTML = '<div class="detail-block"><div class="h">Initial Release</div>' +
+      "This release is the dataset’s first recorded release: all " +
       Number(tr.getAttribute("data-recorded")).toLocaleString("en-US") +
       " values are the history as it stood at first ingest. Later releases are " +
       "compared against it.</div>";

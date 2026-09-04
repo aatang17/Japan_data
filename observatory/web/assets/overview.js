@@ -214,7 +214,7 @@ async function renderMain() {
         : "Trust: calculated from official index values (formula below)",
       "Calculation: " + data.calc,
       "Source: Statistics Bureau of Japan via e-Stat, " + OV.release.source_id,
-      "Vintage: " + OV.release.label + " (2020 = 100)",
+      "Release: " + OV.release.label + " (2020 = 100)",
       "Retrieved: " + fmtStamp(OV.release.retrieved_at),
       "Permalink: " + location.href,
     ]);
@@ -320,7 +320,7 @@ function renderContrib() {
       "Trust: calculated from official index values and weights (formula below)",
       "Calculation: " + CONTRIB.calc,
       "Source: Statistics Bureau of Japan via e-Stat, " + CONTRIB.release.source_id,
-      "Vintage: " + CONTRIB.release.label + " (2020 = 100)",
+      "Release: " + CONTRIB.release.label + " (2020 = 100)",
       "Retrieved: " + fmtStamp(CONTRIB.release.retrieved_at),
       "Permalink: " + location.href,
     ]);
@@ -370,7 +370,7 @@ function renderBreadth() {
       "Trust: calculated from official index values (definition below)",
       "Calculation: " + BREADTH.calc,
       "Source: Statistics Bureau of Japan via e-Stat, " + BREADTH.release.source_id,
-      "Vintage: " + BREADTH.release.label + " (2020 = 100)",
+      "Release: " + BREADTH.release.label + " (2020 = 100)",
       "Retrieved: " + fmtStamp(BREADTH.release.retrieved_at),
       "Permalink: " + location.href,
     ]);

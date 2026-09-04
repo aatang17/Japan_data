@@ -252,7 +252,7 @@ function renderProvenance() {
         '<div class="prov-field">' +
           '<div class="prov-label">Release</div>' +
           '<div class="prov-value">' + escapeHtml(rel.label) + "</div>" +
-          '<div class="prov-sub">Published monthly; a new vintage is stored ' +
+          '<div class="prov-sub">Published monthly; a new release is stored ' +
             "per changed file</div>" +
         "</div>" +
         '<div class="prov-field">' +

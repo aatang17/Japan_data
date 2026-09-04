@@ -250,7 +250,7 @@ function renderProvenance() {
         '<div class="prov-field">' +
           '<div class="prov-label">Release</div>' +
           '<div class="prov-value">Data through ' + fmtDay(rel.latest_period) + "</div>" +
-          '<div class="prov-sub">Published each business day; a new vintage is ' +
+          '<div class="prov-sub">Published each business day; a new release is ' +
             "stored per changed file</div>" +
         "</div>" +
         '<div class="prov-field">' +
@@ -442,7 +442,7 @@ function exportCurveCSV() {
     "Trust: " + TRUST_LABELS.official + " — yields exactly as published; " +
       "empty = no published value (tenor not quoted on that date)",
     "Source: Ministry of Finance, Japan, " + CV.release.source_id,
-    "Vintage: " + CV.release.label,
+    "Release: " + CV.release.label,
     "Retrieved: " + fmtStamp(CV.release.retrieved_at),
     "Permalink: " + location.href,
     CV.credit_line || "",
@@ -559,7 +559,7 @@ function renderHistory() {
       "Trust: " + TRUST_LABELS.official + " — yields exactly as published; " +
         "empty = no published value",
       "Source: Ministry of Finance, Japan, " + CV.release.source_id,
-      "Vintage: " + CV.release.label,
+      "Release: " + CV.release.label,
       "Retrieved: " + fmtStamp(CV.release.retrieved_at),
       "Permalink: " + location.href,
       CV.credit_line || "",
@@ -632,7 +632,7 @@ function renderTable() {
       "Calculation: " + SPREAD_CALCS.delta,
       "Unit: % per year; deltas in percentage points; empty = not published",
       "Source: Ministry of Finance, Japan, " + CV.release.source_id,
-      "Vintage: " + CV.release.label,
+      "Release: " + CV.release.label,
       "Retrieved: " + fmtStamp(CV.release.retrieved_at),
       "Permalink: " + location.href,
       CV.credit_line || "",

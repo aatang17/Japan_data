@@ -255,7 +255,7 @@
         ["Japan Data Observatory — most active 5% filers",
          d.activist_only ? "Filers that have stated an important-proposal act" : "All filers",
          "Counts are calculated over archived reports; ratios are as filed.",
-         "filer_type is derived from the filer's own 事業内容; group is a curated map of filing entities to their family.",
+         "filer_type is derived from the filer's own 事業内容; group is a classification map of filing entities to their family.",
          "Source: 大量保有報告書 via EDINET, Financial Services Agency."],
         ["group", "edinet_code", "name_ja", "name_en", "filer_type", "entities",
          "issuers", "reports", "max_ratio_pct", "proposal_reports", "latest_report"],

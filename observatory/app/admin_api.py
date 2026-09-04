@@ -1,4 +1,4 @@
-"""Internal admin API: login, ingest health, vintage browser, audit log.
+"""Internal admin API: login, ingest health, release history, audit log.
 
 Everything here is read-only against the DuckDB store — the one-writer rule
 (see CLAUDE.md, Ingest Guardrails 5) holds: the serving process never writes
@@ -220,7 +220,7 @@ def overview(request: Request):
     return report
 
 
-# --- vintage browser ---------------------------------------------------------
+# --- release history ---------------------------------------------------------
 
 @router.get("/releases/{dataset}")
 def releases(dataset, request: Request):
@@ -321,7 +321,7 @@ def audit_log(request: Request, limit: int = 200):
     return {"entries": _read_audit(max(1, min(limit, 1000)))}
 
 
-# --- equity reads for the curation queue --------------------------------------
+# --- equity reads for the classification queue --------------------------------
 #
 # Its own short-lived read-only connection rather than equity_api's cached
 # reader: the queue is opened by one operator a few times a day, and borrowing
@@ -498,7 +498,7 @@ def party_candidates(request: Request, min_filings: int = 5,
             "filings_unattributed": total_filings - attributed,
             "entities_total": len(rows),
             "note": ("Ranked by filing count. derived_type is read from the "
-                     "filer's own 事業内容 and is evidence, not curation.")}
+                     "filer's own 事業内容 and is evidence, not classification.")}
 
 
 @router.get("/parties")

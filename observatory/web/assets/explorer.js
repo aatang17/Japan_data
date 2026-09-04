@@ -441,7 +441,7 @@ function applyDetailRange() {
         : "Trust: calculated from official index values (formula below)",
       "Calculation: " + detailData.calc,
       "Source: Statistics Bureau of Japan via e-Stat, " + ALL.release.source_id,
-      "Vintage: " + ALL.release.label + " (2020 = 100)",
+      "Release: " + ALL.release.label + " (2020 = 100)",
       "Retrieved: " + fmtStamp(ALL.release.retrieved_at),
       "Permalink: " + location.href,
     ]);
@@ -549,7 +549,7 @@ function exportFilteredCSV() {
     "Note: rows overlap (an aggregate contains its own components), so contribution_pp does not sum to headline YoY",
     "Flags: step = one month is at least 70% of the 12-month move and shifted the index at least 10%; low_base = index level below 5.0, so percent changes are unstable",
     "Source: Statistics Bureau of Japan via e-Stat, " + rel.source_id,
-    "Vintage: " + rel.label + " (2020 = 100)",
+    "Release: " + rel.label + " (2020 = 100)",
     "Retrieved: " + fmtStamp(rel.retrieved_at),
     "Permalink: " + location.href,
   ].map(l => "# " + l).join("\n");
