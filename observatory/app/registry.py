@@ -417,8 +417,9 @@ def bind(app):
     Called from the app's lifespan, once the routers are included. A manifest
     naming a path that does not exist is quarantined; in strict mode it raises.
     """
-    global _BOUND
+    global _BOUND, _ROUTES_SEEN
     seen = route_paths(app)
+    _ROUTES_SEEN = len(seen)
     faults = {}
     for mid in list(_ORDER):
         m = _REGISTRY[mid]
@@ -555,9 +556,20 @@ def errors():
     return copy.deepcopy(_ERRORS)
 
 
+_ROUTES_SEEN = 0
+
+
 def status():
-    """The block /catalog/health carries."""
+    """The block /catalog/health carries.
+
+    `routes_seen` is deliberately permanent. The production incident of
+    2026-09-05 was route discovery finding four routes out of a hundred inside
+    the container while finding all of them on the laptop, and it took three
+    deploys to see that because nothing reported it. A number that should be in
+    the hundreds and reads single digits now says so on the health endpoint.
+    """
     return {"registered": len(_ORDER), "bound": _BOUND,
+            "routes_seen": _ROUTES_SEEN,
             "quarantined": sorted(e["id"] or e["module"] for e in _ERRORS),
             "errors": errors()}
 

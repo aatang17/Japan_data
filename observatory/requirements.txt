@@ -1,5 +1,16 @@
-fastapi>=0.110,<1
-uvicorn[standard]>=0.29,<1
+# Pin the web stack exactly. `fastapi>=0.110,<1` let the container build a
+# version the laptop had never run, and on 2026-09-05 that difference rejected
+# all nineteen dataset manifests in production while every test passed locally:
+# the route table looked different inside the image. The registry no longer
+# depends on how routes are represented, but the drift itself is the defect —
+# the same one the DuckDB pin below exists for. What is tested is what ships.
+#
+# These four move together; upgrade them together, deliberately, and run the
+# suite plus `python -m app.registry --check` before deploying.
+fastapi==0.128.8
+starlette==0.49.3
+pydantic==2.13.4
+uvicorn[standard]==0.39.0
 # Pin DuckDB: INSERT OR REPLACE semantics around foreign keys changed between
 # 1.4 and 1.5, and an unpinned install made production diverge from local.
 duckdb>=1.4,<1.6
