@@ -27,6 +27,7 @@ from .lvh_api import router as lvh_router  # noqa: E402
 from .agm_api import router as agm_router  # noqa: E402
 from .segments_api import router as segments_router  # noqa: E402
 from .catalog_api import router as catalog_router  # noqa: E402
+from .company_api import router as company_router  # noqa: E402
 from . import registry  # noqa: E402
 from .ownership_api import router as ownership_router  # noqa: E402
 from . import refresh  # noqa: E402
@@ -97,6 +98,9 @@ app.include_router(buyback_router)
 app.include_router(equity_router)
 # The catalog of manifests ahead of the core router, so its literal
 # /api/v1/catalog/… paths can never be shadowed by /{dataset}/… catch-alls.
+# /api/v1/company/{code} ahead of the core router, so it beats the
+# /api/v1/{dataset}/... catch-alls.
+app.include_router(company_router)
 app.include_router(catalog_router)
 app.include_router(router)
 # /mcp sits outside /api/v1 on purpose: the response cache only touches GETs

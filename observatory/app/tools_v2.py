@@ -86,16 +86,7 @@ def _status(exc):
 # ---------------------------------------------------------------------------
 
 def _bound(mid, attr):
-    """A dataset's own read function, by convention.
-
-    Every equity module names them the same way — `company`, `summary`,
-    `companies` — so the capability a manifest declares resolves to the
-    module that exported it. No table to keep in step: registering a manifest
-    is all a new dataset needs.
-    """
-    mod = registry._MODULES.get(mid)
-    fn = getattr(mod, attr, None) if mod is not None else None
-    return fn if callable(fn) else None
+    return registry.bound(mid, attr)
 
 
 def _company_fn(mid):
@@ -516,48 +507,19 @@ def get_company(code, dataset="", as_of="", limit=ROW_BUDGET):
                                 cite=_cite_for(m, sec_code=code), truncated=truncated,
                                 code=code))
 
-    # Composed: every dataset with a company view, facts only.
-    blocks = {}
-    present, missing, errors = [], [], []
-    name = {}
-    for mid in registry.ids():
-        m = registry.get(mid)
-        if "company" not in m["capabilities"]:
-            continue
-        if not registry.available(mid):
-            missing.append({"dataset": mid, "reason": "not published on this server"})
-            continue
-        try:
-            raw, why = _company_block(m, code, p_as_of, "get_company")
-        except Exception as exc:  # noqa: BLE001 — one block failing yields an error block
-            errors.append({"dataset": mid, "error": _detail(exc)})
-            continue
-        if why:
-            missing.append({"dataset": mid, "reason": why})
-            continue
-        present.append(mid)
-        compact = _compact(raw)
-        compact["cite"] = _cite_for(m, sec_code=code)
-        compact["calc"] = _calc(m)
-        blocks[mid] = compact
-        for k in ("name_en", "filer_name_en", "entity.name_en"):
-            if compact["facts"].get(k) and "name_en" not in name:
-                name["name_en"] = compact["facts"][k]
-        for k in ("filer_name", "name", "entity.name_ja"):
-            if compact["facts"].get(k) and "name" not in name:
-                name["name"] = compact["facts"][k]
-    return _dumps({
-        "tool": "get_company", "code": code, "dataset": None,
-        "company": dict(name, sec_code=code),
-        "coverage": {"present": present, "missing": missing, "errors": errors or None},
-        "data": blocks,
-        "vintage": _equity_vintage(p_as_of),
-        "provenance": {"trust": "official",
-                       "note": ("Facts are the scalar fields of each dataset's company "
-                                "view, exactly as filed; `tables` counts the rows "
-                                "behind them. Pass dataset=<id> for the rows.")},
-        "cite": _cite("/equities.html", c=code),
-    })
+    # Composed: the same document /api/v1/company/{code} serves, in its
+    # compact form. One implementation, so the tool and the endpoint can never
+    # disagree about what a company looks like.
+    from . import company_api
+    try:
+        doc = company_api.compose(code, compact=True)
+    except Exception as exc:  # noqa: BLE001
+        return _fail(_detail(exc))
+    doc["tool"] = "get_company"
+    doc["cite"] = _cite(doc["cite"])
+    for block in doc["datasets"].values():
+        block["cite"] = _cite(block["cite"])
+    return _dumps(doc)
 
 
 def get_series(dataset, series, measure="index", start="", end="", as_of="",

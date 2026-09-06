@@ -552,6 +552,19 @@ def by_section():
     return [dict(s, datasets=groups[s["id"]]) for s in SECTIONS]
 
 
+def bound(mid, attr):
+    """A dataset's own read function, by convention.
+
+    Every equity module names them the same way — `company`, `summary`,
+    `companies` — so a capability a manifest declares resolves to a function on
+    the module that exported it. Nothing to keep in step: registering a
+    manifest is all a new dataset needs.
+    """
+    mod = _MODULES.get(mid)
+    fn = getattr(mod, attr, None) if mod is not None else None
+    return fn if callable(fn) else None
+
+
 def errors():
     return copy.deepcopy(_ERRORS)
 

@@ -129,10 +129,33 @@ release-in-force semantics. Immutability guardrail untouched: this is a read fil
 | --- | --- | --- |
 | M1 | ✅ **Built 2026-09-04** (16 datasets) — see [PLAN-API-MCP-V2-M1.md](PLAN-API-MCP-V2-M1.md) | none — additive endpoints only |
 | M2 | ✅ **Built 2026-09-04** — `tools_v2.py` (six tools, envelope, row budgets), `resources/*`, `MCP_TOOLSET` (default **`both`**, not `v1`: no known external users, and the transition window is free while both surfaces coexist), instructions generated from the registry, `lvh_api` 404 `%` bug fixed, 19 tests incl. the per-dataset × capability contract and v1 parity. `get_company` without a dataset already composes across datasets (facts + coverage) — the HTTP composed endpoint stays M3. | none — v1 tools untouched |
-| M3 | `company_api.py` composed endpoint + coverage; equity `as_of` ceilings | none — new endpoint; readers gain an optional arg |
+| M3 | ⏳ **Composed endpoint built 2026-09-06** — `/api/v1/company/{code}` + `/coverage`, filters, compact mode, per-block isolation; the MCP `get_company` now delegates to it so there is one implementation. **Equity `as_of` is NOT done** and the endpoint refuses it with a 400 rather than returning current filings under a historical date — see below. | none — new endpoint only |
 | M4 | `auth.py`: keys, tiers, limits, usage; admin keys tab; OpenAPI descriptions from manifests | middleware touches every request — see §4 |
 | M5 | Flip `MCP_TOOLSET` default to `v2`; retire v1 tools after the transition window | existing connector users see new tool names |
 | M6 | Company page rebuilt from the composed endpoint (own plan; `ui-ux-design` gate) | UI only |
+
+### M3 finding — equity `as_of` cannot mean what the plan assumed
+
+§2.7 specified `captured_at <= as_of`, falling back to `filed_date`. **No `captured_at` column
+exists on any equity table** — `eq_filings`, `eq_own_filings`, `eq_lvh_filings`,
+`eq_fac_filings`, `eq_fin_filings` and `eq_agm_meetings` carry `filed_date` (and `submitted`
+for buybacks) and nothing else. Capture time was never recorded, so "what the platform had
+captured on that date" is not reconstructible for any filing already in the archive. That
+answers open question 3 by elimination: the basis must be **filed date** — what existed
+publicly on EDINET — and it should be documented as such rather than sold as a capture-time
+vintage.
+
+Implementing it is a real refactor, not an argument. Each module selects its latest filing per
+company through its own CTE (`LATEST_FILINGS`, `LATEST_OWN`, `LATEST_STAKE`, `LATEST_GOV`,
+`LATEST_FAC`/`LATEST_RENT`), and a `filed_date <= ?` ceiling means threading a parameter
+through roughly 45 call sites across six modules whose parameter lists are positional. Doing
+that while a parallel workstream is editing the same files is how the 2026-09-05 outage
+happened, so it is deliberately left as its own change. Until then the endpoint refuses
+`as_of` — a caller asking a point-in-time question gets an error, never today's numbers under
+yesterday's date.
+
+Worth recording separately: capture time **should** start being recorded now, so that vintages
+accumulating from here support the stronger semantics even though the back-history cannot.
 
 ## 3. Files / areas
 

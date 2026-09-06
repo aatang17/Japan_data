@@ -283,6 +283,33 @@ The manifests are also served as MCP resources (`observatory://datasets/{id}`,
 `observatory://sections`, `observatory://methodology`), and the `initialize` instructions are
 generated from the registry so they name every dataset on the server.
 
+### One company, every dataset
+
+`/api/v1/company/{code}` (`app/company_api.py`) walks the registry, calls each dataset that
+declares a company view, and returns one document in section order — holdings, register, 5%
+filings, board and pay, buybacks, facilities, financials, AGM votes, segments. It is what the
+company page and the MCP `get_company` tool both read, so the two cannot disagree.
+
+Three rules, all consequences of the trust contract. **Every block is independent**: a dataset
+that fails becomes an `errors` entry and costs the other eight nothing. **Absence is reported,
+never omitted**: a dataset with no rows appears under `coverage.missing` with its reason, so
+"no facilities filing for this company" reads differently from "facilities are not published
+here", and neither looks like zero. **Nothing is recomputed across blocks**: each carries its
+own dataset's `calc`, `provenance` and `cite`; yen book values, voting rights and square metres
+never meet in a total.
+
+`?compact=1` drops the tables and keeps the counts (~35 KB for Toyota against ~240 KB full);
+`?limit=` caps rows per table and discloses the full count; `?datasets=` and `?sections=`
+narrow it. Cold is about 230 ms and repeat hits come from the release cache. It is deliberately
+**not** in `WARM_ENDPOINTS`: the cache holds 64 entries and warm-up already fills 42, so
+priming companies would evict the dataset payloads every page needs.
+
+`?as_of=` is **refused with a 400**, on purpose. These datasets are versioned by filing, and
+the archive records when a document was *filed* but not when this platform captured it, so a
+point-in-time view can only be built on `filed_date` — and that ceiling is not implemented yet.
+Returning today's filings under a historical date would be silently wrong, which is worse than
+unsupported. Macro series already serve `?as_of=` on `/api/v1/{dataset}/observations`.
+
 ### The dataset registry
 
 Every dataset module exports a `MANIFEST` — one plain dict saying what the dataset is,
@@ -437,6 +464,9 @@ GET /api/v1/catalog/health                         # is every dataset current, a
 GET /api/v1/catalog/manifests                      # every dataset's card: source, measures, formulas, endpoints
 GET /api/v1/catalog/manifests/cpi-jp               # one card; an unknown id answers with the valid ids
 GET /api/v1/catalog/sections                       # the fixed section list and which datasets sit in each
+GET /api/v1/company/7203                           # every dataset's view of one company, in section order
+GET /api/v1/company/7203?compact=1                 # facts and row counts only, no tables
+GET /api/v1/company/7203/coverage                  # which datasets hold this company and which do not
 ```
 
 Interactive docs at `/api/docs`.

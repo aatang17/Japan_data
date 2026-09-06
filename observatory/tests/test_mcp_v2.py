@@ -204,9 +204,9 @@ class EquityToolTest(Base):
         self.assertFalse(err, data)
         self.assertIn("cross-shareholdings", data["coverage"]["present"])
         self.assertIn("boards-and-pay", data["coverage"]["present"])
-        self.assertIsNone(data["coverage"]["errors"])
+        self.assertEqual(data["coverage"]["errors"], [])
         self.assertEqual(data["company"]["sec_code"], "7974")
-        self.assertIn("board_size", data["data"]["boards-and-pay"]["facts"])
+        self.assertIn("board_size", data["datasets"]["boards-and-pay"]["facts"])
         # Whatever is absent is reported with a reason, never dropped silently.
         for block in data["coverage"]["missing"]:
             self.assertTrue(block["reason"])
@@ -228,7 +228,7 @@ class EquityToolTest(Base):
         data, err = call(self.client, "get_company", code="0000")
         self.assertFalse(err, data)
         self.assertEqual(data["coverage"]["present"], [])
-        self.assertIsNone(data["coverage"]["errors"])
+        self.assertEqual(data["coverage"]["errors"], [])
 
     def test_screen_matches_v1_and_validates_sort(self):
         data, err = call(self.client, "screen", dataset="boards-and-pay",
