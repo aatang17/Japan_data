@@ -32,6 +32,8 @@ import re
 import unicodedata
 
 from fastapi import APIRouter, HTTPException, Query
+
+from . import asof
 from fastapi.responses import PlainTextResponse
 
 from . import api, company_labels, fiscal
@@ -204,7 +206,8 @@ def _entity(cur, sec_code):
         return rows[0]
     rows = _rows(cur, "SELECT edinet_code, sec_code, filer_name AS name_ja, NULL AS name_en, "
                       "NULL AS industry, NULL AS listed FROM eq_seg_filings "
-                      "WHERE sec_code = ? ORDER BY period_end DESC LIMIT 1", [sec_code])
+                      "WHERE sec_code = ?" + asof.clause("filed_date")
+                      + " ORDER BY period_end DESC LIMIT 1", [sec_code])
     if rows:
         return rows[0]
     raise HTTPException(404, "no company with securities code %s" % sec_code)
@@ -217,7 +220,8 @@ def _latest_filing(cur, sec_code):
                basis_text, region_rows, customer_rows, product_rows,
                region_omitted_reason, consolidated_revenue_yen, region_revenue_sum_yen,
                reconciliation, sha256_t1
-        FROM eq_seg_filings WHERE sec_code = ? AND status IN ('clean', 'partial')
+        FROM eq_seg_filings WHERE sec_code = ? AND status IN ('clean', 'partial')"""
+        + asof.clause("filed_date") + """
         ORDER BY period_end DESC, filed_date DESC LIMIT 1""", [sec_code])
     return rows[0] if rows else None
 
@@ -328,7 +332,8 @@ def customers(name: str = Query(None, max_length=80, description="customer name 
                 SELECT doc_id FROM (
                     SELECT doc_id, row_number() OVER (PARTITION BY coalesce(sec_code, edinet_code)
                                                       ORDER BY period_end DESC, filed_date DESC) rn
-                    FROM eq_seg_filings WHERE status IN ('clean','partial')) WHERE rn = 1)
+                    FROM eq_seg_filings WHERE status IN ('clean','partial')"""
+                    + asof.clause("filed_date") + """) WHERE rn = 1)
             SELECT f.sec_code, f.edinet_code, f.filer_name, e.name_en AS filer_name_en,
                    f.period_end, c.customer_name, c.value_yen, c.segment_label, c.source,
                    f.consolidated_revenue_yen
@@ -655,7 +660,8 @@ def concentration(min_share: float = Query(
                     SELECT doc_id, row_number() OVER (
                         PARTITION BY coalesce(sec_code, edinet_code)
                         ORDER BY period_end DESC, filed_date DESC) rn
-                    FROM eq_seg_filings WHERE status IN ('clean','partial')) WHERE rn = 1)
+                    FROM eq_seg_filings WHERE status IN ('clean','partial')"""
+                    + asof.clause("filed_date") + """) WHERE rn = 1)
             SELECT f.sec_code, f.edinet_code, f.filer_name, e.name_en AS filer_name_en,
                    e.industry, f.period_end, f.status, f.consolidated_revenue_yen,
                    f.single_segment, c.customer_name, c.value_yen, c.segment_label, c.source
@@ -780,7 +786,7 @@ MANIFEST = {
     "keys": ["sec_code", "fiscal_year"],
     "frequency": "per-filing",
     "vintage": {
-        "unit": "filing", "as_of_basis": "captured_at", "as_of_supported": False,
+        "unit": "filing", "as_of_basis": "filed_date", "as_of_supported": True,
         "history_from": "FY2024", "stale_after_days": None,
     },
     "measures": [

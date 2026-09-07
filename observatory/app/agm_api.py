@@ -46,6 +46,8 @@ WHAT A CONSUMER MUST NOT ASSUME, carried in the data rather than in prose:
 """
 from fastapi import APIRouter, HTTPException, Query
 
+from . import asof
+
 from .equity_api import NAMES_NOTE, PROVENANCE, _cur, _rows
 
 router = APIRouter(prefix="/api/v1/equity/agm")
@@ -290,11 +292,12 @@ def company(sec_code: str):
     cur = _require()
     code = sec_code[:4]
     meetings = _rows(cur, """
-        SELECT doc_id, meeting_date, meeting_type, issuer_name, issuer_sec_code,
-               proposals, candidates, partial_tally, partial_tally_reason, status
+        SELECT doc_id, filed_date, meeting_date, meeting_type, issuer_name,
+               issuer_sec_code, proposals, candidates, partial_tally,
+               partial_tally_reason, status
         FROM eq_agm_meetings
-        WHERE issuer_sec_code = ? AND %s
-        ORDER BY meeting_date DESC""" % CLEAN, [code])
+        WHERE issuer_sec_code = ? AND %s""" % CLEAN + asof.clause("filed_date") + """
+        ORDER BY meeting_date DESC""", [code])
     if not meetings:
         raise HTTPException(404, "no AGM voting results for %s" % code)
     ids = [m["doc_id"] for m in meetings]
@@ -345,7 +348,7 @@ MANIFEST = {
     "keys": ["doc_id", "sec_code", "meeting_date"],
     "frequency": "per-event",
     "vintage": {
-        "unit": "filing", "as_of_basis": "captured_at", "as_of_supported": False,
+        "unit": "filing", "as_of_basis": "filed_date", "as_of_supported": True,
         "history_from": "2024-04 (filings; meetings from 2023-06)",
         "stale_after_days": None,
     },

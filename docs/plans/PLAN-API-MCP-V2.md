@@ -129,7 +129,7 @@ release-in-force semantics. Immutability guardrail untouched: this is a read fil
 | --- | --- | --- |
 | M1 | ✅ **Built 2026-09-04** (16 datasets) — see [PLAN-API-MCP-V2-M1.md](PLAN-API-MCP-V2-M1.md) | none — additive endpoints only |
 | M2 | ✅ **Built 2026-09-04** — `tools_v2.py` (six tools, envelope, row budgets), `resources/*`, `MCP_TOOLSET` (default **`both`**, not `v1`: no known external users, and the transition window is free while both surfaces coexist), instructions generated from the registry, `lvh_api` 404 `%` bug fixed, 19 tests incl. the per-dataset × capability contract and v1 parity. `get_company` without a dataset already composes across datasets (facts + coverage) — the HTTP composed endpoint stays M3. | none — v1 tools untouched |
-| M3 | ⏳ **Composed endpoint built 2026-09-06** — `/api/v1/company/{code}` + `/coverage`, filters, compact mode, per-block isolation; the MCP `get_company` now delegates to it so there is one implementation. **Equity `as_of` is NOT done** and the endpoint refuses it with a 400 rather than returning current filings under a historical date — see below. | none — new endpoint only |
+| M3 | ✅ **Built 2026-09-06/08** — `/api/v1/company/{code}` + `/coverage`, filters, compact mode, per-block isolation, and the MCP `get_company` delegating to it. **Equity `as_of` shipped 2026-09-08 on a filed-date basis** (see the finding below); every company view is bounded and `tests/test_asof.py` proves no block leaks a later filing. | none — new endpoint; existing readers unchanged |
 | M4 | `auth.py`: keys, tiers, limits, usage; admin keys tab; OpenAPI descriptions from manifests | middleware touches every request — see §4 |
 | M5 | Flip `MCP_TOOLSET` default to `v2`; retire v1 tools after the transition window | existing connector users see new tool names |
 | M6 | Company page rebuilt from the composed endpoint (own plan; `ui-ux-design` gate) | UI only |
@@ -143,19 +143,31 @@ for buybacks) and nothing else. Capture time was never recorded, so "what the pl
 captured on that date" is not reconstructible for any filing already in the archive. That
 answers open question 3 by elimination: the basis must be **filed date** — what existed
 publicly on EDINET — and it should be documented as such rather than sold as a capture-time
-vintage.
+vintage. **Built on that basis 2026-09-08.**
 
-Implementing it is a real refactor, not an argument. Each module selects its latest filing per
-company through its own CTE (`LATEST_FILINGS`, `LATEST_OWN`, `LATEST_STAKE`, `LATEST_GOV`,
-`LATEST_FAC`/`LATEST_RENT`), and a `filed_date <= ?` ceiling means threading a parameter
-through roughly 45 call sites across six modules whose parameter lists are positional. Doing
-that while a parallel workstream is editing the same files is how the 2026-09-05 outage
-happened, so it is deliberately left as its own change. Until then the endpoint refuses
-`as_of` — a caller asking a point-in-time question gets an error, never today's numbers under
-yesterday's date.
+**As built.** The ceiling is set once per request on a contextvar (`app/asof.py`) and read by
+every filing-selection query through `asof.clause()`; the six shared CTEs became builders, and
+the ad-hoc selections in buybacks, financials, AGM votes and segments were bounded one by one.
+The count was closer to 25 sites than 45, because several modules share the CTEs.
 
-Worth recording separately: capture time **should** start being recorded now, so that vintages
-accumulating from here support the stronger semantics even though the back-history cannot.
+The design's weakness is that a query which forgets to ask returns today's filing silently, so
+correctness does not rest on having read every query. `tests/test_asof.py` runs every company
+view under a ceiling and fails if any filing in the response was filed after it — **and** fails
+if a dataset returns rows while stating no filing date to check. AGM votes passed silently that
+way until the test was hardened and the query fixed; that is the one finding that justifies the
+whole approach.
+
+One thing is withheld rather than answered wrongly: `eq_buyback_lifecycle` is a view that rolls
+every monthly filing of an authorisation into one row, so its cumulative and completion figures
+cannot be rebuilt as of a date without restating the view's own classification and risking
+drift from it. Under a ceiling it returns empty with `programs_unavailable` explaining why, and
+the monthly filings beside it carry the cumulative each filing stated at the time.
+
+**Still open:** `as_of` is served on `/api/v1/company/{code}` and through the MCP tools. The
+per-dataset `/api/v1/equity/.../company/{sec_code}` endpoints do not yet take the parameter,
+though their queries are bounded and would honour it. And capture time should start being
+recorded on new filings, so vintages accumulating from here can support the stronger claim the
+back-history cannot.
 
 ## 3. Files / areas
 

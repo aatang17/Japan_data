@@ -629,6 +629,23 @@
     no Official Statistic badge:<br>
     <code>change = value[this release] − value[previous release carrying this period]</code></li>
   </ul>
+  <p><b>Point-in-time on the company datasets works differently, and says so.</b> The macro
+  series above are versioned by <i>release</i>: the vintage store records what each ingest
+  published, so an as-of view is exactly what a reader would have seen. The filing datasets —
+  cross-shareholdings, the shareholder register, 5% filings, boards and pay, buybacks,
+  facilities, financials, AGM votes and segment notes — are versioned by <i>filing</i>, and
+  <code>?as_of=</code> on <code>/api/v1/company/{code}</code> selects the documents that
+  existed publicly on EDINET by the end of that day, by their filed date. It is <i>not</i> a
+  record of what this platform had captured by then: capture time was never recorded, so that
+  view cannot be reconstructed for filings already in the archive, and claiming otherwise would
+  be a fiction dressed as a vintage. What the market could read on a date is in any case the
+  more useful basis for testing a signal. Every response states its basis.</p>
+  <p>One figure is withheld rather than answered wrongly. The buyback programme rollup
+  aggregates every monthly filing of an authorisation into one row — cumulative spend,
+  completion, what is unspent — so under an as-of date those totals would include months filed
+  afterwards. It is returned empty, with the reason attached; the monthly filings beside it each
+  carry the cumulative figure the company stated at the time, which is the point-in-time
+  answer.</p>
   <p>Because an unchanged number carries no information, a release records only what it
   introduced or revised. An observation the Bureau withdraws is recorded explicitly as withdrawn,
   so an as-of view can distinguish “not published yet” from “published and later retracted” —

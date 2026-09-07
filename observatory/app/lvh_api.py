@@ -34,6 +34,8 @@ WHAT A CONSUMER MUST NOT ASSUME, carried in the data rather than in prose:
 """
 from fastapi import APIRouter, HTTPException, Query
 
+from . import asof
+
 from . import aliases
 from .equity_api import NAMES_NOTE, NAME_CTES, PROVENANCE, _cur, _rows
 from .filer_labels import (GROUP_NOTE, TYPE_EN, TYPE_NOTE, group_of, group_size,
@@ -113,7 +115,7 @@ def _notes(head):
 # The latest report per (issuer, filing group). A correction (訂正報告書,
 # EDINET type 360) supersedes on the surface while both rows stay queryable —
 # the same rule the rest of the platform applies to a revised vintage.
-LATEST_STAKE = """
+_LATEST_STAKE = """
     WITH ranked AS (
         SELECT f.*, coalesce(f.issuer_sec_code, f.issuer_edinet_code,
                              f.issuer_name_raw) AS issuer_key,
@@ -126,10 +128,15 @@ LATEST_STAKE = """
                             CASE WHEN f.doc_type = '360' THEN 1 ELSE 0 END DESC,
                             f.doc_id DESC) AS rn
         FROM eq_lvh_filings f
-        WHERE f.status IN ('clean','partial')
+        WHERE f.status IN ('clean','partial')/*ASOF*/
     ),
     current_stakes AS (SELECT * FROM ranked WHERE rn = 1)
 """
+
+
+def latest_stake():
+    """Latest Stake, with the point-in-time ceiling in force (app/asof.py)."""
+    return _LATEST_STAKE.replace("/*ASOF*/", asof.clause("filed_date", "f"))
 
 FILING_COLS = """
         f.doc_id, f.doc_type, f.report_type, f.change_no, f.is_special_form,
@@ -157,11 +164,11 @@ def summary():
                sum(CASE WHEN important_proposal THEN 1 ELSE 0 END) AS activist_filings,
                sum(CASE WHEN is_special_form THEN 1 ELSE 0 END) AS special_form_filings,
                median(date_diff('day', requirement_date, filed_date)) AS median_days_to_file
-        FROM eq_lvh_filings WHERE status IN ('clean','partial')""")[0]
+        FROM eq_lvh_filings WHERE status IN ('clean','partial')""" + asof.clause("filed_date"))[0]
     head["by_report_type"] = _rows(cur, """
         SELECT report_type, count(*) AS n FROM eq_lvh_filings
-        WHERE status IN ('clean','partial') GROUP BY 1 ORDER BY 2 DESC""")
-    head["current_positions"] = _rows(cur, LATEST_STAKE + """
+        WHERE status IN ('clean','partial')""" + asof.clause("filed_date") + """ GROUP BY 1 ORDER BY 2 DESC""")
+    head["current_positions"] = _rows(cur, latest_stake() + """
         SELECT count(*) AS groups,
                sum(CASE WHEN ratio_pct >= ? THEN 1 ELSE 0 END) AS at_or_above_5pct,
                count(DISTINCT issuer_key) AS issuers
@@ -232,7 +239,7 @@ def companies(q: str = Query("", description="issuer name or code substring")):
         FROM eq_lvh_filings f
         LEFT JOIN en_scode es ON es.sec_code = f.issuer_sec_code
         LEFT JOIN en_ecode ee ON ee.edinet_code = f.issuer_edinet_code
-        WHERE f.status IN ('clean','partial') AND f.issuer_sec_code IS NOT NULL
+        WHERE f.status IN ('clean','partial')""" + asof.clause("filed_date", "f") + """ AND f.issuer_sec_code IS NOT NULL
           AND (f.issuer_sec_code LIKE ? OR f.issuer_name_raw LIKE ?
                OR lower(coalesce(es.name_en, ee.name_en, '')) LIKE lower(?)"""
         + alias_sql + """)
@@ -248,7 +255,7 @@ def company(sec_code: str,
     u"""Who has filed 5% on this company — the view no single filing shows."""
     cur = _require()
     code = (sec_code or "").strip()
-    current = _rows(cur, LATEST_STAKE + NAME_CTES + """
+    current = _rows(cur, latest_stake() + NAME_CTES + """
         SELECT f.*, (f.ratio_pct >= ?) AS is_current,
                coalesce(es.name_en, ee.name_en) AS issuer_name_en
         FROM current_stakes f
@@ -279,7 +286,7 @@ def company(sec_code: str,
         SELECT """ + FILING_COLS + """
         FROM eq_lvh_filings f
         WHERE (f.issuer_sec_code = ? OR f.issuer_edinet_code = ?)
-          AND f.status IN ('clean','partial')
+          AND f.status IN ('clean','partial')""" + asof.clause("filed_date", "f") + """
         ORDER BY coalesce(f.requirement_date, f.filed_date) DESC, f.doc_id DESC
         LIMIT ?""", [code, code, history])
     head["combined_note"] = (
@@ -311,7 +318,7 @@ def holder(key: str, limit: int = Query(200, ge=1, le=1000)):
         FROM eq_lvh_holders h JOIN eq_lvh_filings f USING (doc_id)
         LEFT JOIN en_scode es ON es.sec_code = f.issuer_sec_code
         LEFT JOIN en_ecode ee ON ee.edinet_code = f.issuer_edinet_code
-        WHERE h.holder_edinet_code = ? AND f.status IN ('clean','partial')
+        WHERE h.holder_edinet_code = ? AND f.status IN ('clean','partial')""" + asof.clause("filed_date", "f") + """
         ORDER BY coalesce(f.requirement_date, f.filed_date) DESC LIMIT ?""",
         [k, limit])
     if not rows:
@@ -326,7 +333,7 @@ def holder(key: str, limit: int = Query(200, ge=1, le=1000)):
         SELECT count(*) AS reports,
                count(DISTINCT coalesce(f.issuer_sec_code, f.issuer_name_raw)) AS issuers
         FROM eq_lvh_holders h JOIN eq_lvh_filings f USING (doc_id)
-        WHERE h.holder_edinet_code = ? AND f.status IN ('clean','partial')""", [k])[0]
+        WHERE h.holder_edinet_code = ? AND f.status IN ('clean','partial')""" + asof.clause("filed_date", "f"), [k])[0]
     profile = _label({"holder_edinet_code": k, "name_ja": rows[0]["name_raw"],
                       "name_en": rows[0]["name_en"],
                       "business_ja": rows[0].get("business_ja"),
@@ -522,7 +529,7 @@ MANIFEST = {
     "keys": ["doc_id", "sec_code"],
     "frequency": "per-event",
     "vintage": {
-        "unit": "filing", "as_of_basis": "captured_at", "as_of_supported": False,
+        "unit": "filing", "as_of_basis": "filed_date", "as_of_supported": True,
         "history_from": "2026-05 (filed date; capture began then)",
         "stale_after_days": None,
     },

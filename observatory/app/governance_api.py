@@ -28,6 +28,8 @@ import re
 
 from fastapi import APIRouter, HTTPException, Query
 
+from . import asof
+
 from . import aliases
 from .equity_api import (INDUSTRY_EN, NAMES_NOTE, NAME_CTES, PROVENANCE, _cur,
                          _rows)
@@ -38,12 +40,12 @@ router = APIRouter(prefix="/api/v1/equity/governance")
 # dataset's own status column — 'no_tagged_board' and 'unsupported_form' filings
 # are real archive rows, and they are excluded from every aggregate rather than
 # counted as companies with no directors.
-LATEST_GOV = """
+_LATEST_GOV = """
     WITH scoped AS (
         SELECT g.*, coalesce(g.sec_code, g.edinet_code, g.doc_id) AS filer_key
         FROM eq_company_year g
         LEFT JOIN eq_entities ent ON ent.edinet_code = g.edinet_code
-        WHERE g.status IN ('clean','partial')
+        WHERE g.status IN ('clean','partial')/*ASOF*/
           AND (CAST(? AS VARCHAR) IS NULL
                OR CAST(year(g.period_end) AS VARCHAR) = CAST(? AS VARCHAR))
           AND (CAST(? AS VARCHAR) IS NULL
@@ -58,8 +60,13 @@ LATEST_GOV = """
     )
 """
 
+
+def latest_gov():
+    """Latest Gov, with the point-in-time ceiling in force (app/asof.py)."""
+    return _LATEST_GOV.replace("/*ASOF*/", asof.clause("filed_date", "g"))
+
 def _gov_params(year="", listed=""):
-    """(year, listed) -> the four bind values LATEST_GOV expects."""
+    """(year, listed) -> the four bind values latest_gov() expects."""
     y = (year or "").strip() or None
     l = (listed or "").strip().lower()
     l = l if l in ("true", "false") else None
@@ -230,7 +237,7 @@ def summary(year: str = Query("", description="fiscal year, e.g. 2026; default l
     """Coverage first, then the market aggregates — one filing per company."""
     cur = _require()
     p = _gov_params(year, listed)
-    head = _rows(cur, LATEST_GOV + """
+    head = _rows(cur, latest_gov() + """
         SELECT count(*)                                   AS companies,
                sum(board_size)                            AS board_seats,
                median(board_size)                         AS median_board_size,
@@ -248,7 +255,7 @@ def summary(year: str = Query("", description="fiscal year, e.g. 2026; default l
                sum(pay_rows_with_components)              AS pay_rows_with_components,
                min(period_end) AS earliest_period_end, max(period_end) AS latest_period_end
         FROM current_gov""", p)[0]
-    pay = _rows(cur, LATEST_GOV + """
+    pay = _rows(cur, latest_gov() + """
         SELECT median(CASE WHEN p.category_key IN {INSIDE} THEN p.per_head_yen END)
                    AS median_inside_director_pay_yen,
                count(DISTINCT CASE WHEN p.category_key IN {INSIDE} THEN g.doc_id END)
@@ -258,14 +265,14 @@ def summary(year: str = Query("", description="fiscal year, e.g. 2026; default l
         WHERE p.per_head_yen IS NOT NULL"""
         .replace("{INSIDE}", INSIDE_KEYS_SQL), p)[0]
     head.update(pay)
-    head["median_pay_per_officer_yen"] = _rows(cur, LATEST_GOV + """
+    head["median_pay_per_officer_yen"] = _rows(cur, latest_gov() + """
         SELECT median(v) AS v FROM (
             SELECT sum(p.total_yen) / nullif(sum(p.headcount), 0) AS v
             FROM current_gov g JOIN eq_pay_category p USING (doc_id)
             WHERE """ + NOT_OF_WHICH + """
               AND p.total_yen IS NOT NULL AND p.headcount IS NOT NULL
             GROUP BY g.doc_id)""", p)[0]["v"]
-    head["filings_pay_inconsistent"] = _rows(cur, LATEST_GOV + """
+    head["filings_pay_inconsistent"] = _rows(cur, latest_gov() + """
         SELECT count(*) AS n FROM current_gov g
         WHERE coalesce(g.named_count, 0) = 0
           AND (SELECT max(p.per_head_yen) FROM eq_pay_category p
@@ -285,7 +292,7 @@ def summary(year: str = Query("", description="fiscal year, e.g. 2026; default l
         "unlisted filers) and one on a form that carries no governance section "
         "at all (unsupported_form) contribute no directors. Aggregates here use "
         "only clean and partial filings, one per company.")
-    head["as_of_composition"] = _rows(cur, LATEST_GOV + """
+    head["as_of_composition"] = _rows(cur, latest_gov() + """
         SELECT CAST(period_end AS VARCHAR)[1:4] AS year, count(*) AS companies
         FROM current_gov GROUP BY 1 ORDER BY 1 DESC""", p)
     head["as_of_note"] = (
@@ -307,7 +314,7 @@ def company(sec_code: str,
     """One company, one filing: the board, the pay table, the named individuals."""
     cur = _require()
     code = (sec_code or "").strip()
-    rows = _rows(cur, LATEST_GOV + NAME_CTES + """
+    rows = _rows(cur, latest_gov() + NAME_CTES + """
         SELECT g.* EXCLUDE (pay_category_total_yen),
                """ + PAY_TOTAL_SQL + """ AS pay_category_total_yen,
                coalesce(n.name_en, s.name_en) AS filer_name_en, e.industry,""" + PAY_FLAG_SQL + """
@@ -427,7 +434,7 @@ def companies(q: str = Query("", description="name or code substring")):
     cur = _require()
     like = "%" + q.strip() + "%"
     alias_sql, alias_params = aliases.clause(cur, "g.sec_code", q)
-    return {"companies": _rows(cur, LATEST_GOV + NAME_CTES + """
+    return {"companies": _rows(cur, latest_gov() + NAME_CTES + """
         SELECT g.sec_code, g.filer_name AS name,
                coalesce(n.name_en, s.name_en) AS name_en, e.industry,
                CAST(year(g.period_end) AS VARCHAR) AS year, g.board_size,
@@ -537,7 +544,7 @@ def screen(metric: str = Query("oldest_boards", description="one of /screen/metr
         raise HTTPException(400, "unknown metric; choose one of %s"
                             % ", ".join(sorted(SCREENS)))
     order, where, title = SCREENS[metric]
-    rows = _rows(cur, LATEST_GOV + NAME_CTES + """
+    rows = _rows(cur, latest_gov() + NAME_CTES + """
         SELECT g.sec_code, g.filer_name, coalesce(n.name_en, s.name_en) AS filer_name_en,
                e.industry, CAST(year(g.period_end) AS VARCHAR) AS year, g.doc_id,
                g.status, g.board_size, g.avg_director_age, g.directors_70_plus,
@@ -580,7 +587,7 @@ def named(year: str = Query("", description="fiscal year; default latest filing"
           min_yen: int = Query(0, ge=0, description="floor on consolidated pay")):
     """Highest-paid named individuals — consolidated basis, see the note."""
     cur = _require()
-    rows = _rows(cur, LATEST_GOV + NAME_CTES + """
+    rows = _rows(cur, latest_gov() + NAME_CTES + """
         SELECT p.name_en, p.person_key, p.consolidated_pay_yen, p.pay_basis,
                p.on_board_at_filing, p.voluntary_below_100m,
                g.sec_code, g.filer_name, coalesce(n.name_en, s.name_en) AS filer_name_en,
@@ -624,7 +631,7 @@ MANIFEST = {
     "keys": ["sec_code", "fiscal_year"],
     "frequency": "per-filing",
     "vintage": {
-        "unit": "filing", "as_of_basis": "captured_at", "as_of_supported": False,
+        "unit": "filing", "as_of_basis": "filed_date", "as_of_supported": True,
         "history_from": "FY2021", "stale_after_days": None,
     },
     "measures": [

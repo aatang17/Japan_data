@@ -28,6 +28,8 @@ names, addresses, share counts and ratios are as filed.
 """
 from fastapi import APIRouter, HTTPException, Query
 
+from . import asof
+
 from . import aliases
 from .equity_api import NAMES_NOTE, NAME_CTES, PROVENANCE, _cur, _rows
 
@@ -80,12 +82,12 @@ CALC = {
 
 # One filing per company: the archive holds several fiscal years and a
 # cross-section that counted every filing would count a company once per year.
-LATEST_OWN = """
+_LATEST_OWN = """
     WITH scoped AS (
         SELECT o.*, coalesce(o.sec_code, o.edinet_code, o.doc_id) AS filer_key
         FROM eq_own_filings o
         LEFT JOIN eq_entities ent ON ent.edinet_code = o.edinet_code
-        WHERE o.status IN ('clean','partial')
+        WHERE o.status IN ('clean','partial')/*ASOF*/
           AND (CAST(? AS VARCHAR) IS NULL
                OR CAST(year(o.period_end) AS VARCHAR) = CAST(? AS VARCHAR))
           AND (CAST(? AS VARCHAR) IS NULL
@@ -99,6 +101,11 @@ LATEST_OWN = """
         ) WHERE rn = 1
     )
 """
+
+
+def latest_own():
+    """Latest Own, with the point-in-time ceiling in force (app/asof.py)."""
+    return _LATEST_OWN.replace("/*ASOF*/", asof.clause("filed_date", "o"))
 
 
 def _params(year="", listed=""):
@@ -144,7 +151,7 @@ def summary(year: str = Query("", description="fiscal year, e.g. 2026; default l
     u"""Coverage first, then what the registers say in aggregate."""
     cur = _require()
     p = _params(year, listed)
-    head = _rows(cur, LATEST_OWN + """
+    head = _rows(cur, latest_own() + """
         SELECT count(*)                          AS companies,
                sum(majors_rows)                  AS register_rows,
                avg(majors_ratio_filed_pct)       AS avg_top_holders_pct,
@@ -156,7 +163,7 @@ def summary(year: str = Query("", description="fiscal year, e.g. 2026; default l
                sum(shareholders_total)           AS shareholders_counted,
                min(period_end) AS earliest_period_end, max(period_end) AS latest_period_end
         FROM current_own""", p)[0]
-    head["holders_by_kind"] = _rows(cur, LATEST_OWN + """
+    head["holders_by_kind"] = _rows(cur, latest_own() + """
         SELECT h.holder_kind, count(*) AS rows,
                count(DISTINCT c.doc_id) AS companies,
                avg(h.ratio_pct) AS avg_ratio_pct
@@ -184,7 +191,7 @@ def companies(q: str = Query("", description="name or code substring")):
     cur = _require()
     like = "%" + q.strip() + "%"
     alias_sql, alias_params = aliases.clause(cur, "c.sec_code", q)
-    return {"companies": _rows(cur, LATEST_OWN + NAME_CTES + """
+    return {"companies": _rows(cur, latest_own() + NAME_CTES + """
         SELECT c.sec_code, c.filer_name AS name,
                coalesce(n.name_en, s.name_en) AS name_en, e.industry,
                CAST(year(c.period_end) AS VARCHAR) AS year, c.majors_rows,
@@ -208,7 +215,7 @@ def company(sec_code: str,
     u"""One company's register: the named holders and the whole-book split."""
     cur = _require()
     code = (sec_code or "").strip()
-    rows = _rows(cur, LATEST_OWN + NAME_CTES + """
+    rows = _rows(cur, latest_own() + NAME_CTES + """
         SELECT c.*, coalesce(es.name_en, ee.name_en) AS filer_name_en
         FROM current_own c
         LEFT JOIN en_scode es ON es.sec_code = c.sec_code
@@ -262,7 +269,7 @@ def holder(key: str,
     by_code = k.upper().startswith("E") and k[1:].isdigit()
     where = "h.holder_edinet_code = ?" if by_code else "h.name_base = ? OR h.name_raw = ?"
     params = _params(year) + ([k] if by_code else [k, k])
-    positions = _rows(cur, LATEST_OWN + NAME_CTES + """
+    positions = _rows(cur, latest_own() + NAME_CTES + """
         SELECT c.sec_code, c.edinet_code, c.filer_name,
                coalesce(es.name_en, ee.name_en) AS company_name_en,
                c.period_end, c.doc_id, h.rank, h.name_raw AS held_as,
@@ -275,7 +282,7 @@ def holder(key: str,
     # Counted over EVERY position, not the page of them returned: a holder that
     # appears in more registers than `limit` would otherwise report its own
     # page size as its number of companies.
-    totals = _rows(cur, LATEST_OWN + """
+    totals = _rows(cur, latest_own() + """
         SELECT count(*) AS top_ten_seats, avg(h.ratio_pct) AS avg_ratio_pct,
                max(h.name_base) AS name_ja
         FROM current_own c JOIN eq_major_shareholders h USING (doc_id)
@@ -317,7 +324,7 @@ def holders(year: str = Query("", description="fiscal year; default latest filin
         clauses.append("h.holder_kind = ?")
         p = p + [kind.strip()]
     where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
-    rows = _rows(cur, LATEST_OWN + NAME_CTES + """
+    rows = _rows(cur, latest_own() + NAME_CTES + """
         SELECT coalesce(h.holder_edinet_code, h.name_key, h.name_base) AS holder_key,
                -- Filers spell one name half-width and full-width; the rows
                -- merge on name_key, and min() then shows the ASCII spelling
@@ -377,7 +384,7 @@ def screen(metric: str = Query("foreign_pct", description="one of /screen/metric
     if not col:
         raise HTTPException(400, "unknown metric; see /screen/metrics")
     direction = "ASC" if (order or "").lower() == "asc" else "DESC"
-    rows = _rows(cur, LATEST_OWN + NAME_CTES + """
+    rows = _rows(cur, latest_own() + NAME_CTES + """
         SELECT c.sec_code, c.edinet_code, c.filer_name,
                coalesce(es.name_en, ee.name_en) AS filer_name_en,
                c.period_end, c.doc_id, c.status,
@@ -424,7 +431,7 @@ MANIFEST = {
     "keys": ["sec_code", "fiscal_year"],
     "frequency": "per-filing",
     "vintage": {
-        "unit": "filing", "as_of_basis": "captured_at", "as_of_supported": False,
+        "unit": "filing", "as_of_basis": "filed_date", "as_of_supported": True,
         "history_from": "FY2025", "stale_after_days": None,
     },
     "measures": [

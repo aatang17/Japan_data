@@ -19,6 +19,8 @@ import threading
 import duckdb
 from fastapi import APIRouter, HTTPException, Query
 
+from . import asof
+
 from . import aliases
 from . import basis as basis_mod
 
@@ -110,11 +112,11 @@ def health():
 # holder would appear once per year in a holder list. Every cross-sectional
 # surface therefore runs against ONE filing per company — its latest, or the
 # one covering ?year= — while the year-on-year series lives in /history.
-LATEST_FILINGS = """
+_LATEST_FILINGS = """
     WITH scoped AS (
         SELECT *, coalesce(sec_code, edinet_code, doc_id) AS filer_key
         FROM eq_filings
-        WHERE status IN ('clean','partial')
+        WHERE status IN ('clean','partial')/*ASOF*/
           AND (CAST(? AS VARCHAR) IS NULL
                OR CAST(year(period_end) AS VARCHAR) = CAST(? AS VARCHAR))
     ),
@@ -126,6 +128,11 @@ LATEST_FILINGS = """
         ) WHERE rn = 1
     )
 """
+
+
+def latest_filings():
+    """Latest Filings, with the point-in-time ceiling in force (app/asof.py)."""
+    return _LATEST_FILINGS.replace("/*ASOF*/", asof.clause("filed_date", ""))
 
 
 def _year_params(year):
@@ -608,7 +615,7 @@ def years():
 @router.get("/summary")
 def summary(year: str = Query("", description="fiscal year, e.g. 2025; default latest")):
     cur = _cur()
-    head = _rows(cur, LATEST_FILINGS + """
+    head = _rows(cur, latest_filings() + """
         SELECT count(DISTINCT f.filer_key)                        AS filers,
                count(*)                                          AS named_holdings,
                sum(h.book_value_yen)                             AS total_book_value_yen,
@@ -631,7 +638,7 @@ def summary(year: str = Query("", description="fiscal year, e.g. 2025; default l
     # stops filing, so a "latest filing" cross-section mixes reference periods.
     # Publish that spread rather than a single max date, which would read as an
     # as-of it isn't.
-    head["as_of_composition"] = _rows(cur, LATEST_FILINGS + """
+    head["as_of_composition"] = _rows(cur, latest_filings() + """
         SELECT CAST(f.period_end AS VARCHAR)[1:4] AS year,
                count(DISTINCT f.filer_key) AS filers
         FROM current_filings f JOIN eq_holdings h USING (doc_id)
@@ -672,7 +679,7 @@ def companies(q: str = Query("", description="name or code substring")):
     # The match runs AFTER the filer and held rows are grouped into one row per
     # company: filtering the two branches separately would drop a company's
     # held-by count whenever only its filer name matched the query.
-    return {"companies": _rows(cur, LATEST_FILINGS + NAME_CTES + """,
+    return {"companies": _rows(cur, latest_filings() + NAME_CTES + """,
         filers AS (
             SELECT f.sec_code, max(f.filer_name) AS name, max(n.name_en) AS name_en,
                    count(h.doc_id) AS holdings, 0 AS held_by
@@ -722,7 +729,7 @@ def company(sec_code: str):
         FROM eq_filings f
         LEFT JOIN en_ecode n ON n.edinet_code = f.edinet_code
         LEFT JOIN en_scode s ON s.sec_code = f.sec_code
-        WHERE f.sec_code = ?
+        WHERE f.sec_code = ?""" + asof.clause("filed_date", "f") + """
         ORDER BY f.period_end DESC LIMIT 1""", [sec_code])
     holdings = []
     if filing:
@@ -742,7 +749,7 @@ def company(sec_code: str):
             WHERE h.doc_id = ?
             ORDER BY h.book_value_yen DESC NULLS LAST""", [filing[0]["doc_id"]])
     # one row per holder — its latest filing — not one row per holder per year
-    holders = _rows(cur, LATEST_FILINGS + NAME_CTES + OWNERSHIP_CTE + """
+    holders = _rows(cur, latest_filings() + NAME_CTES + OWNERSHIP_CTE + """
         SELECT f.filer_name AS holder_name,
                coalesce(n.name_en, s.name_en) AS holder_name_en,
                f.sec_code AS holder_sec_code,
@@ -760,7 +767,7 @@ def company(sec_code: str):
         SELECT CAST(year(f.period_end) AS VARCHAR) AS year, f.period_end,
                count(*) AS named_holdings, sum(h.book_value_yen) AS book_value_yen
         FROM eq_holdings h JOIN eq_filings f USING (doc_id)
-        WHERE f.sec_code = ? AND f.status IN ('clean','partial')
+        WHERE f.sec_code = ? AND f.status IN ('clean','partial')""" + asof.clause("filed_date", "f") + """
         GROUP BY 1, 2 ORDER BY 1""", [sec_code])
     # The same reading, one point per annual report. Filed totals against filed
     # balance sheets, so the series is comparable year to year even though the
@@ -778,7 +785,7 @@ def company(sec_code: str):
                     THEN 100.0 * t.policy_total_yen / f.total_assets_yen END
                     AS pct_of_assets
         FROM eq_filings f JOIN tot t USING (doc_id)
-        WHERE f.sec_code = ? AND f.status IN ('clean','partial')
+        WHERE f.sec_code = ? AND f.status IN ('clean','partial')""" + asof.clause("filed_date", "f") + """
         ORDER BY 1""", [sec_code])
     reclassified, notes, flows = [], [], []
     scale, scale_entities = None, []
@@ -940,7 +947,7 @@ def history(limit: int = Query(40, ge=1, le=500)):
             FROM eq_holdings h JOIN eq_filings f USING (doc_id)
             LEFT JOIN en_ecode n ON n.edinet_code = f.edinet_code
             LEFT JOIN en_scode s ON s.sec_code = f.sec_code
-            WHERE f.status IN ('clean','partial') AND f.sec_code IS NOT NULL
+            WHERE f.status IN ('clean','partial') AND f.sec_code IS NOT NULL""" + asof.clause("filed_date", "f") + """
             GROUP BY 1, 2),
         ranked AS (
             SELECT sec_code, max(book_value_yen) AS peak FROM per_year GROUP BY 1
@@ -961,7 +968,7 @@ def history(limit: int = Query(40, ge=1, le=500)):
 def unwind(year: str = Query("", description="fiscal year, e.g. 2025; default latest")):
     """Sector unwind ranking: named policy-holding value change, per filer."""
     cur = _cur()
-    return {"filers": _rows(cur, LATEST_FILINGS + NAME_CTES + """
+    return {"filers": _rows(cur, latest_filings() + NAME_CTES + """
         SELECT f.sec_code, max(f.filer_name) AS name,
                coalesce(max(n.name_en), max(s.name_en)) AS name_en,
                max(f.period_end) AS period_end,
@@ -994,7 +1001,7 @@ def reclassified(year: str = Query("", description="fiscal year, e.g. 2025; defa
     what left the bucket against what the same filing says was actually sold.
     """
     cur = _cur()
-    filers = _rows(cur, LATEST_FILINGS + NAME_CTES + """,
+    filers = _rows(cur, latest_filings() + NAME_CTES + """,
         sold AS (
             SELECT doc_id, sum(sale_proceeds_yen) AS sale_proceeds_yen
             FROM eq_filing_flows WHERE share_class = 'listed' GROUP BY 1
@@ -1020,7 +1027,7 @@ def reclassified(year: str = Query("", description="fiscal year, e.g. 2025; defa
         ORDER BY reclassified_yen DESC NULLS LAST
         LIMIT ?
     """, _year_params(year) + [limit])
-    totals = _rows(cur, LATEST_FILINGS + """
+    totals = _rows(cur, latest_filings() + """
         SELECT count(DISTINCT r.doc_id)  AS filers,
                count(*)                  AS positions,
                sum(CASE WHEN """ + PLAUSIBLE_SQL + """ THEN r.book_value_yen END)
@@ -1079,7 +1086,7 @@ MANIFEST = {
     "keys": ["sec_code", "fiscal_year"],
     "frequency": "per-filing",
     "vintage": {
-        "unit": "filing", "as_of_basis": "captured_at", "as_of_supported": False,
+        "unit": "filing", "as_of_basis": "filed_date", "as_of_supported": True,
         "history_from": "FY2021", "stale_after_days": None,
     },
     "measures": [
@@ -1235,7 +1242,7 @@ def claim_check(figure_yen: float = Query(..., description="the figure to check,
                    coalesce(f.filer_name_en, f.filer_name) AS name,
                    t.policy_total_yen, t.listed_yen
             FROM eq_filings f JOIN tot t USING (doc_id)
-            WHERE f.sec_code = ? AND f.status IN ('clean','partial')
+            WHERE f.sec_code = ? AND f.status IN ('clean','partial')""" + asof.clause("filed_date", "f") + """
               AND t.policy_total_yen IS NOT NULL
             ORDER BY f.period_end""", [code])
         if not rows:

@@ -1,0 +1,82 @@
+============================================================================================
+FAMILY A — Japan export prices: 254 product lines, monthly, 25-day lag
+           rule as validated: 3m unit-value yoy improving 8 months, volumes growing
+============================================================================================
+  run line                                    ¥bn/yr   price  volume   status
+   11 6130105_銅・同合金の板・帯（除黄銅）                     239   36.2%   13.7%   FIRING
+   10 6130101_黄銅                                  76   37.2%    5.6%   FIRING
+    7 6130103_電気用裸銅線                              25   78.4%    2.4%   1 months short
+    7 70329_コンデンサー                              1065   17.7%    8.2%   1 months short
+    6 70305_絶縁電線及び絶縁ケーブル                         266   17.4%    7.3%   2 months short
+    5 81307_書籍・新聞・雑誌                              27   45.6%    1.2%   3 months short
+    5 61511_手道具類及び機械用工具                          515   23.8%    0.1%   3 months short
+    5 7050301_乗用車                              16612   17.7%    2.7%   3 months short
+    5 70503_自動車                                18519   17.1%    1.6%   3 months short
+    5 7012903_ローラーベアリング等                         194    7.2%    5.0%   3 months short
+    4 7032305_ＩＣ                                6067   52.5%    5.1%   4 months short
+    4 8130101_ロール状フィルム（未露光）                       65   39.4%    4.1%   4 months short
+    4 6130303_アルミニウム等の板及び帯                       136   23.5%   36.6%   4 months short
+    4 7032303_個別半導体                             1343   21.5%    6.5%   4 months short
+
+============================================================================================
+FAMILY B — Japan inventory ratios: 124 industries, monthly, 30-day lag
+           rule as validated: 3m ratio falling 4 months AND below its own 12m mean
+============================================================================================
+  as of 2026-03   run industry                                     vs 12m mean     yoy
+               7 粉末冶金製品                                            -25.8%  -31.8%  FIRING
+               7 暖房・調理等装置                                          -26.8%  -22.5%  FIRING
+               6 文具                                                 -4.4%   -1.7%  FIRING
+               6 電気機械工業                                            -12.5%   -7.8%  FIRING
+               6 電池                                                -38.3%  -38.6%  FIRING
+               5 紙                                                  -5.7%    4.2%  FIRING
+               5 繊維                                                 -8.1%   -2.1%  FIRING
+               5 電気計測器                                             -26.2%  -25.2%  FIRING
+               3 分析機器・試験機                                           -5.1%    5.3%  below mean, no run
+               3 無線通信機器                                            -12.4%   13.9%  below mean, no run
+               2 糖類                                                 +8.3%   -0.7%  
+               2 集積回路（ＩＣ）                                           +7.8%    4.4%  
+               2 家事用機器                                              +5.6%   15.1%  
+               2 事務用機器                                              +1.9%    3.3%  
+
+============================================================================================
+FAMILY C — Taiwan monthly revenue baskets: every listed company, 10-day lag
+           rule as validated: 3m revenue yoy improving 4 months AND >= 0
+============================================================================================
+  as of 2026-07
+  run basket                     members                              3m yoy  12m yoy  status
+   18 Memory                     Nanya, Winbond, Macronix             361.3%   205.4%  FIRING
+    8 CCL / PCB materials        Elite Material                       121.9%    70.6%  FIRING
+    5 ASIC / analog design       Alchip, Silergy, Realtek              31.7%    -2.2%  FIRING
+    4 Server ODM                 Quanta, Inventec, Wiwynn              77.8%    60.8%  FIRING
+    3 Power & thermal            Delta, AVC                            51.4%    50.7%  1 months short
+    3 Foundry                    TSMC, UMC, PSMC                       44.9%    30.6%  1 months short
+    3 Passives / MLCC            Yageo, Walsin, Holy Stone             41.0%    21.8%  1 months short
+    3 ABF substrates             Unimicron, Nan Ya PCB, Kinsus         38.4%    27.1%  1 months short
+    3 Test & packaging (OSAT)    ASE, Powertech, KYEC                  34.1%    19.7%  1 months short
+    0 Fab tools & build-out      Chroma, Kinik, United Integrated      76.3%    68.3%  4 months short
+
+  Fire history per basket (k=4 rule, since 2016):
+    Passives / MLCC            2016-01 2016-08 2017-09 2018-03 2018-09 2020-04 2020-10 2024-01 2025-11
+    ABF substrates             2017-09 2018-08 2019-06 2020-02 2021-02 2021-08 2022-02 2024-06 2026-01
+    CCL / PCB materials        2016-05 2017-01 2018-08 2019-06 2019-12 2020-11 2023-08 2024-02 2025-02 2026-03
+    Foundry                    2022-02 2024-05 2025-02
+    Test & packaging (OSAT)    2020-05 2021-01 2021-09 2024-02 2025-03 2025-11
+    Server ODM                 2020-06 2024-04 2024-10 2026-02
+    Power & thermal            2017-11 2019-05 2020-10 2022-02 2022-09 2024-11 2025-10
+    Memory                     2016-09 2017-05 2017-11 2018-06 2020-01 2020-12 2021-07 2024-01 2025-06 2025-12 2026-06
+    ASIC / analog design       2016-01 2017-09 2019-03 2019-12 2020-09 2023-10 2026-06
+    Fab tools & build-out      2017-11 2018-06 2020-05 2022-07 2025-03 2025-09 2026-04
+
+============================================================================================
+FAMILY D — US manufacturing orders: 7 industry cells, monthly, 35-day lag, ALFRED vintages
+           rule as validated: (orders yoy − inventories yoy) improving 2 months AND > 0
+============================================================================================
+  as of 2026-07
+  run industry cell                     orders−inv gap  orders yoy  status
+    6 Metals & machinery (33)                   +12.6pp       15.5%  FIRING
+    4 Food/textiles (NAICS 311-16)              +10.0pp       18.4%  FIRING
+    0 Chemicals/paper/plastics (32)             +16.3pp       11.1%  2 months short
+    0 Computers & electronics (334)             +13.3pp       15.2%  2 months short
+    0 Total manufacturing                        +4.7pp        6.6%  2 months short
+    0 Transport equipment (336)                  -5.4pp       -4.6%  gap negative
+    0 Core capex (nondef ex-air)                -18.0pp       -8.5%  gap negative

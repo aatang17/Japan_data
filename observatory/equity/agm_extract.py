@@ -87,7 +87,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import duckdb
 
 from extract import (LocalSource, S3Source, load_codelist, compact, DB_PATH,
-                     incremental_window, record_run, seek_key)
+                     incremental_window, record_run, seek_key,
+                     select_pending, catch_up_start, CATCH_UP_DAYS)
 from facility_extract import grid_of, norm, to_num
 
 PARSER_VERSION = "agm-1"
@@ -584,15 +585,21 @@ def main():
                          "refresh uses. A DB with no recorded run is built "
                          "in full, so this is always safe to pass.")
     ap.add_argument("--no-compact", action="store_true")
+    ap.add_argument("--catch-up", type=int, default=CATCH_UP_DAYS,
+                    metavar="DAYS",
+                    help="on a --new-only run, also read the DAYS deepest archive "
+                         "days below this extractor's own floor, so a "
+                         "database built forward from a watermark fills in its "
+                         "own history a slice at a time. 0 (default) is "
+                         "forward only.")
     args = ap.parse_args()
 
     src = S3Source(args.workers) if args.source == "s3" else LocalSource()
     since, have = (incremental_window(args.db, "agm-votes", "eq_agm_meetings")
                    if args.new_only else (None, set()))
-    filings = local_t1() if src.name == "local" else s3_t1(src, seek_key(since))
+    filings = local_t1() if src.name == "local" else s3_t1(src, catch_up_start(since, args.catch_up))
     through = max((r["date"] for r in filings.values()), default=None)
-    pending = dict(filings) if since is None else {
-        d: r for d, r in filings.items() if r["date"] >= since and d not in have}
+    pending = select_pending(filings, since, have, args.catch_up)
     if since is not None:
         print("incremental: %d of %d archived documents are new since %s"
               % (len(pending), len(filings), since))

@@ -33,7 +33,7 @@ import datetime
 import importlib
 import json
 
-from . import api, registry
+from . import api, asof, registry
 from .tools import (DEFAULT_MONTHS, POINT_BUDGET, _cite, _fail, _record,
                     _release_of, _trim_points, _window_start, call_api)
 
@@ -228,13 +228,7 @@ def _macro_vintage(dataset, as_of):
 
 
 def _equity_vintage(as_of):
-    v = {"unit": "filing", "basis": "captured_at", "as_of": None,
-         "note": "Latest captured filing per company."}
-    if as_of:
-        v["as_of_ignored"] = as_of.isoformat()
-        v["note"] = ("as_of is not yet supported for filing-based datasets; the "
-                     "latest captured filings are served.")
-    return v
+    return asof.vintage()
 
 
 def _cite_for(m, **params):
@@ -497,7 +491,8 @@ def get_company(code, dataset="", as_of="", limit=ROW_BUDGET):
                                                if "company" in registry.get(i)["capabilities"])))
         if not registry.available(dataset):
             return _unavailable(m)
-        raw, missing = _company_block(m, code, p_as_of, "get_company")
+        with asof.scope(p_as_of):
+            raw, missing = _company_block(m, code, p_as_of, "get_company")
         if missing:
             return _dumps(_envelope("get_company", m, None, vintage=_equity_vintage(p_as_of),
                                     cite=_cite_for(m, sec_code=code), missing=missing,
@@ -512,7 +507,7 @@ def get_company(code, dataset="", as_of="", limit=ROW_BUDGET):
     # disagree about what a company looks like.
     from . import company_api
     try:
-        doc = company_api.compose(code, compact=True)
+        doc = company_api.compose(code, compact=True, as_of=p_as_of)
     except Exception as exc:  # noqa: BLE001
         return _fail(_detail(exc))
     doc["tool"] = "get_company"
@@ -609,7 +604,8 @@ def screen(dataset, sort="", filters=None, limit=ROW_BUDGET, as_of=""):
     if fn is None:
         return _fail("%s declares screens but none are bound yet." % dataset)
     try:
-        raw = fn(sort, filters or {}, limit)
+        with asof.scope(p_as_of):
+            raw = fn(sort, filters or {}, limit)
     except Exception as exc:  # noqa: BLE001
         if _status(exc) == 503:
             return _unavailable(m)
@@ -705,8 +701,8 @@ def descriptors():
          "inputSchema": {"type": "object", "properties": {
              "code": _str("Securities code, e.g. 7974."),
              "dataset": _str("Dataset id for the full view.", enum=company_ids),
-             "as_of": _str("YYYY-MM-DD. Not yet applied to filing-based datasets; "
-                           "the response says when it was ignored."),
+             "as_of": _str("YYYY-MM-DD: the filings that existed on EDINET by "
+                           "that date. Applies to the whole answer or none of it."),
              "limit": {"type": "integer",
                        "description": "Rows per table in the full view (default 50, max 100)."}},
              "required": ["code"]},
@@ -740,7 +736,7 @@ def descriptors():
              "sort": _str("Screen id from describe_dataset; default the first."),
              "filters": {"type": "object", "description": "Field → value filters."},
              "limit": {"type": "integer", "description": "Rows (default 50, max 100)."},
-             "as_of": _str("YYYY-MM-DD. Not yet applied to filing-based datasets.")},
+             "as_of": _str("YYYY-MM-DD: the filings that existed on EDINET by that date.")},
              "required": ["dataset"]},
          "annotations": ro},
     ]

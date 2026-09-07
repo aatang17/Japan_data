@@ -304,11 +304,33 @@ narrow it. Cold is about 230 ms and repeat hits come from the release cache. It 
 **not** in `WARM_ENDPOINTS`: the cache holds 64 entries and warm-up already fills 42, so
 priming companies would evict the dataset payloads every page needs.
 
-`?as_of=` is **refused with a 400**, on purpose. These datasets are versioned by filing, and
-the archive records when a document was *filed* but not when this platform captured it, so a
-point-in-time view can only be built on `filed_date` — and that ceiling is not implemented yet.
-Returning today's filings under a historical date would be silently wrong, which is worse than
-unsupported. Macro series already serve `?as_of=` on `/api/v1/{dataset}/observations`.
+`?as_of=YYYY-MM-DD` serves the filings that existed publicly on EDINET by the end of that day
+— Toyota as of 2025-07-01 returns its FY2025 annual report, not the FY2026 one filed since,
+and buybacks and facilities disappear entirely because those archives begin later. The ceiling
+applies to the whole document or to none of it: a company view answering half its blocks as of
+a past date and half as of today would be worse than refusing.
+
+**The basis is the filed date, and that is a decision.** The plan specified "what the platform
+had captured on that date". No capture timestamp exists on any equity table — they record when
+a document was *filed*, and nothing records when we fetched it — so capture-time semantics are
+not reconstructible for a single filing already in the archive. `as_of` therefore means what
+the market could read by that date, which is the more useful basis for a backtest anyway.
+Every response says so in its `vintage` block. **Capture time should start being recorded now**,
+so vintages accumulating from here can support the stronger claim.
+
+One thing is withheld under a ceiling rather than answered wrongly: the buyback programme
+rollup (`eq_buyback_lifecycle`) aggregates every monthly filing of an authorisation, so its
+cumulative and completion figures would describe a future the response is not allowed to know.
+It is returned empty with `programs_unavailable` saying why; `months` carries each filing with
+the cumulative figure it stated at the time, which is the point-in-time answer.
+
+How the ceiling travels is worth knowing before editing a query: it is set once per request on
+a contextvar (`app/asof.py`) and read by every filing-selection query. Nothing about that makes
+a query which forgets to ask fail loudly — it just quietly returns today's filing. The
+guarantee is `tests/test_asof.py`, which runs every company view under a ceiling and fails if
+any filing in the response was filed after it, **and** fails if a dataset returns rows while
+stating no filing date to check. AGM votes passed silently that way until it was made to carry
+one.
 
 ### The dataset registry
 

@@ -32,6 +32,8 @@ them so the literal /equity/facilities/ paths win.
 """
 from fastapi import APIRouter, HTTPException, Query
 
+from . import asof
+
 from . import aliases
 from . import facility_labels
 from .equity_api import NAME_CTES, _cur, _rows
@@ -78,11 +80,11 @@ CALC = {
 # One filing per company — the archive holds several fiscal years and summing
 # across them would overstate everything. Cross-sections use the latest clean
 # filing (or the one covering ?year=).
-LATEST_FAC = """
+_LATEST_FAC = """
     WITH scoped AS (
         SELECT *, coalesce(sec_code, edinet_code, doc_id) AS filer_key
         FROM eq_fac_filings
-        WHERE status = 'clean'
+        WHERE status = 'clean'/*ASOF*/
           AND (CAST(? AS VARCHAR) IS NULL
                OR CAST(year(period_end) AS VARCHAR) = CAST(? AS VARCHAR))
     ),
@@ -94,6 +96,11 @@ LATEST_FAC = """
         ) WHERE rn = 1
     )
 """
+
+
+def latest_fac():
+    """Latest Fac, with the point-in-time ceiling in force (app/asof.py)."""
+    return _LATEST_FAC.replace("/*ASOF*/", asof.clause("filed_date", ""))
 
 
 def _year_params(year):
@@ -127,7 +134,7 @@ def summary(year: str = Query("", description="fiscal year, e.g. 2026; default l
     """Coverage first, then the aggregates — one clean filing per company."""
     cur = _require()
     p = _year_params(year)
-    head = _rows(cur, LATEST_FAC + """
+    head = _rows(cur, latest_fac() + """
         SELECT count(*)                     AS companies,
                sum(n_rows)                  AS facility_rows,
                sum(n_geocoded)              AS facility_rows_geocoded,
@@ -154,7 +161,7 @@ def map_points(year: str = Query("", description="fiscal year; default latest"))
     can be null — missing is missing, never zero."""
     cur = _require()
     p = _year_params(year)
-    pts = _rows(cur, LATEST_FAC + NAME_CTES + """
+    pts = _rows(cur, latest_fac() + NAME_CTES + """
         SELECT f.sec_code, coalesce(es.name_en, f.filer_name) AS company,
                x.name, x.location, x.muni_name, x.muni_code, x.lat, x.lng,
                x.land_yen, x.trust_land_yen, x.land_area_m2, x.total_yen,
@@ -209,7 +216,7 @@ def ranking(metric: str = Query("land_area",
              if metric == "bs_gap" else
              "f.fac_land_area_m2 > 0" +
              (" AND f.fac_land_book_yen > 0" if metric == "yen_per_m2" else ""))
-    rows = _rows(cur, LATEST_FAC + NAME_CTES + """
+    rows = _rows(cur, latest_fac() + NAME_CTES + """
         SELECT f.sec_code, coalesce(es.name_en, f.filer_name) AS company,
                f.period_end, f.fac_land_book_yen AS land_book_yen,
                f.fac_land_area_m2 AS land_area_m2,
@@ -242,11 +249,11 @@ RENTAL_PROVENANCE = {
              "disclose investment property elsewhere and are not covered."),
 }
 
-LATEST_RENT = """
+_LATEST_RENT = """
     WITH scoped_r AS (
         SELECT *, coalesce(sec_code, edinet_code, doc_id) AS filer_key
         FROM eq_rental_filings
-        WHERE status = 'clean'
+        WHERE status = 'clean'/*ASOF*/
           AND (CAST(? AS VARCHAR) IS NULL
                OR CAST(year(period_end) AS VARCHAR) = CAST(? AS VARCHAR))
     ),
@@ -258,6 +265,11 @@ LATEST_RENT = """
         ) WHERE rn = 1
     )
 """
+
+
+def latest_rent():
+    """Latest Rent, with the point-in-time ceiling in force (app/asof.py)."""
+    return _LATEST_RENT.replace("/*ASOF*/", asof.clause("filed_date", ""))
 
 
 def _require_rental():
@@ -274,7 +286,7 @@ def _require_rental():
 def rental_summary(year: str = Query("")):
     """Coverage and totals for the rental-property fair-value dataset."""
     cur = _require_rental()
-    head = _rows(cur, LATEST_RENT + """
+    head = _rows(cur, latest_rent() + """
         SELECT count(*)               AS companies,
                sum(carrying_yen)      AS carrying_yen,
                sum(fair_value_yen)    AS fair_value_yen,
@@ -309,7 +321,7 @@ def rental_ranking(metric: str = Query("unrealized",
              "ratio": "fair_to_book DESC"}.get(metric)
     if not order:
         raise HTTPException(400, "metric must be unrealized, fair_value or ratio")
-    rows = _rows(cur, LATEST_RENT + NAME_CTES + """
+    rows = _rows(cur, latest_rent() + NAME_CTES + """
         SELECT r.sec_code, coalesce(es.name_en, r.filer_name) AS company,
                r.period_end, r.consolidated,
                r.carrying_yen, r.fair_value_yen,
@@ -376,7 +388,8 @@ def company(sec_code: str, year: str = Query("")):
                n_rows, n_geocoded, row_gate_ok, row_gate_bad, row_gate_unverified,
                sha256_t1, parser_version
         FROM eq_fac_filings
-        WHERE sec_code = ? AND status IN ('clean','partial')
+        WHERE sec_code = ? AND status IN ('clean','partial')"""
+          + asof.clause("filed_date") + """
           AND (CAST(? AS VARCHAR) IS NULL
                OR CAST(year(period_end) AS VARCHAR) = CAST(? AS VARCHAR))
         ORDER BY period_end DESC LIMIT 1""", [sec_code[:4]] + p)
@@ -412,7 +425,7 @@ def company(sec_code: str, year: str = Query("")):
                carrying_yen, fair_value_yen,
                carrying_prior_yen, fair_value_prior_yen
         FROM eq_rental_filings
-        WHERE sec_code = ? AND status = 'clean'
+        WHERE sec_code = ? AND status = 'clean'""" + asof.clause("filed_date") + """
           AND (CAST(? AS VARCHAR) IS NULL
                OR CAST(year(period_end) AS VARCHAR) = CAST(? AS VARCHAR))
         ORDER BY period_end DESC LIMIT 1""", [sec_code[:4]] + p)
@@ -444,7 +457,7 @@ MANIFEST = {
     "keys": ["sec_code", "fiscal_year"],
     "frequency": "per-filing",
     "vintage": {
-        "unit": "filing", "as_of_basis": "captured_at", "as_of_supported": False,
+        "unit": "filing", "as_of_basis": "filed_date", "as_of_supported": True,
         "history_from": "FY2025", "stale_after_days": None,
     },
     "measures": [

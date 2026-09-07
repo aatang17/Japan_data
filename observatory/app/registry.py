@@ -75,7 +75,9 @@ SHAPES = ("series", "company", "events")
 TRUST = ("official", "derived")          # "model" is reserved; refused today
 FREQUENCIES = ("daily", "monthly", "annual", "per-filing", "per-event")
 VINTAGE_UNITS = ("release", "filing")
-AS_OF_BASES = ("release-in-force", "captured_at")
+# "captured_at" is deliberately absent: capture time was never recorded,
+# so no dataset can honestly claim it. See app/asof.py.
+AS_OF_BASES = ("release-in-force", "filed_date")
 CAPABILITIES = ("series", "company", "screen", "search", "summary")
 
 # Units a measure may carry. "%" is a share of a level; "pp" is a change of a

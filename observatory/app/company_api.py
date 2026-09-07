@@ -31,7 +31,7 @@ import datetime
 
 from fastapi import APIRouter, HTTPException, Query
 
-from . import registry
+from . import asof, registry
 
 router = APIRouter(prefix="/api/v1/company")
 
@@ -41,16 +41,6 @@ router = APIRouter(prefix="/api/v1/company")
 DEFAULT_LIMIT = 50
 MAX_LIMIT = 500
 CODE_MAX = 8
-
-AS_OF_UNSUPPORTED = (
-    "as_of is not available on this endpoint yet. The company datasets are "
-    "versioned by filing, and the archive records when each document was FILED "
-    "but not when this platform captured it, so a point-in-time view can only "
-    "be built on filed_date — that ceiling is not implemented yet. Rather than "
-    "return today's filings under a historical date, this refuses. Macro "
-    "series already serve ?as_of= on /api/v1/{dataset}/observations."
-)
-
 
 def _fmt(v):
     if isinstance(v, (datetime.date, datetime.datetime)):
@@ -162,8 +152,19 @@ def _read(code, mid, manifest, limit, compact):
 
 
 def compose(code, datasets=None, sections=None, compact=False,
-            limit=DEFAULT_LIMIT, coverage_only=False):
-    """The composed document. Every block independent; absence reported."""
+            limit=DEFAULT_LIMIT, coverage_only=False, as_of=None):
+    """The composed document. Every block independent; absence reported.
+
+    `as_of` applies to the whole document or to none of it: a company view
+    answering half its blocks as of a past date and half as of today would be
+    worse than refusing, so the ceiling is set once here and every block reads
+    it (app/asof.py).
+    """
+    with asof.scope(as_of):
+        return _compose(code, datasets, sections, compact, limit, coverage_only)
+
+
+def _compose(code, datasets, sections, compact, limit, coverage_only):
     wanted = [i for i in registry.ids()
               if "company" in registry.get(i)["capabilities"]]
     if datasets:
@@ -212,7 +213,8 @@ def compose(code, datasets=None, sections=None, compact=False,
     coverage = {"present": present, "missing": missing, "errors": errors,
                 "datasets_with_a_company_view": len(wanted)}
     if coverage_only:
-        return {"code": code, "company": identity, "coverage": coverage}
+        return {"code": code, "company": identity, "coverage": coverage,
+                "vintage": asof.vintage()}
 
     by_section = []
     for section in registry.SECTIONS:
@@ -225,11 +227,7 @@ def compose(code, datasets=None, sections=None, compact=False,
         "sections": by_section,
         "datasets": blocks,
         "coverage": coverage,
-        "vintage": {"unit": "filing", "basis": "latest captured filing per company",
-                    "as_of": None,
-                    "note": ("Each block is that dataset's most recent accepted filing "
-                             "for this company; the block's own fields give its doc_id, "
-                             "period end and filed date.")},
+        "vintage": asof.vintage(),
         "provenance": {
             "trust": "official",
             "note": ("Every figure is as filed. Values calculated by this platform are "
@@ -249,9 +247,7 @@ def _check(code, as_of):
     code = (code or "").strip()
     if not code or len(code) > CODE_MAX:
         raise HTTPException(400, "Give a securities code, e.g. 7203.")
-    if as_of:
-        raise HTTPException(400, AS_OF_UNSUPPORTED)
-    return code
+    return code, asof.parse(as_of)
 
 
 @router.get("/{code}")
@@ -262,22 +258,24 @@ def company(code: str,
                                  description="1 = facts and row counts only, no tables"),
             limit: int = Query(DEFAULT_LIMIT, ge=1, le=MAX_LIMIT,
                                description="rows per table"),
-            as_of: str = Query("", description="not yet supported here — see the error")):
+            as_of: str = Query("", description="YYYY-MM-DD: the filings that "
+                                                "existed on EDINET by that date")):
     """Every dataset's view of one company, in section order.
 
     A dataset with no rows for this company is listed under `coverage.missing`
     with its reason, never dropped and never zero; a dataset that fails is an
     `errors` entry and costs the others nothing.
     """
-    code = _check(code, as_of)
+    code, ceiling = _check(code, as_of)
     return compose(code, datasets=_csv(datasets), sections=_csv(sections),
-                   compact=bool(compact), limit=limit)
+                   compact=bool(compact), limit=limit, as_of=ceiling)
 
 
 @router.get("/{code}/coverage")
 def coverage(code: str,
-             as_of: str = Query("", description="not yet supported here — see the error")):
+             as_of: str = Query("", description="YYYY-MM-DD: coverage as it "
+                                                 "stood on that date")):
     """Which datasets hold this company and which do not — the matrix alone,
     for deciding what to fetch before fetching it."""
-    code = _check(code, as_of)
-    return compose(code, coverage_only=True)
+    code, ceiling = _check(code, as_of)
+    return compose(code, coverage_only=True, as_of=ceiling)

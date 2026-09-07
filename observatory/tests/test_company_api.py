@@ -35,12 +35,19 @@ class RoutingTest(unittest.TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.json()["code"], "7203")
 
-    def test_as_of_refuses_rather_than_returning_today(self):
-        """Answering a point-in-time question with current filings would be
-        silently wrong; refusing is not."""
-        r = self.client.get("/api/v1/company/7203?as_of=2025-07-01")
-        self.assertEqual(r.status_code, 400)
-        self.assertIn("filed_date", r.json()["detail"])
+    def test_as_of_states_its_basis(self):
+        """Point-in-time is served on filed dates, and says so — see
+        tests/test_asof.py for the proof that no block leaks a later filing."""
+        r = self.client.get("/api/v1/company/7203?as_of=2025-07-01&compact=1")
+        self.assertEqual(r.status_code, 200)
+        v = r.json()["vintage"]
+        self.assertEqual(v["as_of"], "2025-07-01")
+        self.assertEqual(v["basis"], "filed_date")
+        self.assertIn("EDINET", v["note"])
+
+    def test_bad_as_of_is_a_400(self):
+        self.assertEqual(
+            self.client.get("/api/v1/company/7203?as_of=last-july").status_code, 400)
 
     def test_bad_code_and_unknown_filters(self):
         self.assertEqual(self.client.get("/api/v1/company/ ").status_code, 400)

@@ -501,22 +501,66 @@ def incremental_window(db_path, extractor, table, lookback=LOOKBACK_DAYS):
         con.close()
 
 
-def record_run(db_path, extractor, through_date, docs_seen, parser_version):
-    """Stamp how far this extractor has read the archive.
+def record_run(db_path, extractor, through_date, docs_seen, parser_version,
+               back_to=None):
+    """Stamp how far this extractor has read the archive, forward and back.
 
     Written only after the extraction loop completes, so a run that dies
-    half-way leaves the previous watermark standing and the next run redoes
+    half-way leaves the previous watermarks standing and the next run redoes
     the work rather than skipping it.
+
+    `back_to` is the earliest archive day this extractor has now read whole.
+    It is recorded rather than derived from the stored rows, because the two
+    drift: a day the run read may hold nothing this extractor keeps, so the
+    deepest STORED row can sit above the deepest day READ, and a floor taken
+    from the rows then steps over the days in between. That is not a
+    theoretical worry — deriving it left eight March days unread in testing.
     """
     if not through_date:
         return
     con = duckdb.connect(db_path)
     try:
         con.execute(STATE_DDL)
+        cols = {r[1] for r in con.execute(
+            "PRAGMA table_info('eq_extract_runs')").fetchall()}
+        if "back_to_date" not in cols:      # additive: an older database gains
+            con.execute(                    # the column and keeps its rows
+                "ALTER TABLE eq_extract_runs ADD COLUMN back_to_date DATE")
+        if back_to is None:                 # forward-only run: leave the floor
+            back_to = con.execute(          # exactly where it was
+                "SELECT back_to_date FROM eq_extract_runs WHERE extractor = ?",
+                [extractor]).fetchone()
+            back_to = back_to[0] if back_to else None
         con.execute(
-            "INSERT OR REPLACE INTO eq_extract_runs VALUES (?,?,?,?,?)",
+            "INSERT OR REPLACE INTO eq_extract_runs "
+            "(extractor, through_date, docs_seen, parser_version, ran_at, "
+            " back_to_date) VALUES (?,?,?,?,?,?)",
             [extractor, through_date, docs_seen, parser_version,
-             _dt.datetime.now()])
+             _dt.datetime.now(), back_to])
+    finally:
+        con.close()
+
+
+def recorded_floor(db_path, extractor):
+    """The earliest archive day this extractor has read whole, or None."""
+    if not os.path.exists(db_path):
+        return None
+    con = duckdb.connect(db_path, read_only=True)
+    try:
+        names = {r[0] for r in con.execute(
+            "SELECT table_name FROM duckdb_tables()").fetchall()}
+        if "eq_extract_runs" not in names:
+            return None
+        cols = {r[1] for r in con.execute(
+            "PRAGMA table_info('eq_extract_runs')").fetchall()}
+        if "back_to_date" not in cols:
+            return None
+        row = con.execute(
+            "SELECT back_to_date FROM eq_extract_runs WHERE extractor = ?",
+            [extractor]).fetchone()
+        return row[0].isoformat() if row and row[0] else None
+    except Exception:                                        # noqa: BLE001
+        return None
     finally:
         con.close()
 
@@ -524,6 +568,90 @@ def record_run(db_path, extractor, through_date, docs_seen, parser_version):
 def seek_key(since):
     """The S3 StartAfter for an incremental window, or None for a full pass."""
     return ("docs/%s" % since) if since else None
+
+
+# How many archive DAYS a nightly run may read BELOW its own floor, to fill in
+# history it was never given. Zero — the default, and what a laptop run does —
+# means "forward only", exactly as before.
+#
+# Why this exists. Every extractor here resumes from a watermark, so it only
+# ever walks forward. A database built forward from the day the extractor was
+# written is therefore permanently as shallow as its first run, however deep
+# the archive behind it is, and nothing complains: the 5% filings sat at
+# fourteen weeks with 74,000 filings in the bucket, and the register and the
+# financials at one fiscal year with five in the bucket. The alternative —
+# extract the history offline and ship the database in the image — is what
+# left the equity data four weeks stale in August 2026, because it only
+# happens when somebody remembers. This makes depth something the container
+# earns on its own, a slice at a time, on the same clock as everything else.
+#
+# Days, not documents, because the archive is keyed by day and the work per
+# day is roughly constant per extractor: about 14 annual reports and 58 5%
+# filings a day across the five years held. Forty days a night is therefore
+# ~10 minutes of the refresh window for every extractor put together, and
+# reaches the floor of a five-year archive in about a month.
+CATCH_UP_DAYS = int(os.environ.get("EQUITY_CATCH_UP_DAYS", "0"))
+
+
+def catch_up_start(since, catch_up_days):
+    """StartAfter for the object listing.
+
+    An incremental run seeks straight to its forward window. A catch-up run
+    cannot: the days it wants are BELOW that window, so it needs the whole
+    listing. That is 182k keys, but EDINET_LISTING_CACHE holds the answer for
+    an hour and every extractor in the nightly refresh reuses it, so the cost
+    is paid once a night rather than once an extractor.
+    """
+    return None if catch_up_days else seek_key(since)
+
+
+def select_pending(filings, since, have, catch_up_days=0, floor=None):
+    """Which archived filings this run should process, and the new floor.
+
+    Forward: everything archived on or after `since` that is not already
+    stored — the nightly incremental, unchanged.
+
+    Backward: the `catch_up_days` deepest archive days at or below `floor`,
+    this extractor's own recorded floor. WHOLE DAYS, so a floor never lands in
+    the middle of one, and the floor day itself is re-offered every run on
+    purpose: a run that died part-way through it stored some of its documents,
+    and if the floor simply stepped past, nothing would come back for the
+    rest. Documents already stored cost a set lookup, so re-offering a
+    finished day is free and a day holding nothing this extractor keeps costs
+    nothing.
+
+    Returns (pending, new_floor). `new_floor` is None when nothing was read
+    backward, which tells record_run to leave the recorded floor alone.
+    """
+    if since is None:                          # full pass: everything, as before
+        days = [r["date"] for r in filings.values()]
+        return dict(filings), (min(days) if days else None)
+    pending = {d: r for d, r in filings.items()
+               if r["date"] >= since and d not in have}
+    if not catch_up_days or not have:
+        return pending, None
+    if floor is None:                          # first catch-up on a database
+        mine = [r["date"] for d, r in filings.items() if d in have]
+        if not mine:
+            return pending, None
+        floor = min(mine)
+    days = sorted({r["date"] for r in filings.values() if r["date"] <= floor},
+                  reverse=True)
+    take = days[:catch_up_days]
+    if not take:
+        print("catch-up: nothing below the floor %s — this dataset is now as "
+              "deep as the archive" % floor)
+        return pending, floor
+    take_set = set(take)
+    added = 0
+    for d, r in filings.items():
+        if r["date"] in take_set and d not in have:
+            pending[d] = r
+            added += 1
+    new_floor = min(take)
+    print("catch-up: %d archive days below the floor %s, back to %s "
+          "(%d filings not yet read)" % (len(take), floor, new_floor, added))
+    return pending, new_floor
 
 
 class LocalSource(object):
@@ -983,6 +1111,13 @@ def main():
                          "recorded run (plus a lookback); what the nightly "
                          "refresh uses. A DB with no recorded run is built in "
                          "full, so this is always safe to pass.")
+    ap.add_argument("--catch-up", type=int, default=CATCH_UP_DAYS,
+                    metavar="DAYS",
+                    help="on a --new-only run, also read the DAYS deepest "
+                         "archive days below this extractor's own floor, so a "
+                         "database built forward from a watermark fills in its "
+                         "own history a slice at a time. 0 (default) is "
+                         "forward only.")
     args = ap.parse_args()
     db_path = args.db
 
@@ -1002,10 +1137,11 @@ def main():
     since, have = (incremental_window(db_path, "cross-shareholdings",
                                       "eq_company_year")
                    if args.new_only else (None, set()))
-    filings = src.filings(seek_key(since))
+    filings = src.filings(catch_up_start(since, args.catch_up))
     through = max((r["date"] for r in filings.values()), default=None)
-    pending = dict(filings) if since is None else {
-        d: r for d, r in filings.items() if r["date"] >= since and d not in have}
+    pending, catch_up_floor = select_pending(
+        filings, since, have, args.catch_up,
+        recorded_floor(db_path, "cross-shareholdings"))
     if since is not None:
         print("incremental: %d of %d archived filings are new since %s"
               % (len(pending), len(filings), since))

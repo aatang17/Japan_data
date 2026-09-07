@@ -31,6 +31,8 @@ import re
 
 from fastapi import APIRouter, HTTPException, Query
 
+from . import asof
+
 from . import aliases
 from .equity_api import NAME_CTES, _cur, _rows
 
@@ -244,18 +246,23 @@ def _label_en(row):
 
 
 # ---- filings ---------------------------------------------------------------
-FILINGS_SQL = """
+_FILINGS_SQL = """
     SELECT f.doc_id, f.edinet_code, f.sec_code, f.filer_name, f.period_end,
            f.filed_date, f.status, f.detail, f.accounting_standard, f.consolidated,
            f.facts, f.statements, f.sha256, f.parser_version
     FROM eq_fin_filings f
-    WHERE f.sec_code = ? AND f.status IN ('clean','partial')
+    WHERE f.sec_code = ? AND f.status IN ('clean','partial')/*ASOF*/
     ORDER BY f.period_end DESC, f.filed_date DESC
 """
 
 
+def filings_sql():
+    """This company's filings, with the point-in-time ceiling in force."""
+    return _FILINGS_SQL.replace("/*ASOF*/", asof.clause("filed_date", "f"))
+
+
 def _filings(cur, code):
-    rows = _rows(cur, FILINGS_SQL, [code])
+    rows = _rows(cur, filings_sql(), [code])
     if not rows:
         raise HTTPException(404, "no extracted financial filing for %s" % code)
     return rows
@@ -521,7 +528,7 @@ def facts(sec_code: str,
         SELECT f.doc_id, g.period_end, g.filed_date, f.basis, f.year_offset,
                f.period_kind, f.unit, f.value
         FROM eq_fin_facts f JOIN eq_fin_filings g USING (doc_id)
-        WHERE g.sec_code = ? AND g.status IN ('clean','partial') AND f.element = ?
+        WHERE g.sec_code = ? AND g.status IN ('clean','partial')""" + asof.clause("filed_date", "g") + """ AND f.element = ?
           AND (CAST(? AS VARCHAR) IS NULL OR f.basis = ?)
         ORDER BY f.basis, g.period_end DESC, g.filed_date DESC, f.year_offset DESC""",
         [code, element.strip(), b, b])
@@ -575,13 +582,13 @@ SCREEN_METRICS = {
 # Latest accepted filing per company, its current-year summary lines, the
 # standardised field for each, best-ranked element per field. The consolidated
 # row is used where the filing has one; parent-only filers fall back.
-SCREEN_SQL = """
+_SCREEN_SQL = """
     WITH latest AS (
         SELECT * FROM (
             SELECT f.*, row_number() OVER (PARTITION BY sec_code
                                            ORDER BY period_end DESC, filed_date DESC) AS rn
             FROM eq_fin_filings f
-            WHERE sec_code IS NOT NULL AND status IN ('clean','partial')
+            WHERE sec_code IS NOT NULL AND status IN ('clean','partial')/*ASOF*/
               AND (CAST(? AS VARCHAR) IS NULL OR CAST(year(period_end) AS VARCHAR) = CAST(? AS VARCHAR))
         ) WHERE rn = 1),
     cur AS (
@@ -602,6 +609,12 @@ SCREEN_SQL = """
 """
 
 
+
+def screen_sql():
+    """The cross-section, with the point-in-time ceiling in force."""
+    return _SCREEN_SQL.replace("/*ASOF*/", asof.clause("filed_date"))
+
+
 @router.get("/screen")
 def screen(metric: str = Query("revenue", description="one of /screen/metrics"),
            year: str = Query("", description="fiscal year of the filing; default each company's latest"),
@@ -612,7 +625,7 @@ def screen(metric: str = Query("revenue", description="one of /screen/metrics"),
     if m not in SCREEN_METRICS:
         raise HTTPException(400, "metric must be one of %s" % ", ".join(SCREEN_METRICS))
     y = (year or "").strip() or None
-    rows = _rows(cur, SCREEN_SQL, [y, y])
+    rows = _rows(cur, screen_sql(), [y, y])
     by_doc = {}
     for r in rows:
         d = by_doc.setdefault(r["doc_id"], {
@@ -898,7 +911,7 @@ MANIFEST = {
     "keys": ["sec_code", "fiscal_year"],
     "frequency": "per-filing",
     "vintage": {
-        "unit": "filing", "as_of_basis": "captured_at", "as_of_supported": False,
+        "unit": "filing", "as_of_basis": "filed_date", "as_of_supported": True,
         "history_from": "FY2021 (each filing restates five years; filings from FY2025)",
         "stale_after_days": None,
     },

@@ -31,6 +31,8 @@ roughly a year, so nothing before 2025-08-12 is retrievable by anyone.
 """
 from fastapi import APIRouter, HTTPException, Query
 
+from . import asof
+
 from . import aliases
 from .equity_api import NAME_CTES, _cur, _rows
 
@@ -338,13 +340,30 @@ def company(sec_code: str):
         FROM eq_buyback_filings f
         LEFT JOIN en_scode es ON es.sec_code = f.sec_code
         LEFT JOIN en_ecode ee ON ee.edinet_code = f.edinet_code
-        WHERE f.sec_code = ? GROUP BY 1, 2""", [code])
+        WHERE f.sec_code = ?""" + asof.clause("submitted", "f") + """ GROUP BY 1, 2""", [code])
     if not ident:
         raise HTTPException(404, "no buyback filings for securities code '%s'" % code)
     head = ident[0]
-    head["programs"] = _label(_rows(cur, """
-        SELECT * FROM eq_buyback_lifecycle WHERE sec_code = ?
-        ORDER BY resolution_date DESC NULLS LAST""", [code]))
+    # eq_buyback_lifecycle is a view that rolls every monthly filing of an
+    # authorisation into one row — cumulative spend, completion, unspent, the
+    # lifecycle state. Those totals are computed over ALL filings, so under a
+    # ceiling they would describe a future this response is not allowed to
+    # know. Rebuilding the rollup here would duplicate the view's
+    # classification and could drift from it, which is the one thing the view
+    # exists to prevent. So it is withheld, and says so; `months` below is the
+    # filings themselves, each carrying the cumulative figure it stated at the
+    # time, which is the point-in-time answer.
+    if asof.current():
+        head["programs"] = []
+        head["programs_unavailable"] = (
+            "The programme rollup aggregates every monthly filing of an "
+            "authorisation, including ones filed after as_of, so it cannot be "
+            "rebuilt as of a date without restating it. Read `months`: each "
+            "row is one filing with the cumulative figure it reported then.")
+    else:
+        head["programs"] = _label(_rows(cur, """
+            SELECT * FROM eq_buyback_lifecycle WHERE sec_code = ?
+            ORDER BY resolution_date DESC NULLS LAST""", [code]))
     head["months"] = _rows(cur, """
         SELECT f.as_of AS month, f.doc_id, f.submitted, f.status, f.detail,
                p.resolution_type, p.resolution_date, p.window_start, p.window_end,
@@ -354,7 +373,7 @@ def company(sec_code: str):
                p.progress_shares_pct, p.progress_yen_pct, p.daily_rows,
                p.status AS program_status
         FROM eq_buyback_filings f LEFT JOIN eq_buyback_programs p USING (doc_id)
-        WHERE f.sec_code = ?
+        WHERE f.sec_code = ?""" + asof.clause("submitted", "f") + """
         ORDER BY f.as_of DESC, p.resolution_date DESC""", [code])
     head["treasury"] = _rows(cur, """
         SELECT as_of AS month, doc_id, cancelled_shares, cancelled_yen,
@@ -362,7 +381,8 @@ def company(sec_code: str):
                100.0 * treasury_shares / nullif(shares_outstanding, 0) AS treasury_pct,
                status
         FROM eq_buyback_treasury WHERE doc_id IN (
-            SELECT doc_id FROM eq_buyback_filings WHERE sec_code = ?)
+            SELECT doc_id FROM eq_buyback_filings WHERE sec_code = ?"""
+            + asof.clause("submitted") + """)
         ORDER BY as_of DESC""", [code])
     head["measure_note"] = MEASURE_NOTE
     head["dates_note"] = DATES_NOTE
@@ -396,7 +416,7 @@ MANIFEST = {
     "keys": ["sec_code", "resolution_date"],
     "frequency": "per-event",
     "vintage": {
-        "unit": "filing", "as_of_basis": "captured_at", "as_of_supported": False,
+        "unit": "filing", "as_of_basis": "filed_date", "as_of_supported": True,
         "history_from": "2025-08 (archive start; EDINET purges these filings after a year)",
         "stale_after_days": None,
     },
