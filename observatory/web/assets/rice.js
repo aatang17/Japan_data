@@ -131,11 +131,34 @@ async function getJSON(url) {
   return r.json();
 }
 
-/* /observations for up to eight codes at once; cached by dataset+measure. */
+/* /observations takes at most eight codes AND caps the whole `series`
+   parameter at 200 characters, so a batch has two limits, not one. Chunking
+   by count alone is what broke this page in production: eight of these codes
+   are over 200 characters together and the API answered 422, not 404. */
+const MAX_CODES = 8;
+const MAX_SERIES_CHARS = 190;   // 200, less room for a trailing comma
+
+function batchCodes(codes) {
+  const batches = [];
+  let current = [], length = 0;
+  codes.forEach(c => {
+    const cost = c.length + (current.length ? 1 : 0);
+    if (current.length && (current.length >= MAX_CODES ||
+                           length + cost > MAX_SERIES_CHARS)) {
+      batches.push(current);
+      current = []; length = 0;
+    }
+    current.push(c);
+    length += c.length + (current.length > 1 ? 1 : 0);
+  });
+  if (current.length) batches.push(current);
+  return batches;
+}
+
+/* Published values for a set of codes; cached by dataset and measure. */
 async function loadSeries(dataset, codes, measure) {
   const want = codes.filter(c => !(dataset + "|" + c + "|" + measure in D.points));
-  for (let i = 0; i < want.length; i += 8) {
-    const chunk = want.slice(i, i + 8);
+  for (const chunk of batchCodes(want)) {
     const payload = await getJSON(API + dataset + "/observations?series=" +
       encodeURIComponent(chunk.join(",")) + "&measure=" + measure);
     payload.series.forEach(s => {

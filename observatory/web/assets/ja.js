@@ -68,7 +68,8 @@ const BN = 1e6;
 
 function $(id) { return document.getElementById(id); }
 
-const D = { release: null, stale: false, tiles: [], series: {}, years: [] };
+const D = { release: null, stale: false, tiles: [], series: {}, years: [],
+            published: {} };
 
 async function getJSON(url) {
   const r = await fetch(url);
@@ -78,31 +79,44 @@ async function getJSON(url) {
 
 function code(segment, line) { return "pl." + segment + "." + line; }
 
-/* /observations takes up to eight codes at a time. */
-async function loadSeries(codes) {
-  const want = codes.filter(c => !(c in D.series));
-  for (let i = 0; i < want.length; i += 8) {
-    const chunk = want.slice(i, i + 8);
-    let payload;
-    try {
-      payload = await getJSON(API + "/observations?series=" +
-        encodeURIComponent(chunk.join(",")));
-    } catch (e) {
-      // One unknown code 404s the whole request; fall back to one at a time
-      // so a business that does not publish a line cannot blank the rest.
-      for (const one of chunk) {
-        try {
-          const single = await getJSON(API + "/observations?series=" +
-            encodeURIComponent(one));
-          single.series.forEach(s => { D.series[s.code] = s.points; });
-        } catch (err) { D.series[one] = []; }
-      }
-      continue;
+/* /observations takes at most eight codes AND caps the whole `series`
+   parameter at 200 characters, so a batch has two limits, not one. Chunking
+   by count alone is what broke this page in production: eight of these codes
+   are over 200 characters together and the API answered 422, not 404. */
+const MAX_CODES = 8;
+const MAX_SERIES_CHARS = 190;   // 200, less room for a trailing comma
+
+function batchCodes(codes) {
+  const batches = [];
+  let current = [], length = 0;
+  codes.forEach(c => {
+    const cost = c.length + (current.length ? 1 : 0);
+    if (current.length && (current.length >= MAX_CODES ||
+                           length + cost > MAX_SERIES_CHARS)) {
+      batches.push(current);
+      current = []; length = 0;
     }
+    current.push(c);
+    length += c.length + (current.length > 1 ? 1 : 0);
+  });
+  if (current.length) batches.push(current);
+  return batches;
+}
+
+/* Only codes the release actually carries are requested: an unknown code 404s
+   the whole batch, and not every income-statement line applies to every
+   business — about 120 of the 140 combinations are published. */
+async function loadSeries(codes) {
+  const real = codes.filter(c => D.published[c] && !(c in D.series));
+  for (const chunk of batchCodes(real)) {
+    const payload = await getJSON(API + "/observations?series=" +
+      encodeURIComponent(chunk.join(",")));
     payload.series.forEach(s => { D.series[s.code] = s.points; });
-    chunk.forEach(c => { if (!(c in D.series)) D.series[c] = []; });
   }
-  return codes.map(c => D.series[c] || []);
+  // A combination the ministry does not publish is an empty series, not a
+  // failed request: it renders as "—" everywhere, never as a zero.
+  codes.forEach(c => { if (!(c in D.series)) D.series[c] = []; });
+  return codes.map(c => D.series[c]);
 }
 
 function at(seriesCode, period) {
@@ -465,9 +479,16 @@ function syncSeg(id, attr, key) {
 async function boot() {
   initThemeToggle(() => { renderSegments(); renderCharge(); });
 
-  const ov = await getJSON(API + "/overview");
+  // /series is one request and names every code the release actually carries,
+  // which is what keeps the observation requests below from asking for a
+  // combination the ministry does not publish.
+  const [ov, listing] = await Promise.all([
+    getJSON(API + "/overview"),
+    getJSON(API + "/series"),
+  ]);
   D.release = ov.release;
   D.stale = ov.stale;
+  (listing.series || []).forEach(s => { D.published[s.code] = true; });
 
   // Every series the page can show, loaded once: 20 fiscal years across seven
   // businesses is a small grid, and loading it up front keeps every control
