@@ -734,6 +734,7 @@ def companies(q: str = Query("", description="name or code substring"),
 
 
 # ---- derived ratios and the screener ----------------------------------------
+from . import equity_api  # noqa: E402
 from . import fin_metrics  # noqa: E402
 from .equity_api import INDUSTRY_EN  # noqa: E402
 
@@ -793,14 +794,21 @@ def screener(industry: str = Query("", description="EDINET industry (Japanese), 
              equity_ratio_min: str = Query(""), equity_ratio_max: str = Query(""),
              revenue_growth_min: str = Query(""), pbr_implied_max: str = Query(""),
              dividend_yield_min: str = Query(""), cash_to_assets_min: str = Query(""),
+             cohort: str = Query("", description="restrict to a cohort, e.g. size:core30, "
+                                                 "ind33:3650 or codes:7203,6758 — "
+                                                 "see /api/v1/equity/cohorts"),
              sort: str = Query("roe_pct", description="metric or size field to rank on"),
              order: str = Query("desc", description="desc | asc"),
              limit: int = Query(100, ge=1, le=1000), offset: int = Query(0, ge=0)):
     """Cross-section of every company's latest filing on platform-calculated
     ratios, filtered and ranked. Companies missing the sort metric are
-    excluded from the ranking and counted in `excluded_missing_sort`."""
+    excluded from the ranking and counted in `excluded_missing_sort`.
+
+    ?cohort= narrows the universe to a peer group before anything is ranked,
+    so a rank is a rank inside that group, not inside the market."""
     cur = _require()
     rows = fin_metrics.all_rows(cur)
+    codes, cohort_info = equity_api.cohort_filter(cohort)
     if sort not in SCREEN_SORTABLE:
         raise HTTPException(400, "sort must be one of %s" % ", ".join(sorted(SCREEN_SORTABLE)))
     asc = (order or "desc").lower() == "asc"
@@ -823,6 +831,8 @@ def screener(industry: str = Query("", description="EDINET industry (Japanese), 
     kept = []
     for r in rows:
         m, s = r["metrics"], r["size"]
+        if codes is not None and r.get("sec_code") not in codes:
+            continue
         if ind and r.get("industry") != ind:
             continue
         if std and (r.get("accounting_standard") or "") != std:
@@ -855,10 +865,17 @@ def screener(industry: str = Query("", description="EDINET industry (Japanese), 
             "flags": r.get("flags") or [],
             "sort_value": key(r),
         })
+    universe = len(rows) if codes is None else sum(
+        1 for r in rows if r.get("sec_code") in codes)
     return {"sort": sort, "order": "asc" if asc else "desc",
-            "filters": {"industry": ind, "standard": std,
+            "filters": {"industry": ind, "standard": std, "cohort": cohort.strip() or None,
                         **{k: v for k, v in f.items() if v is not None}},
-            "universe": len(rows), "matched": len(kept), "ranked": len(ranked),
+            "cohort": cohort_info and {k: cohort_info[k] for k in
+                                       ("spec", "label", "as_of", "public", "kind")},
+            "cohort_note": None if cohort_info is None else (
+                "Ranked within %s — %d of its members have an extracted filing."
+                % (cohort_info["label"], universe)),
+            "universe": universe, "matched": len(kept), "ranked": len(ranked),
             "excluded_missing_sort": missing, "offset": offset, "limit": limit,
             "rows": page, "metric_defs": _metric_defs(), "calc": fin_metrics.FORMULAS,
             "provenance": DERIVED_PROVENANCE}

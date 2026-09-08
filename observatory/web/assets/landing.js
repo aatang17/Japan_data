@@ -31,6 +31,48 @@ function dayLong(iso) {   // "2026-08-27" -> "27 August 2026"
   return Number(iso.slice(8, 10)) + " " + fmtPeriodLong(iso);
 }
 
+/* ---- agriculture ---- */
+
+function fillRice() {
+  return getJSON("/api/v1/rice-prices-jp/overview").then(d => {
+    const t = d.tiles.find(x => x.key === "all_brands");
+    setReading("r-rice", "¥" + fmtNum(t.value, 0),
+               "all-brand average per 60kg, as published");
+    setAsOf("a-rice", fmtPeriodLong(d.release.latest_period), d.stale);
+  }).catch(() => rowFailed("r-rice", "a-rice"));
+}
+
+function fillRiceStock() {
+  return getJSON("/api/v1/rice-inventory-jp/overview").then(d => {
+    const t = d.tiles.find(x => x.key === "total");
+    // Published in 万玄米トン; millions of tonnes is an exact conversion and is
+    // the unit the rest of this page reads in.
+    setReading("r-stock", fmtNum(t.value / 100, 2) + "m t",
+               "brown rice held by the trade, as published");
+    setAsOf("a-stock", fmtPeriodLong(d.release.latest_period), d.stale);
+  }).catch(() => rowFailed("r-stock", "a-stock"));
+}
+
+function fillAgriPrices() {
+  return getJSON("/api/v1/agri-prices/overview").then(d => {
+    const t = d.tiles.find(x => x.key === "input");
+    setReading("r-agri", fmtIndex(t.value),
+               "farm input prices, 2020 = 100");
+    setAsOf("a-agri", fmtPeriodLong(d.release.latest_period), d.stale);
+  }).catch(() => rowFailed("r-agri", "a-agri"));
+}
+
+function fillJa() {
+  return getJSON("/api/v1/ja-statistics/overview").then(d => {
+    const t = d.tiles.find(x => x.key === "agri");
+    // Published in thousands of yen; billions is an exact conversion.
+    setReading("r-ja", fmtSigned(t.value / 1e6, 1) + "bn",
+               "farm business pre-tax, ¥, as published");
+    // A fiscal year is dated to the 1 April it begins.
+    setAsOf("a-ja", "FY" + d.release.latest_period.slice(0, 4), d.stale);
+  }).catch(() => rowFailed("r-ja", "a-ja"));
+}
+
 /* ---- macro ---- */
 
 function fillCpi() {
@@ -94,6 +136,19 @@ function fillInbound() {
     setReading("r-inbound", fmtNum(totals[last] / 1e6, 2) + "mn", "visitors in the month");
     setAsOf("a-inbound", fmtPeriodLong(d.periods[last]), d.stale);
   }).catch(() => rowFailed("r-inbound", "a-inbound"));
+}
+
+function fillAccommodation() {
+  return getJSON("/api/v1/accommodation-jp/accommodation").then(d => {
+    const col = d.backbone["nights." + d.national];
+    let last = -1;
+    for (let i = col.length - 1; i >= 0; i--) {
+      if (col[i] !== null && col[i] !== undefined) { last = i; break; }
+    }
+    if (last < 0) throw new Error("no value");
+    setReading("r-acc", fmtNum(col[last] / 1e6, 1) + "mn", "person-nights in the month");
+    setAsOf("a-acc", fmtPeriodLong(d.periods[last]), d.stale);
+  }).catch(() => rowFailed("r-acc", "a-acc"));
 }
 
 function fillPop() {
@@ -193,8 +248,13 @@ fillCpi();
 fillBoj();
 fillRates();
 fillInbound();
+fillAccommodation();
 fillSemis();
 fillPop();
+fillRice();
+fillRiceStock();
+fillAgriPrices();
+fillJa();
 fillHoldings();
 fillOwnership();
 fillStakes();

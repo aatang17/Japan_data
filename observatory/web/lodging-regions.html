@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guest Nights by Region · Japan Data Observatory</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+
+<header class="site-header" data-section="tourism" data-page="regions"></header>
+<script src="assets/nav.js"></script>
+
+<main class="container">
+  <div id="stale-banner"></div>
+  <div id="break-banner"></div>
+
+  <div class="metric-card">
+    <div class="metric-card-head">
+      <h1>Guest Nights by Region</h1>
+      <span class="metric-asof" id="page-asof"></span>
+      <p class="metric-sub" id="page-sub"><span class="skeleton" style="display:inline-block;width:420px;height:14px"></span></p>
+    </div>
+    <div class="strip">
+      <div class="strip-grid cols-4" id="tiles">
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+      </div>
+    </div>
+    <p class="strip-foot" id="strip-foot"></p>
+    <details class="calc" id="strip-calc" style="display:none"></details>
+  </div>
+
+  <section aria-labelledby="h-contrib">
+    <h2 id="h-contrib">Contributions to National Growth <span class="h2-note" id="contrib-note"></span></h2>
+    <p class="section-sub">The year-over-year change in national guest nights, split into the
+    prefectures that produced it, over the last two years. Each segment is that prefecture's
+    contribution in percentage points and the segments sum to the black line, which is the
+    published national growth rate. The five largest contributors in the newest month are named;
+    every other prefecture is bundled into one disclosed residual, never dropped. The dashed rule
+    marks the January 2026 change in survey method.</p>
+    <div class="chart-panel">
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Measure" id="contrib-seg">
+        <button type="button" data-cmeasure="all" aria-pressed="true">All Guest Nights</button>
+        <button type="button" data-cmeasure="fx">Foreign Guest Nights</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="contrib-png">Download PNG</button>
+      <button type="button" class="btn" id="contrib-csv">Download CSV</button>
+    </div>
+    <div class="chart" id="contrib-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="contrib-source"></p>
+    <details class="calc" id="contrib-calc"></details>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-pref">
+    <h2 id="h-pref">Prefecture Detail <span class="h2-note" id="pref-note"></span></h2>
+    <p class="section-sub">Every prefecture on the latest published month, so that every row and
+    every share is the same month. Guest nights and occupancy are official; growth, share and the
+    2019 comparison are calculated from them. The ten transport-bureau regions are listed
+    separately because they republish the same nights as the prefectures — the two must never be
+    added together.</p>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Rows shown" id="rows-seg">
+        <button type="button" data-rows="pref" aria-pressed="true">Prefectures</button>
+        <button type="button" data-rows="region">Bureau Regions</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="pref-csv">Download CSV</button>
+    </div>
+    <div class="table-wrap" id="pref-table"><div class="skeleton" style="width:100%;height:360px"></div></div>
+    <p class="table-foot" id="pref-foot"></p>
+    <details class="calc" id="pref-calc"></details>
+  </section>
+
+  <section aria-labelledby="h-muni">
+    <h2 id="h-muni">Municipality Detail <span class="h2-note" id="muni-note"></span></h2>
+    <p class="section-sub">The towns and city wards the survey names individually. A prefecture
+    average hides what happens inside it: a hot-spring town running at 80% occupancy can sit in a
+    prefecture that reads as merely full. The Agency prints a municipality only in months where at
+    least ten of its properties responded, so the list changes from month to month and a town
+    absent this month is missing, not empty. City names are shown in Japanese, as published.</p>
+    <div class="controls">
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="muni-csv">Download CSV</button>
+    </div>
+    <div class="table-wrap" id="muni-table"><div class="skeleton" style="width:100%;height:360px"></div></div>
+    <p class="table-foot" id="muni-foot"></p>
+    <details class="calc" id="muni-calc"></details>
+  </section>
+
+  <section aria-label="Data source and provenance" class="prov">
+    <div id="prov-card"></div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="inner">
+    <span id="credit-line">Source: Japan Tourism Agency, Accommodation Survey.</span>
+    Guest nights and occupancy rates are official statistics as published; growth rates, shares,
+    contributions and recovery indices are calculated from them.
+    <a href="methodology.html">Methodology</a>
+  </div>
+</footer>
+
+<script src="assets/echarts.min.js"></script>
+<script src="assets/format.js"></script>
+<script src="assets/charts.js"></script>
+<script src="assets/sortable.js"></script>
+<script src="assets/lodging-regions.js"></script>
+</body>
+</html>

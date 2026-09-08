@@ -76,7 +76,8 @@ from extract import (LocalSource, S3Source, load_codelist, build_index, pick,
                      filing_evidence, norm, core_name, base_name, is_foreign,
                      compact, DB_PATH, incremental_window, record_run,
                      seek_key,
-                     select_pending, catch_up_start, CATCH_UP_DAYS)
+                     select_pending, catch_up_start, CATCH_UP_DAYS,
+                     recorded_floor)
 
 PARSER_VERSION = "own-1"
 
@@ -623,9 +624,12 @@ def main():
     # seek to it instead of paging five years of keys.
     since, have = (incremental_window(args.db, "shareholder-register", "eq_own_filings")
                    if args.new_only else (None, set()))
-    filings = src.filings(catch_up_start(since, args.catch_up))
+    filings = src.filings(catch_up_start(since, args.catch_up if args.new_only else 0))
     through = max((r["date"] for r in filings.values()), default=None)
-    pending = select_pending(filings, since, have, args.catch_up)
+    pending, catch_up_floor = select_pending(
+        filings, since, have,
+        args.catch_up if args.new_only else 0,
+        recorded_floor(args.db, "shareholder-register"))
     if since is not None:
         print("incremental: %d of %d archived filings are new since %s"
               % (len(pending), len(filings), since))
@@ -738,7 +742,8 @@ def main():
                                 cat_rows)
                 tot_cat += len(cat_rows)
     con.close()
-    record_run(args.db, "shareholder-register", through, len(filings), PARSER_VERSION)
+    record_run(args.db, "shareholder-register", through, len(filings), PARSER_VERSION,
+               back_to=catch_up_floor)
     if not args.no_compact:
         compact(args.db)
     print("filings: %s" % dict(stats))

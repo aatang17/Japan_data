@@ -154,6 +154,14 @@ h3 { font-size: 13.5px; color: var(--obs-ink); font-weight: 600; margin: 16px 0 
   margin: 12px 0;
 }
 
+/* A neutral sibling of .banner, for a disclosure that is not a fault: a
+   methodology break the reader must know about before reading a growth rate.
+   The stale colour would read as "something is broken" and this is not. */
+.banner-note {
+  border-color: var(--obs-border);
+  color: var(--obs-text-muted);
+}
+
 /* ---------- badges (outline-only) ---------- */
 
 .badge {
@@ -1055,6 +1063,23 @@ table.data.tbl-bands td.trend-decel { color: var(--obs-trust-official); }
 .prov-field { grid-column: span 1; padding: 14px 0; border-bottom: 1px solid var(--obs-grid); }
 .prov-field.full { grid-column: 1 / -1; }
 .prov-field:last-child { border-bottom: none; }
+/* A label/value pair on one line in the provenance card. There was no rule
+   for the row at all, so the two spans were plain inline text and printed
+   with no gap whatsoever — "RELEASEData through January 2026". A fixed label
+   column also lines the values up down the card, which is the point of
+   reading it. */
+.prov-row {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 2px 14px;
+  align-items: baseline;
+  padding: 3px 0;
+}
+.prov-row .prov-label { margin-bottom: 0; }
+@media (max-width: 560px) {
+  .prov-row { grid-template-columns: minmax(0, 1fr); }
+}
+
 .prov-label {
   font-size: 11px;
   font-weight: 600;

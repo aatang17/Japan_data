@@ -88,7 +88,8 @@ import duckdb
 
 from extract import (LocalSource, S3Source, load_codelist, compact, DB_PATH,
                      incremental_window, record_run, seek_key,
-                     select_pending, catch_up_start, CATCH_UP_DAYS)
+                     select_pending, catch_up_start, CATCH_UP_DAYS,
+                     recorded_floor)
 from facility_extract import grid_of, norm, to_num
 
 PARSER_VERSION = "agm-1"
@@ -597,9 +598,12 @@ def main():
     src = S3Source(args.workers) if args.source == "s3" else LocalSource()
     since, have = (incremental_window(args.db, "agm-votes", "eq_agm_meetings")
                    if args.new_only else (None, set()))
-    filings = local_t1() if src.name == "local" else s3_t1(src, catch_up_start(since, args.catch_up))
+    filings = local_t1() if src.name == "local" else s3_t1(src, catch_up_start(since, args.catch_up if args.new_only else 0))
     through = max((r["date"] for r in filings.values()), default=None)
-    pending = select_pending(filings, since, have, args.catch_up)
+    pending, catch_up_floor = select_pending(
+        filings, since, have,
+        args.catch_up if args.new_only else 0,
+        recorded_floor(args.db, "agm-votes"))
     if since is not None:
         print("incremental: %d of %d archived documents are new since %s"
               % (len(pending), len(filings), since))
@@ -719,7 +723,8 @@ def main():
                       v.get("pct_consistent")) for v in votes])
                 n_vote += len(votes)
     con.close()
-    record_run(args.db, "agm-votes", through, len(filings), PARSER_VERSION)
+    record_run(args.db, "agm-votes", through, len(filings), PARSER_VERSION,
+               back_to=catch_up_floor)
     if not args.no_compact:
         compact(args.db)
     print("filings: %s" % dict(stats))

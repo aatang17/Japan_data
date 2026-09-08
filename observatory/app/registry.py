@@ -58,6 +58,7 @@ WEB_DIR = pathlib.Path(__file__).resolve().parent.parent / "web"
 # resource list and eventually the company page — so they are hard to rename.
 SECTIONS = [
     {"id": "prices", "label": "Prices"},
+    {"id": "agriculture", "label": "Agriculture"},
     {"id": "monetary", "label": "Monetary"},
     {"id": "rates", "label": "Rates"},
     {"id": "tourism", "label": "Tourism"},
@@ -82,9 +83,18 @@ CAPABILITIES = ("series", "company", "screen", "search", "summary")
 
 # Units a measure may carry. "%" is a share of a level; "pp" is a change of a
 # percentage — the distinction the design rules insist on, enforced here.
-UNITS = ("index", "%", "pp", "per_10000", "JPY", "JPY_thousand", "JPY_100mn",
-         "persons", "count", "quantity", "shares", "voting_rights", "m2",
-         "JPY_per_m2", "x", "years", "days", "date", "category", "boolean", "text")
+# "person_nights" is a count of nights slept, not of people: one visitor
+# staying three nights is three person-nights and one person. Keeping it
+# distinct from "persons" stops an arrivals count and a guest-night count
+# being ranked or summed against each other.
+# "JPY_per_60kg" is its own unit, not a JPY level: rice is contracted and
+# published by the 60kg bag of brown rice, and a price per bag must never be
+# ranked against, or summed with, a yen amount that means something else.
+UNITS = ("index", "%", "pp", "per_10000", "JPY", "JPY_per_60kg",
+         "JPY_thousand", "JPY_100mn", "tonnes_10k",
+         "persons", "person_nights", "count", "quantity", "shares",
+         "voting_rights", "m2", "JPY_per_m2", "x", "years", "days", "date",
+         "category", "boolean", "text")
 
 REQUIRED = ("id", "section", "name", "shape", "summary", "source", "keys",
             "frequency", "vintage", "measures", "endpoints", "capabilities",
@@ -105,7 +115,9 @@ GENERIC_MEASURES = ("index", "yoy", "mom", "ann3m")
 
 # Manifest unit → the unit key api.py uses to word the generic formulas.
 _API_UNIT = {"index": "index", "JPY_100mn": "jpy_100mn", "%": "pct",
-             "persons": "persons", "JPY_thousand": "jpy_1000"}
+             "persons": "persons", "person_nights": "person_nights",
+             "JPY_thousand": "jpy_1000", "JPY_per_60kg": "jpy_per_60kg",
+             "tonnes_10k": "t10k_brown_rice", "JPY": "jpy"}
 
 # Equity API modules, in registration order. Macro modules come from
 # api.ADAPTERS, so a new adapter is registered here by being registered there.

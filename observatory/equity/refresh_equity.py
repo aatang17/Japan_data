@@ -48,34 +48,27 @@ EXTRACTORS = [
     ("board_extract.py",      "boards-and-pay",       ["--all"]),
     ("facility_extract.py",   "facilities",           ["--all"]),
     ("rental_extract.py",     "rental-property",      ["--all"]),
-    # NOT in the boot path yet. Every other extractor resumes from a watermark
-    # the shipped seed already carries, so a boot is one incremental night.
-    # financials has no watermark and no eq_fin_* tables in the seed, so its
-    # first run is the whole archive — 1,315 daily lists — and start.sh does
-    # not bind the port until the refresh returns. That is what failed the
-    # 2026-09-03 deploy: the container was alive, the healthcheck window (15m)
-    # expired, and the site was down. History gets extracted offline and
-    # shipped in the seed, the way every other dataset was; re-enable this line
-    # once seed/equity.duckdb carries a "financials" row in eq_extract_runs.
-    # ("fin_extract.py",      "financials",           []),
+    # These three were held out of the boot path because an extractor with
+    # no watermark took `since = None` and set off through the whole archive
+    # with the port still closed — financials met an empty table on
+    # 2026-09-03, the 15-minute healthcheck window expired, and the site went
+    # down. EQUITY_CATCH_UP_DAYS removes that failure mode at the source: a
+    # cold start now takes the newest slice and stops (see select_pending in
+    # extract.py), so the first night costs the same bounded minutes as any
+    # other and the history arrives a slice at a time instead of in one
+    # unbounded pass. They are safe here ONLY while that budget is set; with
+    # EQUITY_CATCH_UP_DAYS unset the old cold-start behaviour returns.
     ("lvh_extract.py",        "5pct-filings",         []),
-    # Withdrawn for the same reason as financials, and it is the same defect:
-    # agm_extract with no watermark takes `since = None` and lists the entire
-    # archive (agm_extract.py:590-595). The shipped seed HAS the AGM tables
-    # (23,444 meetings) but will not install, because the volume's other
-    # extractors have read further than the seed and a seed never overwrites
-    # fresher data. So the volume has no agm-votes watermark, and the next
-    # refresh cycle would have done the full pass with the port closed — an
-    # outage on the clock rather than on a deploy, where no healthcheck would
-    # even have caught it. Re-enable once the volume carries an agm-votes row.
-    # ("agm_extract.py",      "agm-votes",            []),
+    ("fin_extract.py",        "financials",           []),
+    ("agm_extract.py",        "agm-votes",            []),
     # Segment notes (revenue by region, named customers, product segments).
-    # Same rule as financials and AGM: a database with no "segments" row in
-    # eq_extract_runs would do the whole archive with the port closed, so the
-    # first pass runs offline and ships in the seed. Re-enable once the seed
-    # carries the watermark.
-    # ("seg_extract.py",      "segments",             ["--all"]),
+    ("seg_extract.py",        "segments",             ["--all"]),
     ("buyback.py",            "buybacks",             []),
+    # Not an EDINET extractor at all: two small files fetched straight from
+    # JPX and Nikkei. It sits at the end because nothing else reads what it
+    # writes, and it is as fail-safe as the rest — an unreachable publisher
+    # leaves the standing vintage live.
+    ("class_extract.py",      "classification",       []),
 ]
 
 # buyback.py takes neither --db nor --no-compact; it reads EQUITY_DB_PATH and
@@ -165,9 +158,12 @@ def coverage(db_path):
             "SELECT table_name FROM duckdb_tables()").fetchall()}
         if "eq_extract_runs" not in names:
             return []
+        cols = {r[1] for r in con.execute(
+            "PRAGMA table_info('eq_extract_runs')").fetchall()}
+        depth = "back_to_date" if "back_to_date" in cols else "NULL"
         return con.execute(
-            "SELECT extractor, through_date, ran_at FROM eq_extract_runs "
-            "ORDER BY extractor").fetchall()
+            "SELECT extractor, through_date, ran_at, %s FROM eq_extract_runs "
+            "ORDER BY extractor" % depth).fetchall()
     finally:
         con.close()
 
@@ -228,8 +224,13 @@ def main():
 
     print("\n--- equity refresh: %d ok, %d failed, %.0fs ---"
           % (len(ok), len(failed), time.time() - started))
-    for extractor, through, ran in coverage(args.db):
-        print("  %-22s archive read through %s" % (extractor, through))
+    for extractor, through, ran, back_to in coverage(args.db):
+        # Two numbers, not one: how RECENT the dataset is and how DEEP it
+        # goes. A dataset can be a day fresh and three months deep, which is
+        # what the 5% filings were while 74,000 filings sat unread in the
+        # bucket and every freshness check said ok.
+        print("  %-22s archive read %s .. %s"
+              % (extractor, back_to or "(depth not recorded)", through))
     if failed:
         print("ATTENTION equity extractors failed: %s" % ", ".join(failed))
     # Always 0: a failed extractor leaves its previous data live and must not

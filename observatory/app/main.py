@@ -19,6 +19,7 @@ from . import api  # noqa: E402 — must follow env.load()
 from .admin_api import router as admin_router  # noqa: E402
 from .api import router  # noqa: E402
 from .buyback_api import router as buyback_router  # noqa: E402
+from .cohorts_api import router as cohorts_router  # noqa: E402
 from .equity_api import router as equity_router  # noqa: E402
 from .facility_api import router as facility_router  # noqa: E402
 from .financials_api import router as financials_router  # noqa: E402
@@ -27,6 +28,7 @@ from .lvh_api import router as lvh_router  # noqa: E402
 from .agm_api import router as agm_router  # noqa: E402
 from .segments_api import router as segments_router  # noqa: E402
 from .catalog_api import router as catalog_router  # noqa: E402
+from .apportionment_api import router as representation_router  # noqa: E402
 from .company_api import router as company_router  # noqa: E402
 from . import registry  # noqa: E402
 from .ownership_api import router as ownership_router  # noqa: E402
@@ -87,6 +89,9 @@ app.add_middleware(GZipMiddleware, minimum_size=1024, compresslevel=5)
 # Equity first: its literal /api/v1/equity/ paths must win over the core
 # router's /api/v1/{dataset}/ catch-alls. Governance and buyback ahead of
 # holdings, so their longer /equity/… prefixes are matched before the shorter one.
+# Cohorts before everything else under /equity: its literal
+# /api/v1/equity/cohorts/... paths must beat /equity/company/{sec_code}.
+app.include_router(cohorts_router)
 app.include_router(governance_router)
 app.include_router(ownership_router)
 app.include_router(lvh_router)
@@ -99,9 +104,12 @@ app.include_router(equity_router)
 # The catalog of manifests ahead of the core router, so its literal
 # /api/v1/catalog/… paths can never be shadowed by /{dataset}/… catch-alls.
 # /api/v1/company/{code} ahead of the core router, so it beats the
-# /api/v1/{dataset}/... catch-alls.
+# /api/v1/{dataset}/... catch-alls. /api/v1/representation/… is a derived
+# surface over the population datasets and sits ahead of them for the same
+# reason.
 app.include_router(company_router)
 app.include_router(catalog_router)
+app.include_router(representation_router)
 app.include_router(router)
 # /mcp sits outside /api/v1 on purpose: the response cache only touches GETs
 # under that prefix, so JSON-RPC POSTs can never be served stale.

@@ -27,7 +27,13 @@ from . import db, env
 env.load()
 
 from .adapters import (boj_assets, cpi_jp, cpi_jp_items, jnto_visitors,
-                       juki_municipal, juki_population, mof_jgb, mof_trade,
+                       jta_accommodation,
+                       juki_municipal, juki_population, maff_agri_prices,
+                       maff_ja_coops,
+                       maff_rice_cost,
+                       maff_rice_price,
+                       maff_rice_stock,
+                       mof_jgb, mof_trade,
                        mof_trade_hs, ssds_population)
 
 ADAPTERS = {"cpi-jp": cpi_jp, "cpi-jp-items": cpi_jp_items, "boj-assets": boj_assets,
@@ -35,7 +41,13 @@ ADAPTERS = {"cpi-jp": cpi_jp, "cpi-jp-items": cpi_jp_items, "boj-assets": boj_as
             "population-jp": juki_population,
             "population-jp-history": ssds_population,
             "population-jp-municipal": juki_municipal,
-            "trade-semis": mof_trade, "trade-inputs": mof_trade_hs}
+            "trade-semis": mof_trade, "trade-inputs": mof_trade_hs,
+            "accommodation-jp": jta_accommodation,
+            "rice-prices-jp": maff_rice_price,
+            "rice-inventory-jp": maff_rice_stock,
+            "agri-prices": maff_agri_prices,
+            "rice-production-cost": maff_rice_cost,
+            "ja-statistics": maff_ja_coops}
 
 # "this (series, period) had no prior value at all" — distinct from a prior
 # value that happens to be None.

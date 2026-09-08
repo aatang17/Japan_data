@@ -27,9 +27,31 @@ var NAV_SECTIONS = [
       { id: "explorer", label: "Item Explorer", href: "explorer.html" },
       { id: "boj", label: "Bank of Japan", href: "boj.html" },
       { id: "rates", label: "Yield Curve", href: "rates.html" },
-      { id: "inbound", label: "Inbound", href: "inbound.html" },
       { id: "semis", label: "Semiconductor Trade", href: "semis.html" },
       { id: "population", label: "Population", href: "population.html" },
+      { id: "representation", label: "Vote Weight", href: "representation.html" },
+    ],
+  },
+  {
+    // Tourism left Macro once it was more than one page. Arrivals, guest
+    // nights and the regional detail are three views of one story and were
+    // pushing the macro strip past what a phone can show at all.
+    id: "tourism", label: "Tourism", suffix: "Tourism",
+    pages: [
+      { id: "inbound", label: "Arrivals", href: "inbound.html" },
+      { id: "accommodation", label: "Guest Nights", href: "accommodation.html" },
+      { id: "regions", label: "Regions", href: "lodging-regions.html" },
+    ],
+  },
+  {
+    // Agriculture is its own section, not a macro page: rice price, stock,
+    // cost of production and farm-input prices are four datasets that are
+    // only useful read against each other, and none of them is a macro
+    // aggregate.
+    id: "agriculture", label: "Agriculture", suffix: "Agriculture",
+    pages: [
+      { id: "rice", label: "Rice & Farm Prices", href: "rice.html" },
+      { id: "ja", label: "Co-operatives", href: "ja.html" },
     ],
   },
   {
@@ -47,6 +69,7 @@ var NAV_SECTIONS = [
       { id: "facilities", label: "Facilities & Land", href: "facilities.html" },
       { id: "financials", label: "Financials", href: "financials.html" },
       { id: "screener", label: "Screener", href: "screener.html" },
+      { id: "cohorts", label: "Peer Groups", href: "cohorts.html" },
     ],
   },
   {

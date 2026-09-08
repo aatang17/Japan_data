@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rice &amp; Farm Prices · Japan Data Observatory</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+
+<header class="site-header" data-section="agriculture" data-page="rice"></header>
+<script src="assets/nav.js"></script>
+
+<main class="container">
+  <div id="stale-banner"></div>
+
+  <div class="metric-card">
+    <div class="metric-card-head">
+      <h1>Japan Rice &amp; Farm Prices</h1>
+      <span class="metric-asof" id="page-asof"></span>
+      <p class="metric-sub" id="page-sub"><span class="skeleton" style="display:inline-block;width:420px;height:14px"></span></p>
+    </div>
+    <div class="strip">
+      <div class="strip-grid cols-4" id="tiles">
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+      </div>
+    </div>
+    <p class="strip-foot" id="strip-foot"></p>
+    <details class="calc" id="strip-calc" style="display:none"></details>
+  </div>
+
+  <section aria-labelledby="h-brands">
+    <h2 id="h-brands">Contract Prices by Origin and Variety <span class="h2-note" id="brands-note"></span></h2>
+    <p class="section-sub">The volume-weighted average price actually contracted between shippers
+    handling 5,000 tonnes a year or more and wholesalers, in yen per 60kg bag of brown rice,
+    including freight, packaging and consumption tax. The all-brand average is published by the
+    Ministry and weighted by the previous crop year's inspected quantity; it is shown as released
+    and is not recomputed from the brands beside it. A brand-month with no contract, or with under
+    100 tonnes contracted, is not published and stays a gap in the line.</p>
+    <div class="chart-panel">
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Measure" id="brand-measure-seg">
+        <button type="button" data-measure="index" aria-pressed="true">Price</button>
+        <button type="button" data-measure="yoy">Year over Year</button>
+      </div>
+      <div class="seg" role="group" aria-label="Date range" id="brand-range-seg">
+        <button type="button" data-range="5">5Y</button>
+        <button type="button" data-range="10" aria-pressed="true">10Y</button>
+        <button type="button" data-range="max">Max</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="brand-png">Download PNG</button>
+      <button type="button" class="btn" id="brand-csv">Download CSV</button>
+    </div>
+    <div class="band-toggles" id="brand-picker" role="group" aria-label="Brands shown">
+      <span class="band-toggles-label">Brands</span>
+    </div>
+    <div class="controls">
+      <label for="brand-add">Add any brand</label>
+      <select id="brand-add" aria-label="Add any brand"></select>
+    </div>
+    <div class="chart" id="brand-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="brand-source"></p>
+    <details class="calc" id="brand-calc"></details>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-cost">
+    <h2 id="h-cost">Price Against Cost of Production <span class="h2-note" id="cost-note"></span></h2>
+    <p class="section-sub">What a crop sold for against what it cost to grow, per 60kg, by crop
+    year. Three cost levels are published and all three are shown: total spend, cost after the
+    straw and other by-products are netted off, and full cost with interest on the farmer's own
+    capital and rent on the farmer's own land imputed. A price can sit above the first and below
+    the third. The price line is the mean of the twelve monthly contract prices for that crop's
+    marketing year, September to August — a calculation, and its formula is below.</p>
+    <div class="chart-panel">
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Date range" id="cost-range-seg">
+        <button type="button" data-crange="20" aria-pressed="true">20Y</button>
+        <button type="button" data-crange="max">Max</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="cost-png">Download PNG</button>
+      <button type="button" class="btn" id="cost-csv">Download CSV</button>
+    </div>
+    <div class="chart" id="cost-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="cost-source"></p>
+    <details class="calc" id="cost-calc"></details>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-stock">
+    <h2 id="h-stock">Private Rice Inventories <span class="h2-note" id="stock-note"></span></h2>
+    <p class="section-sub">End-of-month stocks of brown rice held by the trade, in ten thousand
+    tonnes. Rice still on the farm and the government reserve are both outside this table. Within
+    each stage the current crop and one-year-old rice are itemised; rice two years old and older
+    sits in the stage total with no row of its own, so the parts do not add to the whole and are
+    not meant to. The current crop is a real zero before the harvest, not a gap.</p>
+    <div class="chart-panel">
+    <div class="controls">
+      <div class="seg" role="group" aria-label="View" id="stock-view-seg">
+        <button type="button" data-sview="stage" aria-pressed="true">By Stage</button>
+        <button type="button" data-sview="age">By Crop Age</button>
+      </div>
+      <div class="seg" role="group" aria-label="Date range" id="stock-range-seg">
+        <button type="button" data-srange="3">3Y</button>
+        <button type="button" data-srange="max" aria-pressed="true">Max</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="stock-png">Download PNG</button>
+      <button type="button" class="btn" id="stock-csv">Download CSV</button>
+    </div>
+    <div class="chart" id="stock-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="stock-source"></p>
+    <details class="calc" id="stock-calc"></details>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-terms">
+    <h2 id="h-terms">Farm Output and Input Prices <span class="h2-note" id="terms-note"></span></h2>
+    <p class="section-sub">What farmers are paid and what farmers pay, on one index base. The
+    third view divides the first by the second: the farmer's terms of trade, which is a
+    calculation and carries its formula. This is the confirmed annual report, published more than
+    a year after the year it covers, so it is the deepest public history of Japanese farm-gate
+    and input prices rather than a timely indicator. Input prices run from April 1957 and output
+    prices from April 1963.</p>
+    <div class="chart-panel">
+    <div class="controls">
+      <div class="seg" role="group" aria-label="View" id="terms-view-seg">
+        <button type="button" data-tview="headline" aria-pressed="true">Output vs Input</button>
+        <button type="button" data-tview="inputs">Input Detail</button>
+        <button type="button" data-tview="terms">Terms of Trade</button>
+      </div>
+      <div class="seg" role="group" aria-label="Date range" id="terms-range-seg">
+        <button type="button" data-trange="25" aria-pressed="true">25Y</button>
+        <button type="button" data-trange="max">Max</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="terms-png">Download PNG</button>
+      <button type="button" class="btn" id="terms-csv">Download CSV</button>
+    </div>
+    <div class="chart" id="terms-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="terms-source"></p>
+    <details class="calc" id="terms-calc"></details>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-detail">
+    <h2 id="h-detail">Brand Detail <span class="h2-note" id="detail-note"></span></h2>
+    <p class="section-sub">Every 産地品種銘柄 the Ministry has priced, on its latest published
+    month. Prices are official; the changes and the twelve-month average are calculated from them.
+    A brand the Ministry has stopped pricing keeps its history and is marked with the month it was
+    last published, so a frozen line is never read as a current one.</p>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Rows shown" id="detail-rows-seg">
+        <button type="button" data-rows="current" aria-pressed="true">Currently Priced</button>
+        <button type="button" data-rows="all">All Brands</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="detail-csv">Download CSV</button>
+    </div>
+    <div class="table-wrap" id="detail-table"><div class="skeleton" style="width:100%;height:300px"></div></div>
+    <p class="table-foot" id="detail-foot"></p>
+    <details class="calc" id="detail-calc"></details>
+  </section>
+
+  <section aria-label="Data sources and provenance" class="prov">
+    <div id="prov-card"></div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="inner">
+    <span id="credit-line">Source: Ministry of Agriculture, Forestry and Fisheries.</span>
+    Contract prices, inventories, price indices and production costs are official figures as
+    published; changes, crop-year averages and the terms of trade are calculated from them.
+    <a href="methodology.html">Methodology</a>
+  </div>
+</footer>
+
+<script src="assets/echarts.min.js"></script>
+<script src="assets/format.js"></script>
+<script src="assets/charts.js"></script>
+<script src="assets/sortable.js"></script>
+<script src="assets/rice.js"></script>
+</body>
+</html>

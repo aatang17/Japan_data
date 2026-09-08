@@ -69,9 +69,11 @@ class ProtocolTest(Base):
             os.environ["MCP_TOOLSET"] = ts
             _, body = rpc(self.client, "tools/list")
             counts[ts] = [t["name"] for t in body["result"]["tools"]]
-        self.assertEqual(len(counts["v2"]), 6)
+        # Six generic tools over the registry, plus the two cohort tools —
+        # which are not per-dataset and so could never be one of the six.
+        self.assertEqual(len(counts["v2"]), 8)
         self.assertEqual(sorted(counts["v2"]), sorted(tools_v2.IMPLS))
-        self.assertEqual(len(counts["both"]), len(counts["v1"]) + 6)
+        self.assertEqual(len(counts["both"]), len(counts["v1"]) + 8)
         self.assertNotIn("get_series", counts["v1"])
 
     def test_v1_tools_refused_under_v2_and_vice_versa(self):

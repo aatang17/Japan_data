@@ -1,0 +1,100 @@
+
+========================================================================================================
+UNIVERSE A — Japan exports, 138 lines: 138 lines, data to 2026-07, test 2016-2026
+  base rate on test: spike-start 38.5%  price+5% 38.6%  (10,647 eligible line-months)
+  signal      k  fires     n    hit   base      p  ex21-22  +5%hit   base  verdict
+  PRICE       8    123    33  57.6%  38.5%   0.00    53.3%   52.0%  38.6%  SUGGESTIVE
+             by year (hits/fires): 2016:3/3 2017:10/20 2020:2/3 2021:3/3 2024:1/4
+  VOLUME      3   1029   808  40.3%  38.5%   0.99    34.2%   43.5%  38.6%  NO EVIDENCE
+             by year (hits/fires): 2016:31/112 2017:35/89 2018:25/83 2019:12/62 2020:26/81 2021:69/99 2022:26/34 2023:25/60 2024:32/78 2025:40/98 2026:5/12
+  BOTH        2    245   117  57.3%  38.5%   0.00    48.8%   40.8%  38.6%  RELIABLE
+             by year (hits/fires): 2016:1/3 2017:9/25 2018:4/13 2019:0/3 2020:5/6 2021:27/35 2022:1/2 2023:1/2 2024:6/8 2025:10/16 2026:3/4
+  VALUE       8    116    80  51.2%  38.5%   0.00    44.2%   45.7%  38.6%  RELIABLE
+             by year (hits/fires): 2016:1/2 2017:10/27 2018:0/2 2019:0/1 2020:2/3 2021:21/36 2022:1/1 2024:5/7 2025:1/1
+  VOL-LEADS   3    516   516  45.5%  38.5%   0.95    40.8%   53.3%  38.6%  NO EVIDENCE
+             by year (hits/fires): 2016:24/63 2017:23/56 2018:22/54 2019:12/39 2020:24/59 2021:49/81 2022:18/23 2023:20/42 2024:15/42 2025:24/49 2026:4/8
+
+========================================================================================================
+ROBUSTNESS on the two RELIABLE signals (Japan test window 2016-2026)
+
+  BOTH k=2: 117 scorable fires across 68 distinct lines; 67 hits across 51 lines
+    most-hit lines: ステンレス鋼板類(2), 二輪自動車・原動機付自転車(2), アルミニウム及び同合金(2), 内燃機関(2), 人絹糸(2), 銅・同合金の板・帯（除黄銅）(2)
+    drop 2016:  57.9% on 114    drop 2017:  63.0% on 92    drop 2018:  60.6% on 104    drop 2019:  58.8% on 114    drop 2020:  55.9% on 111    drop 2021:  48.8% on 82    drop 2022:  57.4% on 115    drop 2023:  57.4% on 115    drop 2024:  56.0% on 109    drop 2025:  56.4% on 101    drop 2026:  56.6% on 113
+    lead to spike start (months): median 2, distribution {1: 22, 2: 12, 3: 7, 4: 11, 5: 10, 6: 5}
+    permutation p (1,000 draws): 0.000   hit 57.3%
+    forward 6m price change: after fire median +3.5% (mean +5.7%) vs all eligible months median +2.2% (mean +5.6%)
+
+  VALUE k=8: 80 scorable fires across 59 distinct lines; 41 hits across 34 lines
+    most-hit lines: 工作機械(3), ステンレス鋼板類(2), 包装用紙(2), ゴムタイヤ及びチューブ(2), 電気用炭素及び黒鉛製品(2), 黄銅(2)
+    drop 2016:  51.3% on 78    drop 2017:  58.5% on 53    drop 2018:  52.6% on 78    drop 2019:  51.9% on 79    drop 2020:  50.6% on 77    drop 2021:  45.5% on 44    drop 2022:  50.6% on 79    drop 2024:  49.3% on 73    drop 2025:  50.6% on 79
+    lead to spike start (months): median 4, distribution {1: 7, 2: 7, 3: 6, 4: 8, 5: 7, 6: 6}
+    permutation p (1,000 draws): 0.000   hit 51.2%
+    forward 6m price change: after fire median +4.5% (mean +5.6%) vs all eligible months median +2.2% (mean +5.6%)
+
+  Train-window (2005-2015, in-sample) hit rates for reference:
+    BOTH   k=2: 48.2% on 137 vs base 36.2%
+    VALUE  k=8: 47.2% on 89 vs base 36.2%
+    PRICE  k=8: 77.8% on 36 vs base 36.2%
+
+========================================================================================================
+WHAT THE VALIDATED SIGNALS SAY NOW — Japan export lines, July 2026 data (published late August)
+  A fire means: price not yet in a spike (< +8% yoy), and the pattern that precedes 57% of spike starts is present.
+
+  BOTH — price and volume both improving 2+ months (median lead 2m): 0 lines firing
+    line                                      ¥bn/yr   price  volume   value  runs p/q/v
+
+  VALUE — export value improving 8+ months (median lead 4m): 0 lines firing
+    line                                      ¥bn/yr   price  volume   value  runs p/q/v
+
+========================================================================================================
+CURRENT WATCHLIST — Japan export lines
+
+  BOTH k=2, 2026-06 data, pre-spike only: 5 lines
+    line                                    ¥bn/yr   price  volume   value  runs p/q/v
+    半導体等製造装置                                  4661   +7.0%   +4.2%  +11.5%  4/2/2
+    めっき等鋼板類                                    354   +1.3%   +6.2%   +7.6%  2/6/7
+    紙及び板紙                                      303   +1.2%   +7.2%   +8.5%  2/3/3
+    包装用紙                                        45   +6.1%  +17.6%  +24.7%  3/10/10
+    印刷・筆記・図画用紙                                  21   +2.1%  +13.6%  +15.9%  2/3/3
+
+  BOTH k=2, 2026-07 data, all fires incl. mid-spike: 4 lines
+    line                                    ¥bn/yr   price  volume   value  runs p/q/v
+    自動車                                      18519  +17.1%   +1.6%  +19.0%  5/2/6  <- already spiking
+    乗用車                                      16612  +17.7%   +2.7%  +20.8%  5/2/6  <- already spiking
+    黄銅                                          76  +37.2%   +5.6%  +44.9%  10/3/5  <- already spiking
+    電気用裸銅線                                      25  +78.4%   +2.4%  +82.7%  7/2/3  <- already spiking
+
+  VALUE k=8, 2026-07 data, all fires incl. mid-spike: 5 lines
+    line                                    ¥bn/yr   price  volume   value  runs p/q/v
+    ＩＣ                                        6067  +52.5%   +5.1%  +60.4%  4/1/12  <- already spiking
+    銅及び同合金                                    2001  +50.4%   -4.9%  +42.9%  12/0/11  <- already spiking
+    無機化合物                                     1260  +29.2%   +2.0%  +31.7%  0/1/9  <- already spiking
+    コンデンサー                                    1065  +17.7%   +8.2%  +27.4%  7/1/11  <- already spiking
+    銅・同合金の板・帯（除黄銅）                             239  +36.2%  +13.7%  +54.9%  11/0/12  <- already spiking
+
+========================================================================================================
+UNIVERSE B — Hong Kong imports (replication, k from A): 990 lines, data to 2026-07, test 2016-2026
+  base rate on test: spike-start 58.6%  price+5% 44.7%  (53,460 eligible line-months)
+  signal      k  fires     n    hit   base      p  ex21-22  +5%hit   base  verdict
+  PRICE      8*    218    21  76.2%  58.6%   0.00    77.8%   34.7%  44.7%  SUGGESTIVE
+             by year (hits/fires): 2016:4/4 2017:4/5 2019:2/2 2020:1/1 2021:2/2 2022:0/1 2024:0/2 2025:3/4
+  VOLUME     3*   5709  4211  58.3%  58.6%   1.00    55.9%   51.5%  44.7%  NO EVIDENCE
+             by year (hits/fires): 2016:181/350 2017:281/458 2018:257/420 2019:241/419 2020:250/474 2021:326/480 2022:185/260 2023:235/443 2024:239/465 2025:232/402 2026:26/40
+  BOTH       2*    903   215  73.0%  58.6%   0.00    74.0%   36.7%  44.7%  RELIABLE
+             by year (hits/fires): 2016:14/19 2017:21/32 2018:18/23 2019:8/13 2020:14/17 2021:24/33 2022:8/13 2023:16/18 2024:18/28 2025:12/15 2026:4/4
+  VALUE      8*    181    99  54.5%  58.6%   0.11    48.6%   40.6%  44.7%  NO EVIDENCE
+             by year (hits/fires): 2016:4/6 2017:7/12 2018:1/4 2019:4/10 2020:4/8 2021:19/27 2023:6/14 2024:5/10 2025:4/8
+  VOL-LEADS  3*   4127  3935  58.2%  58.6%   1.00    56.1%   57.6%  44.7%  NO EVIDENCE
+             by year (hits/fires): 2016:160/304 2017:251/425 2018:239/388 2019:221/377 2020:229/440 2021:320/477 2022:159/229 2023:230/413 2024:241/461 2025:220/386 2026:21/35
+
+========================================================================================================
+STRICTER NULL for BOTH — does the momentum RUN add anything beyond 'price yoy is already positive'?
+  Null-B: random months per line where 0 <= price yoy < 8% (same level band as a BOTH fire), same counts, same spacing.
+
+  Japan (138 lines): BOTH hit 57.3% on 117
+    base rate among ALL months with 0<=yoy<8%: 47.5%
+    Null-B (same lines, same band, random timing): mean 41.1%, p = 0.000
+
+  Hong Kong (990 lines): BOTH hit 73.0% on 215
+    base rate among ALL months with 0<=yoy<8%: 67.3%
+    Null-B (same lines, same band, random timing): mean 62.6%, p = 0.000

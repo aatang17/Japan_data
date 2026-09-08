@@ -13,6 +13,7 @@ archived file's SHA-256. Year-on-year changes are derived client-side and carry
 their formula there.
 """
 import datetime
+import os
 import pathlib
 import threading
 
@@ -24,7 +25,14 @@ from . import asof
 from . import aliases
 from . import basis as basis_mod
 
-DB_PATH = pathlib.Path(__file__).resolve().parent.parent / "data" / "equity.duckdb"
+# EQUITY_DB_PATH overrides the location, the same variable the extractors and
+# company_labels already read. Nothing sets it in the container, so production
+# is unchanged; it exists so a copy of the database can be served — which is
+# how a schema change gets exercised end to end while the live file is held
+# open by a running server.
+DB_PATH = pathlib.Path(os.environ.get(
+    "EQUITY_DB_PATH",
+    str(pathlib.Path(__file__).resolve().parent.parent / "data" / "equity.duckdb")))
 
 router = APIRouter(prefix="/api/v1/equity")
 
@@ -55,6 +63,37 @@ def _cur():
         return _READER.cursor()
 
 
+def cohort_filter(spec, as_of=""):
+    """Resolve an optional ?cohort= into (codes, cohort-description).
+
+    Every cross-company screen takes one, and they all come through here so a
+    cohort names the same companies wherever it is used. No cohort given means
+    no filter — a screen keeps its whole-market behaviour unless asked.
+    """
+    from . import cohorts
+    try:
+        return cohorts.member_set(_cur(), spec, (as_of or "").strip() or None)
+    except cohorts.CohortError as e:
+        raise HTTPException(400, str(e))
+
+
+def cohort_sql(codes, alias):
+    """(SQL fragment, bind values) restricting `alias`.sec_code to a cohort.
+
+    Bound, not interpolated, even though the codes are already validated —
+    a screen is not the place to start building SQL out of query strings.
+    An empty cohort restricts to nothing, which is the honest answer; the
+    fragment is empty only when no cohort was asked for.
+    """
+    if codes is None:
+        return "", []
+    if not codes:
+        return " AND FALSE", []
+    members = sorted(codes)
+    return (" AND %s.sec_code IN (%s)" % (alias, ", ".join("?" * len(members))),
+            members)
+
+
 def _rows(cur, sql, params=()):
     cur.execute(sql, params)
     cols = [d[0] for d in cur.description]
@@ -72,9 +111,21 @@ def _rows(cur, sql, params=()):
 # seven is the shortest threshold that never cries wolf.
 EXTRACT_STALE_AFTER_DAYS = 7
 
+# Not every source runs on EDINET's clock. The classification is stamped with
+# the month-end effective date of the JPX file, so a copy fetched this morning
+# is already up to five weeks old by its own date and a weekly threshold would
+# report "attention" on data that is perfectly current.
+STALE_AFTER_BY_EXTRACTOR = {"classification": 45}
+
 
 def coverage():
-    """[(extractor, through_date, ran_at)] — empty if never recorded."""
+    """[(extractor, through_date, ran_at, back_to_date)] — empty if never run.
+
+    `back_to_date` is how DEEP the extractor has read, not how recent: the
+    nightly catch-up walks it backwards a slice at a time until it reaches the
+    floor of the archive. It is None on a database written before that column
+    existed, and on any extractor that has only ever run forward.
+    """
     if not DB_PATH.exists():
         return []
     cur = _cur()
@@ -82,8 +133,11 @@ def coverage():
         "SELECT table_name FROM duckdb_tables()").fetchall()}
     if "eq_extract_runs" not in names:
         return []
-    cur.execute("SELECT extractor, through_date, ran_at FROM eq_extract_runs "
-                "ORDER BY extractor")
+    cols = {r[1] for r in cur.execute(
+        "PRAGMA table_info('eq_extract_runs')").fetchall()}
+    depth = "back_to_date" if "back_to_date" in cols else "NULL"
+    cur.execute("SELECT extractor, through_date, ran_at, %s "
+                "FROM eq_extract_runs ORDER BY extractor" % depth)
     return cur.fetchall()
 
 
@@ -91,17 +145,23 @@ def health():
     """Per-extractor freshness, in the shape /catalog/health uses."""
     today = datetime.date.today()
     out = []
-    for extractor, through, ran in coverage():
+    for extractor, through, ran, back_to in coverage():
         days = (today - through).days if through else None
-        stale = days is None or days > EXTRACT_STALE_AFTER_DAYS
+        limit = STALE_AFTER_BY_EXTRACTOR.get(extractor, EXTRACT_STALE_AFTER_DAYS)
+        stale = days is None or days > limit
         out.append({
             "dataset": extractor,
             "status": "attention" if stale else "ok",
             "archive_read_through": through.isoformat() if through else None,
             "days_behind": days,
-            "stale_after_days": EXTRACT_STALE_AFTER_DAYS,
+            "stale_after_days": limit,
             "stale": stale,
             "last_extracted_at": ran.isoformat() + "Z" if ran else None,
+            # How deep, as opposed to how recent. A dataset can be perfectly
+            # fresh and still only three months deep, which is what the 5%
+            # filings were for months while 74,000 filings sat in the bucket:
+            # freshness alone could not see it.
+            "archive_read_back_to": back_to.isoformat() if back_to else None,
         })
     return out
 

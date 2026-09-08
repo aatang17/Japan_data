@@ -90,7 +90,8 @@ from extract import (LocalSource, S3Source, load_codelist, build_index, pick,
                      norm, core_name, base_name, is_foreign, compact,
                      DB_PATH, ARCHIVE, incremental_window, record_run,
                      seek_key,
-                     select_pending, catch_up_start, CATCH_UP_DAYS)
+                     select_pending, catch_up_start, CATCH_UP_DAYS,
+                     recorded_floor)
 
 PARSER_VERSION = "lvh-1"
 
@@ -767,9 +768,12 @@ def main():
     since, have = (incremental_window(args.db, "5pct-filings", "eq_lvh_filings")
                    if args.new_only else (None, set()))
     filings = (local_t1_filings() if src.name == "local"
-               else s3_t1_filings(src, catch_up_start(since, args.catch_up)))
+               else s3_t1_filings(src, catch_up_start(since, args.catch_up if args.new_only else 0)))
     through = max((r["date"] for r in filings.values()), default=None)
-    pending = select_pending(filings, since, have, args.catch_up)
+    pending, catch_up_floor = select_pending(
+        filings, since, have,
+        args.catch_up if args.new_only else 0,
+        recorded_floor(args.db, "5pct-filings"))
     if since is not None:
         print("incremental: %d of %d archived filings are new since %s"
               % (len(pending), len(filings), since))
@@ -899,7 +903,8 @@ def main():
                 tot_holders += len(holders)
                 tot_proposal += sum(1 for h in holders if h[16])
     con.close()
-    record_run(args.db, "5pct-filings", through, len(filings), PARSER_VERSION)
+    record_run(args.db, "5pct-filings", through, len(filings), PARSER_VERSION,
+               back_to=catch_up_floor)
     if not args.no_compact:
         compact(args.db)
     print("filings: %s" % dict(stats))

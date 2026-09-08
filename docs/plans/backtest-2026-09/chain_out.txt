@@ -1,0 +1,100 @@
+Hong Kong panel: 990 lines, 2016-01 to 2026-07
+groups: {'materials': 284, 'components': 54, 'devices': 33, 'autos': 0, 'other': 619}
+
+====================================================================================================
+TEST 1 — how much of each line's price move is the market, and does BOTH survive on the residual?
+
+  Hong Kong: share of a line's price-yoy variance explained by the cross-line median (R²):
+    median line R² = 0.03; 75th pct 0.11; lines with R² > 0.5: 4/920
+    components  median R² 0.07 (n=54)
+    devices     median R² 0.05 (n=33)
+    materials   median R² 0.05 (n=260)
+    other       median R² 0.03 (n=573)
+    BOTH on RESIDUAL price (line minus market): hit 74.2% on 221 vs base 56.0%, permutation p = 0.000
+
+  Japan: share of a line's price-yoy variance explained by the cross-line median (R²):
+    median line R² = 0.29; 75th pct 0.59; lines with R² > 0.5: 42/138
+    all         median R² 0.29 (n=138)
+    BOTH on RESIDUAL price (line minus market): hit 40.8% on 103 vs base 29.4%, permutation p = 0.000
+
+====================================================================================================
+TEST 2 — what moves with what (Hong Kong, price yoy correlations 2016-2026, lines with >=60 months)
+  average correlation of price yoy:
+    within components : +0.04 (n=1431 pairs)
+    within devices    : +0.05 (n=528 pairs)
+    within materials  : +0.04 (n=26917 pairs)
+     components x devices    : +0.05 (n=1782)
+     components x materials  : +0.03 (n=12739)
+        devices x materials  : +0.03 (n=7735)
+  strongest cross-group pairs (|r| > 0.6):
+    760529 (materials) ~ 853331 (components): r = +0.92
+    392063 (materials) ~ 853331 (components): r = +0.86
+    282560 (materials) ~ 847180 (devices): r = +0.82
+    392640 (materials) ~ 853669 (components): r = +0.81
+    391400 (materials) ~ 854420 (components): r = +0.78
+    760110 (materials) ~ 854411 (components): r = +0.77
+    761610 (materials) ~ 852862 (devices): r = +0.76
+    390761 (materials) ~ 854470 (components): r = +0.75
+    282110 (materials) ~ 847180 (devices): r = +0.75
+    750522 (materials) ~ 852869 (devices): r = +0.74
+    741021 (materials) ~ 852910 (devices): r = +0.73
+    392690 (materials) ~ 851711 (devices): r = +0.73
+
+====================================================================================================
+TEST 3 — does a BOTH fire on one end of a chain raise the odds of a spike starting at the other end within 6 months?
+  chain                                                 up->down     n |  down->up     n | base(dst)
+  copper -> cables/connectors/transformers                 73.5%    49 |     62.1%    29 |    48.2% /    49.3%
+  nickel powder & ceramic precursors -> capacitors         33.3%     3 |     75.0%     4 |    48.3% /    64.5%
+  silicon wafers & photoresist -> ICs/discretes                –     0 |         –     0 |    46.5% /       –
+  plastic film & epoxy -> film caps / PCBs                     –     0 |     83.3%     6 |    45.5% /    56.5%
+  passives + ICs + PCBs -> computers/servers               71.4%    21 |     43.5%    85 |    53.2% /    49.1%
+  passives + ICs -> phones/network gear                    50.0%     6 |     81.8%    11 |    67.6% /    44.2%
+  ICs + memory -> storage / SSD                            50.0%     4 |     28.6%     7 |    53.8% /    48.4%
+  li-ion cells -> EVs & e-bikes                                –     0 |         –     0 |       – /    60.3%
+  steel & alu sheet -> cars & parts                            –     0 |         –     0 |       – /    45.6%
+  power semis + capacitors -> power supplies/inverters     66.7%     3 |         –     0 |    29.5% /    47.7%
+
+  POOLED  upstream fire -> downstream spike: 68.6% (n=86) vs base 50.4%
+  POOLED  downstream fire -> upstream spike: 52.1% (n=142) vs base 49.5%
+====================================================================================================
+TEST 3 (cont.) — permutation null for 'upstream BOTH fire -> downstream spike within 6m'
+  all chains:      68.6% on 86  permutation p = 0.004
+  excluding copper: 62.2% on 37  permutation p = 0.212
+  copper chain only: 73.5% on 49  permutation p = 0.000
+
+====================================================================================================
+TEST 4 — FINAL CUSTOMER: do finished-goods flows to China, or Taiwan's server makers, lead component prices?
+  fetch: Fail ['Commodity code (851712) is not defined']
+  finished-goods re-exports to China with usable units: []
+  China-bound finished goods (BOTH fire) -> component import price spike no events
+    computers/servers to China only -> components            no events
+    phones/network to China only -> components               no events
+  Taiwan server ODM revenue (4m run) -> HK component prices   28.6% on  28 vs base 51.9%  p = 0.996
+  Taiwan server ODM revenue -> HK capacitor prices            28.6% on   7 vs base 48.3%  p = 0.936
+  Taiwan MLCC makers' revenue -> HK capacitor prices          43.5% on  23 vs base 48.3%  p = 0.822
+  Taiwan foundry revenue -> HK IC / discrete prices           20.0% on  10 vs base 50.3%  p = 0.986
+(eval):54: no such file or directory: ./.venv/bin/python
+TEST 4 — FINAL CUSTOMER: do finished-goods flows to China, or Taiwan's server makers, lead component prices?
+  fetch: Success 
+  finished-goods re-exports to China with usable units: ['847130', '847141', '847149', '847150', '847170', '850440', '850760', '851713', '851714', '851762', '852852']
+  China-bound finished goods (BOTH fire) -> component import price spike  51.9% on 106 vs base 51.9%  p = 0.562
+    computers/servers to China only -> components             53.4% on  73 vs base 51.9%  p = 0.396
+    phones/network to China only -> components                45.8% on  24 vs base 51.9%  p = 0.878
+  REVERSE: component price fire -> finished-goods-to-China spike  48.4% on  91 vs base 47.5%
+  Taiwan server ODM revenue (4m run) -> HK component prices   28.6% on  28 vs base 51.9%  p = 1.000
+  Taiwan server ODM revenue -> HK capacitor prices            28.6% on   7 vs base 48.3%  p = 0.942
+  Taiwan MLCC makers' revenue -> HK capacitor prices          43.5% on  23 vs base 48.3%  p = 0.792
+  Taiwan foundry revenue -> HK IC / discrete prices           20.0% on  10 vs base 50.3%  p = 0.990
+====================================================================================================
+TEST 4b — REVERSE: HK component price fire (BOTH) -> Taiwan customer revenue accelerating within 6m?
+  outcome: revenue yoy (3m) at t+6 exceeds yoy at t by >= 5pp
+  components -> server ODM          60.0% on  15 vs base 46.7%  p = 0.172
+  capacitors -> MLCC makers         14.3% on   7 vs base 44.6%  p = 0.986
+  ICs/discretes -> foundry         100.0% on   3 vs base 39.4%  p = 0.226
+  memory ICs -> memory makers      100.0% on   2 vs base 60.3%  p = 0.374
+
+TEST 4c — COINCIDENCE: when Taiwan revenue fires, are HK component prices ALREADY spiking?
+  share of destination lines with price yoy >= +8% in the fire month, vs the average month
+  server ODM -> components         at Taiwan fire months 38% of lines already spiking (n=4 fires)  vs  average month 43%
+  MLCC makers -> capacitors        at Taiwan fire months 28% of lines already spiking (n=8 fires)  vs  average month 45%
+  foundry -> ICs                   at Taiwan fire months 33% of lines already spiking (n=3 fires)  vs  average month 42%

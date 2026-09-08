@@ -187,6 +187,52 @@ The API keeps every cross-sectional surface on **one filing per company** —
 summing book value across five years would overstate the total several-fold —
 with `?year=` to pin a fiscal year and `/history` for the year-on-year series.
 
+## Depth — the nightly catch-up (`EQUITY_CATCH_UP_DAYS`)
+
+Every extractor here resumes from a watermark, so left alone it only ever
+walks **forward**. A database built forward from the day an extractor was
+written stays exactly as shallow as its first run, however deep the archive
+behind it is — and nothing complains, because every freshness check is about
+how *recent* the data is, not how *deep*:
+
+| dataset | was | archive held | found |
+| --- | --- | --- | --- |
+| 5% filings | 14 weeks | 5 years, 74k filings | Sep 2026 |
+| shareholder register | 1 fiscal year | 5 years, 21k reports | Sep 2026 |
+| financials + segments | 1 fiscal year | 5 years | Sep 2026 |
+
+The old answer was to extract the history offline and ship the database in the
+image. That is what left the equity data four weeks stale in August 2026: it
+only happens when somebody remembers, and at 389MB the file no longer belongs
+in git anyway.
+
+So the container digs. With `EQUITY_CATCH_UP_DAYS` set (40 in the Dockerfile),
+each nightly run also reads that many archive days **below its own floor**,
+until it reaches the bottom of the archive and stops for good. Whole days
+only, so a floor never lands mid-day; the floor day itself is re-offered every
+run, so a night that dies part-way is picked up rather than stepped over; and
+the floor is recorded in `eq_extract_runs.back_to_date` rather than derived
+from the stored rows, because those two drift — deriving it left eight March
+days unread in testing.
+
+- **Bounded by construction.** Forty days is ~10 minutes of the refresh window
+  for every extractor together, and reaches the floor of a five-year archive
+  in about a month. It cannot turn into the hours-long pass that took the site
+  down on 2026-09-03.
+- **Cold starts are bounded too.** An extractor meeting an empty table used to
+  take `since = None` and read the whole archive with the port closed. It now
+  takes the newest slice and lets the following nights walk back — which is
+  what makes `financials`, `agm-votes` and `segments` safe in the boot path.
+- **Only on `--new-only` runs.** A deliberate full run (`refresh_equity.py
+  --full`, or an extractor without `--new-only`) is never truncated by the
+  budget, whatever the environment says.
+- **Visible.** `/api/v1/catalog/health` reports `archive_read_back_to`
+  alongside `archive_read_through`, and the refresh log prints
+  `archive read <back_to> .. <through>`. Depth filling in is something you can
+  watch; silence was the problem the first time.
+
+Set it to `0` to go back to forward-only.
+
 ## Monitoring — dead-man's-switch (`heartbeat.py`)
 
 The dangerous failure is a job that **stops running**: a cron that quietly

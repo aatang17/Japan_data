@@ -623,9 +623,24 @@ def select_pending(filings, since, have, catch_up_days=0, floor=None):
     Returns (pending, new_floor). `new_floor` is None when nothing was read
     backward, which tells record_run to leave the recorded floor alone.
     """
-    if since is None:                          # full pass: everything, as before
-        days = [r["date"] for r in filings.values()]
-        return dict(filings), (min(days) if days else None)
+    if since is None:
+        days = sorted({r["date"] for r in filings.values()}, reverse=True)
+        if not catch_up_days:                  # full pass: everything, as before
+            return dict(filings), (days[-1] if days else None)
+        # COLD START WITH A BUDGET. A database with no watermark for this
+        # extractor used to mean "read the whole archive", and start.sh does
+        # not bind the port until the refresh returns: that is precisely what
+        # took the site down on 2026-09-03, when financials met an empty table
+        # and set off through 1,315 daily lists with the door shut. With a
+        # catch-up budget the first night takes the newest slice and the
+        # nights after it walk backwards, so a cold start costs the same
+        # bounded minutes as any other night.
+        take = set(days[:catch_up_days])
+        first = {d: r for d, r in filings.items() if r["date"] in take}
+        print("cold start: no watermark, taking the newest %d archive days "
+              "(%d filings); history follows a slice a night"
+              % (len(take), len(first)))
+        return first, (min(take) if take else None)
     pending = {d: r for d, r in filings.items()
                if r["date"] >= since and d not in have}
     if not catch_up_days or not have:
@@ -1137,10 +1152,11 @@ def main():
     since, have = (incremental_window(db_path, "cross-shareholdings",
                                       "eq_company_year")
                    if args.new_only else (None, set()))
-    filings = src.filings(catch_up_start(since, args.catch_up))
+    filings = src.filings(catch_up_start(since, args.catch_up if args.new_only else 0))
     through = max((r["date"] for r in filings.values()), default=None)
     pending, catch_up_floor = select_pending(
-        filings, since, have, args.catch_up,
+        filings, since, have,
+        args.catch_up if args.new_only else 0,
         recorded_floor(db_path, "cross-shareholdings"))
     if since is not None:
         print("incremental: %d of %d archived filings are new since %s"
@@ -1348,7 +1364,8 @@ def main():
 
     con.close()
     n = con = None
-    record_run(db_path, "cross-shareholdings", through, len(filings), PARSER_VERSION)
+    record_run(db_path, "cross-shareholdings", through, len(filings), PARSER_VERSION,
+               back_to=catch_up_floor)
     if not args.no_compact:
         compact(db_path)
     print("filings: clean %(clean)d, partial %(partial)d, failed %(failed)d" % stats)

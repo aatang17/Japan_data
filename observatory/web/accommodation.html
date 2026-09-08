@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guest Nights &amp; Occupancy · Japan Data Observatory</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+
+<header class="site-header" data-section="tourism" data-page="accommodation"></header>
+<script src="assets/nav.js"></script>
+
+<main class="container">
+  <div id="stale-banner"></div>
+  <div id="break-banner"></div>
+
+  <div class="metric-card">
+    <div class="metric-card-head">
+      <h1>Guest Nights and Occupancy</h1>
+      <span class="metric-asof" id="page-asof"></span>
+      <p class="metric-sub" id="page-sub"><span class="skeleton" style="display:inline-block;width:420px;height:14px"></span></p>
+    </div>
+    <div class="controls">
+      <label for="area-select">Area</label>
+      <select id="area-select" aria-label="Area"></select>
+      <span class="spacer"></span>
+    </div>
+    <div class="strip">
+      <div class="strip-grid cols-4" id="tiles">
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+      </div>
+    </div>
+    <p class="strip-foot" id="strip-foot"></p>
+    <details class="calc" id="strip-calc" style="display:none"></details>
+  </div>
+
+  <section aria-labelledby="h-nights">
+    <h2 id="h-nights">Guest Nights by Month <span class="h2-note" id="nights-note"></span></h2>
+    <p class="section-sub">Person-nights exactly as the Agency published them. Guest nights are
+    strongly seasonal, so the second view separates Japanese from foreign guests, which move on
+    different cycles, and the third indexes each month against the same month of 2019 — the last
+    full year before the border closed.</p>
+    <div class="chart-panel">
+    <div class="controls">
+      <div class="seg" role="group" aria-label="View" id="nights-seg">
+        <button type="button" data-view="total" aria-pressed="true">Guest Nights</button>
+        <button type="button" data-view="split">Japanese vs Foreign</button>
+        <button type="button" data-view="rec">vs 2019</button>
+      </div>
+      <div class="seg" role="group" aria-label="Date range" id="nights-range">
+        <button type="button" data-range="3">3Y</button>
+        <button type="button" data-range="8" aria-pressed="true">8Y</button>
+        <button type="button" data-range="max">Max</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="nights-png">Download PNG</button>
+      <button type="button" class="btn" id="nights-csv">Download CSV</button>
+    </div>
+    <div class="chart" id="nights-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="nights-source"></p>
+    <details class="calc" id="nights-calc"></details>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-occ">
+    <h2 id="h-occ">Room Occupancy by Hotel Type <span class="h2-note" id="occ-note"></span></h2>
+    <p class="section-sub">The published room occupancy rate, in percent. A rate is a ratio, so it
+    is differenced rather than divided and is never averaged across areas here. Business and city
+    hotels carry the inbound trade; ryokan and company lodging move on domestic demand.</p>
+    <div class="chart-panel">
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Date range" id="occ-range">
+        <button type="button" data-orange="3">3Y</button>
+        <button type="button" data-orange="8" aria-pressed="true">8Y</button>
+        <button type="button" data-orange="max">Max</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="occ-png">Download PNG</button>
+      <button type="button" class="btn" id="occ-csv">Download CSV</button>
+    </div>
+    <div class="band-toggles" id="type-picker" role="group" aria-label="Hotel types shown">
+      <span class="band-toggles-label">Types</span>
+    </div>
+    <div class="chart" id="occ-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="occ-source"></p>
+    <details class="calc" id="occ-calc"></details>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-nat">
+    <h2 id="h-nat">Foreign Guest Nights by Nationality <span class="h2-note" id="nat-note"></span></h2>
+    <p class="section-sub">Which visitors slept here, on the latest published month. This table
+    covers larger properties only — 20 rooms or more from 2026, 10 or more employees before — so
+    shares are taken against that table's own published total, not against the all-properties
+    foreign guest nights. Guests whose nationality the survey did not identify are shown as a
+    disclosed residual, never spread across the named categories.</p>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="View" id="nat-seg">
+        <button type="button" data-nat="bar" aria-pressed="true">Latest Month</button>
+        <button type="button" data-nat="trend">History</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="nat-png">Download PNG</button>
+      <button type="button" class="btn" id="nat-csv">Download CSV</button>
+    </div>
+    <div class="chart-panel">
+      <div class="chart" id="nat-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+      <p class="source-line" id="nat-source"></p>
+    </div>
+    <div class="table-wrap" id="nat-table"><div class="skeleton" style="width:100%;height:300px"></div></div>
+    <p class="table-foot" id="nat-foot"></p>
+    <details class="calc" id="nat-calc"></details>
+  </section>
+
+  <section aria-labelledby="h-mix">
+    <h2 id="h-mix">Demand Mix <span class="h2-note" id="mix-note"></span></h2>
+    <p class="section-sub">The same guest nights read three other ways. Purpose classifies the
+    property, not the guest: a property is counted as leisure when at least half of its guests
+    stayed for leisure. Residence separates guests from inside the prefecture from those who
+    travelled to it. Property size is published from January 2026 only, when the survey changed
+    from stratifying by employee count to stratifying by room count.</p>
+    <div class="chart-panel">
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Cut" id="mix-seg">
+        <button type="button" data-mix="purpose" aria-pressed="true">Purpose</button>
+        <button type="button" data-mix="res">Guest Residence</button>
+        <button type="button" data-mix="rooms">Property Size</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="mix-png">Download PNG</button>
+      <button type="button" class="btn" id="mix-csv">Download CSV</button>
+    </div>
+    <div class="chart" id="mix-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="mix-source"></p>
+    <details class="calc" id="mix-calc"></details>
+    </div>
+  </section>
+
+  <section aria-label="Data source and provenance" class="prov">
+    <div id="prov-card"></div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="inner">
+    <span id="credit-line">Source: Japan Tourism Agency, Accommodation Survey.</span>
+    Guest nights and occupancy rates are official statistics as published; growth rates, shares,
+    recovery indices and contributions are calculated from them.
+    <a href="methodology.html">Methodology</a>
+  </div>
+</footer>
+
+<script src="assets/echarts.min.js"></script>
+<script src="assets/format.js"></script>
+<script src="assets/charts.js"></script>
+<script src="assets/sortable.js"></script>
+<script src="assets/accommodation.js"></script>
+</body>
+</html>

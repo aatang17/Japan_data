@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JA Co-operatives · Japan Data Observatory</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+
+<header class="site-header" data-section="agriculture" data-page="ja"></header>
+<script src="assets/nav.js"></script>
+
+<main class="container">
+  <div id="stale-banner"></div>
+
+  <div class="metric-card">
+    <div class="metric-card-head">
+      <h1>JA Co-operatives — Where the Profit Is</h1>
+      <span class="metric-asof" id="page-asof"></span>
+      <p class="metric-sub" id="page-sub"><span class="skeleton" style="display:inline-block;width:420px;height:14px"></span></p>
+    </div>
+    <div class="strip">
+      <div class="strip-grid cols-4" id="tiles">
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+      </div>
+    </div>
+    <p class="strip-foot" id="strip-foot"></p>
+    <details class="calc" id="strip-calc" style="display:none"></details>
+  </div>
+
+  <section aria-labelledby="h-segments">
+    <h2 id="h-segments">Pre-Tax Profit by Business <span class="h2-note" id="segments-note"></span></h2>
+    <p class="section-sub">The multi-purpose co-operatives run five businesses and publish an
+    income statement for each. Banking and mutual insurance earn; farm marketing and supply,
+    living services and farm guidance do not. The second view is the same figures after the
+    farm-guidance loss has been charged back across the segments — the ministry's own allocation,
+    published as a line of the statement, not a calculation made here.</p>
+    <div class="chart-panel">
+    <div class="controls">
+      <div class="seg" role="group" aria-label="View" id="seg-view">
+        <button type="button" data-view="pre" aria-pressed="true">Before the Charge</button>
+        <button type="button" data-view="post">After the Charge</button>
+      </div>
+      <div class="seg" role="group" aria-label="Date range" id="seg-range">
+        <button type="button" data-range="10">10Y</button>
+        <button type="button" data-range="max" aria-pressed="true">Max</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="seg-png">Download PNG</button>
+      <button type="button" class="btn" id="seg-csv">Download CSV</button>
+    </div>
+    <div class="chart" id="seg-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="seg-source"></p>
+    <details class="calc" id="seg-calc"></details>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-charge">
+    <h2 id="h-charge">The Farm-Guidance Charge <span class="h2-note" id="charge-note"></span></h2>
+    <p class="section-sub">Farm guidance — the advisers who work with member farmers — runs at a
+    loss every year, and the whole of that loss is allocated to the segments that earn. This is
+    the cross-subsidy written down by the ministry: what each business bore, by fiscal year, on a
+    zero baseline. A bar above zero is a cost carried, not a profit.</p>
+    <div class="chart-panel">
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Date range" id="charge-range">
+        <button type="button" data-crange="10" aria-pressed="true">10Y</button>
+        <button type="button" data-crange="max">Max</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="charge-png">Download PNG</button>
+      <button type="button" class="btn" id="charge-csv">Download CSV</button>
+    </div>
+    <div class="chart" id="charge-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="charge-source"></p>
+    <details class="calc" id="charge-calc"></details>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-statement">
+    <h2 id="h-statement">Income Statement <span class="h2-note" id="statement-note"></span></h2>
+    <p class="section-sub">Every published line of one business's income statement, on the newest
+    fiscal year and the one before it. Amounts are thousands of yen as released; the change and
+    the share of group revenue are calculated from them. A line the ministry does not publish for
+    this business shows —, never a zero.</p>
+    <div class="controls">
+      <label for="segment-select">Business</label>
+      <select id="segment-select" aria-label="Business"></select>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="statement-csv">Download CSV</button>
+    </div>
+    <div class="table-wrap" id="statement-table"><div class="skeleton" style="width:100%;height:300px"></div></div>
+    <p class="table-foot" id="statement-foot"></p>
+    <details class="calc" id="statement-calc"></details>
+  </section>
+
+  <section aria-label="Data source and provenance" class="prov">
+    <div id="prov-card"></div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="inner">
+    <span id="credit-line">Source: Ministry of Agriculture, Forestry and Fisheries — Survey of Agricultural Co-operatives (総合農協統計表).</span>
+    Amounts are official figures as published; changes and shares are calculated from them.
+    <a href="methodology.html">Methodology</a>
+  </div>
+</footer>
+
+<script src="assets/echarts.min.js"></script>
+<script src="assets/format.js"></script>
+<script src="assets/charts.js"></script>
+<script src="assets/sortable.js"></script>
+<script src="assets/ja.js"></script>
+</body>
+</html>

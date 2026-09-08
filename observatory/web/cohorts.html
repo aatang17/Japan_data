@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Peer Groups · Japan Data Observatory</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/app.css">
+<style>
+/* page-local layout only — tokens and components come from app.css */
+.pickers { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px 16px; margin-top: 18px; }
+.pickers label { display: block; font-size: 11px; font-weight: 600; color: var(--obs-text-muted);
+  text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
+.pickers select, .pickers input { width: 100%; font-size: 13px; padding: 6px 8px;
+  border: 1px solid var(--obs-border); background: var(--obs-surface); color: var(--obs-ink);
+  font-variant-numeric: tabular-nums; }
+.pickers input::placeholder { color: var(--obs-text-faint); }
+
+/* The basket lane only exists once a basket is being built, so the picker row
+   above keeps one shape for every other cohort. */
+.basket { margin-top: 14px; padding: 14px 16px; border: 1px solid var(--obs-border); }
+.basket label { display: block; font-size: 11px; font-weight: 600; color: var(--obs-text-muted);
+  text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
+.basket input { width: 100%; font-size: 13px; padding: 6px 8px;
+  border: 1px solid var(--obs-border); background: var(--obs-surface); color: var(--obs-ink);
+  font-variant-numeric: tabular-nums; }
+.basket input::placeholder { color: var(--obs-text-faint); }
+.basket-row { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: flex-end; }
+.basket-row .grow { flex: 1 1 320px; min-width: 0; }
+.basket-row .named { flex: 0 1 200px; min-width: 0; }
+.basket-hint { margin-top: 8px; font-size: 12px; color: var(--obs-text-muted); }
+.basket-saved { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+/* A class that sets display beats the UA stylesheet's [hidden] rule, so the
+   empty "Saved" lane rendered its label with nothing after it. */
+.basket-saved[hidden] { display: none; }
+.basket-saved .lbl { font-size: 11px; font-weight: 600; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--obs-text-muted); }
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 3px 8px;
+  border: 1px solid var(--obs-border); background: var(--obs-surface); color: var(--obs-ink); }
+.chip button { border: 0; background: none; padding: 0; cursor: pointer; font-size: 13px;
+  line-height: 1; color: var(--obs-text-muted); }
+.chip button:hover { color: var(--obs-warn); }
+.chip .open { cursor: pointer; }
+.chip .open:hover { text-decoration: underline; }
+
+.restricted { margin-top: 12px; font-size: 12.5px; color: var(--obs-text-muted);
+  border-left: 2px solid var(--obs-border); padding-left: 10px; }
+
+.tbl-coh { width: 100%; border-collapse: collapse; min-width: 720px; }
+.tbl-coh th, .tbl-coh td { padding: 7px 9px; font-size: 13px; border-bottom: 1px solid var(--obs-grid); white-space: nowrap; }
+.tbl-coh thead th { font-size: 11px; font-weight: 600; color: var(--obs-text-muted);
+  text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid var(--obs-border); }
+.tbl-coh .r, .tbl-coh th.r { text-align: right; font-variant-numeric: tabular-nums; }
+.tbl-coh tbody tr:hover td { background: var(--obs-surface-subtle); }
+.tbl-coh tbody tr.is-focus td { background: var(--obs-surface-subtle); }
+.tbl-coh tbody tr.is-focus td:first-child { font-weight: 600; border-left: 2px solid var(--obs-series-2); padding-left: 7px; }
+.tbl-coh a { color: var(--obs-primary); text-decoration: none; }
+.tbl-coh a:hover { text-decoration: underline; }
+.tbl-coh .sub { display: block; font-size: 11px; color: var(--obs-text-muted); margin-top: 1px; }
+.tbl-coh .cell-name { max-width: 340px; overflow: hidden; text-overflow: ellipsis; }
+.tbl-coh .muted { color: var(--obs-text-muted); }
+.chart-legend { margin-top: 8px; font-size: 12px; color: var(--obs-text-muted); }
+/* The source line takes the whole first row on a phone; two buttons and a
+   sentence on one flex line squeezed it into a four-word-wide column. */
+.chart-controls { flex-wrap: wrap; }
+.chart-controls .source-line { flex: 1 1 320px; min-width: 0; margin-top: 0; }
+.calc-list { margin: 6px 0 0 18px; font-size: 12.5px; line-height: 1.55; }
+.calc-list b { color: var(--obs-ink); font-weight: 600; }
+</style>
+</head>
+<body class="page-wide">
+
+<header class="site-header" data-section="equities" data-page="cohorts"></header>
+<script src="assets/nav.js"></script>
+
+<main class="container">
+  <div class="metric-card">
+    <div class="metric-card-head">
+      <h1>Peer Groups</h1>
+      <span class="metric-asof" id="page-asof"></span>
+      <p class="metric-sub">A company's number only means something against the companies it trades
+      beside. Pick a peer group — a TOPIX scale band, a JPX industry or market segment, or a basket of
+      codes you name yourself — and read one measure across it: the distribution, the quartiles, and
+      where any one company sits inside them.</p>
+    </div>
+
+    <div class="pickers">
+      <div><label for="p-cohort">Peer group</label><select id="p-cohort"></select></div>
+      <div><label for="p-metric">Measure</label><select id="p-metric"></select></div>
+      <div><label for="p-company">Highlight a company</label>
+        <input id="p-company" type="text" inputmode="numeric" placeholder="securities code, e.g. 7203"></div>
+      <div><label for="p-order">Order</label>
+        <select id="p-order"><option value="desc">Highest first</option><option value="asc">Lowest first</option></select></div>
+    </div>
+
+    <div class="basket" id="basket" hidden>
+      <div class="basket-row">
+        <div class="grow">
+          <label for="b-codes">Securities codes</label>
+          <input id="b-codes" type="text" placeholder="8001, 8002, 8031, 8053, 8058">
+        </div>
+        <div class="named"><label for="b-name">Save as</label><input id="b-name" type="text" placeholder="Trading houses"></div>
+        <button type="button" class="btn btn-tall" id="b-save">Save basket</button>
+      </div>
+      <p class="basket-hint">Separate codes with commas or spaces. A basket lives in the address bar,
+      so any comparison built on one is a permanent link you can send or cite. Saving keeps its name
+      in this browser only — nothing is uploaded.</p>
+      <div class="basket-saved" id="b-saved" hidden><span class="lbl">Saved</span></div>
+    </div>
+
+    <div class="strip">
+      <div class="strip-grid cols-4" id="tiles">
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+      </div>
+    </div>
+    <p class="strip-foot" id="strip-foot"></p>
+    <p class="restricted" id="restricted-note" hidden></p>
+  </div>
+
+  <section aria-labelledby="h-dist">
+    <h2 id="h-dist">Distribution Across the Peer Group <span class="h2-note" id="dist-note"></span></h2>
+    <p class="section-sub" id="dist-sub"></p>
+    <div class="chart-block">
+      <div class="chart" id="dist-chart"></div>
+    </div>
+    <p class="chart-legend" id="dist-legend"></p>
+    <div class="controls chart-controls">
+      <p class="source-line" id="dist-source"></p>
+      <button type="button" class="btn" id="dist-png">Download PNG</button>
+      <button type="button" class="btn" id="dist-csv">Download CSV</button>
+    </div>
+    <details class="calc-note"><summary>Show calculation</summary>
+      <ul class="calc-list" id="calc-list"></ul>
+    </details>
+  </section>
+
+  <section aria-labelledby="h-members">
+    <h2 id="h-members">Members Ranked <span class="h2-note" id="rank-note"></span></h2>
+    <div class="table-wrap"><table class="tbl-coh" id="rank-table" data-no-enhance></table></div>
+    <p class="source-line" id="rank-missing"></p>
+  </section>
+
+  <footer class="page-foot">
+    <p>Classification: 東証上場銘柄一覧 (listed issue list), Japan Exchange Group — market segment,
+    the 33- and 17-industry classifications and the TOPIX scale band, exactly as published. The issues
+    carrying a scale band are the TOPIX constituents. Measures: 有価証券報告書 (annual securities
+    reports) via EDINET, Financial Services Agency of Japan — as filed, or calculated by this platform
+    from filed inputs and carrying its formula. Fiscal year-ends are staggered across Japanese
+    companies, so each row carries its own reference period. A company that does not report a measure
+    is listed as not disclosed and left out of the ranking; it is never counted as zero.</p>
+  </footer>
+</main>
+
+<script src="assets/format.js"></script>
+<script src="assets/echarts.min.js"></script>
+<script src="assets/charts.js"></script>
+<script src="assets/cohorts.js"></script>
+</body>
+</html>

@@ -98,6 +98,14 @@ function lineOptions(cfg, pal, narrow) {
       nameTextStyle: { color: pal.muted, fontSize: 11, align: "left" },
       axisLine: { show: false },
       splitLine: { show: true, lineStyle: { color: pal.grid, width: 1 } },
+      // Opt-in fixed precision on the tick labels. ECharts drops trailing
+      // zeros, so a scale running 3.12 / 3.09 / 3.06 / 3.03 prints a bare
+      // "3" in the middle of the column — one precision per column is the
+      // house rule. Only callers that ask for it are affected.
+      axisLabel: cfg.yAxisDp === undefined
+        ? { color: pal.muted, fontSize: 11 }
+        : { color: pal.muted, fontSize: 11,
+            formatter: v => fmtNum(v, cfg.yAxisDp) },
     }),
     tooltip: {
       trigger: "axis",
@@ -250,10 +258,19 @@ function stackOptions(cfg, pal, narrow) {
       itemStyle: { color: pal.series[(s.slot - 1) % 6] },
       emphasis: { focus: "none" },
       data: isCat ? s.points.map(p => p[1]) : s.points.map(p => [p[0], p[1]]),
+      // The zero line, plus any event rules (cfg.eventLines: [{x: iso,
+      // label}]) — a methodology break has to be visible on the chart, not
+      // only in the footnote, and a stacked contribution chart is exactly
+      // where a break in the underlying series misleads most.
       markLine: i === 0 ? {
         silent: true, symbol: "none", label: { show: false },
         lineStyle: { color: pal.muted, width: 1, type: "solid" },
-        data: [{ yAxis: 0 }],
+        data: [{ yAxis: 0 }].concat((cfg.eventLines || []).map(e => ({
+          xAxis: e.x,
+          lineStyle: { color: pal.border, width: 1, type: "dashed" },
+          label: { show: !!e.label, formatter: e.label, position: "end",
+                   color: pal.muted, fontSize: 10 },
+        }))),
       } : undefined,
     })).concat(cfg.line ? [{
       name: cfg.line.name,
@@ -335,6 +352,144 @@ function barOptions(cfg, pal) {
   };
 }
 
+/* cfg: { values: [n, ...], rows: [{sec_code, name, value}], unit, dp,
+          metricLabel, stats: {p25, median, p75}, highlight: {name, value},
+          trust, sourceLine, bins? }
+   A cohort's distribution: how many peers fall in each band of one metric,
+   with the quartiles marked and — where one is named — a rule on the company
+   being read. This is the shape a rank cannot show. A company's value on its
+   own says nothing; the same value against a cohort that is tightly bunched
+   and against one that is spread out are two different findings, and only the
+   distribution distinguishes them.
+
+   Counts, so the y axis starts at zero and is never truncated. Bins are equal
+   width over the observed range; a cohort whose values are all identical gets
+   one bin rather than a divide-by-zero. */
+function distOptions(cfg, pal, narrow) {
+  const vals = (cfg.values || []).filter(v => v !== null && v !== undefined).sort((a, b) => a - b);
+  const dp = cfg.dp === undefined ? 1 : cfg.dp;
+  const unit = cfg.unit || "";
+  const fmt = v => (v === null || v === undefined ? "—" : fmtNum(v, dp) + unit);
+  // The caller may narrow the plotted window (see the percentile clip in
+  // cohorts.js): one company with a −2,000% margin otherwise stretches the
+  // axis until 220 of 222 peers stand in a single bar. Values outside the
+  // window are counted in the end bars rather than dropped — nothing
+  // disappears from a distribution — and the caller says so in the caption.
+  const lo = cfg.min !== undefined && cfg.min !== null ? cfg.min : (vals.length ? vals[0] : 0);
+  const hi = cfg.max !== undefined && cfg.max !== null ? cfg.max : (vals.length ? vals[vals.length - 1] : 0);
+  // Square-root rule with a floor: Sturges gives six bars for a cohort of 30,
+  // which collapsed a Core30 ROE spread of −4% to 58% into one block. Ten is
+  // the fewest that shows a shape at all; thirty stops a cohort of 1,500
+  // becoming a comb.
+  const n = cfg.bins || Math.max(1, Math.min(30, Math.min(
+    vals.length, Math.max(10, Math.ceil(Math.sqrt(vals.length))))));
+  const width = hi > lo ? (hi - lo) / n : 1;
+  const binOf = v => {
+    let b = hi > lo ? Math.floor((v - lo) / width) : 0;
+    if (b >= n) b = n - 1;
+    return b < 0 ? 0 : b;
+  };
+  // Counts come from `values`, which is every member; the names in a tooltip
+  // come from `rows`, which may be one page of a long table. Counting the page
+  // instead would quietly draw a different distribution from the one the
+  // quartiles describe.
+  const counts = new Array(n).fill(0);
+  const members = [];
+  for (let i = 0; i < n; i++) members.push([]);
+  vals.forEach(v => { counts[binOf(v)] += 1; });
+  (cfg.rows || []).forEach(r => {
+    if (r.value === null || r.value === undefined) return;
+    const b = binOf(r.value);
+    if (members[b].length < 6) members[b].push(r);
+  });
+  const hv = cfg.highlight && cfg.highlight.value;
+  let hb = -1;
+  if (hv !== null && hv !== undefined) {
+    hb = hi > lo ? Math.floor((hv - lo) / width) : 0;
+    if (hb >= n) hb = n - 1;
+    if (hb < 0) hb = -1;
+  }
+  const edges = [];
+  for (let i = 0; i <= n; i++) edges.push(lo + width * i);
+
+  // The quartile rules carry no labels. Three of them plus the highlighted
+  // company's sit within a few percent of each other on any bunched cohort,
+  // and ECharts will not move a markLine label out of a collision — they
+  // overprinted into an unreadable smear on the first Core30 render. The
+  // numbers are on the tiles above the chart and in the caption below it;
+  // only the company being read is labelled here, because only it is unique.
+  const rules = [];
+  const st = cfg.stats || {};
+  [["p25", "dashed"], ["median", "solid"], ["p75", "dashed"]].forEach(([k, type]) => {
+    if (st[k] === null || st[k] === undefined) return;
+    rules.push({
+      xAxis: st[k],
+      lineStyle: { color: pal.muted, width: 1, type: type },
+      label: { show: false },
+    });
+  });
+  if (hv !== null && hv !== undefined) {
+    rules.push({
+      xAxis: hv,
+      // ECharts defaults a markLine to dashed; the quartile rules are meant to
+      // be, the company's rule is not.
+      lineStyle: { color: pal.series[1], width: 2, type: "solid" },
+      // rotate:0 is not the default — a markLine label takes the line's angle,
+      // and on a vertical rule that prints the company name down the plot one
+      // character wide.
+      label: { show: true, color: pal.series[1], fontSize: 11, fontWeight: 600,
+               position: "end", rotate: 0, distance: 4,
+               formatter: (cfg.highlight.code || cfg.highlight.name || "") + " " + fmt(hv) },
+    });
+  }
+
+  return {
+    animation: false,
+    grid: { left: 8, right: 16, top: 36, bottom: 8, containLabel: true },
+    xAxis: Object.assign(axisCommon(pal), {
+      type: "value", min: lo, max: hi > lo ? hi : lo + 1,
+      name: cfg.metricLabel ? cfg.metricLabel + (unit ? " (" + unit + ")" : "") : "",
+      nameLocation: "middle", nameGap: 26,
+      nameTextStyle: { color: pal.muted, fontSize: 11 },
+      splitLine: { show: false },
+      axisLabel: { color: pal.muted, fontSize: 11, formatter: v => fmtNum(v, dp) },
+    }),
+    // No y-axis name: ECharts anchors it at the top of the axis, exactly where
+    // the highlighted company's label sits, and the two overprinted. What the
+    // bars count belongs in the caption, which has room for a sentence.
+    yAxis: Object.assign(axisCommon(pal), {
+      type: "value", minInterval: 1,
+      splitLine: { show: true, lineStyle: { color: pal.grid, width: 1 } },
+      axisLine: { show: false },
+    }),
+    tooltip: {
+      trigger: "item",
+      backgroundColor: pal.surface, borderColor: pal.border,
+      textStyle: { color: pal.text, fontSize: 12 },
+      formatter: p => {
+        const i = p.dataIndex;
+        const who = members[i].map(r => escapeHtml(r.name || r.sec_code)).join("<br>");
+        const more = counts[i] > members[i].length
+          ? '<br><span style="color:' + pal.muted + '">+' +
+            (counts[i] - members[i].length) + " more</span>" : "";
+        return "<b>" + fmt(edges[i]) + " to " + fmt(edges[i + 1]) + "</b><br>" +
+          '<span class="num" style="font-weight:600">' + counts[i] +
+          (counts[i] === 1 ? " company" : " companies") + "</span>" +
+          (who ? '<div style="margin-top:4px;color:' + pal.muted + '">' + who + more + "</div>" : "");
+      },
+    },
+    series: [{
+      type: "bar", barCategoryGap: "8%",
+      data: counts.map((c, i) => ({
+        value: [edges[i] + width / 2, c],
+        itemStyle: { color: i === hb ? pal.series[1] : pal.series[0] },
+      })),
+      barWidth: hi > lo ? undefined : 24,
+      markLine: { silent: true, symbol: "none", data: rules },
+    }],
+  };
+}
+
 /* cfg: { categories: ["2025-07", ...], series: [{name, slot, points: [v|null]}],
           dp, unitSuffix, yAxisName, trust, sourceLine }
    Grouped vertical bars: two flows measured in the same unit over the same
@@ -398,6 +553,156 @@ function colsOptions(cfg, pal, narrow) {
   };
 }
 
+/* cfg: { items: [{name, value, sub, note}], unit, dp, valueLabel,
+          rules?: [{value, text}], trust, sourceLine, rows? }
+   A ranking: one value per named thing, laid out horizontally so the names
+   are readable at their natural length and the eye runs down the order. Use
+   it where a column chart would rotate its labels — 45 constituencies, 47
+   prefectures — and where the ordering is itself the finding.
+
+   Distinct from barOptions, which ranks signed contributions around a zero
+   line and carries a basket weight. Here the values are levels: the axis
+   starts at zero and is never truncated, one colour carries every bar
+   because the bars are the same kind of thing, and comparison against a
+   threshold is done with a labelled rule rather than by colouring bars,
+   so nothing is encoded in colour alone. Items arrive in the order the
+   caller wants them read; nothing is re-sorted here. */
+/* Widest rendered width of a set of strings, in the page's own UI font.
+   Chart layout that guesses at text width gets it wrong in one direction or
+   the other; the canvas knows. Falls back to a character estimate where no
+   2d context is available. */
+function measureTextWidth(strings, fontSize) {
+  let ctx = measureTextWidth._ctx;
+  if (ctx === undefined) {
+    try {
+      ctx = document.createElement("canvas").getContext("2d");
+    } catch (e) {
+      ctx = null;
+    }
+    measureTextWidth._ctx = ctx;
+  }
+  if (!ctx) {
+    return strings.reduce((m, s) => Math.max(m, s.length), 0) * fontSize * 0.56;
+  }
+  ctx.font = fontSize + "px " + getComputedStyle(document.body).fontFamily;
+  return strings.reduce((m, s) => Math.max(m, ctx.measureText(s).width), 0);
+}
+
+function rankOptions(cfg, pal, narrow) {
+  const items = cfg.items;
+  const dp = cfg.dp === undefined ? 0 : cfg.dp;
+  const suffix = cfg.unit ? " " + cfg.unit : "";
+  const fmt = v => (v === null || v === undefined ? MISSING : fmtNum(v, dp) + suffix);
+  // The label lane is measured, not left to ECharts' containLabel, which
+  // under-measured it: a 97px name got a 65px lane and was cut off at its
+  // left edge — silently, no ellipsis, so "Tottori & Shimane" read
+  // "ri & Shimane" and the chart looked fine. Measuring the real string in
+  // the real font and setting every inset explicitly is deterministic.
+  const fontSize = narrow ? 10.5 : 11.5;
+  const labelMargin = 8;
+  const cap = narrow ? 104 : 168;
+  const labelWidth = Math.min(cap, measureTextWidth(
+    items.map(i => String(i.name)), fontSize) + 2);
+  // ECharts rotates a markLine label to run along the line by default, which
+  // on a vertical rule prints the text sideways down the plot. rotate: 0
+  // keeps it horizontal above the line; `stagger` drops one label a line so
+  // two rules close together do not print over each other.
+  const rules = (cfg.rules || []).map(r => ({
+    xAxis: r.value,
+    label: {
+      show: true, position: "end", rotate: 0, distance: 6,
+      offset: r.stagger ? [0, -13] : [0, 0],
+      color: pal.muted, fontSize: 10.5, formatter: r.text,
+    },
+    lineStyle: { color: pal.muted, width: 1, type: "dashed" },
+  }));
+  return {
+    animation: false,
+    // containLabel is off on purpose (see labelWidth above): every inset is
+    // set here. Bottom carries the tick labels plus the axis name when one
+    // is given, so the name is never printed over the ticks.
+    grid: {
+      left: labelWidth + labelMargin + 2,
+      right: narrow ? 54 : 76,
+      // Reference-line labels sit above the plot; without room for them they
+      // would print over the first bar.
+      top: (cfg.rules && cfg.rules.length) ? 30 : 8,
+      bottom: cfg.xAxisName ? 46 : 24,
+      containLabel: false,
+    },
+    xAxis: Object.assign(axisCommon(pal), {
+      type: "value",
+      min: 0,
+      splitLine: { show: true, lineStyle: { color: pal.grid, width: 1 } },
+      axisLine: { show: false },
+      axisLabel: { color: pal.muted, fontSize: 11,
+                   formatter: v => fmtNum(v, dp) },
+      name: cfg.xAxisName || "",
+      nameLocation: "middle",
+      nameGap: 26,
+      nameTextStyle: { color: pal.muted, fontSize: 11 },
+    }),
+    yAxis: Object.assign(axisCommon(pal), {
+      type: "category",
+      // ECharts draws a category y-axis bottom-up, so the caller's first
+      // item has to be sent last to appear at the top.
+      data: items.map(i => i.name).slice().reverse(),
+      // The label lane is reserved explicitly rather than left to
+      // containLabel to work out. Leaving it implicit cut the two longest
+      // names off at their left edge — silently, with no ellipsis, so the
+      // chart looked fine and read "…ri & Shimane". With an explicit width
+      // a name that still does not fit is truncated at its *end* with an
+      // ellipsis, which is visible as truncation.
+      axisLabel: {
+        color: pal.text, fontSize: fontSize, margin: labelMargin,
+        // A name longer than the cap is truncated at its end with an
+        // ellipsis — visible as truncation, unlike a canvas clip.
+        width: labelWidth, overflow: "truncate", ellipsis: "…",
+      },
+      axisLine: { show: false },
+    }),
+    tooltip: {
+      trigger: "item",
+      backgroundColor: pal.surface,
+      borderColor: pal.border,
+      textStyle: { color: pal.text, fontSize: 12 },
+      formatter: p => {
+        const it = items[items.length - 1 - p.dataIndex];
+        const trust = TRUST_LABELS[cfg.trust]
+          ? '<div style="margin-top:4px;font-size:11px;color:' + pal.muted + '">' +
+            TRUST_LABELS[cfg.trust] + "</div>" : "";
+        const sub = it.sub
+          ? '<br><span style="color:' + pal.muted + '">' + escapeHtml(it.sub) + "</span>" : "";
+        const note = it.note
+          ? '<div style="margin-top:4px;font-size:11px;color:' + pal.muted + '">' +
+            escapeHtml(it.note) + "</div>" : "";
+        return "<b>" + escapeHtml(it.name) + "</b><br>" +
+          escapeHtml(cfg.valueLabel || "Value") +
+          ': <span class="num" style="font-weight:600">' + fmt(it.value) + "</span>" +
+          sub + note + trust;
+      },
+    },
+    series: [{
+      type: "bar",
+      barMaxWidth: 14,
+      itemStyle: { color: pal.series[0] },
+      emphasis: { focus: "none" },
+      data: items.map(i => i.value).slice().reverse(),
+      label: {
+        show: !narrow,
+        position: "right",
+        color: pal.ink,
+        fontSize: 11,
+        fontWeight: 600,
+        formatter: p => fmt(p.value),
+      },
+      markLine: rules.length
+        ? { silent: true, symbol: "none", data: rules }
+        : undefined,
+    }],
+  };
+}
+
 /* mount a chart; returns {render, exportPNG, exportCSV, dispose} */
 function obsChart(el, kind, cfg) {
   let chart = null;
@@ -411,6 +716,8 @@ function obsChart(el, kind, cfg) {
     if (kind === "line") return lineOptions(cfg, pal, narrow);
     if (kind === "stack") return stackOptions(cfg, pal, narrow);
     if (kind === "cols") return colsOptions(cfg, pal, narrow);
+    if (kind === "dist") return distOptions(cfg, pal, narrow);
+    if (kind === "rank") return rankOptions(cfg, pal, narrow);
     return barOptions(cfg, pal);
   };
 
@@ -467,6 +774,28 @@ function obsChart(el, kind, cfg) {
         // daily series keep the full date; monthly series keep YYYY-MM
         const label = cfg.isoPeriods ? period.slice(0, 10) : fmtPeriod(period);
         csv += label + "," + row.join(",") + "\n";
+      });
+    } else if (kind === "rank") {
+      // The ranking's own columns, in the order shown. cfg.columns names
+      // them so an export is readable without the page beside it.
+      const cols = cfg.columns || [{ key: "name", label: "name" },
+                                   { key: "value", label: "value" }];
+      csv += cols.map(c => '"' + c.label.replace(/"/g, '""') + '"').join(",") + "\n";
+      (cfg.rows || cfg.items).forEach(r => {
+        csv += cols.map(c => {
+          const v = r[c.key];
+          if (v === null || v === undefined) return "";
+          return typeof v === "number" ? v : '"' + String(v).replace(/"/g, '""') + '"';
+        }).join(",") + "\n";
+      });
+    } else if (kind === "dist") {
+      // The members, not the bars: a histogram's bins are a rendering choice,
+      // and an export that carried them could not be checked against anything.
+      csv += "sec_code,name,value\n";
+      (cfg.rows || []).forEach(r => {
+        csv += '"' + String(r.sec_code || "").replace(/"/g, '""') + '","' +
+          String(r.name || "").replace(/"/g, '""') + '",' +
+          (r.value === null || r.value === undefined ? "" : r.value) + "\n";
       });
     } else {
       csv += "group,value,weight_per_10000\n";

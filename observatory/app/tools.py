@@ -787,7 +787,7 @@ def get_board_history(sec_code):
 
 def get_governance_screen(metric="oldest_boards", year="", listed="true", limit=25):
     """Ranked cross-section of boards and pay, one filing per company."""
-    raw, err = _gov_guard(lambda: governance_api.screen(
+    raw, err = _gov_guard(lambda: call_api(governance_api.screen,
         metric=metric or "oldest_boards", year=year or "", listed=listed or "",
         limit=max(1, min(int(limit or 25), 200))))
     if err:
@@ -863,7 +863,7 @@ def get_financial_statement(sec_code, statement="bs", basis="", year=""):
 
 def get_financials_screen(metric="revenue", year="", limit=25):
     """Ranked cross-section on one key indicator, one filing per company."""
-    raw, err = _fin_guard(lambda: financials_api.screen(
+    raw, err = _fin_guard(lambda: call_api(financials_api.screen,
         metric=metric or "revenue", year=year or "",
         limit=max(1, min(int(limit or 25), 200))))
     if err:
@@ -897,7 +897,7 @@ def screen_financial_metrics(sort="roe_pct", order="desc", industry="", standard
                              equity_ratio_max="", revenue_growth_min="", pbr_implied_max="",
                              dividend_yield_min="", cash_to_assets_min="", limit=25):
     """Filtered, ranked cross-section on platform-calculated ratios."""
-    raw, err = _fin_guard(lambda: financials_api.screener(
+    raw, err = _fin_guard(lambda: call_api(financials_api.screener,
         industry=industry or "", standard=standard or "",
         min_revenue_yen=str(min_revenue_yen or ""), min_assets_yen=str(min_assets_yen or ""),
         roe_min=str(roe_min or ""), roe_max=str(roe_max or ""), roa_min=str(roa_min or ""),

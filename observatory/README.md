@@ -42,11 +42,27 @@ and one trade dataset:
   the export and import schedules split 3818.00 differently (`-100`/`-900` vs `-010`/`-020`).
   **Needs `ESTAT_APP_ID`.**
 
-and one demand dataset:
+and two demand datasets:
 
 - **jnto-visitors** — monthly foreign visitor arrivals to Japan by market (54 series: the
   national total, six regional totals and named markets), from January 2003, published by
   the Japan National Tourism Organization
+
+- **accommodation-jp** — monthly guest nights and room occupancy from the Japan Tourism
+  Agency's Accommodation Survey (宿泊旅行統計調査), ~3,900 series. Guest nights for the
+  nation, the 47 prefectures and the 10 transport-bureau regions run from January 2011,
+  split into Japanese and foreign guests, with room occupancy by hotel type over the same
+  span; from January 2019 also foreign guest nights by 24 visitor nationalities, guest
+  nights by hotel type, and the leisure/business and in-prefecture/out-of-prefecture
+  splits; from January 2026 also property-size bands and 210 named municipalities. Where
+  arrivals count people, this counts **person-nights** — a distinct unit that must never be
+  ranked or summed against arrivals. Three traps the adapter carries so you do not have to:
+  every download link is a rotating content id, so one release is a deterministic zip of
+  fourteen discovered workbooks (trend, annual definitive and monthly preliminary) under one
+  checksum; the January 2026 survey re-stratified properties from employee count to room
+  count, which is why property-size series start there and the residual "Other" nationality
+  is two separate codes; and the nationality tables cover larger properties only, so their
+  categories do not sum to the all-properties foreign guest nights.
 
 and one demographic dataset:
 
@@ -111,6 +127,7 @@ python3 -m venv .venv
 ./.venv/bin/python -m app.ingest boj-assets
 ./.venv/bin/python -m app.ingest jgb-yields
 ./.venv/bin/python -m app.ingest jnto-visitors
+./.venv/bin/python -m app.ingest accommodation-jp        # ~22MB of workbooks, ~4 min
 ./.venv/bin/python -m app.ingest population-jp
 ./.venv/bin/python -m app.ingest population-jp-history   # needs ESTAT_APP_ID
 ./.venv/bin/python -m app.ingest population-jp-municipal # ~12 min: 585k series
@@ -235,7 +252,8 @@ development `uvicorn app.main:app` therefore never ends itself, whatever the clo
 
 The EDINET-derived datasets — 5% filings, cross-shareholdings, boards and pay, buybacks,
 facilities, rental property, shareholder registers, financial statements — refresh in the same cycle, from the
-same S3 bucket the capture jobs write to:
+same S3 bucket the capture jobs write to. The listed-issue classification runs in the same job
+but reads two small files over HTTP instead (see **Peer groups** below):
 
 ```
 python equity/refresh_equity.py --seed seed/equity.duckdb
@@ -260,7 +278,10 @@ still rendered a healthy-looking dashboard over month-old data.
   data live, and never stops the server coming back up.
 - **Freshness is reported.** `/api/v1/catalog/health` carries an `equity_extractors`
   block: how far each extractor has read, and whether that is more than 7 days behind
-  (long enough to survive the New Year closure without crying wolf).
+  (long enough to survive the New Year closure without crying wolf). A source on a
+  different clock sets its own threshold in `STALE_AFTER_BY_EXTRACTOR` — the
+  classification is stamped month-end, so a current copy is up to five weeks old by its
+  own date and is judged at 45 days.
 
 ### The MCP surface (v2)
 
@@ -457,6 +478,14 @@ GET /api/v1/cpi-jp/contributions?start=2023-01     # pp decomposition of headlin
 GET /api/v1/cpi-jp-items/breadth?threshold=2       # share of the 582 priced items rising/falling
 GET /api/v1/jgb-yields/curve                       # every date x every tenor, one payload
 GET /api/v1/jnto-visitors/arrivals                 # every market x every month, plus the hierarchy
+GET /api/v1/accommodation-jp/accommodation?area=13 # one area's whole cube — guest nights by hotel type,
+                                                   #   nationality, purpose, residence and property size —
+                                                   #   plus the guest-nights/foreign/occupancy backbone for
+                                                   #   all 58 areas and every named municipality, so the
+                                                   #   regions ranking needs no second call. Omit `area`
+                                                   #   for All Japan; series codes are nights.<area>[.jp|
+                                                   #   .fx|.type.<t>|.nat.<n>|.res.<r>|.purpose.<p>|
+                                                   #   .rooms.<b>], occ.<area>[.type.<t>], muni.<code>.<m>
 GET /api/v1/trade-semis/observations?series=exp.70131000.50105.val&period=fiscal_quarter&fy_end=3
                                                    # any monthly FLOW summed into a company's fiscal
                                                    #   quarters or years (period=fiscal_year); refuses an
@@ -780,6 +809,81 @@ coverage strip, bought-versus-retired by month, the announced-versus-executed
 ranking with a lifecycle filter — and a company view at `?c={sec_code}` with
 each authorisation, the month-by-month record and the treasury table. The URL
 encodes the filter and the ranking, so any view is citable.
+
+### Peer groups (`/api/v1/equity/cohorts/...`)
+
+A rank across the whole listed market is the wrong denominator for almost every
+question anyone asks: a 3% female board is unremarkable among 3,700 issues and
+conspicuous inside TOPIX Core30. A **cohort** is the peer group a number is read
+against, and `app/cohorts.py` is the one place a cohort spec becomes a set of
+security codes — so "within TOPIX Core30" names the same companies on the
+financials screener, the board screen and the register screen alike.
+
+Specs are short because they have to survive in a URL:
+
+| Spec | Cohort |
+| --- | --- |
+| `topix` | every TOPIX constituent |
+| `size:core30` · `large70` · `mid400` · `small1` · `small2` | the TOPIX scale bands; `size:large` and `size:small` roll them up |
+| `segment:prime` · `standard` · `growth` | JPX market segment |
+| `ind33:3650` · `ind17:6` | the JPX 33- and 17-industry classifications |
+| `index:nk225` | Nikkei 225 membership — **restricted**, see below |
+| `codes:7203,6758,…` | a basket you define, up to 500 codes |
+
+The classification comes from JPX's own listed issue list (東証上場銘柄一覧,
+`observatory/equity/class_extract.py`, parser `class-1`; extractor name
+`classification` in `eq_extract_runs`) — market segment, both industry
+classifications and the scale band, exactly as published, never inferred. The
+issues carrying a scale band **are** the TOPIX constituents (1,636 at
+2026-08-31). This platform calculates no index and licenses none.
+
+Three rules the code enforces rather than documents:
+
+- **Vintages, not a snapshot.** A vintage is one accepted read, identified by the
+  SHA-256 of its bytes and stamped with the file's own effective date; the raw
+  file is archived under `data/raw/` first. A stored vintage is never rewritten —
+  the same bytes store once, a revised file at the same date lands *beside* the
+  first — so index reviews and segment migrations accumulate as history and
+  `?as_of=` can reconstruct a cohort as it stood. Neither publisher offers
+  back-history, so this accumulates forward, like every other vintage here.
+- **Restricted membership never leaks.** The Nikkei 225 constituent file is the
+  publisher's copyrighted work and may not be redistributed. Its rows are stored
+  with `public = FALSE` and will not resolve unless `INTERNAL_COHORTS` is an
+  explicit truthy value — off by default, the same shape of kill switch as
+  `ASK_ENABLED`. With it unset the cohort is absent from the catalogue, from a
+  company's cohort list and from the assistant tools, and asking for it answers
+  400 rather than the whole market.
+- **Baskets are stateless.** The serving process never writes to the database
+  (guardrail 5), so there is nowhere to save a named basket to — and that is the
+  better design: a basket carried entirely in its spec string is a permanent,
+  citable URL. The page remembers names for baskets in the reader's own browser.
+
+| Endpoint | What it answers |
+| --- | --- |
+| `/cohorts` | every cohort that can be asked for, grouped, with member counts |
+| `/cohorts/metrics` | what a cohort can be compared on, by family, each with its formula |
+| `/cohorts/members?cohort=` | who is in a cohort, with the classification each member carries |
+| `/cohorts/company/{sec_code}` | the cohorts one company belongs to, and its default peer group |
+| `/cohorts/compare?cohort=&metric=&highlight=` | one measure across the cohort: every member ranked with its percentile, the cohort's median and quartiles, and one company located inside them |
+
+`?cohort=` also narrows `/financials/screener`, `/governance/screen` and
+`/ownership/screen`, and reaches the assistant as `filters.cohort` on `screen`
+plus two tools of its own, `list_cohorts` and `compare_cohort`.
+
+Nothing here is a new measurement: every metric is either as filed or one of the
+ratios `fin_metrics` already computes, and it carries the same formula it carries
+on its own page. The cohort statistics are derived and carry theirs — quartiles by
+linear interpolation (R type 7), percentile by mid-rank on ties. **A member that
+does not report a measure is excluded from the distribution and from every rank,
+listed separately with the reason, and counted — never imputed, never zero.**
+
+The page is `web/cohorts.html` (**Equities → Peer Groups**): pick a cohort and a
+measure, and read the distribution with the quartiles marked, one company
+highlighted, and the members ranked beneath. Where a cohort's tails are extreme
+the chart cuts its axis to the 1st–99th percentile, counts the outliers in the
+end bars and says so; the table always carries every value. The URL encodes the
+cohort, the measure, the order and the highlighted company, so any view is
+citable.
 
 ### Shareholder register (`/api/v1/equity/ownership/...`)
 

@@ -79,7 +79,8 @@ import duckdb
 
 from extract import (LocalSource, S3Source, load_codelist, compact, DB_PATH,
                      incremental_window, record_run, seek_key,
-                     select_pending, catch_up_start, CATCH_UP_DAYS)
+                     select_pending, catch_up_start, CATCH_UP_DAYS,
+                     recorded_floor)
 from facility_extract import grid_of, read_t1
 
 PARSER_VERSION = "seg-1"
@@ -901,9 +902,12 @@ def main():
 
     since, have = (incremental_window(args.db, EXTRACTOR, "eq_seg_filings")
                    if args.new_only else (None, set()))
-    filings = src.filings(catch_up_start(since, args.catch_up))
+    filings = src.filings(catch_up_start(since, args.catch_up if args.new_only else 0))
     through = max((r["date"] for r in filings.values()), default=None)
-    pending = select_pending(filings, since, have, args.catch_up)
+    pending, catch_up_floor = select_pending(
+        filings, since, have,
+        args.catch_up if args.new_only else 0,
+        recorded_floor(args.db, EXTRACTOR))
     if since is not None:
         print("incremental: %d of %d archived filings are new since %s"
               % (len(pending), len(filings), since))
@@ -1033,7 +1037,8 @@ def main():
     print("rows written: regions %d, customers %d, products %d"
           % (counts["regions"], counts["customers"], counts["products"]))
     con.close()
-    record_run(args.db, EXTRACTOR, through, len(filings), PARSER_VERSION)
+    record_run(args.db, EXTRACTOR, through, len(filings), PARSER_VERSION,
+               back_to=catch_up_floor)
     if not args.no_compact:
         compact(args.db)
 

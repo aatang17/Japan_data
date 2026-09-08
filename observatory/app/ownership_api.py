@@ -29,6 +29,7 @@ names, addresses, share counts and ratios are as filed.
 from fastapi import APIRouter, HTTPException, Query
 
 from . import asof
+from . import equity_api
 
 from . import aliases
 from .equity_api import NAMES_NOTE, NAME_CTES, PROVENANCE, _cur, _rows
@@ -377,13 +378,18 @@ def screen(metric: str = Query("foreign_pct", description="one of /screen/metric
            min_shareholders: int = Query(0, ge=0,
                                          description="drop companies with fewer "
                                                      "shareholders than this"),
+           cohort: str = Query("", description="restrict to a cohort, e.g. "
+                                               "size:core30 or codes:7203,6758 — "
+                                               "see /api/v1/equity/cohorts"),
            limit: int = Query(50, ge=1, le=500)):
-    u"""Companies ranked on one register metric."""
+    u"""Companies ranked on one register metric, optionally within a cohort."""
     cur = _require()
     col = SCREEN_METRICS.get((metric or "").strip())
     if not col:
         raise HTTPException(400, "unknown metric; see /screen/metrics")
     direction = "ASC" if (order or "").lower() == "asc" else "DESC"
+    codes, cohort_info = equity_api.cohort_filter(cohort)
+    cohort_clause, cohort_params = equity_api.cohort_sql(codes, "c")
     rows = _rows(cur, latest_own() + NAME_CTES + """
         SELECT c.sec_code, c.edinet_code, c.filer_name,
                coalesce(es.name_en, ee.name_en) AS filer_name_en,
@@ -396,11 +402,14 @@ def screen(metric: str = Query("foreign_pct", description="one of /screen/metric
         LEFT JOIN en_scode es ON es.sec_code = c.sec_code
         LEFT JOIN en_ecode ee ON ee.edinet_code = c.edinet_code
         WHERE {COL} IS NOT NULL
-          AND coalesce(c.shareholders_total, 0) >= ?
+          AND coalesce(c.shareholders_total, 0) >= ?{COHORT}
         ORDER BY metric_value {DIR} LIMIT ?"""
-        .replace("{COL}", "c." + col).replace("{DIR}", direction),
-        _params(year, listed) + [min_shareholders, limit])
+        .replace("{COL}", "c." + col).replace("{DIR}", direction)
+        .replace("{COHORT}", cohort_clause),
+        _params(year, listed) + [min_shareholders] + cohort_params + [limit])
     return _notes({"metric": metric, "order": direction.lower(), "companies": rows,
+                   "cohort": cohort_info and {k: cohort_info[k] for k in
+                                              ("spec", "label", "as_of", "public", "kind")},
                    "scope": ("fiscal year %s" % year.strip()) if year.strip()
                             else "each company's latest filing"})
 

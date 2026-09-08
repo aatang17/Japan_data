@@ -271,3 +271,194 @@ Only the MLCC- and memory-adjacent signals were backtested. Family B had no equi
 content in the test (median excess −2.5%). Family D's non-electronics cells were never
 scored against any target — there is no defined outcome series for "copper" or "food"
 in this work. These are current readings from validated rules, not validated signals.
+
+---
+
+## 14. Round three — the leak-free test, and what it retracts (8 September 2026)
+
+Spec, engine and full output: `backtest-2026-09/SPEC3.md`, `bt3.py`, `bt3_out.txt`.
+
+**Why a third round.** Sections 1–13 contain two errors that flatter every
+MLCC-specific result: the tightness index included the Japanese MLCC price it
+was meant to predict, and fires that landed in the same month a spike began were
+scored as hits. Round three fixes both and adds a random-timing null.
+
+**Design.** Target defined first and forward-only: *the price is not spiking now
+(< +8% yoy) and a spike (≥ +8%) begins within six months.* No candidate may be
+built from Japan's HS 8532.24 export value or quantity. Fourteen candidates
+listed before running, all reported. Six-month cooldown so each fire is one
+observation. Every row carries its base rate **and** a permutation p-value from
+2,000 random re-drawings of the same number of fires at the same spacing.
+
+**Result: none of the fourteen is reliable, and none is even suggestive.**
+
+| Candidate | Fires | Scorable | Hit vs base | p |
+|---|---:|---:|---|---:|
+| Taiwan memory revenue | 11 | 7 | 57% vs 40% | 0.29 |
+| Taiwan MLCC revenue | 14 | 7 | 43% vs 40% | 0.74 |
+| HK MLCC import price | 4 | 3 | 67% vs 43% | 0.40 |
+| US orders − inventories | 10 | 5 | 40% vs 40% | 0.74 |
+| US PPI capacitors | 11 | 6 | 17% vs 40% | 0.99 |
+| Korea IC exports | 7 | 5 | 40% vs 45% | 0.76 |
+| Combination, ≥3 agree | 8 | 5 | 60% vs 43% | — |
+
+(Full table in `bt3_out.txt`; the untuned fixed-k=4 full-history variant gives the same picture.)
+
+**The reason is sample size, not the signals.** The base rate is ~40%: MLCC
+price spikes are frequent — nine in 25 years, the price above +8% in half of
+all months. Against that base, a signal with seven scorable fires must hit
+**71%** to reach p ≤ 0.10; with thirty fires, 53%. No MLCC-specific series has
+thirty independent fires in its history. The test is not rejecting the signals;
+it cannot pass anything at this n.
+
+**What this retracts.** The 0–100 index (§ "MLCC Tightness Index",
+`equity/mlcc_index.py`) and any claim that it "caught 2017". The index rose
+*with* the 2017 spike, not before it, because it contained the price. Its
+leading components alone sit above 45 in 60% of months, so "warned 7 of 9" is
+what always-on would score.
+
+**What stands.**
+- The round-one result on the *pooled* 254-line Japanese export universe
+  (73% vs 59% base, ~50 fires, out of sample) — pooling across products is the
+  only way to reach a usable n. It was not permutation-tested; that is the next step.
+- The descriptive record of 2025–26: Taiwan revenue fired on November 2025 data,
+  Japan's MLCC price crossed +8% on April 2026 data. One episode; a story, not evidence.
+- Everything about *seeing* the cycle: units, destinations, dielectric split,
+  Hong Kong channel stock. The data describes the MLCC market in real time with
+  more granularity than anything published. It cannot be shown to predict it.
+
+**Product implication.** Sell "see it as it happens, everywhere, with
+provenance". Do not sell "see it before it happens" for any single product.
+
+---
+
+## 15. Round four — pooled across products, replicated in Hong Kong: one signal survives (8 September 2026)
+
+Spec, engine, output and the Hong Kong fetcher: `backtest-2026-09/SPEC4.md`,
+`bt4.py`, `bt4_out.txt`, `hk_universe.py`. The Hong Kong panel itself
+(990 HS-6 import lines, monthly 2015–2026, value and units, from the C&SD
+IDDS API) lives in session scratch as `hk_universe.json`; it is re-fetchable
+in about eight minutes.
+
+**Why this round works where round three could not.** A single product has
+nine episodes in 25 years. Pooling 138 Japanese export lines under one fixed
+rule gives 117 scorable fires; pooling 990 Hong Kong import lines gives 215.
+That is enough to test against a random-timing null.
+
+**Design.** Five candidate rules listed before running, identical on every
+line. Target forward-only: *price yoy < +8% now; crosses ≥ +8% within six
+months.* k chosen on Japan 2005–2015 only. Hong Kong receives Japan's k
+unchanged — no parameter touched it. Six-month cooldown per line.
+Permutation null: per line, the same number of fires re-drawn at random
+eligible months, 300–1,000 draws. Leave-one-year-out on every result.
+
+**Result.**
+
+| Rule | Japan: hit vs base (n) · p | Hong Kong: hit vs base (n) · p | Verdict |
+|---|---|---|---|
+| **BOTH** — price and volume yoy both improving ≥2 months, both ≥ 0 | **57.3% vs 38.5%** (117) · 0.000 | **73.0% vs 58.6%** (215) · 0.000 | **RELIABLE, replicates** |
+| VALUE — export value improving ≥8 months | 51.2% vs 38.5% (80) · 0.000 | 54.5% vs 58.6% (99) · 0.11 | Japan only — does not replicate |
+| PRICE — price yoy improving ≥8 months | 57.6% vs 38.5% (33) · 0.00 | 76.2% vs 58.6% (21) · 0.00 | suggestive; fires mostly mid-spike |
+| VOLUME alone | 40.3% vs 38.5% · 0.99 | 58.3% vs 58.6% · 1.00 | nothing |
+| VOL-LEADS — volume up, price flat | 45.5% vs 38.5% · 0.95 | 58.2% vs 58.6% · 1.00 | nothing |
+
+**BOTH, in detail.**
+- Not a few lines: 117 fires across 68 Japanese lines, no line contributing
+  more than 2 hits; Hong Kong hits spread across every year 2016–2026.
+- Leave-one-year-out: worst case 48.8% (dropping 2021) on Japan, still 10pp
+  over base; Hong Kong 74.0% with 2021–22 removed.
+- **Stricter null**: random months on the same lines *within the same 0–8%
+  yoy band* — i.e. "price already positive, random timing" — score 41.1%
+  (Japan) and 62.6% (Hong Kong). The momentum run itself adds 10–16pp.
+- Lead time: median **2 months** from fire to crossing +8% (distribution
+  1:22, 2:12, 3:7, 4:11, 5:10, 6:5). Short. It is trend *continuation*, seen
+  early, not a distant forecast.
+- **It does not predict magnitude.** Median forward six-month price change
+  after a fire is +3.5% against +2.2% for all eligible months; means are
+  identical. It predicts that a rising rate keeps rising past a threshold,
+  not that the move will be large.
+
+**What it is, in plain words.** When a product's price *and* its volume have
+both been accelerating for two months, and the price is not yet 8% above last
+year, the odds that it gets there within six months rise from roughly 2-in-5
+to roughly 3-in-5 in Japan, and from 3-in-5 to 3-in-4 in Hong Kong. That holds
+across 1,128 product lines in two customs systems, and against random timing
+on the same lines in the same price band.
+
+**Current fires (Japan, June 2026 data, pre-spike):** semiconductor
+manufacturing equipment (¥4.66tn/yr, price +7.0%, volume +4.2%), plated steel
+sheet, paper & paperboard, packaging paper (+17.6% volume), printing paper.
+July's fires — cars, brass, bare copper wire — are already past +8%.
+
+**Retractions carried forward.** The single-product tightness index remains
+retracted. VALUE is dropped: it was a Japan-only artefact.
+
+**Limits.** Base rates differ by country (Hong Kong's unit values are noisier,
+so spikes are more frequent there); the edge is similar in both. Two months of
+lead is what the data supports — not four, not six. As-revised data throughout.
+
+---
+
+## 16. Round five — what else moves these prices: common factor, co-movement, chain direction, final customer (8 September 2026)
+
+Scripts and full output: `backtest-2026-09/chain.py`, `chain2.py`, `chain3.py`, `chain_out.txt`.
+Panel: Hong Kong imports, 990 HS-6 lines, 2016-01 → 2026-07; Japan 138 lines for Test 1.
+Chain pairs were written into `chain.py` before any result was computed.
+
+**Test 1 — how much is "the market"?** Regress each line's price yoy on the
+cross-line median. Hong Kong: median R² **0.03**, only 4 of 920 lines above
+0.5. Japan: median R² 0.29 — the yen moves every yen unit value together.
+BOTH re-run on the *residual* (line minus market) still passes: Hong Kong
+74.2% vs 56.0% base, Japan 40.8% vs 29.4%, both p = 0.000. The signal is about
+the product, not the tide.
+
+**Test 2 — what co-moves.** Average pairwise correlation of price yoy is
+≈ +0.04 within components, within devices, within materials, and across all
+three. Unit-value moves are idiosyncratic. The exceptions are specific
+material → component pairs, and they read like cost pass-through:
+aluminium wire (7605.29) ~ wirewound resistors (8533.31) r = +0.92; acrylic
+sheet (3920.63) ~ wirewound resistors +0.86; PVC (3914) ~ coaxial cable
+(8544.20) +0.78; aluminium ingot (7601.10) ~ copper winding wire (8544.11)
++0.77; polyester (3907.61) ~ other conductors (8544.70) +0.75. About 490,000
+pairs were scanned; r > 0.7 on ~110 observations is not chance, but these
+are candidates for a cost-pass-through map, not proven links.
+
+**Test 3 — which way does the chain lead?** Ten pre-specified
+upstream → downstream chains. A BOTH fire on the *upstream* line raises the
+odds of a spike starting *downstream* within six months: pooled **68.6% vs
+50.4%** (n = 86, permutation p = 0.004). The reverse direction —
+downstream fire → upstream spike — is nothing: 52.1% vs 49.5%. The result is
+carried by one chain: **copper → cables, connectors, transformers, 73.5% vs
+48.2%, n = 49, p < 0.001**. The other chains point the same way but thin
+out — 62.2% on 37, p = 0.21. Several chains (wafers → ICs, Li-ion → EVs,
+steel → cars) produced no fires because their HS-6 lines lack usable units in
+Hong Kong.
+
+**Test 4 — the final customer.** Three demand-side series, all tested as
+leaders of Hong Kong component import prices:
+- China-bound re-exports of finished goods (computers, servers, phones,
+  monitors, batteries, power supplies; 11 HS-6 lines, units): **51.9% vs
+  51.9%**. Nothing. Reverse direction also nothing (48.4% vs 47.5%).
+- Taiwan server-ODM revenue (Quanta, Inventec, Wiwynn), four-month run:
+  **28.6% vs 51.9%, p = 1.00** — *inverse*. Foundry revenue → IC prices:
+  20.0% vs 50.3%. MLCC makers' revenue → capacitor prices: 43.5% vs 48.3%.
+- Coincidence check: in the months Taiwan revenue fires, *fewer* component
+  lines are already spiking than in an average month (28–38% vs 42–45%).
+  Taiwan's customers accelerate when component prices are quiet, and prices
+  do not follow within six months.
+- The reverse — component price fire → Taiwan customer revenue accelerating
+  within six months — is the only demand-side result with a pulse: server
+  ODMs 60.0% vs 46.7%, n = 15, p = 0.17. Suggestive at best.
+
+**What this retracts.** The narrative that Taiwan MLCC revenue "led" the 2026
+Japanese price move. It did in that one episode (November 2025 → April 2026).
+Pooled across 23 fires against Hong Kong capacitor prices, and across 14
+against Japan's in round three, it does not. One episode was a story.
+
+**What it establishes.**
+1. Component and material prices are overwhelmingly product-specific; a
+   common factor explains ~3% of the variance in Hong Kong.
+2. Costs push forward, demand does not pull back: material price momentum
+   precedes component price spikes; customer revenue does not.
+3. The one chain with enough events to be sure is copper → the copper-bearing
+   components. Everything else is a direction, not a finding.

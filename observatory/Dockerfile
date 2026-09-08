@@ -34,4 +34,16 @@ ENV PYTHONUNBUFFERED=1
 ENV EDINET_ARCHIVE_ROOT=/app/data/edinet-cache
 ENV EDINET_LISTING_CACHE=/app/data/edinet-cache/listing
 
+# How deep the container digs each night. Every extractor resumes from a
+# watermark and so only ever walks FORWARD: a database built forward from the
+# day an extractor was written stays as shallow as its first run, however deep
+# the archive behind it is, and no freshness check can see it — the 5% filings
+# sat at fourteen weeks with 74,000 filings in the bucket. With this set, each
+# nightly run also reads this many archive days below its own floor until it
+# reaches the bottom, and a cold start takes one slice instead of the whole
+# archive with the port closed. Forty days is about ten minutes of the refresh
+# window for every extractor together, and reaches the floor of a five-year
+# archive in roughly a month. Set to 0 to go back to forward-only.
+ENV EQUITY_CATCH_UP_DAYS=40
+
 CMD ["./start.sh"]

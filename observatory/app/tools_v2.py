@@ -115,7 +115,7 @@ def _screen_register(sort, f, limit):
     return call_api(_eq("ownership_api").screen,
         metric=sort, order=f.get("order", "desc"), year=f.get("year", ""),
         listed=f.get("listed", "true"), min_shareholders=int(f.get("min_shareholders", 0) or 0),
-        limit=limit)
+        cohort=str(f.get("cohort", "") or ""), limit=limit)
 
 
 def _screen_stakes(sort, f, limit):
@@ -127,7 +127,8 @@ def _screen_stakes(sort, f, limit):
 
 def _screen_boards(sort, f, limit):
     return call_api(_eq("governance_api").screen, metric=sort, year=f.get("year", ""),
-                    listed=f.get("listed", ""), limit=limit)
+                    listed=f.get("listed", ""),
+                    cohort=str(f.get("cohort", "") or ""), limit=limit)
 
 
 def _screen_buybacks(sort, f, limit):
@@ -144,6 +145,8 @@ def _screen_facilities(sort, f, limit):
     return m.ranking(metric=sort, year=f.get("year", ""), limit=limit)
 
 
+# `cohort` is handled separately: it is not a financials filter but the shared
+# peer-group narrowing every screen takes (app/cohorts.py).
 _SCREENER_FILTERS = ("industry", "standard", "min_revenue_yen", "min_assets_yen",
                      "roe_min", "roe_max", "roa_min", "operating_margin_min",
                      "equity_ratio_min", "equity_ratio_max", "revenue_growth_min",
@@ -155,7 +158,9 @@ def _screen_financials(sort, f, limit):
     if sort.startswith("filed:"):
         return m.screen(metric=sort[len("filed:"):], year=f.get("year", ""), limit=limit)
     kw = dict((k, str(f.get(k, "") or "")) for k in _SCREENER_FILTERS)
-    return m.screener(sort=sort, order=f.get("order", "desc"), limit=limit, offset=0, **kw)
+    return m.screener(sort=sort, order=f.get("order", "desc"),
+                      cohort=str(f.get("cohort", "") or ""),
+                      limit=limit, offset=0, **kw)
 
 
 def _screen_agm(sort, f, limit):
@@ -618,10 +623,62 @@ def screen(dataset, sort="", filters=None, limit=ROW_BUDGET, as_of=""):
 
 
 # ---------------------------------------------------------------------------
+# Cohorts — the seventh tool, and the only one that is not per-dataset
+# ---------------------------------------------------------------------------
+# A cohort is a peer group, not a dataset: the same TOPIX band or basket of
+# codes narrows the financials screener, the board screen and the register
+# screen alike. `screen` already takes it as filters.cohort. This adds the one
+# thing the six generic tools cannot express — the shape of a cohort's
+# distribution, which is what turns a company's number into a position.
+
+def list_cohorts(as_of=""):
+    """Every peer group that can be compared within, with member counts."""
+    _record("list_cohorts", {"as_of": as_of or None})
+    m = registry.get("financials") or {}
+    try:
+        raw = call_api(_mod("cohorts_api").catalogue, as_of=as_of or "")
+    except Exception as exc:  # noqa: BLE001
+        return _fail(_detail(exc))
+    return _dumps({
+        "tool": "list_cohorts",
+        "data": raw,
+        "how": ("Pass any `spec` as filters.cohort on `screen`, or as `cohort` on "
+                "compare_cohort. A basket is a cohort too: codes:7203,6758,…"),
+        "cite": "/cohorts.html",
+    })
+
+
+def compare_cohort(cohort, metric="roe_pct", highlight="", order="desc",
+                   limit=ROW_BUDGET, as_of=""):
+    """One metric across one peer group: every member ranked, with the
+    cohort's own quartiles, and a named company's percentile within it."""
+    _record("compare_cohort", {"cohort": cohort, "metric": metric,
+                               "highlight": highlight or None, "order": order,
+                               "limit": limit, "as_of": as_of or None})
+    limit = max(1, min(int(limit or ROW_BUDGET), MAX_LIMIT))
+    try:
+        raw = call_api(_mod("cohorts_api").compare, cohort=cohort, metric=metric,
+                       highlight=highlight or "", order=order or "desc",
+                       limit=limit, as_of=as_of or "")
+    except Exception as exc:  # noqa: BLE001
+        return _fail(_detail(exc))
+    return _dumps({
+        "tool": "compare_cohort",
+        "data": raw,
+        "calc": raw.get("calc"),
+        "provenance": raw.get("provenance"),
+        "cite": "/cohorts.html?cohort=%s&metric=%s%s" % (
+            cohort, metric, ("&c=" + highlight) if highlight else ""),
+    })
+
+
+# ---------------------------------------------------------------------------
 # Registry of tools, and their MCP descriptors
 # ---------------------------------------------------------------------------
 
 IMPLS = {
+    "list_cohorts": list_cohorts,
+    "compare_cohort": compare_cohort,
     "list_datasets": list_datasets,
     "describe_dataset": describe_dataset,
     "search": search,
@@ -646,6 +703,14 @@ def run_tool(name, args):
     except Exception as exc:  # noqa: BLE001 — surfaced to the caller, not raised
         return _fail(_detail(exc)), True
     return text, text.startswith('{"error":')
+
+
+def _cohort_metric_ids():
+    """Metric ids for the tool schema, read from the one registry that has them."""
+    try:
+        return [m[0] for m in _mod("cohorts_api").METRICS]
+    except Exception:  # noqa: BLE001 — a schema is not worth failing tools/list over
+        return []
 
 
 def _str(desc, **extra):
@@ -738,6 +803,36 @@ def descriptors():
              "limit": {"type": "integer", "description": "Rows (default 50, max 100)."},
              "as_of": _str("YYYY-MM-DD: the filings that existed on EDINET by that date.")},
              "required": ["dataset"]},
+         "annotations": ro},
+        {"name": "list_cohorts", "title": "List peer groups",
+         "description": ("The peer groups a company can be compared within: the TOPIX "
+                         "scale bands (Core30, Large70, Mid400, Small 1/2), JPX market "
+                         "segments (Prime, Standard, Growth), the 33- and 17-industry "
+                         "classifications, and — where the deployment is entitled to it "
+                         "— index membership. Each comes back with a `spec` string you "
+                         "pass to compare_cohort or to screen's filters.cohort."),
+         "inputSchema": {"type": "object", "properties": {
+             "as_of": _str("YYYY-MM-DD: the classification as it stood then.")},
+             "required": []},
+         "annotations": ro},
+        {"name": "compare_cohort", "title": "Compare within a peer group",
+         "description": ("One metric across one peer group, ranked, with the group's own "
+                         "median and quartiles — the answer to 'is this normal for a "
+                         "company like this?'. `cohort` is a spec from list_cohorts "
+                         "(size:core30, ind33:3650, segment:prime, index:nk225) or a "
+                         "basket you define: codes:7203,6758,9984. `highlight` returns "
+                         "one company's rank and percentile inside the group. Companies "
+                         "that do not report the metric are excluded from the ranking "
+                         "and listed with the reason — never counted as zero."),
+         "inputSchema": {"type": "object", "properties": {
+             "cohort": _str("Cohort spec, e.g. size:core30 or codes:7203,6758."),
+             "metric": _str("Metric id; see the metrics list on /api/v1/equity/cohorts/metrics.",
+                            enum=_cohort_metric_ids()),
+             "highlight": _str("Securities code to locate within the cohort."),
+             "order": _str("desc (default) or asc.", enum=["desc", "asc"]),
+             "limit": {"type": "integer", "description": "Rows (default 50, max 100)."},
+             "as_of": _str("YYYY-MM-DD: the classification as it stood then.")},
+             "required": ["cohort"]},
          "annotations": ro},
     ]
 

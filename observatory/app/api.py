@@ -22,7 +22,13 @@ from pydantic import BaseModel, Field
 
 from . import db, fiscal, heartbeat, vintages
 from .adapters import (boj_assets, cpi_jp, cpi_jp_items, jnto_visitors,
-                       juki_municipal, juki_population, mof_jgb, mof_trade,
+                       jta_accommodation,
+                       juki_municipal, juki_population, maff_agri_prices,
+                       maff_ja_coops,
+                       maff_rice_cost,
+                       maff_rice_price,
+                       maff_rice_stock,
+                       mof_jgb, mof_trade,
                        mof_trade_hs, ssds_population)
 
 # The agent is optional: without the openai package installed the data API
@@ -46,14 +52,20 @@ ADAPTERS = {"cpi-jp": cpi_jp, "cpi-jp-items": cpi_jp_items, "boj-assets": boj_as
             "population-jp": juki_population,
             "population-jp-history": ssds_population,
             "population-jp-municipal": juki_municipal,
-            "trade-semis": mof_trade, "trade-inputs": mof_trade_hs}
+            "trade-semis": mof_trade, "trade-inputs": mof_trade_hs,
+            "accommodation-jp": jta_accommodation,
+            "rice-prices-jp": maff_rice_price,
+            "rice-inventory-jp": maff_rice_stock,
+            "agri-prices": maff_agri_prices,
+            "rice-production-cost": maff_rice_cost,
+            "ja-statistics": maff_ja_coops}
 
 router = APIRouter(prefix="/api/v1")
 
 # What the pages fetch on load, primed at startup. Not every dataset serves
 # every one of these — the misses 404 harmlessly and simply aren't cached.
 WARM_ENDPOINTS = ("overview", "series", "contributions", "breadth", "curve",
-                  "arrivals", "trade")
+                  "arrivals", "trade", "accommodation")
 
 
 def warm_paths():
@@ -76,6 +88,17 @@ UNIT = {"index": "index", "yoy": "%", "mom": "%", "ann3m": "%"}
 # would be a trust-contract breach, not a cosmetic slip.
 UNIT_LABEL = {"index": "index", "jpy_100mn": "¥100mn", "pct": "%",
               "persons": "persons", "jpy_1000": "¥1,000",
+              # A night slept, not a person: one visitor staying three nights
+              # is three person-nights. Never interchangeable with "persons".
+              "person_nights": "person-nights", "percent": "%",
+              # Rice is contracted by the 60kg bag of brown rice, and the
+              # price is published per bag — never per kilogram or per tonne.
+              "jpy_per_60kg": "¥/60kg",
+              # Rice stocks are published in 万玄米トン and stored in it.
+              "t10k_brown_rice": "10k t brown rice",
+              # Farm-cost survey units. A cost, a harvested weight and a
+              # labour input share a table but never a series.
+              "jpy": "¥", "kg": "kg", "hours": "hours",
               # Customs quantity units, published full-width. Stored exactly
               # as released; only the label is normalised.
               "ＮＯ": "units", "ＫＧ": "kg"}
@@ -1054,6 +1077,146 @@ def arrivals(dataset):
             "markets": markets,
             "periods": [p.isoformat() for p in periods],
             "values": values,
+        }
+    finally:
+        con.close()
+
+
+ACCOMMODATION_CALC = (
+    "Published guest nights (person-nights) and room occupancy rates exactly "
+    "as the Agency released them. Not recomputed, not seasonally adjusted, not "
+    "annualised. Growth, shares, recovery against a baseline year and "
+    "contributions are calculated on the page and carry their formula there. "
+    "A figure the survey did not publish is null, never zero."
+)
+
+# The three series every area carries for the whole run of history. They are
+# what the regions view ranks and maps on, so they ship for every area at once
+# while the rest of the cube is served only for the area being read.
+_ACC_BACKBONE = ("nights.%s", "nights.%s.fx", "occ.%s")
+
+
+@router.get("/{dataset}/accommodation")
+def accommodation(dataset, area: str = Query(None, max_length=4)):
+    """Guest nights and occupancy: every area's backbone, one area's detail.
+
+    The cube is area x measure x category x month, and the categories differ
+    per measure — 25 nationalities, 6 hotel types, 5 size bands, 2 purposes, 2
+    residences. Shipping all of it would be several megabytes for a page that
+    draws one area at a time, so this follows the trade surface rather than the
+    arrivals one: the backbone (guest nights, foreign guest nights, room
+    occupancy) rides along for all 58 areas, and the dimensional detail is
+    served for the area actually being read. A citable URL therefore names
+    exactly one view, and the regions ranking needs no second round trip.
+
+    The municipality series ship in full because they are small: three metrics
+    for 210 towns, and only from 2026, when the survey began publishing them.
+
+    Areas are served, not inferred. The 47 prefectures partition the country;
+    the 10 transport-bureau regions are a republication of the same nights and
+    are marked `kind: "region"` so nothing adds them to the prefectures.
+    """
+    adapter = _dataset_or_404(dataset)
+    cfg = adapter.PRESENTATION.get("accommodation")
+    if not cfg:
+        raise HTTPException(
+            404, "Dataset '%s' has no accommodation definition" % dataset)
+
+    national = cfg["national"]
+    prefectures, bureaus = cfg["prefectures"], cfg["bureaus"]
+    known = [national] + list(prefectures) + list(bureaus)
+    area = area or national
+    if area not in known:
+        raise HTTPException(404, "Unknown area '%s' for %s" % (area, dataset))
+
+    con = _con()
+    try:
+        rel = _release(con, dataset)
+        smap = _series_map(con, dataset)
+        by_code = dict((s["code"], s) for s in smap)
+
+        periods = [p for (p,) in con.execute(
+            "SELECT DISTINCT o.period FROM observations o "
+            "JOIN series s USING(series_id) WHERE s.dataset=? ORDER BY o.period",
+            [dataset]).fetchall()]
+        pos = dict((p, i) for i, p in enumerate(periods))
+
+        def columns(codes):
+            ids = dict((by_code[c]["series_id"], c) for c in codes if c in by_code)
+            out = {}
+            for sid, values in _values_bulk(con, list(ids)).items():
+                column = [None] * len(periods)
+                for period, value in values.items():
+                    column[pos[period]] = value
+                out[ids[sid]] = column
+            return out
+
+        backbone = columns([template % code
+                            for code in known for template in _ACC_BACKBONE])
+
+        # Everything else the chosen area publishes, minus what already rode
+        # along in the backbone.
+        already = set(template % area for template in _ACC_BACKBONE)
+        detail_codes = [s["code"] for s in smap
+                        if s["code"] not in already
+                        and not s["code"].startswith("muni.")
+                        and s["code"].split(".")[1] == area]
+        detail = columns(detail_codes)
+
+        # The municipality tables begin at the stratification break, so their
+        # columns would otherwise be 97% nulls against the full period axis.
+        # They get their own shorter axis instead — the same values, a third of
+        # a megabyte less of them.
+        muni_all = columns([s["code"] for s in smap
+                            if s["code"].startswith("muni.")])
+        muni_first = min((i for column in muni_all.values()
+                          for i, v in enumerate(column) if v is not None),
+                         default=len(periods))
+        municipal = dict((code, column[muni_first:])
+                         for code, column in muni_all.items())
+
+        def label(code):
+            s = by_code.get(code)
+            return {"name_en": s["name_en"], "name_ja": s["name_ja"],
+                    "unit": s["unit"]} if s else None
+
+        areas = [{"code": code,
+                  "name_en": cfg["area_names"].get(code, code),
+                  "kind": ("national" if code == national
+                           else "prefecture" if code in prefectures else "region")}
+                 for code in known]
+
+        latest = datetime.date.fromisoformat(rel["latest_period"])
+        today = datetime.date.today()
+        return {
+            "dataset": dataset, "release": rel,
+            "trust": "official", "calc": ACCOMMODATION_CALC,
+            "credit_line": adapter.PRESENTATION.get("credit_line"),
+            "stale": (today - latest).days
+                     > adapter.PRESENTATION["stale_after_days"],
+            "area": area,
+            "areas": areas,
+            "national": national,
+            "baseline_year": cfg.get("baseline_year"),
+            "break_period": cfg.get("break_period"),
+            "break_note": cfg.get("break_note"),
+            "feature_areas": cfg.get("feature_areas", []),
+            "feature_nationalities": cfg.get("feature_nationalities", []),
+            "dimensions": {
+                "facility_types": cfg.get("facility_types", []),
+                "room_bands": cfg.get("room_bands", []),
+                "nationalities": cfg.get("nationalities", []),
+                "purposes": cfg.get("purposes", []),
+                "residence": cfg.get("residence", []),
+            },
+            "municipalities": cfg.get("municipalities", []),
+            "periods": [p.isoformat() for p in periods],
+            "backbone": backbone,
+            "detail": detail,
+            "municipal": municipal,
+            "municipal_periods": [p.isoformat() for p in periods[muni_first:]],
+            "labels": dict((code, label(code))
+                           for code in list(backbone) + list(detail)),
         }
     finally:
         con.close()

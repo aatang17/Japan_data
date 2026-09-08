@@ -65,7 +65,10 @@ while true; do
         # deploy. The default stays complete, so a laptop and a fresh container
         # still build everything.
         for dataset in ${INGEST_DATASETS:-cpi-jp cpi-jp-items boj-assets jgb-yields jnto-visitors \
-                       population-jp population-jp-history population-jp-municipal trade-semis trade-inputs}; do
+                       accommodation-jp population-jp population-jp-history population-jp-municipal \
+                       trade-semis trade-inputs \
+                       rice-prices-jp rice-inventory-jp agri-prices rice-production-cost \
+                       ja-statistics}; do
             python -m app.ingest "$dataset" \
                 || echo "ingest $dataset did not publish; serving last published release"
         done

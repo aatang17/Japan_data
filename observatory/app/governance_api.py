@@ -29,6 +29,7 @@ import re
 from fastapi import APIRouter, HTTPException, Query
 
 from . import asof
+from . import equity_api
 
 from . import aliases
 from .equity_api import (INDUSTRY_EN, NAMES_NOTE, NAME_CTES, PROVENANCE, _cur,
@@ -537,13 +538,22 @@ def trend(years_back: int = Query(5, ge=2, le=6),
 def screen(metric: str = Query("oldest_boards", description="one of /screen/metrics"),
            year: str = Query("", description="fiscal year; default latest filing"),
            listed: str = Query("", description="'true' for listed filers only"),
+           cohort: str = Query("", description="restrict to a cohort, e.g. size:core30 "
+                                               "or codes:7203,6758 — see "
+                                               "/api/v1/equity/cohorts"),
            limit: int = Query(50, ge=1, le=500)):
-    """Ranked cross-section, one filing per company."""
+    """Ranked cross-section, one filing per company.
+
+    ?cohort= ranks inside a peer group instead of across the whole market —
+    a board that looks ordinary among 3,700 filers can be an outlier in its
+    own TOPIX band."""
     cur = _require()
     if metric not in SCREENS:
         raise HTTPException(400, "unknown metric; choose one of %s"
                             % ", ".join(sorted(SCREENS)))
     order, where, title = SCREENS[metric]
+    codes, cohort_info = equity_api.cohort_filter(cohort)
+    cohort_sql, cohort_params = equity_api.cohort_sql(codes, "g")
     rows = _rows(cur, latest_gov() + NAME_CTES + """
         SELECT g.sec_code, g.filer_name, coalesce(n.name_en, s.name_en) AS filer_name_en,
                e.industry, CAST(year(g.period_end) AS VARCHAR) AS year, g.doc_id,
@@ -560,13 +570,16 @@ def screen(metric: str = Query("oldest_boards", description="one of /screen/metr
         LEFT JOIN eq_entities e ON e.edinet_code = g.edinet_code
         LEFT JOIN en_ecode n ON n.edinet_code = g.edinet_code
         LEFT JOIN en_scode s ON s.sec_code = g.sec_code
-        WHERE g.sec_code IS NOT NULL AND {WHERE}
+        WHERE g.sec_code IS NOT NULL AND {WHERE}{COHORT}
         ORDER BY {ORDER} NULLS LAST LIMIT ?"""
-        .replace("{WHERE}", where).replace("{ORDER}", order),
-        _gov_params(year, listed) + [limit])
+        .replace("{WHERE}", where).replace("{COHORT}", cohort_sql)
+        .replace("{ORDER}", order),
+        _gov_params(year, listed) + cohort_params + [limit])
     for r in rows:
         r["industry_en"] = INDUSTRY_EN.get(r.get("industry"))
     return {"metric": metric, "title": title, "rows": rows,
+            "cohort": cohort_info and {k: cohort_info[k] for k in
+                                       ("spec", "label", "as_of", "public", "kind")},
             "inside_pay_note": INSIDE_PAY_NOTE,
             "pay_consistency_note": PAY_FLAG_NOTE,
             "scope": ("fiscal year %s" % year.strip()) if year.strip()

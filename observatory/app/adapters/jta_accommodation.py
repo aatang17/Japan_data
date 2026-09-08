@@ -272,184 +272,238 @@ _NAT_NEW = dict((ja, code) for code, ja, _en, era in NATIONALITIES
 # what a reader needs to navigate; per-municipality romanisation would have to
 # come from a published kana table rather than be invented here.
 MUNICIPALITIES = [
-    ("01-01", "北海道札幌市", "札幌市"),
-    ("01-02", "北海道函館市", "函館市"),
-    ("01-03", "北海道小樽市", "小樽市"),
-    ("01-04", "北海道旭川市", "旭川市"),
-    ("01-05", "北海道釧路市", "釧路市"),
-    ("01-06", "北海道帯広市", "帯広市"),
-    ("01-07", "北海道北見市", "北見市"),
-    ("01-08", "北海道苫小牧市", "苫小牧市"),
-    ("01-09", "北海道千歳市", "千歳市"),
-    ("01-10", "北海道虻田郡倶知安町", "虻田郡倶知安町"),
-    ("02-01", "青森県青森市", "青森市"),
-    ("02-02", "青森県弘前市", "弘前市"),
-    ("02-03", "青森県八戸市", "八戸市"),
-    ("03-01", "岩手県盛岡市", "盛岡市"),
-    ("03-02", "岩手県花巻市", "花巻市"),
-    ("03-03", "岩手県北上市", "北上市"),
-    ("03-04", "岩手県一関市", "一関市"),
-    ("04-01", "宮城県仙台市", "仙台市"),
-    ("04-02", "宮城県大崎市", "大崎市"),
-    ("05-01", "秋田県秋田市", "秋田市"),
-    ("05-02", "秋田県大館市", "大館市"),
-    ("05-03", "秋田県仙北市", "仙北市"),
-    ("06-01", "山形県山形市", "山形市"),
-    ("06-02", "山形県米沢市", "米沢市"),
-    ("06-03", "山形県鶴岡市", "鶴岡市"),
-    ("06-04", "山形県天童市", "天童市"),
-    ("07-01", "福島県福島市", "福島市"),
-    ("07-02", "福島県会津若松市", "会津若松市"),
-    ("07-03", "福島県郡山市", "郡山市"),
-    ("07-04", "福島県いわき市", "いわき市"),
-    ("07-05", "福島県南相馬市", "南相馬市"),
-    ("08-01", "茨城県水戸市", "水戸市"),
-    ("08-02", "茨城県土浦市", "土浦市"),
-    ("08-03", "茨城県つくば市", "つくば市"),
-    ("09-01", "栃木県宇都宮市", "宇都宮市"),
-    ("09-02", "栃木県日光市", "日光市"),
-    ("09-03", "栃木県小山市", "小山市"),
-    ("09-04", "栃木県那須塩原市", "那須塩原市"),
-    ("09-05", "栃木県那須郡那須町", "那須郡那須町"),
-    ("10-01", "群馬県前橋市", "前橋市"),
-    ("10-02", "群馬県高崎市", "高崎市"),
-    ("10-03", "群馬県渋川市", "渋川市"),
-    ("10-04", "群馬県吾妻郡草津町", "吾妻郡草津町"),
-    ("10-05", "群馬県利根郡みなかみ町", "利根郡みなかみ町"),
-    ("11-01", "埼玉県さいたま市", "さいたま市"),
-    ("11-02", "埼玉県熊谷市", "熊谷市"),
-    ("12-01", "千葉県千葉市", "千葉市"),
-    ("12-02", "千葉県木更津市", "木更津市"),
-    ("12-03", "千葉県成田市", "成田市"),
-    ("12-04", "千葉県市原市", "市原市"),
-    ("12-05", "千葉県鴨川市", "鴨川市"),
-    ("12-06", "千葉県浦安市", "浦安市"),
-    ("12-07", "千葉県南房総市", "南房総市"),
-    ("13-01", "東京都千代田区", "千代田区"),
-    ("13-02", "東京都中央区", "中央区"),
-    ("13-03", "東京都港区", "港区"),
-    ("13-04", "東京都新宿区", "新宿区"),
-    ("13-05", "東京都台東区", "台東区"),
-    ("13-06", "東京都墨田区", "墨田区"),
-    ("13-07", "東京都江東区", "江東区"),
-    ("13-08", "東京都品川区", "品川区"),
-    ("13-09", "東京都大田区", "大田区"),
-    ("13-10", "東京都渋谷区", "渋谷区"),
-    ("13-11", "東京都豊島区", "豊島区"),
-    ("13-12", "東京都北区", "北区"),
-    ("13-13", "東京都荒川区", "荒川区"),
-    ("13-14", "東京都八王子市", "八王子市"),
-    ("14-01", "神奈川県横浜市", "横浜市"),
-    ("14-02", "神奈川県川崎市", "川崎市"),
-    ("14-03", "神奈川県相模原市", "相模原市"),
-    ("14-04", "神奈川県足柄下郡箱根町", "足柄下郡箱根町"),
-    ("15-01", "新潟県新潟市", "新潟市"),
-    ("15-02", "新潟県長岡市", "長岡市"),
-    ("15-03", "新潟県上越市", "上越市"),
-    ("15-04", "新潟県南魚沼市", "南魚沼市"),
-    ("15-05", "新潟県南魚沼郡湯沢町", "南魚沼郡湯沢町"),
-    ("16-01", "富山県富山市", "富山市"),
-    ("17-01", "石川県金沢市", "金沢市"),
-    ("17-02", "石川県加賀市", "加賀市"),
-    ("18-01", "福井県福井市", "福井市"),
-    ("18-02", "福井県敦賀市", "敦賀市"),
-    ("18-03", "福井県あわら市", "あわら市"),
-    ("19-01", "山梨県甲府市", "甲府市"),
-    ("19-02", "山梨県富士吉田市", "富士吉田市"),
-    ("19-03", "山梨県北杜市", "北杜市"),
-    ("19-04", "山梨県笛吹市", "笛吹市"),
-    ("19-05", "山梨県南都留郡山中湖村", "南都留郡山中湖村"),
-    ("19-06", "山梨県南都留郡富士河口湖町", "南都留郡富士河口湖町"),
-    ("20-01", "長野県長野市", "長野市"),
-    ("20-02", "長野県松本市", "松本市"),
-    ("20-03", "長野県上田市", "上田市"),
-    ("20-04", "長野県諏訪市", "諏訪市"),
-    ("20-05", "長野県佐久市", "佐久市"),
-    ("20-06", "長野県北佐久郡軽井沢町", "北佐久郡軽井沢町"),
-    ("20-07", "長野県北安曇郡白馬村", "北安曇郡白馬村"),
-    ("20-08", "長野県下高井郡山ノ内町", "下高井郡山ノ内町"),
-    ("20-09", "長野県下高井郡野沢温泉村", "下高井郡野沢温泉村"),
-    ("21-01", "岐阜県岐阜市", "岐阜市"),
-    ("21-02", "岐阜県高山市", "高山市"),
-    ("21-03", "岐阜県下呂市", "下呂市"),
-    ("22-01", "静岡県静岡市", "静岡市"),
-    ("22-02", "静岡県浜松市", "浜松市"),
-    ("22-03", "静岡県沼津市", "沼津市"),
-    ("22-04", "静岡県熱海市", "熱海市"),
-    ("22-05", "静岡県富士宮市", "富士宮市"),
-    ("22-06", "静岡県伊東市", "伊東市"),
-    ("22-07", "静岡県富士市", "富士市"),
-    ("22-08", "静岡県掛川市", "掛川市"),
-    ("22-09", "静岡県御殿場市", "御殿場市"),
-    ("22-10", "静岡県下田市", "下田市"),
-    ("22-11", "静岡県伊豆市", "伊豆市"),
-    ("22-12", "静岡県伊豆の国市", "伊豆の国市"),
-    ("22-13", "静岡県賀茂郡東伊豆町", "賀茂郡東伊豆町"),
-    ("23-01", "愛知県名古屋市", "名古屋市"),
-    ("23-02", "愛知県豊橋市", "豊橋市"),
-    ("23-03", "愛知県豊田市", "豊田市"),
-    ("23-04", "愛知県蒲郡市", "蒲郡市"),
-    ("24-01", "三重県津市", "津市"),
-    ("24-02", "三重県伊勢市", "伊勢市"),
-    ("24-03", "三重県鳥羽市", "鳥羽市"),
-    ("24-04", "三重県志摩市", "志摩市"),
-    ("25-01", "滋賀県大津市", "大津市"),
-    ("25-02", "滋賀県彦根市", "彦根市"),
-    ("25-03", "滋賀県高島市", "高島市"),
-    ("26-01", "京都府京都市", "京都市"),
-    ("26-02", "京都府京丹後市", "京丹後市"),
-    ("27-01", "大阪府大阪市", "大阪市"),
-    ("27-02", "大阪府堺市", "堺市"),
-    ("27-03", "大阪府泉佐野市", "泉佐野市"),
-    ("28-01", "兵庫県神戸市", "神戸市"),
-    ("28-02", "兵庫県姫路市", "姫路市"),
-    ("28-03", "兵庫県洲本市", "洲本市"),
-    ("28-04", "兵庫県豊岡市", "豊岡市"),
-    ("29-01", "奈良県奈良市", "奈良市"),
-    ("30-01", "和歌山県和歌山市", "和歌山市"),
-    ("30-02", "和歌山県田辺市", "田辺市"),
-    ("30-03", "和歌山県西牟婁郡白浜町", "西牟婁郡白浜町"),
-    ("31-01", "鳥取県鳥取市", "鳥取市"),
-    ("31-02", "鳥取県米子市", "米子市"),
-    ("32-01", "島根県松江市", "松江市"),
-    ("32-02", "島根県出雲市", "出雲市"),
-    ("33-01", "岡山県岡山市", "岡山市"),
-    ("33-02", "岡山県倉敷市", "倉敷市"),
-    ("34-01", "広島県広島市", "広島市"),
-    ("34-02", "広島県呉市", "呉市"),
-    ("34-03", "広島県福山市", "福山市"),
-    ("34-04", "広島県廿日市市", "廿日市市"),
-    ("35-01", "山口県下関市", "下関市"),
-    ("35-02", "山口県山口市", "山口市"),
-    ("35-03", "山口県周南市", "周南市"),
-    ("36-01", "徳島県徳島市", "徳島市"),
-    ("36-02", "徳島県鳴門市", "鳴門市"),
-    ("37-01", "香川県高松市", "高松市"),
-    ("38-01", "愛媛県松山市", "松山市"),
-    ("39-01", "高知県高知市", "高知市"),
-    ("40-01", "福岡県北九州市", "北九州市"),
-    ("40-02", "福岡県福岡市", "福岡市"),
-    ("41-01", "佐賀県佐賀市", "佐賀市"),
-    ("42-01", "長崎県長崎市", "長崎市"),
-    ("42-02", "長崎県佐世保市", "佐世保市"),
-    ("42-03", "長崎県諫早市", "諫早市"),
-    ("43-01", "熊本県熊本市", "熊本市"),
-    ("44-01", "大分県大分市", "大分市"),
-    ("44-02", "大分県別府市", "別府市"),
-    ("45-01", "宮崎県宮崎市", "宮崎市"),
-    ("46-01", "鹿児島県鹿児島市", "鹿児島市"),
-    ("46-02", "鹿児島県薩摩川内市", "薩摩川内市"),
-    ("46-03", "鹿児島県霧島市", "霧島市"),
-    ("46-04", "鹿児島県奄美市", "奄美市"),
-    ("47-01", "沖縄県那覇市", "那覇市"),
-    ("47-02", "沖縄県石垣市", "石垣市"),
-    ("47-03", "沖縄県名護市", "名護市"),
-    ("47-04", "沖縄県宮古島市", "宮古島市"),
-    ("47-05", "沖縄県国頭郡今帰仁村", "国頭郡今帰仁村"),
-    ("47-06", "沖縄県国頭郡本部町", "国頭郡本部町"),
+    ("01-01", "01", "札幌市"),
+    ("01-02", "01", "函館市"),
+    ("01-03", "01", "小樽市"),
+    ("01-04", "01", "旭川市"),
+    ("01-05", "01", "釧路市"),
+    ("01-06", "01", "帯広市"),
+    ("01-07", "01", "北見市"),
+    ("01-08", "01", "苫小牧市"),
+    ("01-09", "01", "千歳市"),
+    ("01-10", "01", "網走市"),
+    ("01-11", "01", "富良野市"),
+    ("01-12", "01", "登別市"),
+    ("01-13", "01", "虻田郡倶知安町"),
+    ("01-14", "01", "後志総合振興局倶知安町"),
+    ("02-01", "02", "青森市"),
+    ("02-02", "02", "弘前市"),
+    ("02-03", "02", "八戸市"),
+    ("03-01", "03", "盛岡市"),
+    ("03-02", "03", "花巻市"),
+    ("03-03", "03", "北上市"),
+    ("03-04", "03", "一関市"),
+    ("03-05", "03", "八幡平市"),
+    ("04-01", "04", "仙台市"),
+    ("04-02", "04", "大崎市"),
+    ("05-01", "05", "秋田市"),
+    ("05-02", "05", "大館市"),
+    ("05-03", "05", "仙北市"),
+    ("06-01", "06", "山形市"),
+    ("06-02", "06", "米沢市"),
+    ("06-03", "06", "鶴岡市"),
+    ("06-04", "06", "酒田市"),
+    ("06-05", "06", "天童市"),
+    ("07-01", "07", "福島市"),
+    ("07-02", "07", "会津若松市"),
+    ("07-03", "07", "郡山市"),
+    ("07-04", "07", "いわき市"),
+    ("07-05", "07", "南相馬市"),
+    ("07-06", "07", "耶麻郡猪苗代町"),
+    ("08-01", "08", "水戸市"),
+    ("08-02", "08", "つくば市"),
+    ("08-03", "08", "土浦市"),
+    ("08-04", "08", "神栖市"),
+    ("09-01", "09", "宇都宮市"),
+    ("09-02", "09", "日光市"),
+    ("09-03", "09", "那須塩原市"),
+    ("09-04", "09", "小山市"),
+    ("09-05", "09", "那須郡那須町"),
+    ("10-01", "10", "前橋市"),
+    ("10-02", "10", "高崎市"),
+    ("10-03", "10", "渋川市"),
+    ("10-04", "10", "吾妻郡嬬恋村"),
+    ("10-05", "10", "吾妻郡草津町"),
+    ("10-06", "10", "利根郡みなかみ町"),
+    ("11-01", "11", "さいたま市"),
+    ("11-02", "11", "熊谷市"),
+    ("12-01", "12", "千葉市"),
+    ("12-02", "12", "木更津市"),
+    ("12-03", "12", "成田市"),
+    ("12-04", "12", "市原市"),
+    ("12-05", "12", "鴨川市"),
+    ("12-06", "12", "浦安市"),
+    ("12-07", "12", "南房総市"),
+    ("13-01", "13", "千代田区"),
+    ("13-02", "13", "中央区"),
+    ("13-03", "13", "港区"),
+    ("13-04", "13", "新宿区"),
+    ("13-05", "13", "台東区"),
+    ("13-06", "13", "墨田区"),
+    ("13-07", "13", "江東区"),
+    ("13-08", "13", "品川区"),
+    ("13-09", "13", "大田区"),
+    ("13-10", "13", "渋谷区"),
+    ("13-11", "13", "豊島区"),
+    ("13-12", "13", "北区"),
+    ("13-13", "13", "荒川区"),
+    ("13-14", "13", "八王子市"),
+    ("14-01", "14", "横浜市"),
+    ("14-02", "14", "川崎市"),
+    ("14-03", "14", "相模原市"),
+    ("14-04", "14", "鎌倉市"),
+    ("14-05", "14", "藤沢市"),
+    ("14-06", "14", "足柄下郡箱根町"),
+    ("14-07", "14", "小田原市"),
+    ("15-01", "15", "新潟市"),
+    ("15-02", "15", "長岡市"),
+    ("15-03", "15", "妙高市"),
+    ("15-04", "15", "上越市"),
+    ("15-05", "15", "佐渡市"),
+    ("15-06", "15", "南魚沼市"),
+    ("15-07", "15", "南魚沼郡湯沢町"),
+    ("16-01", "16", "富山市"),
+    ("17-01", "17", "金沢市"),
+    ("17-02", "17", "加賀市"),
+    ("17-03", "17", "小松市"),
+    ("18-01", "18", "福井市"),
+    ("18-02", "18", "敦賀市"),
+    ("18-03", "18", "あわら市"),
+    ("19-01", "19", "甲府市"),
+    ("19-02", "19", "富士吉田市"),
+    ("19-03", "19", "北杜市"),
+    ("19-04", "19", "笛吹市"),
+    ("19-05", "19", "南都留郡山中湖村"),
+    ("19-06", "19", "南都留郡富士河口湖町"),
+    ("20-01", "20", "長野市"),
+    ("20-02", "20", "松本市"),
+    ("20-03", "20", "上田市"),
+    ("20-04", "20", "諏訪市"),
+    ("20-05", "20", "佐久市"),
+    ("20-06", "20", "飯田市"),
+    ("20-07", "20", "茅野市"),
+    ("20-08", "20", "北佐久郡軽井沢町"),
+    ("20-09", "20", "大町市"),
+    ("20-10", "20", "北安曇郡白馬村"),
+    ("20-11", "20", "下高井郡山ノ内町"),
+    ("20-12", "20", "安曇野市"),
+    ("20-13", "20", "下高井郡野沢温泉村"),
+    ("21-01", "21", "岐阜市"),
+    ("21-02", "21", "高山市"),
+    ("21-03", "21", "下呂市"),
+    ("21-04", "21", "郡上市"),
+    ("22-01", "22", "静岡市"),
+    ("22-02", "22", "浜松市"),
+    ("22-03", "22", "沼津市"),
+    ("22-04", "22", "熱海市"),
+    ("22-05", "22", "富士宮市"),
+    ("22-06", "22", "伊東市"),
+    ("22-07", "22", "富士市"),
+    ("22-08", "22", "掛川市"),
+    ("22-09", "22", "御殿場市"),
+    ("22-10", "22", "伊豆市"),
+    ("22-11", "22", "下田市"),
+    ("22-12", "22", "伊豆の国市"),
+    ("22-13", "22", "賀茂郡東伊豆町"),
+    ("23-01", "23", "名古屋市"),
+    ("23-02", "23", "豊橋市"),
+    ("23-03", "23", "豊田市"),
+    ("23-04", "23", "蒲郡市"),
+    ("23-05", "23", "常滑市"),
+    ("24-01", "24", "津市"),
+    ("24-02", "24", "伊勢市"),
+    ("24-03", "24", "鈴鹿市"),
+    ("24-04", "24", "鳥羽市"),
+    ("24-05", "24", "志摩市"),
+    ("24-06", "24", "四日市市"),
+    ("25-01", "25", "大津市"),
+    ("25-02", "25", "彦根市"),
+    ("25-03", "25", "高島市"),
+    ("26-01", "26", "京都市"),
+    ("26-02", "26", "京丹後市"),
+    ("27-01", "27", "大阪市"),
+    ("27-02", "27", "堺市"),
+    ("27-03", "27", "泉佐野市"),
+    ("28-01", "28", "神戸市"),
+    ("28-02", "28", "姫路市"),
+    ("28-03", "28", "豊岡市"),
+    ("28-04", "28", "洲本市"),
+    ("29-01", "29", "奈良市"),
+    ("30-01", "30", "和歌山市"),
+    ("30-02", "30", "伊都郡高野町"),
+    ("30-03", "30", "西牟婁郡白浜町"),
+    ("30-04", "30", "田辺市"),
+    ("31-01", "31", "鳥取市"),
+    ("31-02", "31", "米子市"),
+    ("32-01", "32", "松江市"),
+    ("32-02", "32", "出雲市"),
+    ("33-01", "33", "岡山市"),
+    ("33-02", "33", "倉敷市"),
+    ("34-01", "34", "広島市"),
+    ("34-02", "34", "呉市"),
+    ("34-03", "34", "福山市"),
+    ("34-04", "34", "廿日市市"),
+    ("35-01", "35", "下関市"),
+    ("35-02", "35", "山口市"),
+    ("35-03", "35", "周南市"),
+    ("36-01", "36", "徳島市"),
+    ("36-02", "36", "鳴門市"),
+    ("36-03", "36", "三好市"),
+    ("37-01", "37", "高松市"),
+    ("38-01", "38", "松山市"),
+    ("38-02", "38", "今治市"),
+    ("39-01", "39", "高知市"),
+    ("40-01", "40", "北九州市"),
+    ("40-02", "40", "福岡市"),
+    ("41-01", "41", "佐賀市"),
+    ("41-02", "41", "嬉野市"),
+    ("41-03", "41", "唐津市"),
+    ("42-01", "42", "長崎市"),
+    ("42-02", "42", "佐世保市"),
+    ("42-03", "42", "諫早市"),
+    ("42-04", "42", "五島市"),
+    ("43-01", "43", "熊本市"),
+    ("43-02", "43", "天草市"),
+    ("44-01", "44", "大分市"),
+    ("44-02", "44", "別府市"),
+    ("44-03", "44", "日田市"),
+    ("45-01", "45", "宮崎市"),
+    ("45-02", "45", "西臼杵郡高千穂町"),
+    ("46-01", "46", "鹿児島市"),
+    ("46-02", "46", "薩摩川内市"),
+    ("46-03", "46", "霧島市"),
+    ("46-04", "46", "奄美市"),
+    ("46-05", "46", "熊毛郡南種子町"),
+    ("46-06", "46", "指宿市"),
+    ("47-01", "47", "那覇市"),
+    ("47-02", "47", "石垣市"),
+    ("47-03", "47", "宮古島市"),
+    ("47-04", "47", "国頭郡本部町"),
+    ("47-05", "47", "名護市"),
+    ("47-06", "47", "国頭郡恩納村"),
+    ("47-07", "47", "国頭郡今帰仁村"),
 ]
-_MUNI_BY_JA = dict((ja, code) for code, ja, _city in MUNICIPALITIES)
-_MUNI_ORDER = dict((code, i) for i, (code, _j, _c) in enumerate(MUNICIPALITIES))
+_MUNI_BY_KEY = dict(((pref, city), code)
+                    for code, pref, city in MUNICIPALITIES)
+_MUNI_ORDER = dict((code, i) for i, (code, _p, _c) in enumerate(MUNICIPALITIES))
+
+# The Agency spells a prefecture prefix inconsistently — 和歌山県和歌山市 in
+# one release and 和歌山和歌山市 in another — so both the full name and the
+# stem are accepted, longest first, and the municipality is identified by
+# (prefecture, city) rather than by the printed string.
+_MUNI_PREFIXES = sorted(
+    [(ja, code) for code, ja, _en in PREFECTURES] +
+    [(re.sub(r"[都道府県]$", "", ja), code) for code, ja, _en in PREFECTURES
+     if re.sub(r"[都道府県]$", "", ja) != ja],
+    key=lambda pair: -len(pair[0]))
+
+
+def _municipality_of(label):
+    """A printed municipality row -> our stable code, or None if unknown."""
+    for prefix, pref in _MUNI_PREFIXES:
+        if label.startswith(prefix):
+            return _MUNI_BY_KEY.get((pref, label[len(prefix):]))
+    return None
 
 
 DATASET = {
@@ -710,6 +764,11 @@ _TYPE_BY_CLEAN = dict((_clean(ja), code) for code, ja, _en in FACILITY_TYPES)
 _BAND_BY_CLEAN = dict((_clean(ja), code) for code, ja, _en in ROOM_BANDS)
 _NAT_OLD_CLEAN = dict((_clean(ja), code) for ja, code in _NAT_OLD.items())
 _NAT_NEW_CLEAN = dict((_clean(ja), code) for ja, code in _NAT_NEW.items())
+
+# The Agency renamed two columns partway through without changing what they
+# count: アメリカ became 米国 and イギリス became 英国 with the 2022 workbook.
+# They are the same series and are read as one.
+_NAT_ALIASES = {"アメリカ": "米国", "イギリス": "英国"}
 _LEISURE, _BUSINESS = _clean(PURPOSES[0][1]), _clean(PURPOSES[1][1])
 _WITHIN, _OUTSIDE = _clean(RESIDENCE[0][1]), _clean(RESIDENCE[1][1])
 
@@ -882,7 +941,7 @@ def _read_by_nationality(sheet, period, era, where):
     for col, text in h5.items():
         if _colnum(col) <= _colnum(base_col):
             continue
-        code = lookup.get(text)
+        code = lookup.get(_NAT_ALIASES.get(text, text))
         if code is None:
             raise ValidationError(
                 "%s: unknown nationality column %r — the source has changed "
@@ -958,8 +1017,16 @@ def _read_room_bands(sheet, period, where):
     return rows
 
 
-def _read_municipal(sheet, period, metric, where):
-    """参考第6表 / 第8表 / 第12表 — one metric for each named municipality."""
+def _read_municipal(sheet, period, metric, where, unknown):
+    """参考第6表 / 第8表 / 第12表 — one metric for each named municipality.
+
+    The Agency prints a municipality only in months where at least ten of its
+    properties responded, so this list breathes from month to month. A name we
+    have no code for is therefore *reported*, not fatal: refusing to publish
+    the whole survey because one town crossed a response threshold would trade
+    a complete release for a cosmetic one. validate() gates on how many are
+    unknown, which is what would actually signal a restructured table.
+    """
     rows = []
     for rownum in sorted(sheet):
         if rownum < 7:
@@ -967,13 +1034,12 @@ def _read_municipal(sheet, period, metric, where):
         label = _label(_text(sheet[rownum].get("A")))
         if not label or _FOOTNOTE.match(label) or label.startswith("参考"):
             continue
-        code = _MUNI_BY_JA.get(label)
+        if len(label) > 20:
+            continue                          # a heading or explanatory line
+        code = _municipality_of(label)
         if code is None:
-            if len(label) > 20:
-                continue                      # a heading or explanatory line
-            raise ValidationError(
-                "%s row %d: municipality %r is not in the registry — a new "
-                "municipality is a deliberate addition" % (where, rownum, label))
+            unknown.add(label)
+            continue
         value, flagged = _num(_text(sheet[rownum].get("B")),
                               "%s row %d" % (where, rownum))
         if value is not None:
@@ -1018,7 +1084,7 @@ def _is_percent(code):
 RANK_MONTHLY, RANK_TREND, RANK_ANNUAL = 0, 1, 2
 
 
-def _parse_detail(raw, months, label):
+def _parse_detail(raw, months, label, unknown):
     """Every dimensional table of one detail workbook, for the months given."""
     z, shared, targets = _workbook(raw)
     names = list(targets)
@@ -1054,7 +1120,7 @@ def _parse_detail(raw, months, label):
             if month not in months or _era(months[month]) != "new":
                 continue
             rows.extend(_read_municipal(sheet(name), months[month], metric,
-                                        "%s %s" % (label, name)))
+                                        "%s %s" % (label, name), unknown))
     return rows
 
 
@@ -1069,6 +1135,7 @@ def parse(raw_bytes):
 
     values = {}                     # (code, period) -> [value, flagged, rank]
     stats = {"compared": 0, "mismatch": 0, "flagged": 0}
+    unknown = set()
 
     def put(rows, rank):
         for code, period, value, flagged in rows:
@@ -1091,7 +1158,7 @@ def parse(raw_bytes):
             continue
         year, month = int(m.group(2)), int(m.group(3))
         put(_parse_detail(bundle.read(name), {month: datetime.date(year, month, 1)},
-                          name), RANK_MONTHLY)
+                          name, unknown), RANK_MONTHLY)
 
     z, shared, targets = _workbook(bundle.read("trend.xlsx"))
     sheets = dict((name.strip(), _grid(z, shared, None, target))
@@ -1105,7 +1172,7 @@ def parse(raw_bytes):
         year = int(m.group(2))
         months = dict((month, datetime.date(year, month, 1))
                       for month in range(1, 13))
-        put(_parse_detail(bundle.read(name), months, name), RANK_ANNUAL)
+        put(_parse_detail(bundle.read(name), months, name, unknown), RANK_ANNUAL)
 
     observations = []
     for (code, period), (value, flagged, _rank) in values.items():
@@ -1128,6 +1195,7 @@ def parse(raw_bytes):
             "sort_order": order,
         })
     series.sort(key=lambda s: s["sort_order"])
+    stats["unregistered_municipalities"] = sorted(unknown)
     parse.stats = stats
     return series, observations
 
@@ -1149,8 +1217,8 @@ _PURPOSE_EN = dict((code, en) for code, _ja, en in PURPOSES)
 _PURPOSE_JA = dict((code, ja) for code, ja, _en in PURPOSES)
 _RES_EN = dict((code, en) for code, _ja, en in RESIDENCE)
 _RES_JA = dict((code, ja) for code, ja, _en in RESIDENCE)
-_MUNI_JA = dict((code, ja) for code, ja, _city in MUNICIPALITIES)
-_MUNI_CITY = dict((code, city) for code, _ja, city in MUNICIPALITIES)
+_MUNI_PREF = dict((code, pref) for code, pref, _city in MUNICIPALITIES)
+_MUNI_CITY = dict((code, city) for code, _pref, city in MUNICIPALITIES)
 _MUNI_METRIC = {
     "nights": ("guest nights", "延べ宿泊者数"),
     "nightsfx": ("foreign guest nights", "外国人延べ宿泊者数"),
@@ -1171,10 +1239,10 @@ def _describe(code):
     if parts[0] == "muni":
         mcode, metric = parts[1], parts[2]
         metric_en, metric_ja = _MUNI_METRIC[metric]
-        pref_en = AREA_NAMES[mcode.split("-")[0]][0]
+        pref_en, pref_ja = AREA_NAMES[_MUNI_PREF[mcode]]
         unit = PERCENT if metric == "occ" else NIGHTS
         return ("%s, %s — %s" % (_MUNI_CITY[mcode], pref_en, metric_en),
-                "%s %s" % (_MUNI_JA[mcode], metric_ja), unit,
+                "%s%s %s" % (pref_ja, _MUNI_CITY[mcode], metric_ja), unit,
                 _order("muni", _MUNI_ORDER[mcode],
                        list(_MUNI_METRIC).index(metric)))
 
@@ -1239,20 +1307,32 @@ def _describe(code):
 
 # --- validate ----------------------------------------------------------------
 
-# Roughly 900k at the first build and growing by ~30k a month. A file that
-# parses to materially less has lost workbooks or sheets.
-MIN_OBSERVATIONS = 700_000
+# 292k at the first build and growing by roughly 1,600 a month, plus about
+# 30k whenever another annual definitive workbook joins the bundle. A file
+# that parses to materially less has lost workbooks or sheets.
+MIN_OBSERVATIONS = 250_000
 
 # A month of guest nights for any single series. The national headline runs
 # near 55mn; the ceiling catches a units change, not an unusual month.
 MAX_NIGHTS = 200_000_000
+
+# An occupancy rate above 100 is rare but real (see validate()). The ceiling
+# exists to catch a units change, not to second-guess the publisher.
+MAX_OCCUPANCY = 150
 
 # Reconciliation tolerances, as a share of the total being checked. Every
 # figure is a rounded estimate grossed up from a sample, so adding 47 of them
 # will not land exactly on the separately rounded national figure.
 TOL_AREA_SUM = 0.005
 TOL_SPLIT = 0.005
-TOL_NATIONALITY = 0.01
+# Named nationalities never *exceed* their published total by more than
+# rounding: the largest excess anywhere in the history is 30 person-nights,
+# against categories rounded to the nearest 10. They routinely fall short of
+# it, though, because the published total also contains guests of unknown
+# nationality — normally 1-6% of a prefecture's foreign nights and far more in
+# a thin cell. That residual is real and is disclosed on the release, never
+# closed by scaling the named categories up.
+TOL_NATIONALITY_EXCESS = 300
 
 
 def _next_month(d):
@@ -1267,6 +1347,7 @@ def validate(series, observations):
     units = dict((s["code"], s["unit"]) for s in series)
     by_period = {}
     seen = set()
+    above_100 = 0
     for o in observations:
         key = (o["code"], o["period"])
         if key in seen:
@@ -1274,10 +1355,18 @@ def validate(series, observations):
         seen.add(key)
         value = o["value"]
         if units[o["code"]] == PERCENT:
-            if not (0 <= value <= 100):
+            # An occupancy rate can exceed 100 in a thin cell: it is grossed
+            # up from a sample, so a prefecture with a handful of city hotels
+            # can print 104.3, as Tottori does for August 2011. Published
+            # figures are never adjusted by us, so the band is wide enough to
+            # catch a units error and nothing narrower, and the count of such
+            # values is disclosed on the release.
+            if not (0 <= value <= MAX_OCCUPANCY):
                 raise ValidationError(
-                    "%s %s: occupancy %s is not a percentage"
+                    "%s %s: occupancy %s is outside the sanity band"
                     % (o["code"], o["period"], value))
+            if value > 100:
+                above_100 += 1
         elif not (0 <= value <= MAX_NIGHTS):
             raise ValidationError(
                 "%s %s: %s guest nights outside the sanity band"
@@ -1303,6 +1392,7 @@ def validate(series, observations):
 
     prefectures = ["nights.%s" % code for code, _ja, _en in PREFECTURES]
     checks = {"area_sum": 0, "split": 0, "nationality": 0}
+    unknown_share = []
     for period, values in by_period.items():
         national = values.get("nights.%s" % NATIONAL)
 
@@ -1328,7 +1418,7 @@ def validate(series, observations):
                         % (period, area, jp, fx, whole))
                 checks["split"] += 1
 
-        # Named nationalities partition their own (larger-property) universe.
+        # Named nationalities sit inside their own (larger-property) total.
         for area in AREA_ORDER:
             base = values.get("nightsfx.%s.nat.all" % area)
             if not base:
@@ -1338,10 +1428,11 @@ def validate(series, observations):
                      and not code.endswith(".all")]
             if not named:
                 continue
-            if abs(sum(named) - base) > TOL_NATIONALITY * base:
+            if sum(named) - base > TOL_NATIONALITY_EXCESS:
                 raise ValidationError(
-                    "%s %s: nationalities sum to %d against a published %d"
+                    "%s %s: nationalities sum to %d, above the published %d"
                     % (period, area, sum(named), base))
+            unknown_share.append((base - sum(named)) / base)
             checks["nationality"] += 1
 
     if checks["area_sum"] < 150:
@@ -1378,6 +1469,15 @@ def validate(series, observations):
         "cross_source_compared": compared,
         "cross_source_mismatches": mismatch,
         "reliability_flagged_values": stats.get("flagged", 0),
+        "occupancy_above_100": above_100,
+        # The share of published foreign guest nights whose nationality the
+        # survey does not identify. Disclosed, never absorbed into a category.
+        "unknown_nationality_share_median": (
+            round(sorted(unknown_share)[len(unknown_share) // 2], 4)
+            if unknown_share else None),
+        "unknown_nationality_share_max": (
+            round(max(unknown_share), 4) if unknown_share else None),
+        "unregistered_municipalities": stats.get("unregistered_municipalities", []),
         "stratification_break": BREAK_PERIOD.isoformat(),
     }
 
@@ -1402,8 +1502,9 @@ PRESENTATION = {
                           for c, _j, e, era in NATIONALITIES],
         "purposes": [{"code": c, "label": e} for c, _j, e in PURPOSES],
         "residence": [{"code": c, "label": e} for c, _j, e in RESIDENCE],
-        "municipalities": [{"code": c, "label": city, "label_ja": ja}
-                           for c, ja, city in MUNICIPALITIES],
+        "municipalities": [{"code": c, "label": city, "prefecture": pref,
+                            "prefecture_label": AREA_NAMES[pref][0]}
+                           for c, pref, city in MUNICIPALITIES],
         "baseline_year": 2019,
         "break_period": BREAK_PERIOD.isoformat(),
         "break_note": (

@@ -1,0 +1,66 @@
+ROUND THREE — forward target, no leakage, base rate + permutation test on every row
+target: Japan MLCC export price (HS 8532.24) — a spike (>= +8% yoy) STARTS within 6 months of the fire
+data to 2026-07; last scorable fire month 2026-01
+episode starts in the data: 2006-08, 2010-07, 2012-10, 2014-08, 2017-09, 2019-02, 2021-11, 2024-02, 2026-04
+
+  1 Taiwan MLCC revenue                      k=3 (train 2006-2015: 33% on 3)   
+      fires 14 | spike-start: hit  43% vs base  40% (n=7, 6 mid-spike) p=0.74 | price+5%:  31% vs  46% | lead to episode (m): [1, 6, 1, 6] | NO EVIDENCE
+  2 Taiwan server ODM revenue                no trainable fires
+  3 Taiwan memory revenue                    k=2 (train 2006-2015: 67% on 3)   
+      fires 11 | spike-start: hit  57% vs base  40% (n=7, 3 mid-spike) p=0.29 | price+5%:  70% vs  46% | lead to episode (m): [6, 10, 6, 1, 4] | NO EVIDENCE
+  4 HK MLCC import price (all origins)       k=4 UNTUNED                       
+      fires  4 | spike-start: hit  67% vs base  43% (n=3, 1 mid-spike) p=0.4 | price+5%:  75% vs  47% | lead to episode (m): [5, 3] | NO EVIDENCE
+      note: partial overlap: 29% Japanese product
+  5 HK MLCC re-exports to China (units)      k=4 UNTUNED                       
+      fires  4 | spike-start: hit  50% vs base  43% (n=2, 2 mid-spike) p=0.69 | price+5%:  50% vs  47% | lead to episode (m): [6, 7] | NO EVIDENCE
+  6 HK channel gap (imp−rex units), inverted k=4 UNTUNED                       
+      fires  2 | spike-start: hit   – vs base  43% (n=0, 2 mid-spike) p=None | price+5%:  50% vs  47% | lead to episode (m): — | NO EVIDENCE
+  7 HK re-export markup                      k=4 UNTUNED                       
+      fires  4 | spike-start: hit   0% vs base  43% (n=2, 2 mid-spike) p=1.0 | price+5%: 100% vs  47% | lead to episode (m): [11, 8] | NO EVIDENCE
+  8 US orders − inventories                  k=2 (train 2005-2015: 100% on 3)  
+      fires 10 | spike-start: hit  40% vs base  40% (n=5, 5 mid-spike) p=0.74 | price+5%:  50% vs  46% | lead to episode (m): [9, 2, 3] | NO EVIDENCE
+  9 US PPI capacitors                        k=2 (train 2005-2015: 20% on 5)   
+      fires 11 | spike-start: hit  17% vs base  40% (n=6, 5 mid-spike) p=0.99 | price+5%:  64% vs  46% | lead to episode (m): [7, 4, 4, 7, 10] | NO EVIDENCE
+  10 Barium carbonate import price           no trainable fires
+  11 Nickel powder export value              k=6 (train 2005-2015: 67% on 3)   
+      fires  0 | spike-start: hit   – vs base  40% (n=0, 0 mid-spike) p=None | price+5%:   – vs  46% | lead to episode (m): — | NO EVIDENCE
+  12 Japan parts inventory ratio, inverted   k=2 (train 2009-2015: 50% on 4)   
+      fires  9 | spike-start: hit  33% vs base  40% (n=6, 3 mid-spike) p=0.87 | price+5%:  33% vs  46% | lead to episode (m): [5, 9, 5, 12] | NO EVIDENCE
+  13 WSTS worldwide billings                 k=2 (train 2005-2015: 50% on 4)   
+      fires 11 | spike-start: hit  29% vs base  40% (n=7, 3 mid-spike) p=0.97 | price+5%:  30% vs  46% | lead to episode (m): [7, 9, 3, 6] | NO EVIDENCE
+  14 Korea IC exports                        k=4 UNTUNED                       
+      fires  7 | spike-start: hit  40% vs base  45% (n=5, 2 mid-spike) p=0.76 | price+5%:  57% vs  47% | lead to episode (m): [7, 4, 2] | NO EVIDENCE
+
+COMBINATION — count of signals fired within the trailing 3 months (all 14 candidates, pre-registered):
+  >=2 agree: 11 clusters | spike-start hit 29% vs base 43% (n=7) | price+5% 45% vs 47% | 2019-04 2020-01 2020-08 2021-02 2021-08 2023-01 2023-08 2024-02 2024-08 2025-03 2025-09
+  >=3 agree: 8 clusters | spike-start hit 60% vs base 43% (n=5) | price+5% 38% vs 47% | 2020-02 2020-10 2021-07 2023-09 2024-03 2024-09 2025-04 2025-10
+  >=4 agree: 6 clusters | spike-start hit 60% vs base 43% (n=5) | price+5% 50% vs 47% | 2020-02 2020-10 2021-07 2024-01 2025-04 2025-10
+
+====================================================================================================
+POWER CHECK — what hit rate would a signal need to reach p<=0.10 at the sample sizes we actually have?
+  (binomial, base rate 0.40)
+  n= 5 fires: needs 4/5 hits = 80%
+  n= 7 fires: needs 5/7 hits = 71%
+  n=10 fires: needs 7/10 hits = 70%
+  n=15 fires: needs 9/15 hits = 60%
+  n=20 fires: needs 12/20 hits = 60%
+  n=30 fires: needs 16/30 hits = 53%
+
+====================================================================================================
+ROBUSTNESS — no tuning at all: k=4 for every signal, full history from each series' start
+  (removes train/test selection; roughly doubles the fire count; still no leakage)
+  signal                                     fires   n   hit  base     p | +5% hit  base | median lead
+  1 Taiwan MLCC revenue                         12   6   50%   41%  0.53 |     33%   46% |     5m
+  2 Taiwan server ODM revenue                    4   1    0%   41%  1.00 |     33%   46% |     2m
+  3 Taiwan memory revenue                       15   9   56%   41%  0.32 |     71%   46% |     4m
+  4 HK MLCC import price (all origins)           4   3   67%   43%  0.39 |     75%   47% |     4m
+  5 HK MLCC re-exports to China (units)          4   2   50%   43%  0.71 |     50%   47% |     6m
+  6 HK channel gap (imp−rex units), inverted     2   0    –   43%     – |     50%   47% |      —
+  7 HK re-export markup                          4   2    0%   43%  1.00 |    100%   47% |     9m
+  8 US orders − inventories                     11   6   50%   30%  0.27 |     40%   40% |     5m
+  9 US PPI capacitors                           14   9   22%   30%  0.87 |     50%   40% |     8m
+  10 Barium carbonate import price               4   1  100%   30%  0.50 |     25%   40% |     5m
+  11 Nickel powder export value                 14  12   42%   30%  0.29 |     50%   40% |     4m
+  12 Japan parts inventory ratio, inverted      10   6   33%   42%  0.86 |     40%   46% |     7m
+  13 WSTS worldwide billings                    17  13   31%   30%  0.72 |     38%   40% |     6m
+  14 Korea IC exports                            7   5   40%   45%  0.78 |     57%   47% |     4m

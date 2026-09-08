@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vote Weight by Constituency · Japan Data Observatory</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/app.css">
+<style>
+  /* Page-local layout only; every colour comes from tokens.css. */
+  /* 45 constituencies read down the page as a list, so the plot is sized by
+     the row count rather than by a fixed frame — squeezing them into 400px
+     would put the names below legibility. */
+  #rank-chart { height: 960px; }
+  #drift-chart { height: 360px; }
+  .rep-select { font: inherit; font-size: 12.5px; padding: 4px 8px; color: var(--obs-ink);
+    background: var(--obs-surface); border: 1px solid var(--obs-border); border-radius: 3px; }
+  /* The sensitivity block is four rows: the same headline on each of the four
+     denominators. A table, not tiles — the reader is comparing one column. */
+  .rep-sens { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .rep-sens th, .rep-sens td { padding: 0.45rem 0.6rem; border-bottom: 1px solid var(--obs-border); }
+  .rep-sens thead th { font-size: 11px; text-transform: uppercase; letter-spacing: .05em;
+    color: var(--obs-text-muted); font-weight: 600; white-space: nowrap; }
+  .rep-sens tbody tr:last-child td { border-bottom: none; }
+  .rep-sens td.num, .rep-sens th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .rep-sens tbody tr[aria-current="true"] { background: var(--obs-surface-subtle); }
+  .rep-sens tbody tr[aria-current="true"] td:first-child { font-weight: 600; color: var(--obs-primary); }
+  @media (max-width: 900px) { #rank-chart { height: 820px; } }
+  @media (max-width: 700px) {
+    .controls .seg { flex-wrap: wrap; overflow: visible; border: 0; gap: 6px; }
+    .controls .seg button { border: 1px solid var(--obs-border); border-radius: 3px; }
+    #rank-chart { height: 760px; }
+    #drift-chart { height: 300px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="site-header" data-section="macro" data-page="representation"></header>
+<script src="assets/nav.js"></script>
+
+<main class="container">
+  <div id="stale-banner"></div>
+
+  <div class="metric-card">
+    <div class="metric-card-head">
+      <h1>Vote Weight by Constituency</h1>
+      <span class="metric-asof" id="page-asof"></span>
+      <p class="metric-sub" id="page-sub"><span class="skeleton" style="display:inline-block;width:420px;height:14px"></span></p>
+    </div>
+    <div class="strip">
+      <div class="strip-grid cols-4" id="tiles">
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+      </div>
+    </div>
+    <p class="strip-foot" id="strip-foot"></p>
+    <details class="calc" id="strip-calc" style="display:none"></details>
+  </div>
+
+  <section aria-labelledby="h-rank">
+    <h2 id="h-rank">Electors per Seat by Constituency <span class="h2-note" id="rank-note"></span></h2>
+    <p class="section-sub">The House of Councillors is the one national chamber whose
+    constituencies are exactly prefectures, so a prefecture headcount divides into a seat
+    count with nothing left over. Every district is shown against the two lines that the
+    argument turns on: the national average, and twice the best-served district — the
+    threshold above which the courts have repeatedly been asked to rule. Tottori with
+    Shimane, and Tokushima with Kochi, are single merged districts and are summed.</p>
+    <div class="chart-panel">
+    <div class="controls">
+      <label for="base-select">Counted as</label>
+      <select class="rep-select" id="base-select"></select>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="rank-png">Download PNG</button>
+      <button type="button" class="btn" id="rank-csv">Download CSV</button>
+    </div>
+    <div class="chart" id="rank-chart" role="img" aria-label="Electors per seat, 45 constituencies ranked"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="rank-source"></p>
+    <details class="calc" id="rank-calc"></details>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-sens">
+    <h2 id="h-sens">Sensitivity to the Denominator <span class="h2-note" id="sens-note"></span></h2>
+    <p class="section-sub">Who counts as the electorate is the argument, so the same seat map
+    is divided by four different populations here rather than one being assumed. Only the
+    first splits a published figure: the register reports five-year age bands, so the two
+    single years 18 and 19 are estimated. The row below it splits nothing, and the gap
+    between the two is the size of that estimate's influence on the headline.</p>
+    <div class="table-wrap">
+      <table class="rep-sens" id="sens-table" data-no-enhance>
+        <tbody><tr><td class="skeleton" style="height:120px"></td></tr></tbody>
+      </table>
+    </div>
+    <p class="table-foot" id="sens-foot"></p>
+    <details class="calc" id="sens-calc"></details>
+  </section>
+
+  <section aria-labelledby="h-drift">
+    <h2 id="h-drift">Drift Under a Fixed Map <span class="h2-note" id="drift-note"></span></h2>
+    <p class="section-sub" id="drift-sub">The constituencies drawn today, applied to every year
+    of the fifty-year prefecture panel. This is a counterfactual before 2019 and is meant as
+    one: it measures how far the population has moved under a map that does not move with it,
+    not what the disparity was at the time, which was governed by whatever seat table was then
+    in force. Registered Japanese residents of all ages, the only register count published on
+    this basis for fifty years.</p>
+    <div class="chart-panel">
+    <div class="controls">
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="drift-png">Download PNG</button>
+      <button type="button" class="btn" id="drift-csv">Download CSV</button>
+    </div>
+    <div class="chart" id="drift-chart" role="img" aria-label="Maximum vote-value disparity by year under the current seat map"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="drift-source"></p>
+    <details class="calc" id="drift-calc"></details>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-table">
+    <h2 id="h-table">Constituency Detail <span class="h2-note" id="table-note"></span></h2>
+    <p class="section-sub">All 45 constituencies on the selected denominator. Counts of
+    residents are official statistics exactly as published; the seat complement is the figure
+    fixed in law. Everything else in the table is calculated from those two and carries its
+    formula.</p>
+    <div class="controls">
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="table-csv">Download CSV</button>
+    </div>
+    <div class="table-wrap" id="rep-table"><div class="skeleton" style="width:100%;height:340px"></div></div>
+    <p class="table-foot" id="table-foot"></p>
+    <details class="calc" id="table-calc"></details>
+  </section>
+
+  <!-- No h2 band here: the card carries its own "Data Source" head, and two
+       stacked headers saying the same thing read as a duplicate. -->
+  <section aria-label="Data source and provenance" class="prov">
+    <div id="prov-card"></div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="inner">
+    <span id="credit-line">Source: Ministry of Internal Affairs and Communications, Japan.</span>
+    Counts of residents are official statistics as published; the seat complement is fixed in
+    law; electors per seat, vote weight and disparity are calculated from them.
+    <a href="methodology.html">Methodology</a>
+  </div>
+</footer>
+
+<script src="assets/echarts.min.js"></script>
+<script src="assets/format.js"></script>
+<script src="assets/charts.js"></script>
+<script src="assets/sortable.js"></script>
+<script src="assets/representation.js"></script>
+</body>
+</html>
