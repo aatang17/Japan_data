@@ -73,6 +73,17 @@ while true; do
                 || echo "ingest $dataset did not publish; serving last published release"
         done
 
+        # BOOT TIME IS A PRODUCTION RISK, not just a slow start. Everything
+        # below runs before the port is bound, and the platform kills a
+        # deployment whose healthcheck never answers — taking the previously
+        # working container with it. On 2026-09-09 a redeploy spent over an
+        # hour in the financials extractor, hit Railway's healthcheckTimeout
+        # and left the site down until the next successful boot. The two
+        # levers, both environment-only so neither needs a deploy to pull:
+        # INGEST_DATASETS lifts a heavy dataset out of the ingest loop above,
+        # and EQUITY_CATCH_UP_DAYS=0 drops the deep archive backfill from the
+        # refresh below. Reach for them before the window, not after.
+
         # The EDINET-derived datasets: 5% filings, cross-shareholdings,
         # boards and pay, buybacks, facilities, rental property, shareholder
         # registers. These used to be extracted by hand on a laptop and
