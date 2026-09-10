@@ -15,73 +15,65 @@
 <main class="container">
   <div class="page-head">
     <h1>Methodology and How to Use</h1>
-    <p class="page-sub">What this product shows, where every number comes from, and how each figure is calculated.</p>
+    <p class="page-sub">Where every number comes from, how each figure is calculated, and what it cannot be used for.</p>
+    <nav class="toc" aria-label="Contents">
+      <a href="#what">What this is</a>
+      <a href="#trust">Trust labels</a>
+      <a href="#calc">Calculations</a>
+      <a href="#flags">Footnote flags</a>
+      <a href="#source">Sources and pipeline</a>
+      <a href="#pit">Point-in-time data</a>
+      <a href="#cadence">Update cadence</a>
+      <a href="#datasets">Dataset notes</a>
+      <a href="#limits">Limitations</a>
+      <a href="#mcp">AI assistants</a>
+      <a href="#license">Attribution</a>
+    </nav>
   </div>
 
   <div class="prose">
 
   <h2 id="what">What this is</h2>
-  <p>This site tracks the Japanese Consumer Price Index using two official national tables
-  published by the Statistics Bureau of Japan (総務省統計局): the <b>middle-class indices</b>
-  (headline and exclusion-based aggregates, the ten major expenditure groups, and the ~80
-  category series beneath them) and the <b>detailed item indices</b> (~740 series down to
-  individual goods and services — rice, electricity, mobile phone charges). Both are monthly
-  from January 1970 to the latest published month, on the 2020&nbsp;=&nbsp;100 base.</p>
-  <p>Every number on the site is traceable to the official source file it came from. Nothing is
-  smoothed, seasonally adjusted, or modelled.</p>
+  <p>Japanese official statistics and company disclosures, published as one platform: consumer
+  prices, Bank of Japan and JGB data, visitors and guest nights, semiconductor trade,
+  agriculture, population and representation, and the annual filings of listed companies.
+  Every number traces to the source file it came from. Nothing is smoothed, seasonally
+  adjusted or modelled.</p>
+  <p>The rules below in <a href="#trust">Trust labels</a>, <a href="#calc">Calculations</a> and
+  <a href="#pit">Point-in-time data</a> apply everywhere. What is specific to one dataset —
+  what does not reconcile, what is estimated, what the publisher suppresses — is under
+  <a href="#datasets">Dataset notes</a>.</p>
 
-  <h2 id="howto">How to use it</h2>
-  <h3>Read the current state of inflation</h3>
-  <ol>
-    <li>Open the <a href="cpi.html">Inflation page</a>. The first tile is headline CPI year-over-year
-    for the latest published month; the next tiles show the two standard core measures, the
-    month-over-month change, and the 3-month annualized rate.</li>
-    <li>The main chart compares headline, core, and core-core. Switch the measure
-    (YoY / MoM / 3-month annualized / index level) and the date range with the controls above the
-    chart. Hover for exact values across all series.</li>
-    <li>The <b>What Is Driving Inflation</b> chart splits headline YoY into the
-    percentage-point contribution of each major group — how much of today's inflation each
-    group is responsible for, which is different from each group's own inflation rate. The
-    group bar chart below it can show either view.</li>
-    <li>The <b>How Broad Is Inflation</b> chart shows what share of the ~580 individually
-    priced items are rising at least 2% and what share are falling — whether inflation is
-    everywhere or concentrated in a few items.</li>
-  </ol>
-  <h3>Find a specific item</h3>
-  <ol>
-    <li>Open the <a href="explorer.html">Item Explorer</a> and search in English
-    (<i>electricity</i>), Japanese (<i>電気代</i>), or by item code (<i>0001</i>). The
-    <b>Categories</b> view shows the ~80 published category aggregates; switch to
-    <b>Detailed items</b> for all ~740 series down to individual goods
-    (<i>rice</i>, <i>米類</i>, <i>mobile phone charges</i>).</li>
-    <li>Sort any numeric column by clicking its header. Missing values always sort last.</li>
-    <li>Click a row for the item's full history since 1970, with measure controls, a chart, and
-    its calculation and source.</li>
-  </ol>
-  <h3>Cite or export a number</h3>
+  <h3 id="howto">How to use it</h3>
   <ul>
-    <li>The page URL always encodes the current view (measure, range, search, selected item) —
-    copy it and a colleague sees exactly the same numbers.</li>
-    <li>Every chart has <b>Download PNG</b> (with the source line embedded) and
-    <b>Download CSV</b>. CSV exports begin with a metadata block: provenance, formula, source ID,
-    release, retrieval time, and permalink.</li>
-    <li>Cite the underlying data as: Statistics Bureau of Japan, Consumer Price Index,
-    2020-base national indices, via e-Stat (middle-class table statInfId 000032103842;
-    detailed-item table statInfId 000032103844).</li>
+    <li>Every page URL encodes the view you are looking at — measure, date range, search,
+    selected row. Copy it and a colleague sees the same numbers.</li>
+    <li>Every chart has <b>Download PNG</b> (source line embedded) and <b>Download CSV</b>.
+    CSV exports open with a metadata block: provenance, formula, source ID, release,
+    retrieval time and permalink.</li>
+    <li>Search the <a href="explorer.html">Item Explorer</a> in English (<i>electricity</i>),
+    Japanese (<i>電気代</i>) or by code. Click a row for the full history since 1970 with its
+    calculation and source.</li>
+    <li>The <a href="manual.html">manual</a> documents every API endpoint and every lookup
+    available to an assistant.</li>
   </ul>
 
   <h2 id="trust">Trust labels</h2>
-  <p>Every metric, chart, and export says where its number came from:</p>
   <ul>
-    <li><span class="badge badge-official">Official Statistic</span> — the value exactly as
-    published by the agency. On this site: the monthly index levels.</li>
-    <li><b>Calculated rates</b> carry no badge — instead they carry their formula, shown next to
-    the number under "Show calculation" and in every CSV export header. On this site: YoY, MoM,
-    and 3-month annualized rates, each a deterministic calculation from the official index
-    levels above.</li>
+    <li><span class="badge badge-official">Official Statistic</span> — the value exactly as the
+    agency published it. Index levels, yields, counts, filed financial figures.</li>
+    <li><b>Calculated figures carry no badge — they carry their formula</b>, shown next to the
+    number under "Show calculation" and in every CSV export header. Rates of change, shares,
+    contributions, ratios and breadth are all deterministic calculations from the official
+    values above.</li>
     <li><span class="badge badge-model">Model Estimate</span> — not used anywhere on this site
-    today. Reserved for nowcasts or estimates, which will ship only with a published method and
-    error history.</li>
+    today. Reserved for nowcasts, which will ship only with a published method and error
+    history.</li>
+    <li><b>Revision status is not a trust level.</b> Several publishers issue a month two or
+    three times — preliminary, confirmed, final. All of them are official statistics. Which
+    stage a figure is at is marked; it never changes the badge.</li>
+    <li><b>Missing is <code>—</code>, never zero.</b> A gap stays a gap in a chart and is never
+    exported as 0.</li>
   </ul>
 
   <h2 id="calc">Calculations</h2>
@@ -91,724 +83,27 @@
     <li>3-month annualized: <code>((index[t] / index[t−3 months]) ^ 4 − 1) × 100</code></li>
     <li>Contribution of group g to headline YoY, in percentage points:
     <code>weight[g] × (index[g,t] − index[g,t−12]) / (10000 × headline_index[t−12]) × 100</code>.
-    The ten group contributions sum to headline YoY up to a small residual caused by the
-    rounding of the published indices and weights; the chart bundles that residual with the
-    smallest groups so the bars always sum exactly to the headline line.</li>
-    <li>The Item Explorer's <b>Contrib. pp</b> column uses that same formula for every row, so a
-    figure there and the same figure on the Overview can never disagree. Note that the rows of
-    that table overlap — an aggregate such as "All items, less fresh food" contains its own
-    components — so the column does not sum to headline YoY. Only the ten-group decomposition
-    on the Overview does.</li>
-    <li>The Explorer's <b>YoY, <span class="num">〈year〉</span></b> column is simply year over
-    year twelve months earlier: the base a year ago, shown so a rate that moved only because
+    The ten group contributions sum to headline YoY up to a small residual from the rounding of
+    the published indices and weights; the chart bundles that residual with the smallest groups
+    so the bars always sum exactly to the headline line.</li>
+    <li>The Item Explorer's <b>Contrib. pp</b> column uses that same formula for every row. The
+    rows of that table overlap — an aggregate such as "All items, less fresh food" contains its
+    own components — so the column does not sum to headline YoY. Only the ten-group
+    decomposition on the Overview does.</li>
+    <li>The Explorer's <b>YoY, <span class="num">〈year〉</span></b> column is year over year
+    twelve months earlier: the base a year ago, shown so that a rate which moved only because
     the comparison month changed is visible as such.</li>
-    <li>Breadth: over the individually priced items of the detailed-item table
-    (aggregates excluded), the share of items with YoY at or above 2% and the share with
-    falling prices, as % of items that have an index value in both t and t−12.</li>
+    <li>Breadth: over the individually priced items of the detailed-item table (aggregates
+    excluded), the share with YoY at or above 2% and the share with falling prices, as a
+    percentage of items carrying an index value in both t and t−12.</li>
+    <li>Percentage-point differences are written <code>pp</code>, never <code>%</code> — a
+    change <i>of</i> a percentage is not a percentage <i>of</i> a level.</li>
   </ul>
-  <p>Rates are computed from the published index values, which the agency releases rounded to one
-  decimal. The officially published change rates are computed the same way, so the figures here
-  normally match them exactly; in edge cases the rounding of the inputs can shift a rate by
-  ±0.1 percentage points. Where that distinction matters, use the official release — the source
-  link is on every surface. Displayed rates are rounded to one decimal; chart tooltips and CSV
-  exports carry more precision.</p>
-  <p>Percentage-point differences (for example a tile's "vs prior month" delta) are written
-  <code>pp</code>, never <code>%</code> — a change <i>of</i> a percentage is not a percentage
-  <i>of</i> a level.</p>
-
-  <h3 id="calc-boj">Bank of Japan balance-sheet data</h3>
-  <ul>
-    <li>Holdings (end of month) and flows (during month) are official values exactly as
-    published in the Bank's “Monetary Base and the BOJ's Transactions” table (MD09), in units
-    of ¥100 million. Pages display ¥ trillion, an exact division by 10,000 — no rounding
-    happens before display.</li>
-    <li>Change from peak: <code>value[latest] − max(value[m]) over all published months</code>;
-    the percent version divides by that maximum. The peak month is named wherever the figure
-    appears.</li>
-    <li>12-month pace: <code>mean(value[t−11] … value[t])</code> over the trailing twelve
-    published monthly flows. A negative net flow is balance-sheet runoff.</li>
-    <li>Flows can be genuinely negative (redemptions carry a minus sign), so no percentage
-    rates are computed on flow series — a percent change across a sign change is arithmetic
-    noise, and the API refuses it rather than serving it.</li>
-    <li>Gross outright purchases, redemptions and “other transactions” do <b>not</b> sum
-    exactly to the net JGB flow in every month: some components (for example repo sales to the
-    government) have no live flow series. No surface here presents those three as a complete
-    decomposition.</li>
-    <li>Stocks and flows are different measure types and are never mixed on one axis or in one
-    ranking, and neither is ever compared with a price index.</li>
-  </ul>
-
-  <h3 id="calc-jgb">JGB yield curve data</h3>
-  <ul>
-    <li>Yields are the Ministry of Finance's daily <b>constant-maturity par yields</b> for 15
-    tenors (1–10, 15, 20, 25, 30, 40 years), in percent to three decimals, computed by the
-    Ministry from Japan Securities Dealers Association over-the-counter reference prices.
-    They are shown exactly as published — nothing is fitted, interpolated, or smoothed. A
-    tenor with no published value on a date (not yet issued, or not quoted) is a gap, and the
-    curve line breaks rather than drawing across it.</li>
-    <li>Coverage starts 24 September 1974. Longer tenors begin later — the 10-year
-    constant-maturity series in July 1986, 20-year in December 1986, 15-year in August 1991,
-    30-year in September 1999, 25-year in March 2004, and 40-year in November 2007 — and the
-    1-, 2- and 3-year series have real mid-series gaps where short tenors were not quoted.</li>
-    <li>Spreads: <code>2s10s[t] = 10Y[t] − 2Y[t]</code> and
-    <code>10s30s[t] = 30Y[t] − 10Y[t]</code>, in percentage points, calculated from the
-    published yields.</li>
-    <li>Changes: <code>value[t] − value[b]</code>, where <code>b</code> is the latest business
-    day on or before the same calendar date one month or one year earlier.</li>
-    <li>Yields can be genuinely negative (the 1-year traded below zero through the
-    negative-rate era); no surface treats a negative yield as missing.</li>
-    <li>The policy markers on the history chart are Bank of Japan announcement dates
-    (ZIRP, QE, QQE, NIRP, yield curve control and its end, and subsequent policy-rate
-    changes). They are dates only — annotations, not data.</li>
-  </ul>
-
-  <h3 id="calc-inbound">Visitor arrivals data</h3>
-  <ul>
-    <li>Arrivals are the Japan National Tourism Organization's monthly counts of foreign
-    visitors, in persons, by market. JNTO computes them from the Ministry of Justice's
-    immigration statistics: foreign nationals entering Japan, less those whose main
-    residence is Japan, plus landings at a port of call, landings in transit and cruise
-    passengers. Crew are excluded; expatriates, their families and students are included.
-    They are shown exactly as published.</li>
-    <li><b>Revision status is not a trust level.</b> JNTO publishes each month three times —
-    an estimate (推計値) about three weeks after the month ends, a provisional figure
-    (暫定値) with the full market detail two months later, and a definitive one (確定値).
-    All three are official statistics. The estimate covers only the largest markets and is
-    rounded to the nearest 100, so on estimate months the named markets do not add up to
-    the headline and the regional totals are absent. Those months are marked on every
-    surface. Measured across three releases of the source workbook, definitive figures are
-    never subsequently revised; the estimate-to-final change is rounding, about 0.006% at
-    the headline.</li>
-    <li>Growth: <code>growth[t] = (arrivals[t] / arrivals[t−12 months] − 1) × 100</code>,
-    in percent. Month-over-month rates are not shown for arrivals: the series is strongly
-    seasonal and an unadjusted monthly change is not interpretable.</li>
-    <li>Recovery index: <code>recovery[t] = (arrivals[t] / arrivals[same month of 2019]) ×
-    100</code>. 2019 is the last full year before the border closed, and comparing like
-    months removes the seasonality.</li>
-    <li>Share: <code>share[market] = (arrivals[market] / arrivals[Total]) × 100</code>, both
-    for the same month. The market table therefore shows the latest month with a complete
-    breakdown, not each market's own latest month — a share is only comparable when every
-    row is the same month.</li>
-    <li>Contributions:
-    <code>contribution[market, t] = (arrivals[market, t] − arrivals[market, t−12]) /
-    arrivals[Total, t−12] × 100</code>, in percentage points. The residual is
-    <code>growth[Total, t] − Σ contribution[named markets, t]</code> — taken from the
-    published headline rather than by summing the markets left out, which keeps the
-    segments summing to the headline exactly even on estimate months. The residual is
-    always shown, never dropped.</li>
-    <li>Year to date sums the published months of the current year against the same months
-    of the prior year. Where a month is still an estimate, JNTO rounds both it and its own
-    published cumulative to the nearest 100, so this sum can differ from the cumulative in
-    the press release by a few tens of people. Neither figure is adjusted to match the
-    other.</li>
-    <li>Market mix: <code>share[market, t] = Σ arrivals[market, t−11 … t] / Σ
-    arrivals[Total, t−11 … t] × 100</code>. Shares are taken over a trailing twelve months
-    so that a market's summer peak reads as seasonality rather than as a change in the mix,
-    and the residual is taken from the published total so the shares sum to 100%. A share
-    is a percent of arrivals, not of spending — markets differ several-fold in what each
-    visitor spends.</li>
-    <li>Concentration: <code>HHI[t] = Σ share[part, t]²</code> over the parts that actually
-    partition the total — every leaf market, every residual JNTO publishes, and whatever is
-    left of the headline not itemised in that era, since the residual rows only begin in
-    2016. Including that remainder is what lets the index mean the same thing in 2003 as it
-    does today. A higher value means arrivals come from fewer places. The series ends before
-    the headline does: an estimate month does not publish every market, and an incomplete
-    partition is not an index, so those months are gaps rather than estimates.</li>
-    <li>The seasonality view groups the same published counts by calendar month, one line
-    per year, so that like months line up. 2020–2022 are left out of it: with the border
-    shut those lines sit on the axis and flatten every other year into an unreadable band.
-    They remain in the table, the other charts and every export.</li>
-    <li>Arrivals are a count of people — a different measure from a price index, a yen level,
-    a stock or a flow. Where arrivals are shown against the consumer price index for hotel
-    charges, both are indexed to the same month of 2019 so that they share one comparable
-    scale; neither is read off the other's units, and the two series are published by
-    different agencies on different schedules, so they can end in different months.
-    That chart shows two series moving together over the same months. It is not evidence
-    that one causes the other.</li>
-  </ul>
-
-  <h3 id="calc-accommodation">Guest nights and occupancy data</h3>
-  <ul>
-    <li>Guest nights and room occupancy are the Japan Tourism Agency's Accommodation Survey
-    (宿泊旅行統計調査), shown exactly as published. Two measures live in this dataset and are
-    never mixed: <b>guest nights</b> are person-nights — one visitor staying three nights is
-    three person-nights and one person, which is why they are never compared with or added to
-    visitor arrivals — and <b>room occupancy</b> is a published percentage. Pages show guest
-    nights in millions (<code>person-nights ÷ 1,000,000</code>); no other transformation is
-    applied to a published figure.</li>
-    <li><b>These are sample estimates, and the survey says so.</b> Figures are grossed up
-    from a sample of accommodation properties, and the Agency publishes its own standard
-    error rate for each prefecture and each breakdown — about 1% at the national headline,
-    near 30% for the smallest properties in a thin prefecture. It also marks individual weak
-    cells. A marked value is kept and counted rather than dropped: the count of marked values
-    is recorded on every release. A room occupancy rate above 100% is rare but real for the
-    same reason — Tottori's city hotels print 104.3% for August 2011 — and is shown as
-    published, never capped.</li>
-    <li><b>The January 2026 break is a change of definition, not of demand.</b> From the
-    January 2026 survey the Agency stratifies properties by room count instead of employee
-    count, and states that year-on-year comparisons spanning the change may carry the effect
-    of the change. Every surface marks the break with a rule on the chart and a notice above
-    the page whenever the comparison straddles it. Three consequences are structural rather
-    than cosmetic: property-size series begin at the break, because the pre-2026
-    employee-count bands measure something else and are deliberately not spliced on; the
-    nationality list widens from 21 categories to 24, so the Nordic region, the Middle East
-    and Mexico begin there; and the residual "Other" is carried as <b>two separate series</b>,
-    because before 2026 it also contained those three. Nothing is adjusted to bridge the
-    break.</li>
-    <li>Revision status is not a trust level. The survey publishes each month three times — a
-    first preliminary covering national totals only, a fuller second preliminary about a
-    month later, and the annual definitive figures the following year. All three are official
-    statistics. Unlike visitor arrivals, this survey genuinely revises, so its point-in-time
-    vintages carry real information. A release is assembled from the Agency's trend workbook,
-    its annual definitive workbooks and the monthly second-preliminary files; where two carry
-    the same figure the more settled one is used, and the agreement rate between them is
-    recorded on the release as a check that no column has been misread.</li>
-    <li>Growth: <code>yoy[t] = (guest nights[t] / guest nights[t−12 months] − 1) × 100</code>,
-    in percent. Occupancy is a ratio, so it is <b>differenced, never divided</b>:
-    <code>occupancy change[t] = occupancy[t] − occupancy[t−12 months]</code>, in percentage
-    points. An occupancy rate is never averaged across areas here — the national figure is
-    the Agency's own, not a mean of the prefectures.</li>
-    <li>Recovery index: <code>recovery[t] = (guest nights[t] / guest nights[same month of
-    2019]) × 100</code>. 2019 is the last full year before the border closed, and comparing
-    like months removes the seasonality.</li>
-    <li>Shares: <code>foreign share[t] = (foreign guest nights[t] / guest nights[t]) ×
-    100</code>, and <code>share of Japan[area] = (guest nights[area] / guest nights[All
-    Japan]) × 100</code>. The 47 prefectures partition the country; the ten transport-bureau
-    regions <b>republish the same nights</b> and are never added to the prefectures or given
-    a share.</li>
-    <li>Contributions: <code>contribution[prefecture, t] = (guest nights[prefecture, t] −
-    guest nights[prefecture, t−12]) / guest nights[All Japan, t−12] × 100</code>, in
-    percentage points. The residual is <code>growth[All Japan, t] − Σ contribution[named
-    prefectures, t]</code> — taken from the published headline rather than by summing the
-    prefectures left out, so the segments sum to the national rate exactly. It is always
-    shown, never dropped.</li>
-    <li>Nationality shares use the nationality table's <b>own</b> published total as the
-    denominator: <code>share[nationality, t] = (foreign guest nights[nationality, t] /
-    foreign guest nights[larger properties, t]) × 100</code>. That table covers larger
-    properties only — 20 rooms or more from 2026, 10 or more employees before — so its
-    categories do not sum to the all-properties foreign guest nights and must not be divided
-    by it. Guests whose nationality the survey does not identify are shown as a disclosed
-    residual, normally a few percent of a prefecture's foreign nights and far more in a thin
-    cell, and are never spread across the named categories.</li>
-    <li>The purpose split classifies the <b>property</b>, not the guest: "leisure-majority"
-    means at least half of that property's guests stayed for leisure. It is a proxy for the
-    business/leisure mix, not a measurement of it. Neither the purpose split nor the
-    residence split sums to total guest nights — the survey also publishes nights whose
-    purpose or residence is unknown — so they are drawn as separate lines, never stacked into
-    a false whole. The five property-size bands do sum to the total exactly.</li>
-    <li>Municipality figures are <b>counted, not grossed up</b>: the Agency publishes them as
-    responses received rather than as an estimate for the whole municipality, so they are not
-    comparable with the prefecture totals. A municipality appears only in months where at
-    least ten of its properties responded, so the list changes month to month; a town absent
-    from a month is missing, never zero. City names are carried in Japanese as published,
-    with the prefecture romanised — the Agency publishes no romanisation and one is not
-    invented here.</li>
-  </ul>
-
-  <h3 id="calc-semis">Semiconductor trade data</h3>
-  <ul>
-    <li>Values and quantities are the Ministry of Finance's customs figures for Japan's
-    trade in semiconductors, semiconductor components and semiconductor manufacturing
-    equipment, by partner country, from January 2001 — taken from the principal-commodity by
-    country tables (概況品別国別表) of the Trade Statistics of Japan and shown exactly as
-    published. Value is published in <b>thousands of yen</b>; pages show it in billions of
-    yen (<code>value ÷ 1,000,000</code>), and no other transformation is applied to a
-    published figure. Quantity is published in the commodity's own unit — pieces for a chip,
-    kilograms for a machine — which is why unit values are never compared between
-    commodities.</li>
-    <li><b>Export and import commodity codes are separate vocabularies and do not
-    correspond.</b> Code <code>70311000</code> is semiconductors and electronic components
-    on the import side and audio equipment on the export side. Every surface here validates
-    a commodity against the direction being read, and the two directions are never joined on
-    a code.</li>
-    <li><b>A published group is never the sum of the items shown beneath it.</b> The Ministry
-    publishes components inside a group that this dataset does not carry, so
-    <code>Semiconductors &amp; electronic components</code> always exceeds integrated
-    circuits plus discrete semiconductors plus thermionic tubes. Groups and items are drawn
-    together for comparison and must not be added.</li>
-    <li><b>Months the table has not reached are published as zero, and are dropped.</b> The
-    current-year table returns <code>0</code> for every month after the last one the Ministry
-    has compiled. Coverage is therefore derived per year as the last month carrying any
-    non-zero value anywhere in the slice, and later months are not stored. Zeros inside the
-    covered window are real — they mean no customs entry was recorded with that partner that
-    month — and are kept.</li>
-    <li>World totals: <code>world[commodity, t] = Σ value[partner, commodity, t]</code> over
-    every partner the Ministry publishes for that commodity, including the non-country
-    entries (goods shipped to order, unknown destinations, bonded areas). This table
-    publishes no world row, so the total is summed here and carries no official badge.</li>
-    <li>Twelve-month total: <code>12-month total[t] = Σ value[t−11 … t]</code>. Trade is
-    lumpy month to month and a single large shipment moves a partner's monthly figure
-    several-fold, so shares, unit values and the destination mix are all read off this sum
-    rather than off one month. A month in which the Ministry records no customs entry for a
-    partner contributes nothing to the sum; the sum is left blank until twelve months of
-    history exist.</li>
-    <li>Growth: <code>growth[t] = (value[t] / value[t−12 months] − 1) × 100</code>, in
-    percent, from published values. Month-over-month rates are not shown: the series is
-    seasonal and lumpy and an unadjusted monthly change is not interpretable.</li>
-    <li>Share: <code>share[partner, t] = (12-month total[partner, t] / 12-month total[world,
-    t]) × 100</code>. The destination-mix residual is
-    <code>100 − Σ share[named partners, t]</code>, so the bands sum to 100% in every month
-    and no partner is dropped.</li>
-    <li>Unit value: <code>unit value[t] = (12-month total of value[t] × 1,000) / 12-month
-    total of quantity[t]</code>, in yen per unit shipped. This is an average realised price
-    across a year of shipments — not a price index, not quality-adjusted, and not comparable
-    between commodities or against the consumer price index.</li>
-    <li>A figure too small to show at the displayed scale reads as <code>&lt;0.1</code>
-    rather than rounding to <code>0.0</code>, so that a rounded-down value can never be
-    mistaken for a genuine zero or for a month with no entry.</li>
-    <li><b>Revision status is not a trust level.</b> The Ministry publishes each month
-    through four named stages — preliminary (速報), confirmed (確報), revised (確々報) and
-    final (確定). All four are official statistics. The current year moves through all of
-    them, so a recent month will change; a new release is stored here whenever the Ministry
-    republishes any year of the table, and the point-in-time history below returns the
-    figures as they stood on any past date.</li>
-    <li>Trade values are a flow of money and quantities a physical count — different measures
-    from a price index, a yen stock or a count of people. They are never ranked against or
-    plotted on the same axis as any of those.</li>
-  <li><b>Silicon wafers</b> come from the HS-detail tables (品別国別表), dataset
-    <code>trade-inputs</code>, as HS 3818.00 — doped chemical elements in the form of wafers.
-    e-Stat publishes no names for HS lines, so the names are set from the Customs tariff
-    schedule; the export and import schedules split the heading differently (-100/-900 and
-    -010/-020), and the import silicon line was confirmed by its value-per-kilogram signature.
-    The residual "other doped elements" line is kept separate and never added to silicon. On the
-    supply-chain chart the three steps — wafers, integrated circuits, equipment — are indexed to
-    a common base month so lines of very different size can be read together; they are three
-    different products and are never summed.</li>
-  </ul>
-
-  <h3 id="calc-agriculture">Rice, farm prices and the co-operatives</h3>
-  <ul>
-    <li><b>Rice contract prices are the volume-weighted average of contracts actually
-    struck</b> between shippers handling 5,000 tonnes a year or more and wholesalers — not a
-    quote and not an auction clear. They are yen per 60kg bag of brown rice, first-grade table
-    rice, including freight, packaging and consumption tax, published by MAFF for each
-    産地品種銘柄 origin-and-variety brand. A brand-month with no contract, or with under 100
-    tonnes contracted, is not published; the Ministry does not distinguish the two and neither
-    does this site. Both stay gaps.</li>
-    <li><b>The all-brand average is the Ministry's, not ours.</b> It is weighted by the
-    previous crop year's inspected quantity by brand, stored exactly as released, and never
-    recomputed from the brand series shown alongside it — which is why it need not sit at the
-    arithmetic mean of the lines on the chart.</li>
-    <li><b>A regional Koshihikari is one series across a layout change.</b> Until the 2017 crop
-    year MAFF carried the growing area in a separate 地域区分 column; from 2019 it is inside the
-    brand name as <code>コシヒカリ（魚沼）</code>. Both are stored as the same series, so the
-    history does not break in half at 2018.</li>
-    <li><b>The crop-year average price is calculated.</b> On the price-against-cost chart,
-    <code>crop-year average price[y] = mean of the published monthly contract prices for
-    September of year y through August of year y+1</code> — the marketing year of the crop
-    harvested in year y, which is the year the cost survey prices. A crop year missing any of
-    its twelve months is left out rather than averaged short.</li>
-    <li><b>Three published cost levels, and the difference between them is the point.</b>
-    費用合計 is what was spent; 生産費（副産物価額差引） nets off the straw and other
-    by-products; 全算入生産費 adds imputed interest on the farmer's own capital and imputed
-    rent on the farmer's own land. All three are stored as published. A farm-gate price can sit
-    above the first and below the third, and which one is quoted is usually where an argument
-    about farm policy is being had.</li>
-    <li><b>Rice inventories: the crop-age split does not add to the total, and is not meant
-    to.</b> MAFF itemises the current crop and one-year-old rice; rice two years old and older
-    is inside the stage total with no row of its own. The residual is the difference and is
-    never shown as zero. Shippers and wholesalers do sum to the combined stage, bar the
-    Ministry's independent rounding of each row to whole 10,000 tonnes. Stocks are private
-    trade stocks only — rice on the farm and the government reserve are outside the table.</li>
-    <li><b>The farmer's terms of trade is calculated:</b> <code>terms of trade[t] = (farm
-    output price index[t] ÷ farm input price index[t]) × 100</code>, from published index
-    values on the same base year. Above 100 means output prices have risen further from the
-    base than input prices have. It is not an official statistic and carries no badge.</li>
-    <li><b>Co-operative amounts are thousands of yen as published</b>; pages show them in
-    billions (<code>value ÷ 1,000,000</code>), an exact conversion, and no other transformation
-    is applied. 営農指導事業分配賦額 — the farm-guidance loss charged back to each earning
-    business — is a published line of the Ministry's own statement, not an allocation made
-    here. 共通管理費等 is overhead belonging to no single business: it is part of the group
-    total, so adding the five businesses without it does not reconcile.</li>
-    <li><b>Fiscal and crop years are dated to a fixed month.</b> A co-operative fiscal year runs
-    April to March and is dated to the 1 April it begins (令和5事業年度 → 2023-04-01); a rice
-    crop year in the cost survey is dated to 1 January of its harvest year (令和5年産 →
-    2023-01-01). Both are conventions of this site, chosen so a year-on-year measure compares
-    like with like.</li>
-  </ul>
-
-  <h3 id="calc-segments">Segment notes and the Company Lens</h3>
-  <ul>
-    <li>Revenue by region, the customers a company names, and its reportable segments come
-    from the segment-information note (セグメント情報等) of the annual securities report on
-    EDINET, for the current and prior fiscal year. <b>The note is a text block, not tagged
-    numbers</b>: every figure is parsed from the filer's own HTML tables, and each filing
-    carries a status. A filing whose region revenues do not sum to its consolidated revenue
-    within 0.5% is marked <code>partial</code> with the numbers in the reason; nothing is
-    adjusted to make it reconcile. Across the June 2026 filing season, 95.9% of the filings
-    that carry a region table reconcile, and 91% of all filings are <code>clean</code>.</li>
-    <li>Regions are on the filer's own basis — customer location for most, shipping
-    destination for some — and the basis sentence is stored and shown with the figures. The
-    filer's label is kept verbatim; a small lexicon maps it to a key (JP, CN, TW, KR, US, NA,
-    EU…) so two filers' "China" can be read together, and a label the lexicon does not know
-    keeps no key rather than a guess. A sub-note such as 「北米のうち、米国は…」 is its own row,
-    marked as a sub-note of its parent, and is never added to the region it sits inside.</li>
-    <li>A filer that omits the region table says why — no overseas revenue, or domestic revenue
-    above 90% — and that reason is stored. The absence is then a fact, not a gap, and no
-    region row is invented for it.</li>
-    <li>Named customers are every customer the filer discloses at ten percent or more of
-    revenue, with the revenue booked from them, as written. Some filers give them in a table,
-    some in prose; the source is marked. Names are not normalised, so the same customer can
-    appear under several spellings across filers.</li>
-    <li>Fiscal years are named the Japanese way, for the calendar year in which they begin:
-    the year ending March 2026 is FY2025.</li>
-    <li>Fiscal roll-ups of customs data:
-    <code>customs[commodity, region, FY] = Σ over the fiscal year's months of the published
-    customs value for every partner the region key maps to</code>. Only monthly flows are
-    summed — customs values and quantities, visitor counts — and the API refuses to sum an
-    index, a stock or a rate. Only complete periods are shown: a fiscal quarter or year with an
-    unpublished month is left out, never summed short, and the months left out are listed.
-    Values published in thousands of yen are stated in yen.</li>
-    <li><b>The commodity-to-company mapping is a platform classification, not an official
-    source label.</b> Customs records carry no company identity. A company is mapped to a
-    customs line only where its own annual report describes that product as a reportable
-    segment or principal product; the file is versioned in the repository with an owner and a
-    review date, and every surface that uses it says so.</li>
-    <li>Implied share: <code>implied share[FY] = revenue the company filed for a region /
-    customs exports to that region's partners over the same fiscal year × 100</code>. An
-    indicator of size and direction, never an accounting identity. A company ships from
-    overseas plants, sells domestically, and books revenue on acceptance rather than shipment;
-    the customs line includes its competitors and trading houses; and the company's region and
-    the customs partner list are different definitions that share a name. An implied share
-    above 100% is that caveat made visible. Only regions that name a place are joined — China,
-    Taiwan, Korea, the United States, North America, Europe — and "Asia" never is, because one
-    filer's Asia includes Japan and another's excludes China.</li>
-    <li><b>Named customers and dependence.</b> A listed company must disclose any customer
-    worth ten percent or more of consolidated revenue, and state the amount. Those disclosures
-    are assembled on the Customers page:
-    <code>dependence[filer, customer] = customer revenue / the filer's consolidated revenue
-    × 100</code>, both as filed for the same fiscal year, and combined dependence is the sum
-    over every customer that filer names. It cannot exceed 100%: a filing where it did was a
-    parsing fault, and two gates now catch that class of error — a single customer larger than
-    the filer's whole revenue, and a combined total above it. A company absent from the list has
-    no customer at or above the threshold, which is not the same as having a diversified book.
-    Where the consolidated revenue figure has not been extracted the share is blank, never
-    assumed.</li>
-    <li><b>English customer names are looked up, never translated.</b> A filer writes its
-    customer's name in Japanese in its own house style. The English name shown beside it comes
-    from the EDINET company registry where the buyer files its own annual report — which also
-    yields a securities code, so the buyer's own page can be opened from the row — or from a
-    small curated list, versioned in the repository with an owner and a review date, for
-    government bodies, unlisted subsidiaries and foreign affiliates the registry cannot cover.
-    Where no published English name exists, none is invented and the filed name stands alone.
-    Of 1,010 distinct customer names, 363 resolve to an English name and 132 are already in
-    Latin script; the remaining 515 are shown as filed. A subsidiary keeps its own identity —
-    Amazon Japan G.K. is not Amazon.com, and TEPCO Energy Partner is not TEPCO — because
-    rolling a subsidiary up to its parent would state a relationship no filer disclosed.</li>
-    <li><b>Customer names are never merged.</b> They are shown exactly as each filer wrote them:
-    Toyota appears as both 「トヨタ自動車(株)」 and 「トヨタ自動車株式会社」, and Samsung under three
-    different strings, because that is what the filings say. Combining them would state a total
-    no company disclosed, so search matches text and the page tells the reader to try more than
-    one spelling.</li>
-  </ul>
-
-  <h3 id="calc-population">Population by prefecture</h3>
-  <ul>
-    <li>Two datasets sit behind the population surface and they are not interchangeable.
-    <b>population-jp</b> is the Basic Resident Register (住民基本台帳) as published by the
-    Ministry of Internal Affairs and Communications: an administrative count of everyone on
-    a municipality's register at 1 January, not a survey estimate, split three ways — all
-    residents, Japanese residents and foreign residents. <b>population-jp-history</b> is the
-    Statistics Bureau's System of Social and Demographic Statistics (社会・人口統計体系),
-    which republishes census, population-estimate, vital-statistics and register figures on
-    one prefecture grid back to 1975.</li>
-    <li><b>Reference dates differ by series and are never mixed on one axis.</b> Register
-    counts are as of 1 January. Register flows — births, deaths, moves — cover the calendar
-    year <i>before</i> that date, so the count at 1 January 2026 less the count at 1 January
-    2025 equals the flows dated 2025. Census and population-estimate figures are as of
-    1 October and are a different measure: the total population line and the registered
-    residents line are close but neither is read off the other.</li>
-    <li>Change rate:
-    <code>change % = net change ÷ (population − net change) × 100</code>. The register
-    publishes the closing count and the change over the year, but not the population it
-    started from, so the denominator is the published count less the published change.</li>
-    <li>Natural and social change:
-    <code>natural % = (births − deaths) ÷ opening population × 100</code> and
-    <code>social % = (net change − natural change) ÷ opening population × 100</code>, on the
-    same denominator. <b>Social change is not migration.</b> The ministry defines it as the
-    net change less the natural change, so it also carries naturalisations, losses of
-    nationality and register corrections. In-migrants less out-migrants is a different
-    figure and does not equal it for any prefecture.</li>
-    <li>Foreign share: <code>foreign % = foreign residents ÷ all residents × 100</code>,
-    always over all residents whichever segment the table is showing — a share of one
-    nationality within itself has no meaning.</li>
-    <li>Aged 65 and over:
-    <code>aged 65+ % = (sum of the published five-year bands from 65 upward) ÷ all
-    residents × 100</code>. A small number of residents have no usable birth date on the
-    register, so the bands fall slightly short of the published total — 43 people in 123.8
-    million nationally at 1 January 2026, but 1,258 of Hokkaido's 75,392 foreign residents.
-    The shortfall stays in the published total rather than being spread across the bands,
-    and a share computed from the bands is therefore a share of everyone, not of everyone
-    with a recorded age.</li>
-    <li>Two published figures that will not reconcile, disclosed rather than adjusted.
-    First, the national age bands hold about 6,200 more foreign residents than the 47
-    prefectures band, because a prefecture leaves those people unbanded and the national row
-    does not; summing the prefectures therefore gives a slightly smaller age total than the
-    national row. Second, the Statistics Bureau's own ageing rate excludes people of
-    unrecorded age from its denominator, so in census years it differs from
-    <code>65+ ÷ total population</code> by real amounts — 28.7% against 28.0% in 2020.
-    Published rates are not ingested; the platform calculates its rates and shows the
-    formula.</li>
-    <li>Index view: <code>index[t] = value[t] ÷ that series' value in the first year of
-    the window shown × 100</code>. The base is the first year in view, not a fixed year, so
-    changing the year range rebases the chart — the base is printed on the axis and in the
-    export header. Foreign residents enter the register only in 2013, so on a window that
-    starts earlier that line is based on 2013 and the others are not; the lines are then
-    comparable in shape, not in level.</li>
-    <li>Log axis: an option on the level views, not a default. Registered residents and
-    foreign residents are two orders of magnitude apart, so on a linear axis the smaller
-    line sits on the baseline with no readable shape. On a logarithmic axis equal vertical
-    distances are equal <i>proportional</i> changes, not equal numbers of people; the axis
-    is labelled "log scale" wherever it is on. Nothing about the underlying values changes.</li>
-    <li><b>Municipality level mixes four kinds of area in one column, and three of them
-    overlap.</b> Under each prefecture the workbook lists the prefecture, then designated cities
-    <i>and</i> their wards, districts <i>and</i> the towns in them, and — in Tokyo — one
-    <code>島しょ</code> row covering the islands as well as each island town. Adding every
-    municipality row together gives 160 million people in a country of 124 million. The 328
-    rows that are sums of other rows are identified by two independent signals (a grouping
-    row's name is a strict prefix of the rows it groups; and the workbook is an outline in
-    which a grouping row equals the run that follows it) and the result is proved by
-    reconciliation — the 1,898 municipalities add to their prefecture exactly, in all three
-    resident segments. Grouping rows are published here too, marked <code>level: group</code>,
-    and are never included in a total.</li>
-    <li><b>Small cells are suppressed.</b> At municipality level the ministry withholds counts
-    small enough to identify someone — 17,829 cells in the 2026 foreign-resident age workbook.
-    A withheld cell is missing, not zero: a village with three foreign residents has three, and
-    its age bands are simply not published. One Hokkaido village has every foreign age band
-    withheld, so 100% of its foreign residents fall outside the bands, which is correct rather
-    than an error. Across all municipalities the unbanded share is 0.155% of foreign residents
-    and 0.005% of all residents.</li>
-    <li>Six municipalities are carried on the register with a population of exactly zero — the
-    villages of the disputed Northern Territories. Any per-capita figure has to guard against
-    them; none is computed here.</li>
-    <li>The ministry keeps only the current year's workbooks online — last year's file is
-    deleted and its URL reused — so the archive of past releases here is the history.</li>
-  </ul>
-
-  <h3 id="calc-vote-weight">Vote weight by constituency</h3>
-  <ul>
-    <li><b>Why the House of Councillors and not the House of Representatives.</b> The upper
-    house's 45 prefectural constituencies (選挙区) are exactly prefectures — every prefecture
-    on its own, except two merged pairs — so a prefecture headcount divides into a seat count
-    with nothing left over and nothing counted twice. The lower house's 289 single-member
-    districts cut through cities below the municipality level, and no boundary file on this
-    platform can resolve them; that surface is not offered rather than approximated.</li>
-    <li><b>The seat complement is law, not a statistic.</b> It is 公職選挙法 別表第三 (Public
-    Offices Election Act, Appended Table 3) as amended in 2018 and in force since the 2019
-    ordinary election: 148 district seats across 45 constituencies, plus 100 elected from a
-    single nationwide proportional list, which no prefecture's population bears on and which
-    is excluded here. The table carries no vintage and no freshness — it changes when the Diet
-    changes it. It is held as a checked constant, cited to the Ministry of Internal Affairs
-    and Communications on the surface itself, and self-checked on every request: 45
-    constituencies, 148 seats, every prefecture in exactly one constituency, and every
-    complement even. Half of each constituency's seats are contested every three years
-    (改選数 = 定数 ÷ 2, whole for every one), so the per-seat ratios are the same whichever
-    complement is divided.</li>
-    <li><b>Tottori with Shimane, and Tokushima with Kochi</b> have been single two-seat
-    constituencies since 2016 (合区). Their two prefectures are summed and they are never
-    shown as four.</li>
-    <li><b>Four denominators, because who counts as the electorate is the argument.</b>
-    <code>adults18</code> is Japanese residents aged 18 and over, the franchise as it has stood
-    since 2016; <code>adults20</code> is Japanese residents aged 20 and over; <code>japanese
-    </code> is Japanese registered residents of all ages; <code>residents</code> is everyone on
-    the register, foreign nationals and children included. The last is not an electorate: it is
-    the base most often quoted in the apportionment argument, and the gap between it and the
-    first is itself a finding, since a prefecture with many foreign residents is allocated
-    representation for people who cannot vote in national elections.</li>
-    <li><b>One quantity is estimated, and only one.</b> The register publishes five-year age
-    bands, so the two single years 18 and 19 are taken as two-fifths of the 15–19 band:
-    <code>adults18 = Σ bands from 20–24 upwards + 0.4 × the 15–19 band</code>. Every other year
-    is a published count added as published. The surface serves the headline on all four
-    denominators side by side so the influence of that one estimate is visible rather than
-    asserted; on the January 2026 register it moves the widest disparity by 0.014×, against
-    the 20-and-over basis that splits nothing.</li>
-    <li><b>The register is not the electoral roll.</b> Residents on the Basic Resident Register
-    are close to, but not identical with, the people on the 選挙人名簿 — the roll applies a
-    three-month residency requirement, carries overseas voters separately, and excludes people
-    disqualified from voting. This is an electorate measured from the register, not a count of
-    registered voters, and nothing here should be quoted as the latter.</li>
-    <li><b>The formulas.</b> <code>per_seat = electorate ÷ seats</code>;
-    <code>vote_weight = min(per_seat over the 45) ÷ per_seat</code>, so the best-served
-    constituency is 1.00 and every other is the fraction of one of its votes that a vote cast
-    there is worth; <code>disparity = 1 ÷ vote_weight</code>, the figure the courts and the
-    press quote; the headline 最大格差 is <code>max(per_seat) ÷ min(per_seat)</code>.
-    <code>seat_share = seats ÷ 148 × 100</code>, <code>electorate_share = electorate ÷ total
-    × 100</code>, and <code>over_representation = seat_share − electorate_share</code> in
-    percentage points, which sums to zero across the chamber by construction.</li>
-    <li><b>The drift series is a counterfactual and is labelled as one.</b> It applies the seat
-    table in force <i>today</i> to every year of the fifty-year prefecture panel, using
-    registered Japanese residents of all ages (indicator A2101, the only register count
-    published on one basis for fifty years). It measures how far the population has moved under
-    a map that does not move with it — not what the disparity was at the time, which was
-    governed by whatever table was then in force. A year missing any prefecture is left out
-    rather than compared against a different set of areas.</li>
-    <li><b>A constituency with no count is null, never zero.</b> If any prefecture in a
-    constituency has no published figure the constituency's electorate is missing, and it is
-    excluded from the totals, the extremes and the disparity rather than imputed. A
-    constituency whose electorate is a genuine zero keeps that zero and takes no ratio: it can
-    neither anchor the best-served end nor produce a division by zero.</li>
-  </ul>
-
-  <h3 id="calc-financials">Financial statements and key indicators</h3>
-  <ul>
-    <li><b>Nothing is recomputed.</b> Every figure on the Financials page and under
-    <code>/api/v1/equity/financials/</code> is the value tagged in the company's own annual
-    securities report (有価証券報告書) on EDINET: the filer's five-year summary
-    (主要な経営指標等の推移) and its balance sheet, income statement, statement of comprehensive
-    income, cash flow statement and statement of changes in equity, consolidated and parent-only.
-    ROE, equity ratio, PER and payout ratio are the <i>filer's</i> figures — filers differ in how
-    they compute them (average versus year-end equity, for instance) and this platform does not
-    harmonise them.</li>
-    <li><b>Percent fields.</b> The taxonomy stores ratios as fractions (0.101 for 10.1%); fields
-    named <code>*_pct</code> are that fraction × 100 and nothing else.</li>
-    <li><b>Statement order and membership</b> come from the filing's own presentation linkbase,
-    so a statement prints line for line as the filer laid it out, including the filer's own
-    extension line items. A line the filer marks with a negated label is one it prints with the
-    sign reversed (a cost shown positive); the API flags it and the value is left as tagged.</li>
-    <li><b>Standardised field names</b> (<code>revenue</code>, <code>profit</code>,
-    <code>roe_pct</code>…) are a mapping from element names, one entry covering the Japan GAAP
-    element and its IFRS twin; every row names the element behind each field. Where a filer tags
-    no standard revenue element — Toyota's summary, for example, uses its own element — revenue
-    is the first yen line of the filer's summary table and the row says so
-    (<code>revenue_source = first_line</code>). Bank and insurer "revenue" is 経常収益
-    (ordinary income), as those filers report it.</li>
-    <li><b>Restatements are kept.</b> Each filing restates five fiscal years. The company panel
-    takes each fiscal year from the latest accepted filing that covers it and names that filing
-    on the row; <code>?as_filed_in=YYYY</code> serves one filing's five years exactly as first
-    published, which is the point-in-time view.</li>
-    <li><b>Fiscal-year labels</b> are the filing's period end shifted by whole years. A filer that
-    changed its year-end inside the window is labelled by that arithmetic, not by its old
-    year-end.</li>
-    <li><b>The only derived numbers</b> are the change columns on a statement:
-    <code>change = current − prior</code> on the tagged values and
-    <code>change % = change ÷ |prior| × 100</code>, shown as — where the prior value is missing
-    or zero.</li>
-    <li><b>Labels.</b> Japanese labels are the filer's own. English labels are the filer's own
-    where the filing carries one; otherwise a readable form of the XBRL element name, marked
-    <i>derived</i> — never a translation of the Japanese by this platform.</li>
-    <li><b>Gate.</b> A filing is accepted as <i>clean</i> when its tagged balance sheet satisfies
-    assets = liabilities + net assets on every basis it reports, and its summary's net assets do
-    not exceed total assets; otherwise it is <i>partial</i> with the reason stated, and a
-    cross-section says which. A filer whose statements are not tagged (US GAAP filers tag them
-    as text) still has its summary figures.</li>
-  </ul>
-
-  <h3 id="calc-screener">Calculated ratios and the screener</h3>
-  <p>The Screener and the "Calculated Ratios" block on each company's Financials page are the one
-  place this platform computes a number from the filed statements. They follow the same rule as
-  every other derived figure here: no badge, the formula on the page, every input named, and the
-  filer's own figure beside ours wherever the filer prints the same ratio.</p>
-  <ul>
-    <li><b>ROE</b> = profit attributable to owners of parent ÷ average of opening and closing equity
-    attributable to owners × 100. <b>ROA</b> = the same profit ÷ average total assets × 100. Averages
-    are the convention Japanese filers use for their own ROE; a filing whose opening balance is not
-    tagged gets no ratio rather than a closing-balance one. Across the current universe our ROE is
-    within 0.5 pp of the filer's own for over 99% of companies; the difference is shown per row, and a
-    gap over 1 pp is marked so the reader can look at the inputs. Every remaining difference is a
-    filer convention, not an error: all six companies that differ from us by more than 2 pp divided
-    by their closing equity rather than the average, and our figure recomputed on their basis
-    reproduces each of them exactly. Filers disagree with one another here — Chiyoda uses the average
-    and matches this platform at 123.1%, Kodama Chemical uses the closing balance and prints 82.8%
-    where the average gives 144.9% — which is why one convention is applied to every company and the
-    filer's own figure is always shown beside it.</li>
-    <li><b>A return is not calculated on a negative base.</b> Where average equity over the year is
-    zero or negative the ROE is withheld and the company is flagged <i>negative equity</i> instead.
-    Dividing a loss by negative equity inverts the sign: Japan Display closed FY2026 with equity of
-    −¥7.5bn against +¥6.7bn a year earlier, and its ¥19.8bn loss over that negative average would
-    otherwise read as an ROE of +4,570% and rank first in the market. The test is applied to the
-    denominator actually used, so a company that recovered from negative equity during the year still
-    gets a ratio; across the universe this withholds exactly the three companies whose own filings
-    also decline to print an ROE, and leaves every company that prints one intact. The equity ratio
-    is still shown for these companies — it is negative, which is the point, and it matches the
-    filer's own figure.</li>
-    <li><b>Where the base is not available, no ratio is invented.</b> US GAAP filers publish their
-    statements as text, so their equity comes from the five-year summary, and only from a line that
-    names the owners of the parent — Komatsu, ORIX, Fujifilm and Omron all reconcile to their own
-    published ROE within 0.05 pp on that basis. Nomura tags only equity including minority interests,
-    which is the wrong base for a return to shareholders, so this platform shows no ROE for it and
-    prints the company's own figure instead.</li>
-    <li><b>Equity attributable to owners</b> (自己資本): under IFRS the tagged element; under Japan GAAP
-    net assets less non-controlling interests less subscription rights to shares. A balance sheet
-    that prints no such line has none, so an absent subtrahend is nil — the only case in which an
-    absent tag is treated as zero, and only for a subtractive component under a total that is present.</li>
-    <li><b>Revenue and profit</b> are the filer's own summary lines (資料 主要な経営指標等の推移), resolved as
-    on the key-indicators panel; banks and insurers report 経常収益 as revenue. <b>Operating income</b>
-    is the summary's where printed, otherwise the income statement's; banks, insurers and most IFRS
-    filers print none, so their operating margin is —.</li>
-    <li><b>Margins</b>: operating income ÷ revenue, profit ÷ revenue. <b>Asset turnover</b>: revenue ÷
-    average total assets. <b>Growth</b>: current ÷ prior − 1 from the same filing; profit growth is
-    not computed off a prior-year loss. <b>Cash conversion</b>: operating cash flow ÷ profit, not
-    computed for a loss. <b>Free cash flow</b> is the simple definition, operating plus investing cash
-    flow, and is labelled as such. <b>Cash / assets</b>: cash and equivalents ÷ total assets.</li>
-    <li><b>Implied valuation.</b> This platform holds no prices. Where the filer prints its own
-    year-end PER, an implied price = PER × EPS gives an implied PBR (÷ book value per share) and an
-    implied dividend yield (DPS ÷ implied price). Both are labelled implied and are only as current
-    as the filer's year-end. Per-share dividends are printed in the reporting company's own summary
-    table, so the yield is computed entirely inside that table — its DPS against its own PER × EPS —
-    and never mixes the group's per-share figures with the parent's. A share split between the
-    fiscal year-end and the filing can still leave the paid dividend and the restated EPS on
-    different share bases; the filer's own payout ratio, printed in the same table, exposes this,
-    and where it disagrees with DPS ÷ EPS by more than 25 pp no yield is derived and the row says
-    why.</li>
-    <li><b>Basis.</b> Consolidated where the filing carries consolidated statements, parent-only
-    otherwise; every row says which. US GAAP filers tag their statements as text, so only the ratios
-    their summary supports exist for them.</li>
-    <li><b>Ranking.</b> One filing per company, its latest accepted annual report. Companies without
-    the ranking metric are left out of the ranking and counted on the page. Filters are floors and
-    caps in each metric's own unit.</li>
-  </ul>
-
-  <h3 id="calc-cohorts">Peer groups and cohort statistics</h3>
-  <p>A rank across the whole listed market answers almost nothing: a 3% female board is
-  unremarkable among 3,700 issues and conspicuous inside TOPIX Core30. The Peer Groups page and the
-  <code>cohort</code> parameter on every equity screen restrict a cross-section to a peer group
-  before anything is ranked. Nothing here is a new measurement — every figure compared is the same
-  one its own page publishes, as filed or with the formula above — but the statistics <i>about</i>
-  a cohort are calculated on this platform and carry their formulas.</p>
-  <ul>
-    <li><b>The classification is not ours.</b> Market segment (Prime, Standard, Growth), the 33- and
-    17-industry classifications and the TOPIX scale band (Core30, Large70, Mid400, Small 1, Small 2)
-    are taken exactly as Japan Exchange Group publishes them in the listed issue list
-    (東証上場銘柄一覧), and are never inferred, recomputed or back-filled. The issues carrying a scale
-    band are the TOPIX constituents — 1,636 of them at 2026-08-31. This platform does not compute
-    index membership and does not maintain an index.</li>
-    <li><b>Membership is a vintage.</b> Each accepted read of the JPX file is stored under its own
-    effective date and the SHA-256 of its bytes, and a stored vintage is never rewritten: a revised
-    file lands beside the first, so what a cohort contained on a given date stays recoverable. Index
-    reviews, segment migrations, listings and delistings therefore accumulate as history from the
-    first read forward. Neither publisher offers back-history, so cohorts cannot be reconstructed
-    for dates before this platform began collecting them, and a request for one answers with
-    nothing rather than quietly returning today's membership.</li>
-    <li><b>Index membership is not published here.</b> The Nikkei 225 constituent list is Nikkei's
-    copyrighted work and may not be redistributed. Where it is held it is held for internal
-    comparison only, behind an explicit switch, and it is absent from the public catalogue, the API
-    and the assistant tools unless a deployment is entitled to it.</li>
-    <li><b>Baskets are not stored.</b> A basket of securities codes is carried entirely in the
-    address bar (<code>cohort=codes:8001,8002,…</code>), which is what makes any comparison built on
-    one a permanent, citable link. Names given to baskets are kept in the reader's own browser and
-    are never uploaded.</li>
-    <li><b>Median and quartiles</b> are taken over the cohort members that report the measure, by
-    linear interpolation between the closest ranks of the sorted values (the conventional method,
-    R type 7): for n values the p-quantile sits at position (n − 1) × p.</li>
-    <li><b>Percentile</b> = members strictly below the value, plus half of those equal to it, ÷
-    members with a value × 100 — the mid-rank convention, so a company in the middle of its cohort
-    reads 50 whichever way ties fall. <b>vs median</b> is the company's value minus the cohort
-    median, in the measure's own unit; for a measure in per cent that difference is in percentage
-    points.</li>
-    <li><b>A company that does not report a measure is not a company reporting nil.</b> Members
-    without a value are excluded from the distribution and from every rank, listed separately with
-    the reason, and counted on the page. They are never imputed and never treated as zero.</li>
-    <li><b>Reference periods differ across a cohort.</b> Each company contributes its most recent
-    annual report and Japanese fiscal year-ends are staggered, so a cross-section carries no single
-    as-of; every row shows its own period end. The board, register, financial-statement and
-    cross-shareholding figures for one company can also sit on different filings, and each is
-    labelled with the filing it came from.</li>
-    <li><b>The distribution chart may cut its axis.</b> Where a cohort's tails are extreme — operating
-    margin across electrical-machinery makers runs from a four-figure negative to a four-figure
-    positive — the plotted range is cut to the 1st–99th percentile so the shape is visible. Values
-    beyond it are counted in the end bars rather than dropped, the caption says how many, and the
-    table beneath carries every value in full.</li>
-  </ul>
+  <p>Rates are computed from published index values, which agencies release rounded to one
+  decimal. Official change rates are computed the same way, so figures here normally match them
+  exactly; in edge cases the rounding of the inputs can shift a rate by ±0.1&nbsp;pp. Where that
+  distinction matters, use the official release — the source link is on every surface. Displayed
+  rates are rounded to one decimal; tooltips and CSV exports carry more precision.</p>
 
   <h2 id="flags">Footnote flags</h2>
   <p>Two flags mark readings whose headline rate is easy to misread. Both are calculated here
@@ -819,182 +114,866 @@
     log changes, which sum exactly to the 12-month log change. The flag is raised when the
     largest single month is at least 70% of the summed absolute change
     (<code>max |Δln| / Σ |Δln| ≥ 0.70</code>) <i>and</i> that month moved the index by at least
-    10%. The share test is what separates a level shift from a move that accumulated over the
-    year: a spike that later reverts — fresh food, most commonly — puts its reversion into the
+    10%. The share test separates a level shift from a move that accumulated over the year: a
+    spike that later reverts — fresh food, most commonly — puts its reversion into the
     denominator and falls below the threshold. Typical of an administered price, subsidy or tax
     that changes on a set date.</li>
     <li><b>‡ Index near zero.</b> The latest index level is below 5.0 (2020 = 100). A percent
-    change on a base that small is arithmetically unstable — a one-tenth move in the published
-    index can read as a double-digit rate — so the rate is shown for completeness only.</li>
+    change on a base that small is arithmetically unstable — a one-tenth move can read as a
+    double-digit rate — so the rate is shown for completeness only.</li>
   </ul>
-  <p>A flag describes the <i>shape</i> of the series and nothing else. It does not assert a
-  cause, and its absence does not mean a reading is unremarkable: a large move spread evenly
-  across the year is not flagged, because no single month dominates it. The month and size
-  behind each marker are in its tooltip, in the item's detail panel, and in the
-  <code>flags</code> column of the filtered CSV export.</p>
+  <p>A flag describes the <i>shape</i> of a series and nothing else. It asserts no cause, and
+  its absence does not mean a reading is unremarkable: a large move spread evenly across the
+  year is not flagged, because no single month dominates it. The month and size behind each
+  marker are in its tooltip, in the item's detail panel, and in the <code>flags</code> column of
+  the CSV export.</p>
 
-  <h2 id="source">Source and provenance</h2>
+  <h2 id="source">Sources and pipeline</h2>
   <ul>
-    <li><b>Source tables:</b> 消費者物価指数 全国 1 中分類指数（1970年1月〜最新月） — middle-class
-    indices (<a href="https://www.e-stat.go.jp/stat-search/files?stat_infid=000032103842" rel="noopener">e-Stat page</a>)
-    and 全国 品目別価格指数（1970年1月〜最新月） — detailed item indices
-    (<a href="https://www.e-stat.go.jp/stat-search/files?stat_infid=000032103844" rel="noopener">e-Stat page</a>),
-    both national, monthly. Each is ingested, validated, and versioned independently.</li>
-    <li><b>Pipeline:</b> the raw CSV is downloaded from e-Stat, archived unmodified with its
-    SHA-256 checksum, parsed, and passed through validation gates (structure, required aggregates,
-    plausible latest period and headline level) before anything is published. A file that fails
-    validation publishes nothing — the previous release stays live.</li>
-    <li><b>Releases:</b> every accepted ingest is kept as a point-in-time release, alongside
-    the archived raw file for every ingestion run. See <a href="#pit">Point-in-time data</a>
-    below.</li>
-    <li><b>Missing values:</b> months where an item was not collected are shown as
-    <code>—</code> and rendered as gaps in charts. A missing value is never displayed or exported
-    as zero. Items with no value for the latest month are marked with the month their series
-    ends.</li>
+    <li><b>Pipeline.</b> The source file is downloaded, archived unmodified with its SHA-256
+    checksum, parsed, and passed through validation gates before anything is published. A file
+    that fails validation publishes nothing — the previous release stays live. Every accepted
+    ingest is kept as a point-in-time release alongside its raw file.</li>
+    <li><b>Source identity.</b> Each dataset names its publisher, table and retrieval time on
+    its own page, in its CSV export header, and in the
+    <a href="/api/v1/catalog/datasets" rel="noopener">dataset catalogue</a>. Consumer prices come from
+    two e-Stat tables:
+    <a href="https://www.e-stat.go.jp/stat-search/files?stat_infid=000032103842" rel="noopener">middle-class
+    indices</a> (statInfId 000032103842) and
+    <a href="https://www.e-stat.go.jp/stat-search/files?stat_infid=000032103844" rel="noopener">detailed
+    item indices</a> (statInfId 000032103844), both national and monthly.</li>
+    <li><b>Missing values.</b> Periods where a series was not collected show as <code>—</code>
+    and render as gaps in charts. A missing value is never displayed or exported as zero. A
+    series with no value for the latest period is marked with the period it ends.</li>
+    <li><b>Measure types are never mixed.</b> A price change, a price level, a stock, a flow and
+    a headcount are five different measures. None is ranked against, added to, or plotted on the
+    same axis as another.</li>
   </ul>
 
-  <h2 id="pit">Point-in-time data (releases)</h2>
-  <p>The Statistics Bureau republishes the <em>entire</em> index history every month, and figures
-  for past months can change. A site that only ever holds the newest file can answer what the
-  Bureau says today, but not what it said in March — and that second question is the one that
-  matters for a chart published in March, or for any test run on data as it was actually known
-  at the time.</p>
-  <p>Every accepted ingest here is therefore recorded as a <b>release</b>: what each observation
-  was worth at that publication. The store is append-only. A revision is written as a new entry
-  carrying the release that introduced it; nothing is ever edited or removed, so a number this
-  site once showed can always be recovered.</p>
-  <p>Two things follow from that, and both are available through the API:</p>
+  <h2 id="pit">Point-in-time data</h2>
+  <p>Agencies republish history, and figures for past months change. A site holding only the
+  newest file can say what the publisher says today, but not what it said in March — and that
+  second question is the one that matters for a chart published in March, or for any test run on
+  data as it was actually known at the time.</p>
+  <p>Every accepted ingest is therefore recorded as a <b>release</b>. The store is append-only:
+  a revision is written as a new entry naming the release that introduced it, and nothing is
+  ever edited or removed, so a number this site once showed can always be recovered. Because an
+  unchanged number carries no information, a release records only what it introduced or revised.
+  A withdrawn observation is recorded explicitly as withdrawn, so an as-of view can tell "not
+  published yet" from "published and later retracted" — neither of which is ever shown as
+  zero.</p>
   <ul>
     <li><b>As-of views.</b> <code>?as_of=YYYY-MM-DD</code> on the observations endpoint returns
-    the data as it stood on that date — the numbers a reader would have had then, before any
-    later revision. The response names the release that was live at the time.</li>
+    the data as it stood on that date, before any later revision. The response names the release
+    that was live at the time.</li>
     <li><b>Revision history.</b> The revisions endpoint lists every value a series has carried
-    for a given month, release by release. The values themselves are official, exactly as
-    published in each release. The difference between two of them is calculated here and carries
-    no Official Statistic badge:<br>
-    <code>change = value[this release] − value[previous release carrying this period]</code></li>
+    for a period, release by release. The values are official; the difference between two of
+    them is calculated here: <code>change = value[this release] − value[previous release
+    carrying this period]</code>.</li>
+    <li><b>Company datasets are versioned by filing, not by release, and say so.</b>
+    Cross-shareholdings, the shareholder register, 5% filings, boards and pay, buybacks,
+    facilities, financials, AGM votes and segment notes are selected by
+    <code>?as_of=</code> on <code>/api/v1/company/{code}</code> as the documents publicly on
+    EDINET by the end of that day, by filed date. It is <i>not</i> a record of what this
+    platform had captured by then: capture time was never recorded, so that view cannot be
+    reconstructed, and claiming otherwise would be a fiction dressed as a vintage. What the
+    market could read on a date is in any case the more useful basis for testing a signal.
+    Every response states its basis.</li>
+    <li><b>One figure is withheld rather than answered wrongly.</b> The buyback programme rollup
+    aggregates every monthly filing of an authorisation into one row, so under an as-of date
+    those totals would include months filed afterwards. It returns empty with the reason
+    attached; the monthly filings beside it each carry the cumulative figure the company stated
+    at the time, which is the point-in-time answer.</li>
   </ul>
-  <p><b>Point-in-time on the company datasets works differently, and says so.</b> The macro
-  series above are versioned by <i>release</i>: the vintage store records what each ingest
-  published, so an as-of view is exactly what a reader would have seen. The filing datasets —
-  cross-shareholdings, the shareholder register, 5% filings, boards and pay, buybacks,
-  facilities, financials, AGM votes and segment notes — are versioned by <i>filing</i>, and
-  <code>?as_of=</code> on <code>/api/v1/company/{code}</code> selects the documents that
-  existed publicly on EDINET by the end of that day, by their filed date. It is <i>not</i> a
-  record of what this platform had captured by then: capture time was never recorded, so that
-  view cannot be reconstructed for filings already in the archive, and claiming otherwise would
-  be a fiction dressed as a vintage. What the market could read on a date is in any case the
-  more useful basis for testing a signal. Every response states its basis.</p>
-  <p>One figure is withheld rather than answered wrongly. The buyback programme rollup
-  aggregates every monthly filing of an authorisation into one row — cumulative spend,
-  completion, what is unspent — so under an as-of date those totals would include months filed
-  afterwards. It is returned empty, with the reason attached; the monthly filings beside it each
-  carry the cumulative figure the company stated at the time, which is the point-in-time
-  answer.</p>
-  <p>Because an unchanged number carries no information, a release records only what it
-  introduced or revised. An observation the Bureau withdraws is recorded explicitly as withdrawn,
-  so an as-of view can distinguish “not published yet” from “published and later retracted” —
-  neither of which is ever shown as zero.</p>
 
-  <h2 id="cadence">Update cadence and staleness</h2>
-  <p>The Statistics Bureau publishes national CPI roughly three weeks after the end of the
-  reference month. Each page shows the month its data runs through and when it was ingested. If
-  the data on screen is more than three months behind, a red banner says so — a stale surface
-  never presents itself as current.</p>
-  <p>JGB yields are published by the Ministry of Finance every business day, usually with a
-  one-business-day lag, and re-ingested on the platform's daily refresh. The yield curve page
-  turns stale — with the same red banner — when its newest data is more than a week old.</p>
+  <h2 id="cadence">Update cadence and staleness<span class="h2-note">A stale surface never presents itself as current</span></h2>
+  <p>Each page shows the period its data runs through and when it was ingested. Past the limit
+  below, a red banner says so. The limits are set from each publisher's own record, not from a
+  guess: the annual statistical reports are genuinely slow, and a tighter limit would cry stale
+  every month of a perfectly healthy ingest.</p>
+  <div class="table-wrap">
+  <table class="data" data-no-enhance>
+    <thead>
+      <tr><th>Data</th><th>Publisher cadence</th><th class="num">Marked stale after</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>JGB yield curve</td><td class="muted">Every business day, one day in arrears</td><td class="num">7 days</td></tr>
+      <tr><td>Bank of Japan balance sheet</td><td class="muted">Monthly</td><td class="num">75 days</td></tr>
+      <tr><td>Consumer prices (both tables)</td><td class="muted">Monthly, about three weeks after the month</td><td class="num">90 days</td></tr>
+      <tr><td>Visitor arrivals</td><td class="muted">Monthly, about the 19th of the following month</td><td class="num">90 days</td></tr>
+      <tr><td>Rice contract prices and inventories</td><td class="muted">Monthly, about the 20th of the following month</td><td class="num">95 days</td></tr>
+      <tr><td>Semiconductor and HS trade</td><td class="muted">Monthly, about the end of the following month</td><td class="num">100 days</td></tr>
+      <tr><td>Guest nights and occupancy</td><td class="muted">Monthly, in three stages</td><td class="num">150 days</td></tr>
+      <tr><td>Population register (prefecture, municipality)</td><td class="muted">Annual, as of 1 January</td><td class="num">600 days</td></tr>
+      <tr><td>Agricultural price indices</td><td class="muted">Annual confirmed report</td><td class="num">900 days</td></tr>
+      <tr><td>Population history (census and estimates)</td><td class="muted">Annual</td><td class="num">950 days</td></tr>
+      <tr><td>Agricultural co-operative census</td><td class="muted">Annual</td><td class="num">1,520 days</td></tr>
+      <tr><td>Rice production cost</td><td class="muted">Annual</td><td class="num">1,610 days</td></tr>
+      <tr><td>Company filings (EDINET)</td><td class="muted">Continuous; extraction runs nightly</td><td class="num">7 days</td></tr>
+      <tr><td>Listed-issue classification (JPX)</td><td class="muted">Republished by Japan Exchange Group</td><td class="num">45 days</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="dir-foot">Live status for every dataset:
+  <a href="/api/v1/catalog/health" rel="noopener">/api/v1/catalog/health</a>.</p>
 
-  <p>Semiconductor trade is the slowest of the sources. The Ministry adds a month to the
-  principal-commodity by country table around the end of the following month, so the newest
-  figure on that page is routinely about two months old and reaches roughly three just before
-  the next release. Its staleness banner therefore only fires past 100 days — a tighter limit
-  would cry stale every month of a perfectly healthy ingest.</p>
+  <h2 id="datasets">Dataset notes<span class="h2-note">What does not reconcile, what is estimated, what is suppressed</span></h2>
+  <p class="section-sub">One entry per dataset. Everything specific to a source lives here —
+  open the one you are reading. The rules above still apply to all of them.</p>
 
-  <p>The agricultural sources sit at both ends of the range. Rice contract prices and
-  inventories are published together around the 20th of the following month, so those pages
-  turn stale past about three months. The confirmed statistical reports are far slower and
-  their limits are set from each survey's own publication record rather than from a guess:
-  the agricultural price indices past 900 days, rice production cost past 1,610, and the
-  co-operative census past 1,520. These say "an edition that was due has not come" — the
-  routine lag is disclosed on the page instead of being flagged every year.</p>
+  <details class="ds" id="calc-boj">
+    <summary><span>Bank of Japan balance sheet</span><span class="ds-note">Stocks and flows, ¥100mn</span></summary>
+    <div class="ds-body">
+    <ul>
+      <li>Holdings (end of month) and flows (during month) are official values exactly as
+      published in the Bank's “Monetary Base and the BOJ's Transactions” table (MD09), in units
+      of ¥100 million. Pages display ¥ trillion, an exact division by 10,000 — no rounding
+      happens before display.</li>
+      <li>Change from peak: <code>value[latest] − max(value[m]) over all published months</code>;
+      the percent version divides by that maximum. The peak month is named wherever the figure
+      appears. 12-month pace: <code>mean(value[t−11] … value[t])</code> over the trailing twelve
+      published flows. A negative net flow is balance-sheet runoff.</li>
+      <li>Flows can be genuinely negative (redemptions carry a minus sign), so no percentage
+      rates are computed on a flow series — a percent change across a sign change is arithmetic
+      noise, and the API refuses it rather than serving it.</li>
+      <li>Gross outright purchases, redemptions and “other transactions” do <b>not</b> sum
+      exactly to the net JGB flow in every month: some components, such as repo sales to the
+      government, have no live flow series. No surface presents those three as a complete
+      decomposition.</li>
+    </ul>
+    </div>
+  </details>
 
-  <h2 id="limits">Known limitations of this version</h2>
+  <details class="ds" id="calc-jgb">
+    <summary><span>JGB yield curve</span><span class="ds-note">MOF constant-maturity par yields</span></summary>
+    <div class="ds-body">
+    <ul>
+      <li>Yields are the Ministry of Finance's daily <b>constant-maturity par yields</b> for 15
+      tenors (1–10, 15, 20, 25, 30, 40 years), in percent to three decimals, computed by the
+      Ministry from Japan Securities Dealers Association over-the-counter reference prices. They
+      are shown exactly as published — nothing is fitted, interpolated or smoothed. A tenor with
+      no published value on a date is a gap, and the curve line breaks rather than drawing across
+      it.</li>
+      <li>Coverage starts 24 September 1974. Longer tenors begin later — 10-year in July 1986,
+      20-year in December 1986, 15-year in August 1991, 30-year in September 1999, 25-year in
+      March 2004, 40-year in November 2007 — and the 1-, 2- and 3-year series have real
+      mid-series gaps where short tenors were not quoted.</li>
+      <li>Spreads: <code>2s10s[t] = 10Y[t] − 2Y[t]</code> and
+      <code>10s30s[t] = 30Y[t] − 10Y[t]</code>, in percentage points. Changes:
+      <code>value[t] − value[b]</code>, where <code>b</code> is the latest business day on or
+      before the same calendar date one month or one year earlier.</li>
+      <li>Yields can be genuinely negative — the 1-year traded below zero through the
+      negative-rate era — and no surface treats a negative yield as missing.</li>
+      <li>The policy markers on the history chart are Bank of Japan announcement dates (ZIRP, QE,
+      QQE, NIRP, yield curve control and its end, and subsequent policy-rate changes). They are
+      dates only: annotations, not data.</li>
+    </ul>
+    </div>
+  </details>
+
+  <details class="ds" id="calc-inbound">
+    <summary><span>Visitor arrivals</span><span class="ds-note">JNTO, persons by market</span></summary>
+    <div class="ds-body">
+    <ul>
+      <li>Monthly counts of foreign visitors, in persons, by market, shown exactly as published.
+      JNTO computes them from Ministry of Justice immigration statistics: foreign nationals
+      entering Japan, less those whose main residence is Japan, plus landings at a port of call,
+      landings in transit and cruise passengers. Crew are excluded; expatriates, their families
+      and students are included.</li>
+      <li><b>Three releases a month, all official.</b> An estimate (推計値) about three weeks
+      after the month, a provisional figure (暫定値) with full market detail two months later,
+      and a definitive one (確定値). The estimate covers only the largest markets and is rounded
+      to the nearest 100, so on estimate months the named markets do not add to the headline and
+      the regional totals are absent; those months are marked on every surface. Measured across
+      three releases of the source workbook, definitive figures are never subsequently revised
+      and the estimate-to-final change is rounding, about 0.006% at the headline.</li>
+      <li>Growth: <code>(arrivals[t] / arrivals[t−12 months] − 1) × 100</code>. Month-over-month
+      rates are not shown: the series is strongly seasonal and an unadjusted monthly change is
+      not interpretable. Recovery index:
+      <code>(arrivals[t] / arrivals[same month of 2019]) × 100</code> — 2019 is the last full
+      year before the border closed, and comparing like months removes the seasonality.</li>
+      <li>Share: <code>arrivals[market] / arrivals[Total] × 100</code> for the same month. The
+      market table therefore shows the latest month with a complete breakdown, not each market's
+      own latest month — a share is only comparable when every row is the same month.</li>
+      <li>Contributions: <code>(arrivals[market, t] − arrivals[market, t−12]) / arrivals[Total,
+      t−12] × 100</code>, in percentage points. The residual is <code>growth[Total, t] − Σ
+      contribution[named markets, t]</code>, taken from the published headline rather than by
+      summing the markets left out, so the segments sum to the headline exactly even on estimate
+      months. It is always shown, never dropped.</li>
+      <li>Year to date sums the published months of the current year against the same months of
+      the prior year. Where a month is still an estimate, JNTO rounds both it and its own
+      cumulative to the nearest 100, so this sum can differ from the press release by a few tens
+      of people. Neither figure is adjusted to match the other.</li>
+      <li>Market mix: <code>Σ arrivals[market, t−11 … t] / Σ arrivals[Total, t−11 … t] ×
+      100</code>. Shares are taken over a trailing twelve months so a market's summer peak reads
+      as seasonality rather than a change in the mix. A share is a percent of arrivals, not of
+      spending — markets differ several-fold in what each visitor spends.</li>
+      <li>Concentration: <code>HHI[t] = Σ share[part, t]²</code> over the parts that actually
+      partition the total — every leaf market, every residual JNTO publishes, and whatever is
+      left of the headline not itemised in that era, since the residual rows only begin in 2016.
+      Including that remainder is what lets the index mean the same thing in 2003 as today. A
+      higher value means arrivals come from fewer places. The series ends before the headline
+      does: an estimate month does not publish every market, and an incomplete partition is not
+      an index, so those months are gaps.</li>
+      <li>The seasonality view groups the same published counts by calendar month, one line per
+      year. 2020–2022 are left out of it: with the border shut those lines sit on the axis and
+      flatten every other year into an unreadable band. They remain in the table, the other
+      charts and every export.</li>
+      <li>Where arrivals are shown against the consumer price index for hotel charges, both are
+      indexed to the same month of 2019 so they share one comparable scale; neither is read off
+      the other's units, and the two are published by different agencies on different schedules,
+      so they can end in different months. That chart shows two series moving together. It is not
+      evidence that one causes the other.</li>
+    </ul>
+    </div>
+  </details>
+
+  <details class="ds" id="calc-accommodation">
+    <summary><span>Guest nights and occupancy</span><span class="ds-note">JTA Accommodation Survey — sample estimates</span></summary>
+    <div class="ds-body">
+    <ul>
+      <li>Japan Tourism Agency Accommodation Survey (宿泊旅行統計調査), shown exactly as
+      published. Two measures live here and are never mixed: <b>guest nights</b> are
+      person-nights — one visitor staying three nights is three person-nights and one person,
+      which is why they are never compared with or added to visitor arrivals — and <b>room
+      occupancy</b> is a published percentage. Pages show guest nights in millions
+      (<code>person-nights ÷ 1,000,000</code>); no other transformation is applied.</li>
+      <li><b>These are sample estimates, and the survey says so.</b> Figures are grossed up from
+      a sample of properties, and the Agency publishes its own standard error rate for each
+      prefecture and breakdown — about 1% at the national headline, near 30% for the smallest
+      properties in a thin prefecture. It also marks individual weak cells. A marked value is
+      kept and counted rather than dropped, and the count of marked values is recorded on every
+      release. A room occupancy rate above 100% is rare but real for the same reason — Tottori's
+      city hotels print 104.3% for August 2011 — and is shown as published, never capped.</li>
+      <li><b>The January 2026 break is a change of definition, not of demand.</b> From that
+      survey the Agency stratifies properties by room count instead of employee count, and states
+      that year-on-year comparisons spanning the change may carry its effect. Every surface marks
+      the break with a rule on the chart and a notice whenever a comparison straddles it. Three
+      consequences are structural: property-size series begin at the break, because the pre-2026
+      employee-count bands measure something else and are deliberately not spliced on; the
+      nationality list widens from 21 categories to 24, so the Nordic region, the Middle East and
+      Mexico begin there; and the residual "Other" is carried as <b>two separate series</b>,
+      because before 2026 it also contained those three. Nothing is adjusted to bridge the
+      break.</li>
+      <li>Three releases a month, all official — a first preliminary covering national totals
+      only, a fuller second preliminary about a month later, and annual definitive figures the
+      following year. Unlike visitor arrivals, this survey genuinely revises, so its
+      point-in-time vintages carry real information. A release is assembled from the Agency's
+      trend workbook, its annual definitive workbooks and the monthly second-preliminary files;
+      where two carry the same figure the more settled one is used, and the agreement rate
+      between them is recorded as a check that no column has been misread.</li>
+      <li>Growth: <code>(guest nights[t] / guest nights[t−12 months] − 1) × 100</code>. Occupancy
+      is a ratio, so it is <b>differenced, never divided</b>:
+      <code>occupancy[t] − occupancy[t−12 months]</code>, in percentage points. An occupancy rate
+      is never averaged across areas — the national figure is the Agency's own, not a mean of the
+      prefectures. Recovery index: <code>guest nights[t] / guest nights[same month of 2019] ×
+      100</code>.</li>
+      <li>Shares: <code>foreign guest nights[t] / guest nights[t] × 100</code>, and
+      <code>guest nights[area] / guest nights[All Japan] × 100</code>. The 47 prefectures
+      partition the country; the ten transport-bureau regions <b>republish the same nights</b>
+      and are never added to the prefectures or given a share.</li>
+      <li>Contributions: <code>(guest nights[prefecture, t] − guest nights[prefecture, t−12]) /
+      guest nights[All Japan, t−12] × 100</code>, in percentage points. The residual is taken
+      from the published headline rather than by summing the prefectures left out, so the
+      segments sum to the national rate exactly. It is always shown, never dropped.</li>
+      <li>Nationality shares use the nationality table's <b>own</b> published total as the
+      denominator. That table covers larger properties only — 20 rooms or more from 2026, 10 or
+      more employees before — so its categories do not sum to the all-properties foreign guest
+      nights and must not be divided by it. Guests whose nationality the survey does not identify
+      are shown as a disclosed residual, normally a few percent of a prefecture's foreign nights
+      and far more in a thin cell, and are never spread across the named categories.</li>
+      <li>The purpose split classifies the <b>property</b>, not the guest: "leisure-majority"
+      means at least half of that property's guests stayed for leisure. It is a proxy for the
+      business/leisure mix, not a measurement of it. Neither the purpose split nor the residence
+      split sums to total guest nights — the survey also publishes nights whose purpose or
+      residence is unknown — so they are drawn as separate lines, never stacked into a false
+      whole. The five property-size bands do sum to the total exactly.</li>
+      <li>Municipality figures are <b>counted, not grossed up</b>: the Agency publishes them as
+      responses received rather than as an estimate for the whole municipality, so they are not
+      comparable with the prefecture totals. A municipality appears only in months where at least
+      ten of its properties responded, so the list changes month to month; a town absent from a
+      month is missing, never zero. City names are carried in Japanese as published, with the
+      prefecture romanised — the Agency publishes no romanisation and one is not invented
+      here.</li>
+    </ul>
+    </div>
+  </details>
+
+  <details class="ds" id="calc-semis">
+    <summary><span>Semiconductor and HS trade</span><span class="ds-note">MOF customs, by partner</span></summary>
+    <div class="ds-body">
+    <ul>
+      <li>Ministry of Finance customs figures for Japan's trade in semiconductors, semiconductor
+      components and semiconductor manufacturing equipment, by partner country, from January
+      2001 — from the principal-commodity by country tables (概況品別国別表) of the Trade
+      Statistics of Japan, shown exactly as published. Value is published in <b>thousands of
+      yen</b>; pages show billions (<code>value ÷ 1,000,000</code>), and no other transformation
+      is applied. Quantity is published in the commodity's own unit — pieces for a chip,
+      kilograms for a machine — which is why unit values are never compared between
+      commodities.</li>
+      <li><b>Export and import commodity codes are separate vocabularies and do not
+      correspond.</b> Code <code>70311000</code> is semiconductors and electronic components on
+      the import side and audio equipment on the export side. Every surface validates a commodity
+      against the direction being read, and the two directions are never joined on a code.</li>
+      <li><b>A published group is never the sum of the items shown beneath it.</b> The Ministry
+      publishes components inside a group that this dataset does not carry, so
+      <code>Semiconductors &amp; electronic components</code> always exceeds integrated circuits
+      plus discrete semiconductors plus thermionic tubes. Groups and items are drawn together for
+      comparison and must not be added.</li>
+      <li><b>Months the table has not reached are published as zero, and are dropped.</b> The
+      current-year table returns <code>0</code> for every month after the last one compiled.
+      Coverage is derived per year as the last month carrying any non-zero value anywhere in the
+      slice, and later months are not stored. Zeros inside the covered window are real — no
+      customs entry was recorded with that partner that month — and are kept.</li>
+      <li>World totals: <code>Σ value[partner, commodity, t]</code> over every partner the
+      Ministry publishes for that commodity, including the non-country entries (goods shipped to
+      order, unknown destinations, bonded areas). This table publishes no world row, so the total
+      is summed here and carries no official badge.</li>
+      <li>Twelve-month total: <code>Σ value[t−11 … t]</code>. Trade is lumpy and a single large
+      shipment moves a partner's monthly figure several-fold, so shares, unit values and the
+      destination mix are read off this sum rather than one month. The sum is left blank until
+      twelve months of history exist.</li>
+      <li>Growth: <code>(value[t] / value[t−12 months] − 1) × 100</code>. Month-over-month rates
+      are not shown: the series is seasonal and lumpy. Share:
+      <code>12-month total[partner, t] / 12-month total[world, t] × 100</code>, with the
+      destination-mix residual <code>100 − Σ share[named partners, t]</code>, so the bands sum to
+      100% in every month and no partner is dropped.</li>
+      <li>Unit value: <code>(12-month total of value[t] × 1,000) / 12-month total of
+      quantity[t]</code>, in yen per unit shipped. This is an average realised price across a
+      year of shipments — not a price index, not quality-adjusted, and not comparable between
+      commodities or against the consumer price index.</li>
+      <li>A figure too small to show at the displayed scale reads as <code>&lt;0.1</code> rather
+      than rounding to <code>0.0</code>, so a rounded-down value can never be mistaken for a
+      genuine zero or a month with no entry.</li>
+      <li>Four release stages, all official — preliminary (速報), confirmed (確報), revised
+      (確々報) and final (確定). The current year moves through all of them, so a recent month
+      will change; a new release is stored whenever the Ministry republishes any year of the
+      table, and the as-of view returns the figures as they stood on any past date.</li>
+      <li><b>Silicon wafers</b> come from the HS-detail tables (品別国別表), dataset
+      <code>trade-inputs</code>, as HS 3818.00 — doped chemical elements in the form of wafers.
+      e-Stat publishes no names for HS lines, so the names are set from the Customs tariff
+      schedule; the export and import schedules split the heading differently (-100/-900 and
+      -010/-020), and the import silicon line was confirmed by its value-per-kilogram signature.
+      The residual "other doped elements" line is kept separate and never added to silicon. On
+      the supply-chain chart the three steps — wafers, integrated circuits, equipment — are
+      indexed to a common base month so lines of very different size can be read together; they
+      are three different products and are never summed.</li>
+    </ul>
+    </div>
+  </details>
+
+  <details class="ds" id="calc-agriculture">
+    <summary><span>Rice, farm prices and the co-operatives</span><span class="ds-note">MAFF</span></summary>
+    <div class="ds-body">
+    <ul>
+      <li><b>Rice contract prices are the volume-weighted average of contracts actually
+      struck</b> between shippers handling 5,000 tonnes a year or more and wholesalers — not a
+      quote and not an auction clear. Yen per 60kg bag of brown rice, first-grade table rice,
+      including freight, packaging and consumption tax, published by MAFF for each 産地品種銘柄
+      origin-and-variety brand. A brand-month with no contract, or with under 100 tonnes
+      contracted, is not published; the Ministry does not distinguish the two and neither does
+      this site. Both stay gaps.</li>
+      <li><b>The all-brand average is the Ministry's, not ours.</b> It is weighted by the
+      previous crop year's inspected quantity by brand, stored exactly as released, and never
+      recomputed from the brand series shown alongside it — which is why it need not sit at the
+      arithmetic mean of the lines on the chart.</li>
+      <li><b>A regional Koshihikari is one series across a layout change.</b> Until the 2017 crop
+      year MAFF carried the growing area in a separate 地域区分 column; from 2019 it is inside the
+      brand name as <code>コシヒカリ（魚沼）</code>. Both are stored as the same series, so the
+      history does not break in half at 2018.</li>
+      <li><b>The crop-year average price is calculated:</b> <code>mean of the published monthly
+      contract prices for September of year y through August of year y+1</code> — the marketing
+      year of the crop harvested in year y, which is the year the cost survey prices. A crop year
+      missing any of its twelve months is left out rather than averaged short.</li>
+      <li><b>Three published cost levels, and the difference between them is the point.</b>
+      費用合計 is what was spent; 生産費（副産物価額差引） nets off straw and other by-products;
+      全算入生産費 adds imputed interest on the farmer's own capital and imputed rent on the
+      farmer's own land. All three are stored as published. A farm-gate price can sit above the
+      first and below the third, and which one is quoted is usually where an argument about farm
+      policy is being had.</li>
+      <li><b>Rice inventories: the crop-age split does not add to the total, and is not meant
+      to.</b> MAFF itemises the current crop and one-year-old rice; rice two years old and older
+      is inside the stage total with no row of its own. The residual is the difference and is
+      never shown as zero. Shippers and wholesalers do sum to the combined stage, bar the
+      Ministry's independent rounding of each row to whole 10,000 tonnes. Stocks are private
+      trade stocks only — rice on the farm and the government reserve are outside the table.</li>
+      <li><b>The farmer's terms of trade is calculated:</b> <code>(farm output price index[t] ÷
+      farm input price index[t]) × 100</code>, from published index values on the same base year.
+      Above 100 means output prices have risen further from the base than input prices have. It
+      is not an official statistic and carries no badge.</li>
+      <li><b>Co-operative amounts are thousands of yen as published</b>; pages show billions
+      (<code>value ÷ 1,000,000</code>), an exact conversion. 営農指導事業分配賦額 — the
+      farm-guidance loss charged back to each earning business — is a published line of the
+      Ministry's own statement, not an allocation made here. 共通管理費等 is overhead belonging to
+      no single business: it is part of the group total, so adding the five businesses without it
+      does not reconcile.</li>
+      <li><b>Fiscal and crop years are dated to a fixed month.</b> A co-operative fiscal year runs
+      April to March and is dated to the 1 April it begins (令和5事業年度 → 2023-04-01); a rice
+      crop year in the cost survey is dated to 1 January of its harvest year (令和5年産 →
+      2023-01-01). Both are conventions of this site, chosen so a year-on-year measure compares
+      like with like.</li>
+    </ul>
+    </div>
+  </details>
+
+  <details class="ds" id="calc-segments">
+    <summary><span>Segment notes and the Company Profile</span><span class="ds-note">EDINET segment information</span></summary>
+    <div class="ds-body">
+    <ul>
+      <li>Revenue by region, the customers a company names, and its reportable segments come from
+      the segment-information note (セグメント情報等) of the annual securities report on EDINET,
+      for the current and prior fiscal year. <b>The note is a text block, not tagged numbers</b>:
+      every figure is parsed from the filer's own HTML tables, and each filing carries a status. A
+      filing whose region revenues do not sum to its consolidated revenue within 0.5% is marked
+      <code>partial</code> with the numbers in the reason; nothing is adjusted to make it
+      reconcile. Across the June 2026 filing season, 95.9% of the filings that carry a region
+      table reconcile, and 91% of all filings are <code>clean</code>.</li>
+      <li>Regions are on the filer's own basis — customer location for most, shipping destination
+      for some — and the basis sentence is stored and shown with the figures. The filer's label is
+      kept verbatim; a small lexicon maps it to a key (JP, CN, TW, KR, US, NA, EU…) so two
+      filers' "China" can be read together, and a label the lexicon does not know keeps no key
+      rather than a guess. A sub-note such as 「北米のうち、米国は…」 is its own row, marked as a
+      sub-note of its parent, and is never added to the region it sits inside.</li>
+      <li>A filer that omits the region table says why — no overseas revenue, or domestic revenue
+      above 90% — and that reason is stored. The absence is then a fact, not a gap, and no region
+      row is invented for it.</li>
+      <li>Named customers are every customer the filer discloses at ten percent or more of
+      revenue, with the revenue booked from them, as written. Some filers give them in a table,
+      some in prose; the source is marked. Fiscal years are named the Japanese way, for the
+      calendar year in which they begin: the year ending March 2026 is FY2025.</li>
+      <li>Fiscal roll-ups of customs data: <code>Σ over the fiscal year's months of the published
+      customs value for every partner the region key maps to</code>. Only monthly flows are
+      summed — customs values and quantities, visitor counts — and the API refuses to sum an
+      index, a stock or a rate. Only complete periods are shown: a fiscal quarter or year with an
+      unpublished month is left out, never summed short, and the months left out are listed.</li>
+      <li><b>The commodity-to-company mapping is a platform classification, not an official source
+      label.</b> Customs records carry no company identity. A company is mapped to a customs line
+      only where its own annual report describes that product as a reportable segment or principal
+      product; the file is versioned in the repository with an owner and a review date, and every
+      surface that uses it says so.</li>
+      <li><b>Implied share</b> = <code>revenue the company filed for a region / customs exports to
+      that region's partners over the same fiscal year × 100</code>. An indicator of size and
+      direction, never an accounting identity. A company ships from overseas plants, sells
+      domestically, and books revenue on acceptance rather than shipment; the customs line
+      includes its competitors and trading houses; and the company's region and the customs
+      partner list are different definitions that share a name. An implied share above 100% is
+      that caveat made visible. Only regions that name a place are joined — China, Taiwan, Korea,
+      the United States, North America, Europe — and "Asia" never is, because one filer's Asia
+      includes Japan and another's excludes China.</li>
+      <li><b>Named customers and dependence.</b> A listed company must disclose any customer worth
+      ten percent or more of consolidated revenue and state the amount.
+      <code>dependence[filer, customer] = customer revenue / the filer's consolidated revenue ×
+      100</code>, both as filed for the same fiscal year; combined dependence is the sum over
+      every customer that filer names. It cannot exceed 100%: a filing where it did was a parsing
+      fault, and two gates now catch that class of error — a single customer larger than the
+      filer's whole revenue, and a combined total above it. A company absent from the list has no
+      customer at or above the threshold, which is not the same as having a diversified book.
+      Where consolidated revenue has not been extracted the share is blank, never assumed.</li>
+      <li><b>English customer names are looked up, never translated.</b> The English name beside a
+      filed Japanese one comes from the EDINET company registry where the buyer files its own
+      annual report — which also yields a securities code, so the buyer's own page can be opened
+      from the row — or from a small curated list, versioned in the repository with an owner and a
+      review date, for government bodies, unlisted subsidiaries and foreign affiliates the
+      registry cannot cover. Where no published English name exists, none is invented. Of 1,010
+      distinct customer names, 363 resolve to an English name and 132 are already in Latin script;
+      the remaining 515 are shown as filed. A subsidiary keeps its own identity — Amazon Japan
+      G.K. is not Amazon.com, and TEPCO Energy Partner is not TEPCO — because rolling a subsidiary
+      up to its parent would state a relationship no filer disclosed.</li>
+      <li><b>Customer names are never merged.</b> They are shown exactly as each filer wrote them:
+      Toyota appears as both 「トヨタ自動車(株)」 and 「トヨタ自動車株式会社」, and Samsung under
+      three different strings, because that is what the filings say. Combining them would state a
+      total no company disclosed, so search matches text and the page tells the reader to try more
+      than one spelling.</li>
+    </ul>
+    </div>
+  </details>
+
+  <details class="ds" id="calc-population">
+    <summary><span>Population by prefecture</span><span class="ds-note">Basic Resident Register and SSDS</span></summary>
+    <div class="ds-body">
+    <ul>
+      <li>Two datasets sit behind this surface and they are not interchangeable.
+      <b>population-jp</b> is the Basic Resident Register (住民基本台帳) as published by the
+      Ministry of Internal Affairs and Communications: an administrative count of everyone on a
+      municipality's register at 1 January, not a survey estimate, split three ways — all
+      residents, Japanese residents and foreign residents. <b>population-jp-history</b> is the
+      Statistics Bureau's System of Social and Demographic Statistics (社会・人口統計体系), which
+      republishes census, population-estimate, vital-statistics and register figures on one
+      prefecture grid back to 1975.</li>
+      <li><b>Reference dates differ by series and are never mixed on one axis.</b> Register counts
+      are as of 1 January. Register flows — births, deaths, moves — cover the calendar year
+      <i>before</i> that date, so the count at 1 January 2026 less the count at 1 January 2025
+      equals the flows dated 2025. Census and population-estimate figures are as of 1 October and
+      are a different measure: the total population line and the registered residents line are
+      close but neither is read off the other.</li>
+      <li>Change rate: <code>net change ÷ (population − net change) × 100</code>. The register
+      publishes the closing count and the change over the year, but not the population it started
+      from, so the denominator is the published count less the published change.</li>
+      <li>Natural and social change: <code>(births − deaths) ÷ opening population × 100</code> and
+      <code>(net change − natural change) ÷ opening population × 100</code>. <b>Social change is
+      not migration.</b> The ministry defines it as net change less natural change, so it also
+      carries naturalisations, losses of nationality and register corrections. In-migrants less
+      out-migrants is a different figure and does not equal it for any prefecture.</li>
+      <li>Foreign share: <code>foreign residents ÷ all residents × 100</code>, always over all
+      residents whichever segment the table is showing — a share of one nationality within itself
+      has no meaning.</li>
+      <li>Aged 65 and over: <code>(sum of the published five-year bands from 65 upward) ÷ all
+      residents × 100</code>. A small number of residents have no usable birth date on the
+      register, so the bands fall slightly short of the published total — 43 people in 123.8
+      million nationally at 1 January 2026, but 1,258 of Hokkaido's 75,392 foreign residents. The
+      shortfall stays in the published total rather than being spread across the bands, so a share
+      computed from the bands is a share of everyone, not of everyone with a recorded age.</li>
+      <li><b>Two published figures that will not reconcile, disclosed rather than adjusted.</b>
+      The national age bands hold about 6,200 more foreign residents than the 47 prefectures band,
+      because a prefecture leaves those people unbanded and the national row does not; summing the
+      prefectures therefore gives a slightly smaller age total. And the Statistics Bureau's own
+      ageing rate excludes people of unrecorded age from its denominator, so in census years it
+      differs from <code>65+ ÷ total population</code> by real amounts — 28.7% against 28.0% in
+      2020. Published rates are not ingested; the platform calculates its rates and shows the
+      formula.</li>
+      <li>Index view: <code>value[t] ÷ that series' value in the first year of the window shown ×
+      100</code>. The base is the first year in view, not a fixed year, so changing the range
+      rebases the chart — the base is printed on the axis and in the export header. Foreign
+      residents enter the register only in 2013, so on a window that starts earlier that line is
+      based on 2013 and the others are not; the lines are then comparable in shape, not in
+      level.</li>
+      <li>Log axis: an option on the level views, not a default. Registered residents and foreign
+      residents are two orders of magnitude apart, so on a linear axis the smaller line sits on
+      the baseline with no readable shape. On a logarithmic axis equal vertical distances are
+      equal <i>proportional</i> changes, not equal numbers of people; the axis is labelled "log
+      scale" wherever it is on.</li>
+      <li><b>Municipality level mixes four kinds of area in one column, and three of them
+      overlap.</b> Under each prefecture the workbook lists the prefecture, then designated cities
+      <i>and</i> their wards, districts <i>and</i> the towns in them, and — in Tokyo — one
+      <code>島しょ</code> row covering the islands as well as each island town. Adding every
+      municipality row together gives 160 million people in a country of 124 million. The 328 rows
+      that are sums of other rows are identified by two independent signals (a grouping row's name
+      is a strict prefix of the rows it groups; and the workbook is an outline in which a grouping
+      row equals the run that follows it) and the result is proved by reconciliation — the 1,898
+      municipalities add to their prefecture exactly, in all three resident segments. Grouping rows
+      are published here too, marked <code>level: group</code>, and are never included in a
+      total.</li>
+      <li><b>Small cells are suppressed.</b> At municipality level the ministry withholds counts
+      small enough to identify someone — 17,829 cells in the 2026 foreign-resident age workbook. A
+      withheld cell is missing, not zero: a village with three foreign residents has three, and its
+      age bands are simply not published. One Hokkaido village has every foreign age band withheld,
+      so 100% of its foreign residents fall outside the bands, which is correct rather than an
+      error. Across all municipalities the unbanded share is 0.155% of foreign residents and 0.005%
+      of all residents.</li>
+      <li>Six municipalities are carried on the register with a population of exactly zero — the
+      villages of the disputed Northern Territories. Any per-capita figure has to guard against
+      them; none is computed here.</li>
+      <li>The ministry keeps only the current year's workbooks online — last year's file is deleted
+      and its URL reused — so the archive of past releases here is the history.</li>
+    </ul>
+    </div>
+  </details>
+
+  <details class="ds" id="calc-vote-weight">
+    <summary><span>Vote weight by constituency</span><span class="ds-note">House of Councillors, 45 districts</span></summary>
+    <div class="ds-body">
+    <ul>
+      <li><b>Why the House of Councillors and not the House of Representatives.</b> The upper
+      house's 45 prefectural constituencies (選挙区) are exactly prefectures — every prefecture on
+      its own, except two merged pairs — so a prefecture headcount divides into a seat count with
+      nothing left over and nothing counted twice. The lower house's 289 single-member districts
+      cut through cities below the municipality level, and no boundary file on this platform can
+      resolve them; that surface is not offered rather than approximated.</li>
+      <li><b>The seat complement is law, not a statistic.</b> 公職選挙法 別表第三 (Public Offices
+      Election Act, Appended Table 3) as amended in 2018 and in force since the 2019 ordinary
+      election: 148 district seats across 45 constituencies, plus 100 elected from a single
+      nationwide proportional list, which no prefecture's population bears on and which is excluded
+      here. The table carries no vintage and no freshness — it changes when the Diet changes it. It
+      is held as a checked constant, cited to the Ministry of Internal Affairs and Communications
+      on the surface itself, and self-checked on every request: 45 constituencies, 148 seats, every
+      prefecture in exactly one constituency, and every complement even. Half of each
+      constituency's seats are contested every three years (改選数 = 定数 ÷ 2, whole for every
+      one), so the per-seat ratios are the same whichever complement is divided.</li>
+      <li><b>Tottori with Shimane, and Tokushima with Kochi</b> have been single two-seat
+      constituencies since 2016 (合区). Their two prefectures are summed and they are never shown
+      as four.</li>
+      <li><b>Four denominators, because who counts as the electorate is the argument.</b>
+      <code>adults18</code> is Japanese residents aged 18 and over, the franchise as it has stood
+      since 2016; <code>adults20</code> is Japanese residents aged 20 and over;
+      <code>japanese</code> is Japanese registered residents of all ages; <code>residents</code> is
+      everyone on the register, foreign nationals and children included. The last is not an
+      electorate: it is the base most often quoted in the apportionment argument, and the gap
+      between it and the first is itself a finding, since a prefecture with many foreign residents
+      is allocated representation for people who cannot vote in national elections.</li>
+      <li><b>One quantity is estimated, and only one.</b> The register publishes five-year age
+      bands, so the two single years 18 and 19 are taken as two-fifths of the 15–19 band:
+      <code>adults18 = Σ bands from 20–24 upwards + 0.4 × the 15–19 band</code>. Every other year
+      is a published count added as published. The surface serves the headline on all four
+      denominators side by side so the influence of that one estimate is visible rather than
+      asserted; on the January 2026 register it moves the widest disparity by 0.014×, against the
+      20-and-over basis that splits nothing.</li>
+      <li><b>The register is not the electoral roll.</b> Residents on the Basic Resident Register
+      are close to, but not identical with, the people on the 選挙人名簿 — the roll applies a
+      three-month residency requirement, carries overseas voters separately, and excludes people
+      disqualified from voting. This is an electorate measured from the register, not a count of
+      registered voters, and nothing here should be quoted as the latter.</li>
+      <li><b>The formulas.</b> <code>per_seat = electorate ÷ seats</code>;
+      <code>vote_weight = min(per_seat over the 45) ÷ per_seat</code>, so the best-served
+      constituency is 1.00 and every other is the fraction of one of its votes that a vote cast
+      there is worth; <code>disparity = 1 ÷ vote_weight</code>, the figure the courts and the press
+      quote; the headline 最大格差 is <code>max(per_seat) ÷ min(per_seat)</code>.
+      <code>seat_share = seats ÷ 148 × 100</code>, <code>electorate_share = electorate ÷ total ×
+      100</code>, and <code>over_representation = seat_share − electorate_share</code> in
+      percentage points, which sums to zero across the chamber by construction.</li>
+      <li><b>The drift series is a counterfactual and is labelled as one.</b> It applies the seat
+      table in force <i>today</i> to every year of the fifty-year prefecture panel, using
+      registered Japanese residents of all ages (indicator A2101, the only register count published
+      on one basis for fifty years). It measures how far the population has moved under a map that
+      does not move with it — not what the disparity was at the time, which was governed by
+      whatever table was then in force. A year missing any prefecture is left out rather than
+      compared against a different set of areas.</li>
+      <li><b>A constituency with no count is null, never zero.</b> If any prefecture in a
+      constituency has no published figure the constituency's electorate is missing, and it is
+      excluded from the totals, the extremes and the disparity rather than imputed. A constituency
+      whose electorate is a genuine zero keeps that zero and takes no ratio: it can neither anchor
+      the best-served end nor produce a division by zero.</li>
+    </ul>
+    </div>
+  </details>
+
+  <details class="ds" id="calc-financials">
+    <summary><span>Financial statements and key indicators</span><span class="ds-note">EDINET XBRL, as filed</span></summary>
+    <div class="ds-body">
+    <ul>
+      <li><b>Nothing is recomputed.</b> Every figure on the Financials page and under
+      <code>/api/v1/equity/financials/</code> is the value tagged in the company's own annual
+      securities report (有価証券報告書) on EDINET: the filer's five-year summary
+      (主要な経営指標等の推移) and its balance sheet, income statement, statement of comprehensive
+      income, cash flow statement and statement of changes in equity, consolidated and
+      parent-only. ROE, equity ratio, PER and payout ratio are the <i>filer's</i> figures — filers
+      differ in how they compute them (average versus year-end equity, for instance) and this
+      platform does not harmonise them.</li>
+      <li><b>Percent fields.</b> The taxonomy stores ratios as fractions (0.101 for 10.1%); fields
+      named <code>*_pct</code> are that fraction × 100 and nothing else.</li>
+      <li><b>Statement order and membership</b> come from the filing's own presentation linkbase,
+      so a statement prints line for line as the filer laid it out, including the filer's own
+      extension line items. A line the filer marks with a negated label is one it prints with the
+      sign reversed (a cost shown positive); the API flags it and the value is left as tagged.</li>
+      <li><b>Standardised field names</b> (<code>revenue</code>, <code>profit</code>,
+      <code>roe_pct</code>…) are a mapping from element names, one entry covering the Japan GAAP
+      element and its IFRS twin; every row names the element behind each field. Where a filer tags
+      no standard revenue element — Toyota's summary uses its own — revenue is the first yen line
+      of the filer's summary table and the row says so (<code>revenue_source = first_line</code>).
+      Bank and insurer "revenue" is 経常収益 (ordinary income), as those filers report it.</li>
+      <li><b>Restatements are kept.</b> Each filing restates five fiscal years. The company panel
+      takes each fiscal year from the latest accepted filing that covers it and names that filing
+      on the row; <code>?as_filed_in=YYYY</code> serves one filing's five years exactly as first
+      published, which is the point-in-time view. <b>Fiscal-year labels</b> are the filing's period
+      end shifted by whole years, so a filer that changed its year-end inside the window is
+      labelled by that arithmetic, not by its old year-end.</li>
+      <li><b>The only derived numbers</b> on a statement are the change columns:
+      <code>change = current − prior</code> on the tagged values and
+      <code>change % = change ÷ |prior| × 100</code>, shown as — where the prior value is missing
+      or zero.</li>
+      <li><b>Labels.</b> Japanese labels are the filer's own. English labels are the filer's own
+      where the filing carries one; otherwise a readable form of the XBRL element name, marked
+      <i>derived</i> — never a translation of the Japanese by this platform.</li>
+      <li><b>Gate.</b> A filing is accepted as <i>clean</i> when its tagged balance sheet satisfies
+      assets = liabilities + net assets on every basis it reports, and its summary's net assets do
+      not exceed total assets; otherwise it is <i>partial</i> with the reason stated, and a
+      cross-section says which. A filer whose statements are not tagged (US GAAP filers tag them as
+      text) still has its summary figures.</li>
+    </ul>
+    </div>
+  </details>
+
+  <details class="ds" id="calc-screener">
+    <summary><span>Calculated ratios and the screener</span><span class="ds-note">The one place ratios are computed here</span></summary>
+    <div class="ds-body">
+    <p>The Screener and the "Calculated Ratios" block on each company's Financials page are the
+    one place this platform computes a number from the filed statements. Same rule as every other
+    derived figure: no badge, the formula on the page, every input named, and the filer's own
+    figure beside ours wherever the filer prints the same ratio.</p>
+    <ul>
+      <li><b>ROE</b> = profit attributable to owners of parent ÷ average of opening and closing
+      equity attributable to owners × 100. <b>ROA</b> = the same profit ÷ average total assets ×
+      100. Averages are the convention Japanese filers use for their own ROE; a filing whose
+      opening balance is not tagged gets no ratio rather than a closing-balance one. Across the
+      current universe our ROE is within 0.5 pp of the filer's own for over 99% of companies; the
+      difference is shown per row, and a gap over 1 pp is marked. Every remaining difference is a
+      filer convention, not an error: all six companies that differ by more than 2 pp divided by
+      closing equity rather than the average, and our figure recomputed on their basis reproduces
+      each of them exactly. Filers disagree with one another here — Chiyoda uses the average and
+      matches this platform at 123.1%, Kodama Chemical uses the closing balance and prints 82.8%
+      where the average gives 144.9% — which is why one convention is applied to every company and
+      the filer's own figure is always shown beside it.</li>
+      <li><b>A return is not calculated on a negative base.</b> Where average equity over the year
+      is zero or negative the ROE is withheld and the company is flagged <i>negative equity</i>
+      instead. Dividing a loss by negative equity inverts the sign: Japan Display closed FY2026
+      with equity of −¥7.5bn against +¥6.7bn a year earlier, and its ¥19.8bn loss over that
+      negative average would otherwise read as an ROE of +4,570% and rank first in the market. The
+      test is applied to the denominator actually used, so a company that recovered from negative
+      equity during the year still gets a ratio; across the universe this withholds exactly the
+      three companies whose own filings also decline to print an ROE. The equity ratio is still
+      shown for these companies — it is negative, which is the point, and it matches the filer's
+      own figure.</li>
+      <li><b>Where the base is not available, no ratio is invented.</b> US GAAP filers publish
+      their statements as text, so their equity comes from the five-year summary, and only from a
+      line that names the owners of the parent — Komatsu, ORIX, Fujifilm and Omron all reconcile to
+      their own published ROE within 0.05 pp on that basis. Nomura tags only equity including
+      minority interests, which is the wrong base for a return to shareholders, so this platform
+      shows no ROE for it and prints the company's own figure instead.</li>
+      <li><b>Equity attributable to owners</b> (自己資本): under IFRS the tagged element; under
+      Japan GAAP net assets less non-controlling interests less subscription rights to shares. A
+      balance sheet that prints no such line has none, so an absent subtrahend is nil — the only
+      case in which an absent tag is treated as zero, and only for a subtractive component under a
+      total that is present.</li>
+      <li><b>Revenue and profit</b> are the filer's own summary lines, resolved as on the
+      key-indicators panel; banks and insurers report 経常収益 as revenue. <b>Operating income</b>
+      is the summary's where printed, otherwise the income statement's; banks, insurers and most
+      IFRS filers print none, so their operating margin is —.</li>
+      <li><b>Margins</b>: operating income ÷ revenue, profit ÷ revenue. <b>Asset turnover</b>:
+      revenue ÷ average total assets. <b>Growth</b>: current ÷ prior − 1 from the same filing;
+      profit growth is not computed off a prior-year loss. <b>Cash conversion</b>: operating cash
+      flow ÷ profit, not computed for a loss. <b>Free cash flow</b> is the simple definition,
+      operating plus investing cash flow, and is labelled as such. <b>Cash / assets</b>: cash and
+      equivalents ÷ total assets.</li>
+      <li><b>Implied valuation.</b> This platform holds no prices. Where the filer prints its own
+      year-end PER, an implied price = PER × EPS gives an implied PBR (÷ book value per share) and
+      an implied dividend yield (DPS ÷ implied price). Both are labelled implied and are only as
+      current as the filer's year-end. Per-share dividends are printed in the reporting company's
+      own summary table, so the yield is computed entirely inside that table and never mixes the
+      group's per-share figures with the parent's. A share split between the fiscal year-end and
+      the filing can still leave the paid dividend and the restated EPS on different share bases;
+      the filer's own payout ratio exposes this, and where it disagrees with DPS ÷ EPS by more than
+      25 pp no yield is derived and the row says why.</li>
+      <li><b>Basis and ranking.</b> Consolidated where the filing carries consolidated statements,
+      parent-only otherwise; every row says which. Rankings use one filing per company, its latest
+      accepted annual report; companies without the ranking metric are left out and counted on the
+      page. Filters are floors and caps in each metric's own unit.</li>
+    </ul>
+    </div>
+  </details>
+
+  <details class="ds" id="calc-cohorts">
+    <summary><span>Peer groups and cohort statistics</span><span class="ds-note">JPX classification, vintaged</span></summary>
+    <div class="ds-body">
+    <p>A rank across the whole listed market answers almost nothing: a 3% female board is
+    unremarkable among 3,700 issues and conspicuous inside TOPIX Core30. The Peer Groups page and
+    the <code>cohort</code> parameter on every equity screen restrict a cross-section to a peer
+    group before anything is ranked. Every figure compared is the same one its own page publishes;
+    the statistics <i>about</i> a cohort are calculated here and carry their formulas.</p>
+    <ul>
+      <li><b>The classification is not ours.</b> Market segment (Prime, Standard, Growth), the 33-
+      and 17-industry classifications and the TOPIX scale band (Core30, Large70, Mid400, Small 1,
+      Small 2) are taken exactly as Japan Exchange Group publishes them in the listed issue list
+      (東証上場銘柄一覧), and are never inferred, recomputed or back-filled. The issues carrying a
+      scale band are the TOPIX constituents — 1,636 of them at 2026-08-31. This platform does not
+      compute index membership and does not maintain an index.</li>
+      <li><b>Membership is a vintage.</b> Each accepted read of the JPX file is stored under its
+      own effective date and the SHA-256 of its bytes, and a stored vintage is never rewritten: a
+      revised file lands beside the first, so what a cohort contained on a given date stays
+      recoverable. Index reviews, segment migrations, listings and delistings accumulate as history
+      from the first read forward. Neither publisher offers back-history, so a request for a date
+      before collection began answers with nothing rather than quietly returning today's
+      membership.</li>
+      <li><b>Index membership is not published here.</b> The Nikkei 225 constituent list is
+      Nikkei's copyrighted work and may not be redistributed. Where it is held it is held for
+      internal comparison only, behind an explicit switch, and it is absent from the public
+      catalogue, the API and the assistant tools unless a deployment is entitled to it.</li>
+      <li><b>Baskets are not stored.</b> A basket of securities codes is carried entirely in the
+      address bar (<code>cohort=codes:8001,8002,…</code>), which is what makes any comparison built
+      on one a permanent, citable link. Names given to baskets are kept in the reader's own browser
+      and are never uploaded.</li>
+      <li><b>Median and quartiles</b> are taken over the cohort members that report the measure, by
+      linear interpolation between the closest ranks of the sorted values (the conventional method,
+      R type 7): for n values the p-quantile sits at position (n − 1) × p. <b>Percentile</b> =
+      members strictly below the value, plus half of those equal to it, ÷ members with a value ×
+      100 — the mid-rank convention, so a company in the middle of its cohort reads 50 whichever
+      way ties fall. <b>vs median</b> is the company's value minus the cohort median, in the
+      measure's own unit; for a measure in per cent that difference is in percentage points.</li>
+      <li><b>A company that does not report a measure is not a company reporting nil.</b> Members
+      without a value are excluded from the distribution and from every rank, listed separately
+      with the reason, and counted on the page. They are never imputed and never treated as
+      zero.</li>
+      <li><b>Reference periods differ across a cohort.</b> Each company contributes its most recent
+      annual report and Japanese fiscal year-ends are staggered, so a cross-section carries no
+      single as-of; every row shows its own period end. The board, register, financial-statement
+      and cross-shareholding figures for one company can also sit on different filings, and each is
+      labelled with the filing it came from.</li>
+      <li><b>The distribution chart may cut its axis.</b> Where a cohort's tails are extreme —
+      operating margin across electrical-machinery makers runs from a four-figure negative to a
+      four-figure positive — the plotted range is cut to the 1st–99th percentile so the shape is
+      visible. Values beyond it are counted in the end bars rather than dropped, the caption says
+      how many, and the table beneath carries every value in full.</li>
+    </ul>
+    </div>
+  </details>
+
+  <h2 id="limits">Known limitations</h2>
   <ul>
-    <li>The Tokyo flash index, regional indices, seasonally adjusted series, and goods/services
+    <li>The Tokyo flash index, regional indices, seasonally adjusted series and goods/services
     splits are not yet ingested. The Overview page reads the middle-class table only.</li>
-    <li>Rice contract volumes are not yet carried. MAFF publishes the monthly quantity beside
-    the price, but only in the per-month release files, not in the crop-year price tables this
-    dataset is built from; the price history therefore runs from September 2008 and the volume
-    history does not exist here yet.</li>
-    <li>The agricultural price indices are carried at class level only — 20 output classes and
-    17 input classes. The same survey publishes them at item depth (134 output items, 173 input
-    items), which is a separate dataset in the way the CPI item explorer sits beside the CPI
-    categories.</li>
-    <li>The co-operative dataset carries the segment income statement, which the Ministry
-    publishes nationally. The number of co-operatives by prefecture is published too but is not
-    ingested: several editions list the same prefecture twice under different class codes with
-    different values, and the area axis mixes prefectures, membership bands, ratios and year
-    rows in a vocabulary that changes shape almost every edition.</li>
-    <li>Rice inventories are carried nationally. The prefecture-level table exists and is
-    published each month, but only for the current rice year, so a prefecture panel can only
-    accumulate forward from the first month it is ingested.</li>
-    <li>Rates of change are calculated here rather than ingested from the official
-    change-rate tables (see Calculations above for the rounding consequence).</li>
+    <li>Rates of change are calculated here rather than ingested from the official change-rate
+    tables (see <a href="#calc">Calculations</a> for the rounding consequence). Group
+    contributions use fixed 2020-base weights — the Laspeyres approximation the official
+    decomposition also uses — and are not chain-linked across base revisions.</li>
     <li>Release history starts on 5 August 2026, the platform's first accepted release. Revisions
-    the Statistics Bureau made before that date are not recoverable here — nobody was saving the
-    files. No side-by-side base-revision comparison yet: the 2025-base transition will be handled
-    with an explicit item mapping table before any cross-base series is shown.</li>
-    <li>Group contributions are computed with fixed 2020-base weights (the Laspeyres
-    approximation the official decomposition also uses); they are not chain-linked across
-    base revisions.</li>
+    made before that date are not recoverable here — nobody was saving the files. There is no
+    side-by-side base-revision comparison yet: the 2025-base transition will be handled with an
+    explicit item mapping table before any cross-base series is shown.</li>
+    <li>Rice contract volumes are not carried. MAFF publishes the monthly quantity beside the
+    price, but only in the per-month release files, not in the crop-year price tables this dataset
+    is built from.</li>
+    <li>Agricultural price indices are carried at class level only — 20 output classes and 17
+    input classes. The same survey publishes them at item depth (134 output items, 173 input
+    items), which is a separate dataset.</li>
+    <li>The co-operative dataset carries the segment income statement only. The number of
+    co-operatives by prefecture is published too but is not ingested: several editions list the
+    same prefecture twice under different class codes with different values, and the area axis
+    mixes prefectures, membership bands, ratios and year rows in a vocabulary that changes shape
+    almost every edition.</li>
+    <li>Rice inventories are carried nationally. The prefecture table is published each month but
+    only for the current rice year, so a prefecture panel can only accumulate forward from the
+    first month it is ingested.</li>
   </ul>
 
-  <h2 id="mcp">Connecting an AI assistant (MCP)</h2>
+  <h2 id="mcp">Connecting an AI assistant</h2>
   <p>The site exposes its data to AI assistants over the
   <a href="https://modelcontextprotocol.io" rel="noopener">Model Context Protocol</a> at
   <code>/mcp</code> — setup steps are on the <a href="connect.html">Connect&nbsp;your&nbsp;AI</a>
-  page, and the <a href="manual.html">manual</a> documents every lookup. The assistant reaches the data only through read-only lookups that wrap the same
-  functions serving the public API, so it can only see numbers this site already publishes.
-  Every lookup result carries the same trust labels described above — official index levels
-  tagged as official, calculated rates carrying their formula — plus a permanent citation URL
-  for the equivalent view on this site. The assistant's prose is the product of whichever AI
-  client you connect, not of this site; check its statements against the cited pages.</p>
+  page, and the <a href="manual.html">manual</a> documents every lookup. The assistant reaches the
+  data only through read-only lookups that wrap the same functions serving the public API, so it
+  can only see numbers this site already publishes. Every result carries the same trust labels
+  described above plus a permanent citation URL for the equivalent view on this site. The
+  assistant's prose is the product of whichever AI client you connect, not of this site; check its
+  statements against the cited pages.</p>
 
   <h2 id="license">Attribution</h2>
-  <p>Rice contract prices, rice inventories, agricultural price indices, rice production cost
-  and the co-operative census are © Ministry of Agriculture, Forestry and Fisheries,
-  republished with attribution under the Government of Japan Standard Terms of Use; the
-  statistical reports are retrieved through the e-Stat API under its terms of use. Contract
-  prices and inventories are provisional (速報) as published. The crop-year average price, the
-  farmer's terms of trade and every change shown on those pages are calculated on this site and
-  are not official statistics.</p>
-  <p>Underlying data © Statistics Bureau of Japan, republished under the
-  <a href="https://www.e-stat.go.jp/terms-of-use" rel="noopener">e-Stat terms of use</a> with
-  attribution. The rates of change calculated on this site are not official statistics; each is
-  shown with the formula and the official inputs it was computed from.</p>
-  <p>Bank of Japan data is retrieved through the Bank's public time-series API. As that service
+  <p><b>Statistics Bureau of Japan.</b> Consumer price data © Statistics Bureau of Japan,
+  republished under the <a href="https://www.e-stat.go.jp/terms-of-use" rel="noopener">e-Stat terms
+  of use</a> with attribution. Cite the underlying data as: Statistics Bureau of Japan, Consumer
+  Price Index, 2020-base national indices, via e-Stat (middle-class table statInfId 000032103842;
+  detailed-item table statInfId 000032103844).</p>
+  <p><b>Bank of Japan.</b> Retrieved through the Bank's public time-series API. As that service
   requires: “This service uses the API provided by the ‘Bank of Japan Time-Series Data Search.’
-  The Bank of Japan does not guarantee the content of the service.” Holdings and flows are the
-  Bank's official values; the peak distance and trailing averages calculated here are not.</p>
-  <p>JGB yield data © Ministry of Finance, Japan, republished with attribution under the
-  Government of Japan Standard Terms of Use. The yields are reference values the Ministry
-  computes from JSDA over-the-counter prices; the spreads and changes calculated on this site
-  are not official statistics and carry their formulas wherever they appear.</p>
-  <p>The listed-issue classification — market segment, the 33- and 17-industry classifications and
-  the TOPIX scale band — is reproduced from the listed issue list (東証上場銘柄一覧) published by
-  Japan Exchange Group, with attribution and unaltered. TOPIX and the TOPIX marks are the
-  intellectual property of JPX Market Innovation &amp; Research, Inc.; this platform neither
-  licenses nor calculates any index, and reproducing the published classification is not an
-  endorsement by, or an affiliation with, JPX. Constituent lists of indices that are not published
-  for reuse are not served here at all — see
-  <a href="#calc-cohorts">Peer groups and cohort statistics</a>.</p>
-
-  <p>Visitor arrivals data is reproduced from the Japan National Tourism Organization, which
-  requires the source to be credited: 日本政府観光局(JNTO) / Japan National Tourism
-  Organization. JNTO computes the counts from Ministry of Justice immigration statistics.
-  The growth rates, shares, contributions and recovery indices calculated on this site are
-  not official statistics and carry their formulas wherever they appear.</p>
+  The Bank of Japan does not guarantee the content of the service.”</p>
+  <p><b>Ministry of Finance.</b> JGB yield data and customs trade data © Ministry of Finance,
+  Japan, republished with attribution under the Government of Japan Standard Terms of Use. The
+  yields are reference values the Ministry computes from JSDA over-the-counter prices.</p>
+  <p><b>Ministry of Agriculture, Forestry and Fisheries.</b> Rice contract prices, rice
+  inventories, agricultural price indices, rice production cost and the co-operative census ©
+  MAFF, republished with attribution under the Government of Japan Standard Terms of Use;
+  the statistical reports are retrieved through the e-Stat API under its terms of use. Contract
+  prices and inventories are provisional (速報) as published.</p>
+  <p><b>Japan National Tourism Organization.</b> Visitor arrivals are reproduced from JNTO, which
+  requires the source to be credited: 日本政府観光局(JNTO) / Japan National Tourism Organization.
+  JNTO computes the counts from Ministry of Justice immigration statistics.</p>
+  <p><b>Japan Exchange Group.</b> The listed-issue classification — market segment, the 33- and
+  17-industry classifications and the TOPIX scale band — is reproduced from the listed issue list
+  (東証上場銘柄一覧) with attribution and unaltered. TOPIX and the TOPIX marks are the intellectual
+  property of JPX Market Innovation &amp; Research, Inc.; this platform neither licenses nor
+  calculates any index, and reproducing the published classification is not an endorsement by, or
+  an affiliation with, JPX. Constituent lists of indices that are not published for reuse are not
+  served here at all — see <a href="#calc-cohorts">Peer groups and cohort statistics</a>.</p>
+  <p>Every rate of change, share, contribution, ratio and index calculated on this site is
+  <b>not</b> an official statistic, and carries its formula and the official inputs it was
+  computed from wherever it appears.</p>
 
   </div>
 </main>
@@ -1007,6 +986,23 @@
 
 <script src="assets/format.js"></script>
 <script src="assets/ask.js"></script>
-<script>initThemeToggle();</script>
+<script>
+initThemeToggle();
+// A link into a dataset note must land on open text, not on a closed row —
+// otherwise the anchor scrolls to a summary that says nothing.
+function openHashTarget() {
+  var id = location.hash.slice(1);
+  if (!id) return;
+  var el = document.getElementById(id);
+  while (el) {
+    if (el.tagName === "DETAILS") el.open = true;
+    el = el.parentElement;
+  }
+  el = document.getElementById(id);
+  if (el) el.scrollIntoView();
+}
+openHashTarget();
+window.addEventListener("hashchange", openHashTarget);
+</script>
 </body>
 </html>

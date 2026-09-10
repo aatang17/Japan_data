@@ -34,6 +34,11 @@ a:hover { text-decoration: underline; }
   border-radius: 2px;
 }
 
+/* An in-page anchor must land below the sticky header, not under it. The bar
+   is 53px until the nav wraps (below ~500px), where it grows to three rows. */
+html { scroll-padding-top: 66px; }
+@media (max-width: 499px) { html { scroll-padding-top: 150px; } }
+
 /* ---------- header ---------- */
 
 .site-header {
@@ -1113,7 +1118,11 @@ table.data.tbl-bands td.trend-decel { color: var(--obs-trust-official); }
 
 /* ---------- prose (methodology) ---------- */
 
-.prose { max-width: 74ch; font-size: 14.5px; line-height: 1.6; }
+/* The measure sits on the text, not on the block: running prose stays at a
+   readable 74ch while the section bands, the tables and the dataset-note rows
+   span the content width the way they do on every other page. */
+.prose { font-size: 14.5px; line-height: 1.6; }
+.prose p, .prose ul, .prose ol, .prose dl { max-width: 74ch; }
 .prose p { margin: 10px 0; }
 .prose ul, .prose ol { margin: 10px 0 10px 22px; }
 .prose li { margin: 4px 0; }
@@ -1126,6 +1135,61 @@ table.data.tbl-bands td.trend-decel { color: var(--obs-trust-official); }
   border-radius: 3px;
   padding: 0 4px;
 }
+
+/* ---------- methodology: contents strip ---------- */
+
+/* A reference page long enough that a reader arrives looking for one section.
+   Plain links, not chips: this is a table of contents, not navigation. */
+.toc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  margin: 14px 0 0;
+  padding: 10px 0;
+  border-top: 1px solid var(--obs-border);
+  border-bottom: 1px solid var(--obs-border);
+  font-size: 12.5px;
+}
+.toc a { color: var(--obs-text-muted); }
+.toc a:hover { color: var(--obs-ink); }
+
+/* ---------- methodology: dataset notes ---------- */
+
+/* Twelve stacked disclosures, one row each until opened, so the page reads as
+   a list of datasets rather than forty screens of prose. Nothing is hidden
+   from the record — the markup, and the copy served to assistants over MCP,
+   carries every note whether or not a reader opens it. */
+.ds { border-bottom: 1px solid var(--obs-border); }
+.ds:first-of-type { border-top: 1px solid var(--obs-border); }
+.ds > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 11px 2px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--obs-ink);
+}
+.ds > summary::-webkit-details-marker { display: none; }
+.ds > summary::before {
+  content: "\25B8";
+  font-size: 10px;
+  color: var(--obs-text-muted);
+}
+.ds[open] > summary::before { content: "\25BE"; }
+.ds > summary:hover { color: var(--obs-primary); }
+.ds > summary:focus-visible { outline: 2px solid var(--obs-primary); outline-offset: 2px; }
+/* The qualifier sits right on one line and drops under the name when the row
+   wraps, rather than being pushed off the end of it. */
+.ds-note { font-weight: 400; font-size: 12px; color: var(--obs-text-muted); margin-left: auto; }
+@media (max-width: 560px) {
+  .ds-note { margin-left: 18px; flex-basis: 100%; }
+}
+.ds-body { padding: 0 2px 14px 20px; }
+.ds-body > ul:first-child, .ds-body > p:first-child { margin-top: 0; }
 
 /* ---------- responsive ---------- */
 
