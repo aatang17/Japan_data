@@ -1402,6 +1402,53 @@ body.page-wide .site-subnav .inner { max-width: 1360px; }
   border-bottom-color: var(--obs-primary);
 }
 
+/* ---------- contents row (rendered by nav.js from the page's h2s) ---------- */
+
+/* A tinted strip with one outlined chip per section: readable at a glance,
+   and the chip for the section in view turns navy as the page scrolls. */
+.page-toc {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 8px;
+  margin: 12px 0 0;
+  padding: 10px 14px;
+  background: var(--obs-surface-subtle);
+  border: 1px solid var(--obs-border);
+  border-radius: 4px;
+  font-size: 13px;
+}
+.page-toc-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: var(--obs-ink);
+  margin-right: 6px;
+}
+.page-toc a {
+  color: var(--obs-ink);
+  background: var(--obs-surface);
+  border: 1px solid var(--obs-border);
+  border-radius: 3px;
+  padding: 4px 10px;
+  white-space: nowrap;
+  transition: border-color .15s ease, color .15s ease;
+}
+.page-toc a:hover { border-color: var(--obs-primary); color: var(--obs-primary); text-decoration: none; }
+.page-toc a[aria-current="true"] { border-color: var(--obs-primary); color: var(--obs-primary); font-weight: 600; }
+.page-tabs + .page-toc { margin-top: 12px; }
+/* Pinned under the sticky header stack on wider screens; --obs-stack is
+   measured by nav.js. On a phone it scrolls away: it would take a third of
+   the screen if it stuck. */
+@media (min-width: 769px) {
+  .page-toc { position: sticky; top: var(--obs-stack, 52px); z-index: 30; }
+}
+@media (max-width: 560px) {
+  .page-toc { padding: 8px 10px; gap: 6px; font-size: 12.5px; }
+  .page-toc a { padding: 3px 8px; }
+}
+
 /* ---------- landing: product list ---------- */
 
 .prod-list { list-style: none; margin: 0; padding: 0; }

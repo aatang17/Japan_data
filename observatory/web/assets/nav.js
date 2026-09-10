@@ -230,3 +230,119 @@ var NAV_SECTIONS = [
     }).join("");
   });
 })();
+
+/* Contents row: one link per section band, generated from the page's own
+   h2 headings so no page has to maintain a list. It sits under the page head
+   (or the tab strip, where there is one) and marks the section in view.
+   Pages with fewer than two sections get nothing; the home page, whose
+   bands are promotional rather than navigational, opts out with body.page-home. */
+(function renderContents() {
+  var toc = null, heads = [], links = [];
+
+  function build() {
+    if (document.body.classList.contains("page-home")) return;
+    var main = document.querySelector("main");
+    if (!main) return;
+    heads = Array.prototype.filter.call(main.querySelectorAll("h2"), function (h) {
+      return h.offsetParent !== null && h.textContent.trim();
+    });
+    if (heads.length < 2) { if (toc) { toc.remove(); toc = null; } return; }
+
+    function esc(s) {
+      return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+    function label(h) {
+      var c = h.cloneNode(true);
+      Array.prototype.forEach.call(c.querySelectorAll(".h2-note"), function (n) { n.remove(); });
+      return c.textContent.replace(/\s+/g, " ").trim();
+    }
+    var used = {};
+    heads.forEach(function (h) {
+      if (!h.id) {
+        var base = "s-" + label(h).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+        var id = base, k = 2;
+        while (used[id] || document.getElementById(id)) id = base + "-" + (k++);
+        h.id = id;
+      }
+      used[h.id] = true;
+    });
+
+    if (!toc) {
+      toc = document.createElement("nav");
+      toc.className = "page-toc";
+      toc.setAttribute("aria-label", "Contents");
+      var after = main.querySelector(".page-tabs") || main.querySelector(".page-head") ||
+        main.querySelector("#stale-banner");
+      if (after) after.insertAdjacentElement("afterend", toc);
+      else main.insertAdjacentElement("afterbegin", toc);
+    }
+    toc.innerHTML = '<span class="page-toc-label">Contents</span>' + heads.map(function (h) {
+      return '<a href="#' + esc(h.id) + '">' + esc(label(h)) + "</a>";
+    }).join("");
+    links = Array.prototype.slice.call(toc.querySelectorAll("a"));
+    mark();
+  }
+
+  // The section in view is the last heading above the sticky header.
+  function mark() {
+    // A section is current once its heading has reached the strip's bottom
+    // edge (or the header's, where the strip does not stick).
+    var line = 80, current = null;
+    if (toc && getComputedStyle(toc).position === "sticky") line = toc.getBoundingClientRect().bottom + 12;
+    heads.forEach(function (h) { if (h.getBoundingClientRect().top <= line) current = h; });
+    links.forEach(function (a, i) {
+      if (heads[i] === current) a.setAttribute("aria-current", "true");
+      else a.removeAttribute("aria-current");
+    });
+  }
+  var ticking = false;
+  window.addEventListener("scroll", function () {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(function () { mark(); ticking = false; });
+  }, { passive: true });
+
+  // Sections that only appear once data arrives are picked up by the
+  // later passes; a page whose sections are all in the markup is unchanged.
+  // The strip sticks under whatever is already stuck (header, and the
+  // sub-nav where it is sticky), and a jump to a section lands below all of
+  // it. Both are measured, not assumed: the header wraps on a phone and the
+  // sub-nav only sticks on wider screens.
+  function setStack() {
+    var header = document.querySelector(".site-header");
+    var sub = document.querySelector(".site-subnav");
+    var stack = header ? header.offsetHeight : 0;
+    if (sub && getComputedStyle(sub).position === "sticky") stack += sub.offsetHeight;
+    var root = document.documentElement;
+    root.style.setProperty("--obs-stack", stack + "px");
+    var tocH = toc && getComputedStyle(toc).position === "sticky" ? toc.offsetHeight : 0;
+    root.style.scrollPaddingTop = (stack + tocH + 8) + "px";
+  }
+  window.addEventListener("resize", setStack);
+
+  document.addEventListener("DOMContentLoaded", function () {
+    build();
+    setStack();
+    // Per-company views appear when a company is chosen; the row follows.
+    // Mutations inside the row itself are its own rebuilds and are ignored.
+    if (!window.MutationObserver) return;
+    var main = document.querySelector("main"), timer = null;
+    if (!main) return;
+    new MutationObserver(function (records) {
+      var outside = records.some(function (r) { return !(toc && toc.contains(r.target)); });
+      if (!outside) return;
+      clearTimeout(timer);
+      timer = setTimeout(function () { build(); setStack(); }, 400);
+    }).observe(main, { childList: true, subtree: true, attributes: true, attributeFilter: ["hidden", "class", "style"] });
+  });
+  window.addEventListener("load", function () {
+    build(); setStack();
+    // A deep link scrolled before the stack was measured; land it again.
+    if (location.hash) {
+      var target = document.getElementById(location.hash.slice(1));
+      if (target) target.scrollIntoView();
+    }
+    setTimeout(function () { build(); setStack(); }, 2500);
+  });
+})();
