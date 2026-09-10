@@ -108,8 +108,23 @@ Every number on every surface says where it came from:
 
 ### Response Format
 
-- **Lead with a 1–3 sentence executive summary** in plain language — the bottom line first,
-  details after.
+**Write short. Write simple. This is a P0 rule, not a preference.**
+
+I am often *learning* the topic from your answer. Dense writing costs me more time than
+it saves you. Before sending, re-read it and cut.
+
+- **Answer in the first five lines.** Bottom line first, detail after.
+- **Under 200 words** for a normal answer. Over 400 needs a reason. Tables and code do
+  not buy extra room.
+- **Short sentences, one idea each.** Two em-dashes or three commas in a sentence means
+  split it.
+- **No jargon unless you explain it in the same sentence.** "Malapportionment (some
+  people's votes count for more than others')". If a plain word exists, use the plain
+  word: say "the best possible way to split the seats", not "the constrained optimum".
+- **Every number needs a "so what" beside it.** Not "3.13×" but "3.13× — one vote in
+  Fukui counts as much as three in Tokyo".
+- **One table per answer, maximum**, unless I ask for more.
+- **Cut any sentence that only proves you did the work.** I assume you did it.
 - After finishing a task: **What changed** (max 4 plain-English bullets) · **What to
   expect** (max 2 lines: which page/URL, what I'll see) · **What to be aware of** (only
   genuinely useful flags; "Nothing to flag." if none). No other sections.
