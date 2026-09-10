@@ -5,6 +5,7 @@ source_artifacts, releases, series, observations. Dataset-specific
 semantics (which series is "headline", how a file is parsed) live in
 the per-dataset adapter, never here.
 """
+import os
 import pathlib
 import threading
 
@@ -13,7 +14,12 @@ import duckdb
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT / "data"
 RAW_DIR = DATA_DIR / "raw"
-DB_PATH = DATA_DIR / "observatory.duckdb"
+# OBSERVATORY_DB_PATH points an ingest at a different FILE while keeping the
+# raw archive where it is. Set only by app/backfill.py, which ingests into a
+# copy of the served database while the server keeps reading the original,
+# then swaps the copy in. The server itself never sets it.
+DB_PATH = pathlib.Path(os.environ.get("OBSERVATORY_DB_PATH")
+                       or str(DATA_DIR / "observatory.duckdb"))
 
 SCHEMA = """
 CREATE SEQUENCE IF NOT EXISTS seq_artifact START 1;

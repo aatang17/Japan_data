@@ -20,6 +20,7 @@ from .admin_api import router as admin_router  # noqa: E402
 from .api import router  # noqa: E402
 from .buyback_api import router as buyback_router  # noqa: E402
 from .cohorts_api import router as cohorts_router  # noqa: E402
+from . import equity_api  # noqa: E402
 from .equity_api import router as equity_router  # noqa: E402
 from .facility_api import router as facility_router  # noqa: E402
 from .financials_api import router as financials_router  # noqa: E402
@@ -83,7 +84,10 @@ app = FastAPI(title="Observatory", docs_url="/api/docs", openapi_url="/api/opena
 # added is the outermost. GZip must be outside the cache so that everything
 # else — the charting bundle above all — is compressed too, while the cache's
 # own pre-compressed hits pass through it untouched.
-app.add_middleware(cache.ResponseCache, version=db.file_version)
+# Stamped with BOTH database files: either can be swapped in by app/backfill.py
+# while the server runs, and an entry must not outlive the file it came from.
+app.add_middleware(cache.ResponseCache,
+                   version=lambda: (db.file_version(), equity_api.file_version()))
 app.add_middleware(GZipMiddleware, minimum_size=1024, compresslevel=5)
 
 # Equity first: its literal /api/v1/equity/ paths must win over the core

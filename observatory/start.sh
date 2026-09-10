@@ -33,9 +33,21 @@ python -m app.vintages seed || echo "vintage seed did not run"
 # Stop cleanly when the platform stops us, so a redeploy is not held up
 # waiting for a shell that is ignoring SIGTERM.
 child=""
+backfill=""
 stopping=""
+stop_backfill() {
+    # Always before anything writes a served file: the backfill works on a
+    # copy and swaps it in, and a swap landing on top of a nightly ingest
+    # would discard that ingest.
+    if [ -n "$backfill" ]; then
+        kill -TERM "$backfill" 2>/dev/null || true
+        wait "$backfill" 2>/dev/null || true
+        backfill=""
+    fi
+}
 on_term() {
     stopping=1
+    stop_backfill
     if [ -n "$child" ]; then
         kill -TERM "$child" 2>/dev/null || true
         wait "$child" 2>/dev/null || true
@@ -137,9 +149,23 @@ EOF
     # killed by the scheduler no matter what the clock says.
     REFRESH_SUPERVISED=1 uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8007}" &
     child=$!
+
+    # The heavy work, AFTER the port is bound. Everything above had to fit
+    # the healthcheck window; this does not. app/backfill.py ingests the
+    # datasets the boot list leaves out and walks the equity archive back a
+    # slice at a time, each on a copy of the served file that is swapped in
+    # when it is done — the server keeps reading throughout. It is stopped
+    # before the nightly ingests below ever touch a served file, and not
+    # started on a fast-restart cycle. BACKFILL_ENABLED=0 turns it off.
+    if [ -z "$skip_ingest" ] && [ "${BACKFILL_ENABLED:-1}" != "0" ]; then
+        python -m app.backfill &
+        backfill=$!
+    fi
+
     wait "$child"
     status=$?
     child=""
+    stop_backfill
 
     [ -n "$stopping" ] && exit 0
 

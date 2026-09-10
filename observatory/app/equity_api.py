@@ -49,6 +49,12 @@ def _version():
     return (st.st_mtime_ns, st.st_size)
 
 
+# The response cache stamps entries with this too: app/backfill.py can swap a
+# new equity file in while the server runs, and an entry stamped only with the
+# macro file's version would go on serving the old rows.
+file_version = _version
+
+
 def _cur():
     global _READER, _READER_VERSION
     if not DB_PATH.exists():
