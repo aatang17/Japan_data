@@ -12,6 +12,7 @@ indicator with a formula, never an accounting identity.
 
 Endpoints
 ---------
+  /api/v1/equity/segments/companies             search box feed (all filers)
   /api/v1/equity/segments/company/{sec_code}   the filed note, both years
   /api/v1/equity/segments/supply-chain          the mapping, names resolved
   /api/v1/equity/segments/customers             who names whom (the edge list)
@@ -36,10 +37,10 @@ from fastapi import APIRouter, HTTPException, Query
 from . import asof
 from fastapi.responses import PlainTextResponse
 
-from . import api, company_labels, fiscal
+from . import aliases, api, company_labels, fiscal
 from .adapters import mof_trade
 from .equity_api import EDINET_SOURCE as _EDINET_SOURCE
-from .equity_api import _cur, _rows
+from .equity_api import NAME_CTES, _cur, _rows
 
 router = APIRouter(prefix="/api/v1/equity/segments")
 
@@ -272,6 +273,41 @@ def company(sec_code: str):
             "credit_line": CREDIT_LINE,
             "regions": regions, "customers": customers, "products": products,
         }
+    finally:
+        cur.close()
+
+
+@router.get("/companies")
+def companies(q: str = Query("", description="name or code substring"),
+              limit: int = Query(25, ge=1, le=100)):
+    """Search box feed: every company whose annual report has an accepted
+    segment note. The Company Profile reaches all of them, not only the ones
+    the semiconductor mapping happens to name."""
+    cur = _cur()
+    try:
+        _need(cur)
+        like = "%" + q.strip() + "%"
+        alias_sql, alias_params = aliases.clause(cur, "l.sec_code", q)
+        return {"companies": _rows(cur, "WITH x AS (SELECT 1)" + NAME_CTES + """,
+            latest AS (
+                SELECT sec_code, max(edinet_code) AS edinet_code,
+                       max(filer_name) AS name, max(period_end) AS period_end,
+                       count(*) AS filings
+                FROM eq_seg_filings
+                WHERE sec_code IS NOT NULL AND status IN ('clean','partial')"""
+            + asof.clause("filed_date") + """
+                GROUP BY 1)
+            SELECT l.sec_code, l.name, coalesce(n.name_en, s.name_en) AS name_en,
+                   l.period_end, l.filings, e.industry
+            FROM latest l
+            LEFT JOIN en_ecode n ON n.edinet_code = l.edinet_code
+            LEFT JOIN en_scode s ON s.sec_code = l.sec_code
+            LEFT JOIN eq_entities e ON e.edinet_code = l.edinet_code
+            WHERE l.sec_code LIKE ? OR l.name LIKE ?
+               OR lower(coalesce(n.name_en, s.name_en, '')) LIKE lower(?)"""
+            + alias_sql + """
+            ORDER BY l.filings DESC, l.sec_code LIMIT ?""",
+            [like, like, like] + alias_params + [limit])}
     finally:
         cur.close()
 

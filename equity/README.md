@@ -11,7 +11,7 @@ Documents-and-events data (cross-shareholdings, 5% filings, buybacks), deliberat
 >
 > | | Directory | Runs where |
 > | --- | --- | --- |
-> | Capture (`capture.py`, `tdnet_capture.py`, `boj_capture.py`) | `equity/` | Railway cron jobs, built from `equity/Dockerfile` |
+> | Capture (`capture.py`, `tdnet_capture.py`, `boj_capture.py`, `edgar_capture.py`, `us_capture.py`) | `equity/` | Railway cron jobs, built from `equity/Dockerfile` |
 > | Extraction (`extract.py`, `lvh_extract.py`, `buyback.py`, …) | `observatory/equity/` | Inside the web container, nightly — and on the laptop |
 > | The raw archive (`data/`, 9.4GB, gitignored) | `equity/` | Laptop only; the bucket is the real one |
 >
@@ -157,6 +157,140 @@ railway api 'mutation { serviceInstanceUpdate(serviceId: "<id>", environmentId: 
 railway api 'mutation { serviceInstanceDeployV2(serviceId: "<id>", environmentId: "e97325e3-a9df-4d1b-83ef-c5945861bc86") }'
 # …then set cronSchedule back once the run has started
 ```
+
+## EDGAR daily capture (`edgar_capture.py`) — internal US comparison shelf
+
+Not a product surface and never will be: the product is Japan-deep. This job
+keeps the US counterparts of what we take from EDINET on the same shelf, so a
+Japanese filing can be set beside a US one on demand — a 13D beside a
+大量保有報告書, a proxy statement beside the pay tables of a 有価証券報告書, a
+10-K's buyback footnote beside a 自己株券買付状況報告書. Nothing is parsed.
+
+EDGAR never deletes, so unlike EDINET this is convenience and rate-limit
+insurance, not the moat. It follows `capture.py`'s discipline anyway: idempotent
+(one manifest object per filing), fail-safe (a failed filing is retried by the
+next trailing-window run; a failed day never blocks the rest), verified (the
+file must open with the SEC header, never an HTML error page), SHA-256 of the
+bytes as served. Python 3.9, stdlib in local mode, boto3 in S3 mode.
+
+```bash
+../observatory/.venv/bin/python edgar_capture.py                    # trailing 7 days
+../observatory/.venv/bin/python edgar_capture.py --start 2025-01-01 --end 2025-12-31 --workers 6
+../observatory/.venv/bin/python edgar_capture.py --add-forms 4      # widen: insider trades too
+railway run --service edinet-capture-job -- ../observatory/.venv/bin/python edgar_capture.py --days 3   # against the bucket
+```
+
+- **What is stored, per filing:** the *complete submission text file*
+  (`edgar/data/{cik}/{accession}.txt`) — every document, exhibit and XBRL
+  instance of the filing in one SEC-concatenated file, the counterpart of
+  EDINET's type=1 package. Stored gzipped (`.txt.gz`, 5–10× smaller; a 10-K is
+  ~10MB raw, ~1.5MB stored); the manifest records the raw hash and both sizes.
+- **Forms (the default "core" set):** 10-K/10-Q/20-F/40-F and amendments ·
+  8-K/6-K (6-K is how Japanese ADR issuers file in the US) · DEF 14A, DEFA14A,
+  DEFC14A, DEFM14A, PREC14A · SC 13D/13G and amendments, in both the old
+  `SC 13D` and the 2025 `SCHEDULE 13D` spellings · SC TO-T/TO-I/14D9 ·
+  S-1/S-3/S-4/F-1/F-3/F-4 · 424B1/3/4/5 (not 424B2: ~800 bank structured-note
+  prospectuses a day) · 13F-HR. Skipped: Forms 3/4/5 (insider trades, ~400k
+  tiny filings a year — `--add-forms 4`), investment-company forms, D, 144, FWP.
+  Measured on the 2025 Q2 index: **~280k filings, ~50–70GB stored, per year.**
+- **How far back:** electronic filing began in 1993 and was universal by
+  mid-1996; the quarterly index runs from 1993 Q1. Backfills (`--start/--end`)
+  read that quarterly index — one request per quarter, and it avoids the daily
+  index's 1994–1998 two-digit-year filenames — then key filings by filing date,
+  so the layout is the same as the daily runs. Volume by era (core set, measured
+  2026-09-11): ~100–160k filings a year through 2000 at ~24KB stored each;
+  ~250–300k a year since 2005 at ~150–180KB. **The whole 1994–2026 shelf is
+  ~7.5M filings, roughly 1TB stored, ~11 days of fetching at the rate cap** —
+  about 10 hours and 50–70GB per recent year, so backfill a year at a time.
+- **Layout in the bucket** (same `EDINET_S3_*` bucket, `edgar/` prefix):
+  `lists/YYYY-MM-DD.idx` (SEC daily master index as served) ·
+  `docs/YYYY-MM-DD/{accession}.txt.gz` · `meta/YYYY-MM-DD/{accession}.json`.
+  Manifest objects are sharded by day so a nightly run lists only its window;
+  a five-year archive is a million objects and listing them all every night is
+  the EDINET mistake the listing cache exists to paper over.
+- **SEC fair-access rules:** ≤10 requests/second and a declared User-Agent of
+  the form `Company Name contact@domain`; anything else is a 403 page.
+  `EDGAR_USER_AGENT` is therefore required (env or `observatory/.env`) and
+  the job caps itself at 8/s across all workers. A daily index that does not
+  exist (holiday, or today before ~06:00 ET) is *also* a 403, with a short
+  non-HTML body — that is counted as `no-index`, not a failure.
+- **Verified 2026-09-10:** one day (2026-09-09, 24 filings, 127MB raw → 23MB
+  stored) captured locally and into the bucket, re-run skipped all 24, every
+  stored object gunzips to the recorded SHA-256. Holiday/weekend/today window
+  ran clean. The amd64 image builds with the script included.
+- **Deployed 2026-09-11** as two services on the same Dockerfile:
+  `edgar-capture-job` (cron `0 6 * * *`, after the SEC day closes at 22:00 ET;
+  `CAPTURE_ARGS=--days 7 --workers 2`, `EDGAR_MAX_RATE=2`, restart NEVER) and
+  `edgar-backfill` (`--start 2016-09-01 --end 2026-09-04 --workers 8`,
+  `EDGAR_MAX_RATE=7`, no cron, restart ON_FAILURE so a crash resumes from the
+  manifest). The two rates sum to 9/s, under the SEC's 10/s per address.
+  Both hold `EDGAR_USER_AGENT` and the `EDINET_S3_*` variables.
+- **How they were deployed, because the documented route failed:** the GitHub
+  token behind `gh` lacks `write:packages`, so the image could not be pushed
+  to ghcr (`gh auth refresh -s write:packages` would fix that). `railway up`
+  from `equity/` still fails with "prefix not found", but from a directory
+  holding only the Dockerfile and the five scripts it works:
+  ```bash
+  mkdir /tmp/up && cp Dockerfile *.py /tmp/up/ && cd /tmp/up
+  railway up -p c329ff85-8b75-4546-91eb-3ded2118e5e6 -e production -s edgar-backfill -d
+  ```
+  Config-as-code (`railway.json`) is deprecated on the API — setting a config
+  path is refused — so cron and restart policy were set with
+  `railway api 'mutation { serviceInstanceUpdate(serviceId: …, environmentId: …,
+  input: {cronSchedule: "0 6 * * *", restartPolicyType: NEVER}) }'`.
+  Redeploying either service means another `railway up` from a clean directory.
+
+## US reference snapshots (`us_capture.py`) — internal, not a product
+
+The shelf of US official data next to the EDGAR filings: not paired with any
+Japan dataset, just kept so a US number and its revision history are always
+at hand. Nothing is parsed or served. Same bucket, `us/` prefix.
+
+A vintage collector on the `boj_capture.py` pattern with one refinement: a
+file is stored **only when its content changed**. Each run asks every source
+for its current file (a conditional request where the server supports it —
+the BLS and BEA do — so an unchanged file costs one round trip and no
+download), compares a content hash with the last stored copy, and banks a
+new dated copy only on a change. The Fed's zips are built on request and
+differ byte-for-byte every day, so a zip is compared by its members' names,
+sizes and CRCs. A stored copy is never overwritten; a revision is a new
+object under a new date. `us/latest/` holds one mutable pointer per file
+(last hash, ETag, Last-Modified) — bookkeeping, not data.
+
+```bash
+../observatory/.venv/bin/python us_capture.py                    # today's snapshot, every source
+../observatory/.venv/bin/python us_capture.py --sources fed,bls
+../observatory/.venv/bin/python us_capture.py --all-years        # one-off: historic year files
+```
+
+| Source | What | Notes |
+| --- | --- | --- |
+| `fed` | Data Download Program full-release zips: H.4.1, H.15, H.8, H.6, H.3, H.10, G.17, G.19, G.20, E.2, CP, PRATES, Z.1 | ~80MB a set; no conditional headers |
+| `nyfed` | SOMA holdings: summary history, latest Treasury and agency holdings by CUSIP, monthly file; reference rates | as-of date read from the API first |
+| `treasury` | daily par and real yield curves, one file per year; TIC major foreign holders | the Treasury site takes ~20s per file; `--all-years` = 1990+ / 2003+ |
+| `fiscal` | Fiscal Data API: debt to the penny, DTS cash balance, auctions, average interest rates | paged CSV, ascending, so old pages never change |
+| `bls` | bulk flat files: cu cw su ap wp pc ei jt pr ci ec ce ln oe — main data file plus every metadata file in the directory | ~1.4GB first run, then monthly; ETag-conditional |
+| `bea` | NIPA annual/quarterly/monthly flat files and both registers | ETag-conditional |
+| `cftc` | Commitments of Traders: financial, disaggregated, legacy, per year | `--all-years` = 2006+ and the 1986–2016 bundle |
+| `sec` | Financial Statement Data Sets, quarterly | last two quarters tried each run, 404 silent; `--all-years` = 2009q1+ |
+| `fomc` | the calendar page and every statement, implementation note, minutes and projections it links | ~255 documents on first run, then only new ones |
+| `fdic` | BankFind institutions (every insured institution ever) and the aggregates | paged CSV |
+
+Left out, knowingly: FRED/ALFRED, BEA API, Census, USDA NASS (all need a
+free key — add when wanted); FFIEC call reports (web form only); the SEC
+13F structured data sets (the file naming could not be verified; the 13F
+filings themselves are on the EDGAR shelf).
+
+The BLS and the SEC refuse undeclared clients; `EDGAR_USER_AGENT` is reused.
+One request at a time, half a second apart. Files stream to disk, so the
+400MB BLS labour-force file never sits in memory.
+
+**Deployed 2026-09-11** as service `us-capture-job` (same upload route as the
+EDGAR jobs above): first run `--all-years`, then daily at 22:00 UTC (after
+every US release of the day) with `CAPTURE_ARGS=--sources fed,nyfed,treasury,
+fiscal,bls,bea,cftc,sec,fomc,fdic`, restart NEVER. First local run: 482 files,
+3.5GB raw, ~600MB stored; a re-run stores nothing. Expect a few hundred MB a
+month after that, almost all of it the BLS monthly refresh.
 
 ## M4 — full-universe extraction (`extract.py --all --source s3`)
 

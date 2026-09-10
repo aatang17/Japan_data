@@ -40,9 +40,21 @@ Two properties of the published data that gates must allow for:
 - The Bureau's own ageing rate (A1306) is computed on a denominator that
   excludes people of unrecorded age, so in census years it differs from
   A1303 ÷ A1101 by real amounts — 28.7% against 28.0% in 2020. That is not
-  an error to fix; published *rates* are not ingested at all (the platform
-  calculates rates and shows the formula), and A1306 is used only as a
-  loose cross-check outside census years.
+  an error to fix; A1306 is used only as a loose cross-check outside census
+  years.
+
+**One published rate is stored, and only one.** The rule everywhere else on
+the platform is that rates are calculated from stored counts so the formula
+travels with the number, and every rate this table publishes that we could
+reconstruct — the ageing rate, the natural change rate, the crude birth and
+death rates — is left out for that reason. The total fertility rate (A4103)
+is different in kind: it is a sum of age-specific rates over single years of
+mother's age, and its denominator — the female population by single year of
+age — is not in this table or in any other the platform holds. It cannot be
+recomputed, so it is ingested exactly as the Bureau publishes it and carries
+the `Official Statistic` badge on that basis. It is a rate, not a count, so
+the 47 prefectures do not sum to the nation and the reconciliation gate skips
+it — see NO_SUM.
 
 Counts of people are levels, not indices: `weight_per_10000` stays NULL.
 Coverage varies a lot by indicator — population runs 1975–2024, the foreign
@@ -92,7 +104,14 @@ INDICATORS = [
     ("A5101", "In-migrants, Japanese", "flow"),
     ("A5102", "Out-migrants, Japanese", "flow"),
     ("A5302", "Net migration", "flow"),
+
+    # The one published rate the platform stores; see the module docstring.
+    ("A4103", "Total fertility rate", "flow"),
 ]
+
+# Indicators that are not counts of anything: the 47 prefectures do not add
+# up to the nation, and nothing may sum them.
+NO_SUM = ("A4103",)
 INDICATOR_NAME = dict((code, name) for code, name, _rule in INDICATORS)
 INDICATOR_RULE = dict((code, rule) for code, _name, rule in INDICATORS)
 INDICATOR_ORDER = dict((code, i) for i, (code, _n, _r) in enumerate(INDICATORS))
@@ -102,8 +121,10 @@ INDICATOR_ORDER = dict((code, i) for i, (code, _n, _r) in enumerate(INDICATORS))
 REGISTER_RULES = ("register",)
 SUM_TOLERANCE = {"register": 0, "asof_oct": 50_000, "flow": 50_000}
 
-# The Bureau's units, as the API reports them.
-UNIT = {"人": "persons", "世帯": "households"}
+# The Bureau's units, as the API reports them. A4103 is served with U+2010
+# HYPHEN as its unit, the table's way of saying "a ratio, not a count".
+UNIT = {"人": "persons", "世帯": "households",
+        "‐": "births per woman"}
 
 # Reused from the resident-register adapter so both population datasets speak
 # the same geography: two-digit JIS codes, "00" for the national row.
@@ -129,9 +150,10 @@ DATASET = {
         "vital statistics and the Basic Resident Register, so reference "
         "dates differ by indicator: register counts are as of 1 January of "
         "the following year, estimates as of 1 October, and births, deaths "
-        "and migration are calendar-year flows. Coverage varies by "
-        "indicator — foreign register counts begin in 2013 and household "
-        "counts appear only in census years."
+        "and migration are calendar-year flows, as is the total fertility "
+        "rate, the one published rate carried here. Coverage varies by "
+        "indicator — foreign register counts begin in 2013, the fertility "
+        "rate in 1980, and household counts appear only in census years."
     ),
 }
 
@@ -297,6 +319,15 @@ FIRST_YEAR = 1975
 POPULATION_MIN = 100_000_000
 POPULATION_MAX = 140_000_000
 
+# The fertility rate is published, not computed, so the gate can only ask
+# whether it is a possible number. Japan's national rate peaked at 1.91 in
+# 1980 and bottomed at 1.20 in 2023; Tokyo has been under 1.0 and Okinawa
+# over 2.3. The band is wide enough for a real move and narrow enough to
+# catch a column read off by one.
+TFR_MIN = 0.5
+TFR_MAX = 3.0
+TFR_MIN_YEARS = 40
+
 
 def validate(series, observations):
     value = {}
@@ -320,6 +351,8 @@ def validate(series, observations):
     checked = 0
     worst = {}
     for code, _name, rule in INDICATORS:
+        if code in NO_SUM:
+            continue      # a rate; the prefectures were never meant to add up
         tolerance = SUM_TOLERANCE[rule]
         periods = sorted(set(k[1] for k in value if k[0] == "%s.%s" % (NATIONAL[0], code)))
         for period in periods:
@@ -374,7 +407,30 @@ def validate(series, observations):
                     "%s %s: age groups total %d, above the population %d"
                     % (geo, period, sum(parts), total))
 
-    # 5. Sanity and coverage.
+    # 5. The fertility rate. It is stored as published and cannot be checked
+    #    against anything else in the table, so the gate is a plausibility
+    #    band and a coverage floor: Japan's national rate has run between
+    #    1.15 and 2.0 since 1980 and no prefecture has left 0.8-2.5, and a
+    #    published series that suddenly loses its history is a fault.
+    fertility = sorted((p, geo, v) for (c, p), v in value.items()
+                       for geo in [c.split(".")[0]] if c.endswith(".A4103"))
+    for period, geo, rate in fertility:
+        if not (TFR_MIN <= rate <= TFR_MAX):
+            raise ValidationError(
+                "fertility rate %.2f for area %s at %s is outside the "
+                "plausibility band %.1f-%.1f" % (rate, geo, period, TFR_MIN, TFR_MAX))
+    national_fertility = [(p, v) for p, geo, v in fertility if geo == NATIONAL[0]]
+    if len(national_fertility) < TFR_MIN_YEARS:
+        raise ValidationError(
+            "the national fertility rate has only %d years; at least %d were "
+            "published before" % (len(national_fertility), TFR_MIN_YEARS))
+    fertility_areas = set(geo for _p, geo, _v in fertility)
+    if len(fertility_areas) < len(geographies):
+        raise ValidationError(
+            "only %d of %d areas carry a fertility rate"
+            % (len(fertility_areas), len(geographies)))
+
+    # 6. Sanity and coverage.
     national_population = [
         (p, v) for (c, p), v in value.items() if c == "%s.A1101" % NATIONAL[0]]
     national_population.sort()
@@ -403,6 +459,9 @@ def validate(series, observations):
         "population_latest": latest.isoformat(),
         "reconciliations": checked,
         "register_identities": identity,
+        "fertility_years": len(national_fertility),
+        "fertility_first_year": national_fertility[0][0].year,
+        "fertility_latest_year": national_fertility[-1][0].year,
         "worst_sum_gap": worst,
     }
 
@@ -427,7 +486,11 @@ PRESENTATION = {
         "regions": [{"key": key, "label": en, "label_ja": ja,
                      "prefectures": list(codes)}
                     for key, en, ja, codes in REGIONS],
-        "indicators": [{"code": code, "label": name, "basis": rule}
+        # `kind` separates the counts from the one published rate: a surface
+        # that summed, ranked or aggregated a rate as if it were a count
+        # would be wrong, and nothing should have to infer that from a code.
+        "indicators": [{"code": code, "label": name, "basis": rule,
+                        "kind": "rate" if code in NO_SUM else "count"}
                        for code, name, rule in INDICATORS],
         # What each dating rule means, so a surface can say it rather than
         # implying every series shares one reference date.
@@ -475,6 +538,24 @@ MANIFEST = {
         {"id": "yoy", "label": "Year over year", "unit": "%", "trust": "derived",
          "where": "annual series: t−12 months is the previous year",
          "calc": "(value[t] / value[t−12 months] − 1) × 100, from published values."},
+        # Published, never recomputed — so it carries no formula, only the
+        # note saying whose figure it is and why it is stored at all.
+        {"id": "fertility", "label": "Total fertility rate (A4103)",
+         "unit": "births_per_woman", "trust": "official",
+         "where": ("the Statistics Bureau's own figure, the sum of birth rates "
+                   "at each single year of a mother's age 15–49; its "
+                   "denominator, the female population by single year of age, "
+                   "is in no table held here, so it is stored as published "
+                   "rather than calculated. A rate, never summed across areas. "
+                   "Prefectures: 1980, 1985, then annually from 1986")},
+        {"id": "birth_rate", "label": "Crude birth rate", "unit": "per_1000",
+         "trust": "derived",
+         "calc": ("births (A4101, calendar year) ÷ Japanese population "
+                  "(A1102, 1 October of the same year) × 1,000")},
+        {"id": "death_rate", "label": "Crude death rate", "unit": "per_1000",
+         "trust": "derived",
+         "calc": ("deaths (A4200, calendar year) ÷ Japanese population "
+                  "(A1102, 1 October of the same year) × 1,000")},
     ],
     "endpoints": {
         "series": "/api/v1/%s/observations" % DATASET["slug"],
@@ -493,5 +574,9 @@ MANIFEST = {
         "household counts appear only in census years. Gaps are gaps, never zero.",
         "Shares and change rates are computed on the page from these counts and "
         "carry their formula there.",
+        "One published rate is stored rather than calculated: the total fertility "
+        "rate (A4103), whose denominator — female population by single year of age "
+        "— is not in this table. It is served exactly as the Bureau publishes it, "
+        "is a rate rather than a count, and must never be summed across areas.",
     ],
 }

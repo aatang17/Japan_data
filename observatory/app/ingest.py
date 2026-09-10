@@ -34,7 +34,8 @@ from .adapters import (boj_assets, cpi_jp, cpi_jp_items, jnto_visitors,
                        maff_rice_price,
                        maff_rice_stock,
                        mof_jgb, mof_trade,
-                       mof_trade_hs, ssds_population)
+                       mof_trade_hs, ssds_population,
+                       fsa_npl, fsa_bank_results, jba_banks)
 
 ADAPTERS = {"cpi-jp": cpi_jp, "cpi-jp-items": cpi_jp_items, "boj-assets": boj_assets,
             "jgb-yields": mof_jgb, "jnto-visitors": jnto_visitors,
@@ -47,7 +48,9 @@ ADAPTERS = {"cpi-jp": cpi_jp, "cpi-jp-items": cpi_jp_items, "boj-assets": boj_as
             "rice-inventory-jp": maff_rice_stock,
             "agri-prices": maff_agri_prices,
             "rice-production-cost": maff_rice_cost,
-            "ja-statistics": maff_ja_coops}
+            "ja-statistics": maff_ja_coops,
+            "fsa-npl": fsa_npl, "fsa-bank-results": fsa_bank_results,
+            "jba-banks": jba_banks}
 
 # "this (series, period) had no prior value at all" — distinct from a prior
 # value that happens to be None.

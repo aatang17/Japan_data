@@ -15,124 +15,129 @@
 <main class="container">
   <div class="page-head">
     <h1>Japan Equities</h1>
-    <p class="page-sub">Ownership, governance and financials of listed Japan, from companies'
-    own filings on EDINET. Figures are exactly as filed; aggregates carry their formula.</p>
+    <p class="page-sub">Every equities dataset, with one live reading each. All of it from companies'
+    own filings on EDINET: figures exactly as filed, aggregates calculated with the formula on each page.</p>
   </div>
 
-  <ul class="prod-list">
+  <!-- One table per group. Each row is a dataset: what it holds, where it
+       comes from, and one live reading from the same summary endpoint the
+       product page uses (assets/equities.js). Never a value baked in. -->
 
-    <li class="prod">
-      <div class="prod-head">
-        <a class="prod-name" href="holdings.html">Cross-Shareholdings (政策保有株式)</a>
-        <span class="status status-live">Live · partial coverage</span>
-      </div>
-      <p class="prod-desc">Policy shareholdings as disclosed in annual securities reports:
-      holder, issuer, stated reason and pace of unwind.</p>
-      <div class="prod-stats" id="hold-stats">
-        <div class="prod-stat skeleton" style="min-height:52px"></div>
-        <div class="prod-stat skeleton" style="min-height:52px"></div>
-        <div class="prod-stat skeleton" style="min-height:52px"></div>
-      </div>
-      <p class="prod-foot" id="hold-foot"></p>
-    </li>
+  <h2 id="ownership">Ownership <span class="h2-note">Who holds listed Japan</span></h2>
+  <div class="table-wrap">
+    <table class="data dir" data-no-enhance>
+      <thead>
+        <tr>
+          <th>Dataset</th>
+          <th class="col-desc">Content</th>
+          <th class="col-cov">Source · Coverage</th>
+          <th class="num">Latest</th>
+          <th>As Of</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="col-name"><a href="holdings.html">Cross-Shareholdings</a></td>
+          <td class="col-desc">Policy shareholdings as disclosed: holder, issuer, stated reason, pace of unwind.</td>
+          <td class="col-cov">EDINET annual reports · partial, coverage stated</td>
+          <td class="num" id="r-hold"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
+          <td class="col-asof" id="a-hold"></td>
+        </tr>
+        <tr>
+          <td class="col-name"><a href="ownership.html">Register</a></td>
+          <td class="col-desc">Named large holders and the register by investor category, nominees marked.</td>
+          <td class="col-cov">EDINET annual reports · all listed companies</td>
+          <td class="num" id="r-own"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
+          <td class="col-asof" id="a-own"></td>
+        </tr>
+        <tr>
+          <td class="col-name"><a href="stakes.html">5% Filings</a></td>
+          <td class="col-desc">Large-shareholding reports: filer, issuer, stake movement, stated intent to make proposals.</td>
+          <td class="col-cov">EDINET large-holding reports · about five years</td>
+          <td class="num" id="r-stk"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
+          <td class="col-asof" id="a-stk"></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
 
-    <li class="prod">
-      <div class="prod-head">
-        <a class="prod-name" href="ownership.html">Shareholder Register (大株主の状況)</a>
-        <span class="status status-live">Live</span>
-      </div>
-      <p class="prod-desc">Named large holders and the whole register by investor category,
-      with nominee trust-bank accounts marked.</p>
-      <div class="prod-stats" id="own-stats">
-        <div class="prod-stat skeleton" style="min-height:52px"></div>
-        <div class="prod-stat skeleton" style="min-height:52px"></div>
-        <div class="prod-stat skeleton" style="min-height:52px"></div>
-      </div>
-      <p class="prod-foot" id="own-foot"></p>
-    </li>
+  <h2 id="governance">Governance <span class="h2-note">Who runs it, what they are paid, how shareholders vote</span></h2>
+  <div class="table-wrap">
+    <table class="data dir" data-no-enhance>
+      <thead>
+        <tr>
+          <th>Dataset</th>
+          <th class="col-desc">Content</th>
+          <th class="col-cov">Source · Coverage</th>
+          <th class="num">Latest</th>
+          <th>As Of</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="col-name"><a href="governance.html">Boards &amp; Pay</a></td>
+          <td class="col-desc">Every director by role, age, seat and shareholding; officer pay by category and every individual at ¥100m or more.</td>
+          <td class="col-cov">EDINET annual reports · five fiscal years</td>
+          <td class="num" id="r-gov"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
+          <td class="col-asof" id="a-gov"></td>
+        </tr>
+        <tr>
+          <td class="col-name"><a href="agm.html">AGM Votes</a></td>
+          <td class="col-desc">Voting results for every proposal put to a general meeting, approval as filed.</td>
+          <td class="col-cov">EDINET extraordinary reports</td>
+          <td class="num" id="r-agm"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
+          <td class="col-asof" id="a-agm"></td>
+        </tr>
+        <tr>
+          <td class="col-name"><a href="buyback.html">Buybacks</a></td>
+          <td class="col-desc">Authorised amount, monthly execution and cancellation per programme.</td>
+          <td class="col-cov">EDINET monthly status reports</td>
+          <td class="num" id="r-bb"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
+          <td class="col-asof" id="a-bb"></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
 
-    <li class="prod">
-      <div class="prod-head">
-        <a class="prod-name" href="stakes.html">5% Filings (大量保有報告書)</a>
-        <span class="status status-live">Live</span>
-      </div>
-      <p class="prod-desc">Every large-shareholding report: filer, issuer, stake movement, and
-      whether the filer reserves the right to make important proposals.</p>
-      <div class="prod-stats" id="stk-stats">
-        <div class="prod-stat skeleton" style="min-height:52px"></div>
-        <div class="prod-stat skeleton" style="min-height:52px"></div>
-        <div class="prod-stat skeleton" style="min-height:52px"></div>
-      </div>
-      <p class="prod-foot" id="stk-foot"></p>
-    </li>
-
-    <li class="prod">
-      <div class="prod-head">
-        <a class="prod-name" href="governance.html">Boards &amp; Pay (役員の状況・報酬)</a>
-        <span class="status status-live">Live</span>
-      </div>
-      <p class="prod-desc">Every director by role, age, seat and shareholding; officer pay by
-      category and every individual disclosed at ¥100m or more. Five fiscal years.</p>
-      <div class="prod-stats" id="gov-stats">
-        <div class="prod-stat skeleton" style="min-height:52px"></div>
-        <div class="prod-stat skeleton" style="min-height:52px"></div>
-        <div class="prod-stat skeleton" style="min-height:52px"></div>
-      </div>
-      <p class="prod-foot" id="gov-foot"></p>
-    </li>
-
-    <li class="prod">
-      <div class="prod-head">
-        <a class="prod-name" href="buyback.html">Buybacks (自己株券買付状況報告書)</a>
-        <span class="status status-live">Live</span>
-      </div>
-      <p class="prod-desc">Authorised amount, monthly execution and cancellation per programme,
-      from the monthly status reports. The archive starts where ours does.</p>
-      <div class="prod-stats" id="bb-stats">
-        <div class="prod-stat skeleton" style="min-height:52px"></div>
-        <div class="prod-stat skeleton" style="min-height:52px"></div>
-        <div class="prod-stat skeleton" style="min-height:52px"></div>
-      </div>
-      <p class="prod-foot" id="bb-foot"></p>
-    </li>
-
-    <li class="prod">
-      <div class="prod-head">
-        <a class="prod-name" href="facilities.html">Facilities &amp; Land (主要な設備の状況)</a>
-        <span class="status status-live">Live</span>
-      </div>
-      <p class="prod-desc">Every disclosed plant, office, store and landholding, geocoded, with
-      land at book value, floor area and headcount by site.</p>
-      <div class="prod-stats" id="fac-stats">
-        <div class="prod-stat skeleton" style="min-height:52px"></div>
-        <div class="prod-stat skeleton" style="min-height:52px"></div>
-        <div class="prod-stat skeleton" style="min-height:52px"></div>
-      </div>
-      <p class="prod-foot" id="fac-foot"></p>
-    </li>
-
-    <li class="prod">
-      <div class="prod-head">
-        <a class="prod-name" href="financials.html">Financials (財務諸表・主要な経営指標)</a>
-        <span class="status status-live">Live</span>
-      </div>
-      <p class="prod-desc">Balance sheet, income statement and cash flows line by line as
-      tagged, plus each filer's own five-year key figures.</p>
-      <div class="prod-stats" id="fin-stats">
-        <div class="prod-stat skeleton" style="min-height:52px"></div>
-        <div class="prod-stat skeleton" style="min-height:52px"></div>
-        <div class="prod-stat skeleton" style="min-height:52px"></div>
-      </div>
-      <p class="prod-foot" id="fin-foot"></p>
-    </li>
-
-  </ul>
-
-  <p class="dir-foot" style="margin-top:16px">Also in this section:
-  <a href="company.html">Company Profile</a> · <a href="customers.html">Customers</a> ·
-  <a href="agm.html">AGM Votes</a> · <a href="screener.html">Screener</a> ·
-  <a href="cohorts.html">Peer Groups</a>. Planned: ranked unwind screens · overlap with
-  disclosed activist positions.</p>
+  <h2 id="financials">Financials <span class="h2-note">What each company reports</span></h2>
+  <div class="table-wrap">
+    <table class="data dir" data-no-enhance>
+      <thead>
+        <tr>
+          <th>Dataset</th>
+          <th class="col-desc">Content</th>
+          <th class="col-cov">Source · Coverage</th>
+          <th class="num">Latest</th>
+          <th>As Of</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="col-name"><a href="financials.html">Statements</a></td>
+          <td class="col-desc">Balance sheet, income statement and cash flows line by line as filed; five-year key figures.</td>
+          <td class="col-cov">EDINET annual reports · FY2021 onward</td>
+          <td class="num" id="r-fin"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
+          <td class="col-asof" id="a-fin"></td>
+        </tr>
+        <tr>
+          <td class="col-name"><a href="facilities.html">Facilities &amp; Land</a></td>
+          <td class="col-desc">Disclosed plants, offices, stores and land, geocoded, with book value and headcount by site.</td>
+          <td class="col-cov">EDINET annual reports</td>
+          <td class="num" id="r-fac"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
+          <td class="col-asof" id="a-fac"></td>
+        </tr>
+        <tr>
+          <td class="col-name"><a href="customers.html">Customers</a></td>
+          <td class="col-desc">Named major customers and segment sales as disclosed.</td>
+          <td class="col-cov">EDINET annual reports</td>
+          <td class="num" id="r-cus"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
+          <td class="col-asof" id="a-cus"></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="dir-foot">Tools: <a href="company.html">Company Profile</a> ·
+  <a href="screener.html">Screener</a> · <a href="cohorts.html">Peer Groups</a>.</p>
 
 </main>
 

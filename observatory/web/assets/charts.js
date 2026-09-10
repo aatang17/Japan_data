@@ -78,7 +78,10 @@ function lineOptions(cfg, pal, narrow) {
       // as it needs. Two rows fit in 44px; a fourth series pushes it to three
       // and it lands on top of the axis labels, so reserve more for it.
       ? { left: 8, right: 12,
-          bottom: cfg.series.length > 3 ? 70 : (cfg.series.length > 1 ? 44 : 8),
+          // Six long names wrap to four rows; a caller that knows its legend
+          // is that tall reserves the room with legendBottomNarrow.
+          bottom: cfg.legendBottomNarrow ||
+            (cfg.series.length > 3 ? 70 : (cfg.series.length > 1 ? 44 : 8)),
           containLabel: true,
           top: cfg.yAxisName ? 26 : 12 }
       : { left: 8, right: 20, bottom: 8, containLabel: true,
@@ -94,6 +97,10 @@ function lineOptions(cfg, pal, narrow) {
       // it — a reader who misses the switch misreads every distance.
       type: cfg.logScale ? "log" : "value",
       scale: !cfg.logScale && cfg.unit !== "%",   // index levels never forced to zero
+      // A reference level above every plotted value (a replacement fertility
+      // rate, a policy target) is invisible unless the axis is told to reach
+      // it: a markLine does not extend the scale. Opt-in only.
+      max: cfg.yMax !== undefined ? cfg.yMax : null,
       name: cfg.yAxisName || "",
       nameTextStyle: { color: pal.muted, fontSize: 11, align: "left" },
       axisLine: { show: false },
@@ -136,7 +143,11 @@ function lineOptions(cfg, pal, narrow) {
     series: ordered.map(s => ({
       name: s.name,
       type: "line",
-      showSymbol: isCat,
+      // Annual series opt into a marker per reading (cfg.showPoints): with a
+      // year between points there is nothing to interpolate, and a year
+      // whose neighbours are both missing is otherwise drawn as nothing at
+      // all — a published figure invisible on the chart.
+      showSymbol: isCat || !!cfg.showPoints,
       symbolSize: 5,
       connectNulls: false,
       lineStyle: { width: 2 },
@@ -275,7 +286,11 @@ function stackOptions(cfg, pal, narrow) {
     })).concat(cfg.line ? [{
       name: cfg.line.name,
       type: "line",
-      showSymbol: isCat,
+      // Annual series opt into a marker per reading (cfg.showPoints): with a
+      // year between points there is nothing to interpolate, and a year
+      // whose neighbours are both missing is otherwise drawn as nothing at
+      // all — a published figure invisible on the chart.
+      showSymbol: isCat || !!cfg.showPoints,
       symbolSize: 5,
       connectNulls: false,
       z: 10,
@@ -517,7 +532,10 @@ function colsOptions(cfg, pal, narrow) {
                    interval: narrow ? 2 : 0, rotate: narrow ? 0 : 0 },
     }),
     yAxis: Object.assign(axisCommon(pal), {
-      type: "value", min: 0,
+      // Bars keep a zero baseline; a series that goes negative (credit costs,
+      // a net flow) extends the axis below zero instead of vanishing.
+      type: "value",
+      min: cfg.series.some(s => s.points.some(v => v !== null && v < 0)) ? null : 0,
       name: cfg.yAxisName || "",
       nameTextStyle: { color: pal.muted, fontSize: 11, align: "left" },
       axisLine: { show: false },

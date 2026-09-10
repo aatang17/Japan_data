@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Banks · Japan Data Observatory</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+
+<header class="site-header" data-section="macro" data-page="banks"></header>
+<script src="assets/nav.js"></script>
+
+<main class="container">
+  <div id="stale-banner"></div>
+
+  <div class="metric-card">
+    <div class="metric-card-head">
+      <h1>Japanese Banks — Bad Loans, Earnings and Statements</h1>
+      <span class="metric-asof" id="page-asof"></span>
+      <p class="metric-sub" id="page-sub"><span class="skeleton" style="display:inline-block;width:420px;height:14px"></span></p>
+    </div>
+    <div class="strip">
+      <div class="strip-grid cols-4" id="tiles">
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+      </div>
+    </div>
+    <p class="strip-foot" id="strip-foot"></p>
+    <details class="calc" id="strip-calc" style="display:none"></details>
+  </div>
+
+  <section aria-labelledby="h-npl">
+    <h2 id="h-npl">Bad-Loan Ratio by Bank Group <span class="h2-note" id="npl-note"></span></h2>
+    <p class="section-sub">Claims disclosed under the Financial Reconstruction Act as a share of
+    total credit, by type of lender, every half-year since March 1999. The ratio is the FSA's own
+    figure for each group; the groups are not comparable in size — the city banks lend several
+    times what the credit co-operatives do.</p>
+    <div class="chart-panel">
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Date range" id="npl-range">
+        <button type="button" data-range="10">10Y</button>
+        <button type="button" data-range="max" aria-pressed="true">Max</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="npl-png">Download PNG</button>
+      <button type="button" class="btn" id="npl-csv">Download CSV</button>
+    </div>
+    <div class="chart" id="npl-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="npl-source"></p>
+    <details class="calc" id="npl-calc"></details>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-earn">
+    <h2 id="h-earn">Earnings by Bank Group <span class="h2-note" id="earn-note"></span></h2>
+    <p class="section-sub">The FSA's fiscal-year results summary for the major banks and the
+    regional banks. The major-bank income statement is consolidated and the regional-bank one is
+    not, and the two net business profit lines are different measures — read the legend.</p>
+    <div class="chart-panel">
+    <div class="controls">
+      <label for="earn-measure">Measure</label>
+      <select id="earn-measure" aria-label="Measure"></select>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="earn-png">Download PNG</button>
+      <button type="button" class="btn" id="earn-csv">Download CSV</button>
+    </div>
+    <div class="chart" id="earn-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="earn-source"></p>
+    <details class="calc" id="earn-calc"></details>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-bank">
+    <h2 id="h-bank">Bank Statement Detail <span class="h2-note" id="bank-note"></span></h2>
+    <p class="section-sub">The principal lines of one bank's balance sheet and income statement
+    from the Japanese Bankers Association's compilation, on the newest fiscal year and the one
+    before it; the series run from March 2002. Every member bank is here, listed or not, under its 金融機関コード. Amounts are
+    millions of yen as published; the change is calculated from them.</p>
+    <div class="controls">
+      <label for="bank-select">Bank</label>
+      <select id="bank-select" aria-label="Bank"></select>
+      <div class="seg" role="group" aria-label="Basis" id="bank-basis">
+        <button type="button" data-basis="s" aria-pressed="true">Non-consolidated</button>
+        <button type="button" data-basis="c">Consolidated</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="bank-csv">Download CSV</button>
+    </div>
+    <div class="table-wrap" id="bank-table"><div class="skeleton" style="width:100%;height:300px"></div></div>
+    <p class="table-foot" id="bank-foot"></p>
+    <details class="calc" id="bank-calc"></details>
+    <h3 id="bank-chart-title">Deposits and Loans</h3>
+    <div class="chart-panel">
+    <div class="controls">
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="bank-png">Download PNG</button>
+      <button type="button" class="btn" id="bank-chart-csv">Download CSV</button>
+    </div>
+    <div class="chart" id="bank-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="bank-source"></p>
+    <details class="calc" id="bank-chart-calc"></details>
+    </div>
+  </section>
+
+  <section aria-label="Data sources and provenance" class="prov">
+    <div id="prov-cards"></div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="inner">
+    <span id="credit-line">Source: Financial Services Agency (金融再生法開示債権の状況等; 主要行等・地域銀行の決算の概要) and Japanese Bankers Association (全国銀行財務諸表分析).</span>
+    Amounts and ratios are official figures as published; changes are calculated from them.
+    <a href="methodology.html#calc-jba-banks">Methodology</a>
+  </div>
+</footer>
+
+<script src="assets/echarts.min.js"></script>
+<script src="assets/format.js"></script>
+<script src="assets/charts.js"></script>
+<script src="assets/sortable.js"></script>
+<script src="assets/banks.js"></script>
+</body>
+</html>

@@ -93,7 +93,7 @@ function customerCell(c) {
   const filed = escapeHtml(c.customer_name);
   const en = c.customer_name_en;
   const link = c.customer_sec_code
-    ? '<a href="company.html?code=' + escapeHtml(c.customer_sec_code) + '">' +
+    ? '<a href="company.html?c=' + escapeHtml(c.customer_sec_code) + '">' +
       escapeHtml(en || c.customer_name) + "</a>"
     : escapeHtml(en || c.customer_name);
   if (!en) return '<div class="cell-item"><div class="en">' + link + "</div></div>";
@@ -222,7 +222,7 @@ function renderBuyer() {
     "<th>Segment</th><th>Fiscal year to</th></tr></thead><tbody>" +
     hits.map(h =>
       "<tr><td>" + (h.filer.sec_code
-        ? '<a href="company.html?code=' + escapeHtml(h.filer.sec_code) + '">' + escapeHtml(nameOf(h.filer)) + "</a>"
+        ? '<a href="company.html?c=' + escapeHtml(h.filer.sec_code) + '">' + escapeHtml(nameOf(h.filer)) + "</a>"
         : escapeHtml(nameOf(h.filer))) +
         (h.filer.sec_code ? ' <span style="color:var(--obs-text-muted)">' + escapeHtml(h.filer.sec_code) + "</span>" : "") + "</td>" +
       "<td>" + escapeHtml(h.filer.industry || "") + "</td>" +
@@ -367,7 +367,7 @@ function renderDependence() {
           '<span style="color:var(--obs-text-muted)">' + pct(c.share_pct) + "%</span>" +
           (isIntermediary(c) ? ' <span class="tag-note">resells</span>' : "")).join(" · ");
       return "<tr><td>" + (f.sec_code
-          ? '<a href="company.html?code=' + escapeHtml(f.sec_code) + '">' + escapeHtml(nameOf(f)) + "</a>"
+          ? '<a href="company.html?c=' + escapeHtml(f.sec_code) + '">' + escapeHtml(nameOf(f)) + "</a>"
           : escapeHtml(nameOf(f))) +
           (f.sec_code ? ' <span style="color:var(--obs-text-muted)">' + escapeHtml(f.sec_code) + "</span>" : "") + "</td>" +
         "<td>" + escapeHtml(f.industry || "") + "</td>" +

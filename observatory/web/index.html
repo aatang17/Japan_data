@@ -20,285 +20,140 @@
 })();
 </script>
 </head>
-<body>
+<body class="page-home">
 
 <header class="site-header" data-section=""></header>
 <script src="assets/nav.js"></script>
 
-<main class="container">
-  <div class="page-head">
-    <h1>Japanese Macro and Market Data</h1>
-    <p class="page-sub">Official statistics and company filings, rebuilt from the primary
-    sources on a schedule. Every figure carries its source, its formula where calculated,
-    and a permanent URL.</p>
-  </div>
+<!-- Live readings, one per dataset, scrolling. Filled by home.js from the
+     same API the product pages use; a dataset that cannot be reached is
+     simply absent from the strip — never a stub, never a stale value. -->
+<div class="home-ticker" aria-label="Latest readings"><div class="home-ticker-track" id="ticker"></div></div>
 
-  <!-- One directory table per section. Each row is a dataset: what it holds,
-       where it comes from and how far back, and one live reading from the
-       same API the product pages use. The reading is the proof the pipeline
-       ran; it is never a value baked into the markup. -->
+<main>
 
-  <h2 id="macro">Macro <span class="h2-note"><a href="macro.html">Section overview</a></span></h2>
-
-  <div class="table-wrap">
-    <table class="data dir" data-no-enhance>
-      <thead>
-        <tr>
-          <th>Dataset</th>
-          <th class="col-desc">Content</th>
-          <th class="col-cov">Source · Coverage</th>
-          <th class="num">Latest</th>
-          <th>As Of</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td class="col-name"><a href="cpi.html">Inflation</a></td>
-          <td class="col-desc">Headline and core CPI, ten major groups, 582 priced items;
-          822 series with item-level search.</td>
-          <td class="col-cov">Statistics Bureau · monthly from 1970</td>
-          <td class="num" id="r-cpi"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
-          <td class="col-asof" id="a-cpi"></td>
-        </tr>
-        <tr>
-          <td class="col-name"><a href="boj.html">Bank of Japan</a></td>
-          <td class="col-desc">JGB, ETF, J-REIT and corporate bond holdings and flows;
-          monetary base.</td>
-          <td class="col-cov">Bank of Japan · monthly from 1996</td>
-          <td class="num" id="r-boj"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
-          <td class="col-asof" id="a-boj"></td>
-        </tr>
-        <tr>
-          <td class="col-name"><a href="rates.html">Yield Curve</a></td>
-          <td class="col-desc">Constant-maturity JGB yields for 15 tenors.</td>
-          <td class="col-cov">Ministry of Finance · daily from 1974</td>
-          <td class="num" id="r-rates"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
-          <td class="col-asof" id="a-rates"></td>
-        </tr>
-        <tr>
-          <td class="col-name"><a href="semis.html">Semiconductor Trade</a></td>
-          <td class="col-desc">Chips, components and chipmaking equipment, imports and
-          exports by partner country, with revision stage.</td>
-          <td class="col-cov">MOF Trade Statistics · monthly from 2001</td>
-          <td class="num" id="r-semis"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
-          <td class="col-asof" id="a-semis"></td>
-        </tr>
-        <tr>
-          <td class="col-name"><a href="population.html">Population</a></td>
-          <td class="col-desc">Registered residents by prefecture, age band and
-          nationality.</td>
-          <td class="col-cov">Basic Resident Register · annual from 1975</td>
-          <td class="num" id="r-pop"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
-          <td class="col-asof" id="a-pop"></td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-  <p class="dir-foot">Planned: producer and services prices · Tokyo advance and regional CPI ·
-  BOJ holdings by issue.</p>
-
-  <h2 id="tourism">Tourism <span class="h2-note"><a href="inbound.html">Section overview</a></span></h2>
-
-  <div class="table-wrap">
-    <table class="data dir" data-no-enhance>
-      <thead>
-        <tr>
-          <th>Dataset</th>
-          <th class="col-desc">Content</th>
-          <th class="col-cov">Source · Coverage</th>
-          <th class="num">Latest</th>
-          <th>As Of</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td class="col-name"><a href="inbound.html">Arrivals</a></td>
-          <td class="col-desc">Foreign visitor arrivals by market, with recovery versus 2019
-          and market shares.</td>
-          <td class="col-cov">JNTO · monthly from 2003</td>
-          <td class="num" id="r-inbound"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
-          <td class="col-asof" id="a-inbound"></td>
-        </tr>
-        <tr>
-          <td class="col-name"><a href="accommodation.html">Guest Nights</a></td>
-          <td class="col-desc">Person-nights and room occupancy by prefecture, nationality
-          and hotel type.</td>
-          <td class="col-cov">Japan Tourism Agency · monthly from 2011</td>
-          <td class="num" id="r-acc"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
-          <td class="col-asof" id="a-acc"></td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-
-  <h2 id="agriculture">Agriculture <span class="h2-note"><a href="rice.html">Section overview</a></span></h2>
-
-  <div class="table-wrap">
-    <table class="data dir" data-no-enhance>
-      <thead>
-        <tr>
-          <th>Dataset</th>
-          <th class="col-desc">Content</th>
-          <th class="col-cov">Source · Coverage</th>
-          <th class="num">Latest</th>
-          <th>As Of</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td class="col-name"><a href="rice.html">Rice Contract Prices</a></td>
-          <td class="col-desc">Volume-weighted contract price between shippers and
-          wholesalers, about 120 origin-and-variety brands.</td>
-          <td class="col-cov">MAFF · monthly from 2008</td>
-          <td class="num" id="r-rice"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
-          <td class="col-asof" id="a-rice"></td>
-        </tr>
-        <tr>
-          <td class="col-name"><a href="rice.html">Rice Inventories</a></td>
-          <td class="col-desc">Private end-of-month brown rice stocks by stage and crop
-          age.</td>
-          <td class="col-cov">MAFF · monthly from 2020</td>
-          <td class="num" id="r-stock"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
-          <td class="col-asof" id="a-stock"></td>
-        </tr>
-        <tr>
-          <td class="col-name"><a href="rice.html">Farm Prices &amp; Costs</a></td>
-          <td class="col-desc">Farm output and input price indices; published cost of
-          growing rice per 60kg.</td>
-          <td class="col-cov">MAFF · monthly from 1957</td>
-          <td class="num" id="r-agri"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
-          <td class="col-asof" id="a-agri"></td>
-        </tr>
-        <tr>
-          <td class="col-name"><a href="ja.html">JA Co-operatives</a></td>
-          <td class="col-desc">Co-operative income statement by business segment, with the
-          farm-guidance loss charged back.</td>
-          <td class="col-cov">MAFF · fiscal years from 2004</td>
-          <td class="num" id="r-ja"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
-          <td class="col-asof" id="a-ja"></td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-  <p class="dir-foot">Planned: crop statistics and crop condition index · food balance sheet ·
-  farmland area and abandonment · rice supply-demand guideline.</p>
-
-  <h2 id="equities">Equities <span class="h2-note"><a href="equities.html">Section overview</a> ·
-  <a href="company.html">Company Profile</a> · <a href="screener.html">Screener</a></span></h2>
-
-  <div class="table-wrap">
-    <table class="data dir" data-no-enhance>
-      <thead>
-        <tr>
-          <th>Dataset</th>
-          <th class="col-desc">Content</th>
-          <th class="col-cov">Source · Coverage</th>
-          <th class="num">Latest</th>
-          <th>As Of</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td class="col-name"><a href="holdings.html">Cross-Shareholdings</a></td>
-          <td class="col-desc">Policy shareholdings as disclosed: holder, issuer, stated
-          reason, pace of unwind.</td>
-          <td class="col-cov">EDINET annual reports · partial, coverage stated</td>
-          <td class="num" id="r-hold"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
-          <td class="col-asof" id="a-hold"></td>
-        </tr>
-        <tr>
-          <td class="col-name"><a href="ownership.html">Register</a></td>
-          <td class="col-desc">Named large holders and the register by investor category,
-          nominees marked.</td>
-          <td class="col-cov">EDINET annual reports · all listed companies</td>
-          <td class="num" id="r-own"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
-          <td class="col-asof" id="a-own"></td>
-        </tr>
-        <tr>
-          <td class="col-name"><a href="stakes.html">5% Filings</a></td>
-          <td class="col-desc">Large-shareholding reports: filer, issuer, stake movement,
-          stated intent to make proposals.</td>
-          <td class="col-cov">EDINET large-holding reports · about five years</td>
-          <td class="num" id="r-stk"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
-          <td class="col-asof" id="a-stk"></td>
-        </tr>
-        <tr>
-          <td class="col-name"><a href="governance.html">Boards &amp; Pay</a></td>
-          <td class="col-desc">Every director by role, age, seat and shareholding; officer
-          pay by category and every individual at ¥100m or more.</td>
-          <td class="col-cov">EDINET annual reports · five fiscal years</td>
-          <td class="num" id="r-gov"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
-          <td class="col-asof" id="a-gov"></td>
-        </tr>
-        <tr>
-          <td class="col-name"><a href="buyback.html">Buybacks</a></td>
-          <td class="col-desc">Authorised amount, monthly execution and cancellation per
-          programme.</td>
-          <td class="col-cov">EDINET monthly status reports</td>
-          <td class="num" id="r-bb"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
-          <td class="col-asof" id="a-bb"></td>
-        </tr>
-        <tr>
-          <td class="col-name"><a href="facilities.html">Facilities &amp; Land</a></td>
-          <td class="col-desc">Disclosed plants, offices, stores and land, geocoded, with
-          book value and headcount by site.</td>
-          <td class="col-cov">EDINET annual reports</td>
-          <td class="num" id="r-fac"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
-          <td class="col-asof" id="a-fac"></td>
-        </tr>
-        <tr>
-          <td class="col-name"><a href="financials.html">Financials</a></td>
-          <td class="col-desc">Balance sheet, income statement and cash flows line by line
-          as filed; five-year key figures.</td>
-          <td class="col-cov">EDINET annual reports · FY2021 onward</td>
-          <td class="num" id="r-fin"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
-          <td class="col-asof" id="a-fin"></td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-  <p class="dir-foot">Planned: ranked unwind screens · overlap with disclosed activist
-  positions.</p>
-
-  <h2 id="access">Data Access <span class="h2-note">No account, no key</span></h2>
-  <dl class="access-list">
-    <div>
-      <dt>REST API</dt>
-      <dd>JSON for every dataset, with the release in force on a given date. CSV and PNG
-      from every chart. <a href="/api/docs">API reference</a></dd>
-    </div>
-    <div>
-      <dt>MCP</dt>
-      <dd>Connect Claude or any Model Context Protocol client. Answers cite the trust label,
-      the formula and the page. <a href="connect.html">Setup</a> · <a href="manual.html">Manual</a></dd>
-    </div>
-    <div>
-      <dt>Endpoint</dt>
-      <dd>
-        <div class="connect-url">
-          <code id="mcp-url">https://web-production-c9178.up.railway.app/mcp</code>
-          <button type="button" class="btn" id="copy-url">Copy</button>
+  <!-- Hero: four Tokyo photographs crossfade behind the offer. Credits are
+       in the footer, as their licences require. The trace across the sky is
+       headline CPI from the API, drawn once it arrives. -->
+  <section class="hero" aria-label="Introduction">
+    <img class="hero-photo k1" src="assets/home/tokyo-1.jpg" alt="">
+    <img class="hero-photo k2" src="assets/home/tokyo-2.jpg" alt="">
+    <img class="hero-photo k3" src="assets/home/tokyo-3.jpg" alt="">
+    <img class="hero-photo k4" src="assets/home/tokyo-4.jpg" alt="">
+    <svg class="hero-trace" viewBox="0 0 1440 560" preserveAspectRatio="none" aria-hidden="true">
+      <path id="hero-trace-path" d="" fill="none" stroke-width="2.2" stroke-linejoin="round"/>
+    </svg>
+    <div class="container hero-inner">
+      <div class="hero-panel">
+        <div class="hero-status r d1" id="hero-status"><span class="live-dot"></span>Checking sources…</div>
+        <h1 class="hero-title r d2">Japan's official data, rebuilt for institutional use.</h1>
+        <p class="hero-sub r d3">Comprehensive official statistics and company filings for Japan, rebuilt
+        from the primary sources and archived as point-in-time vintages. Every figure carries its
+        source and a permanent URL.</p>
+        <div class="hero-actions r d4">
+          <a class="btn btn-primary btn-lg" href="datasets.html">Explore the data</a>
+          <a class="btn btn-lg" href="connect.html">Connect by API or MCP</a>
         </div>
-      </dd>
+      </div>
     </div>
-  </dl>
+    <div class="hero-legend"><div class="container"><span class="chip" id="hero-legend" hidden></span></div></div>
+  </section>
 
-  <h2 id="how">Data Principles</h2>
-  <ul class="build-list">
-    <li><b>Primary sources only.</b> Every source file is archived with its SHA-256 checksum
-    before it is parsed.</li>
-    <li><b>Point-in-time vintages.</b> A stored release is never edited. A revision is a new
-    vintage, and the API can serve any dataset as it stood on a given date.</li>
-    <li><b>Official and calculated never blurred.</b> Published values appear exactly as
-    issued. Anything computed here carries its formula.</li>
-    <li><b>Missing stays missing.</b> A gap is shown as an em dash and exported as empty,
-    never as zero.</li>
-    <li><b>Coverage is stated.</b> Where a dataset is partial, every aggregate names its
-    denominator.</li>
-    <li><b>Every view has an address.</b> The URL carries the full state of a chart or
-    table. <a href="methodology.html">Methodology</a> has the formulas, limitations and
-    attribution.</li>
-  </ul>
+  <!-- Coverage in numbers. Counted from the API at load, then counted up. -->
+  <section class="home-numbers r d5" aria-label="Coverage">
+    <div class="container home-numbers-grid">
+      <div class="home-number"><div class="home-number-value num" id="n-datasets">—</div><div class="home-number-label">Datasets</div></div>
+      <div class="home-number"><div class="home-number-value num" id="n-companies">—</div><div class="home-number-label">Listed companies</div></div>
+      <div class="home-number"><div class="home-number-value num" id="n-filings">—</div><div class="home-number-label">Filings parsed</div></div>
+      <div class="home-number"><div class="home-number-value num" id="n-sources">—</div><div class="home-number-label">Primary sources</div></div>
+    </div>
+  </section>
+
+  <div class="container">
+
+    <!-- Entry points -->
+    <nav class="home-entries" aria-label="Sections">
+      <a class="home-entry r d5" href="macro.html"><span class="home-entry-name">Macro</span><span class="home-entry-sub num" id="e-macro">from 1970</span><span class="home-entry-open">Open</span></a>
+      <a class="home-entry r d5" href="semis.html"><span class="home-entry-name">Trade</span><span class="home-entry-sub num" id="e-trade">from 2001</span><span class="home-entry-open">Open</span></a>
+      <a class="home-entry r d5" href="population.html"><span class="home-entry-name">Demographics</span><span class="home-entry-sub num" id="e-demo">from 1975</span><span class="home-entry-open">Open</span></a>
+      <a class="home-entry r d5" href="inbound.html"><span class="home-entry-name">Tourism</span><span class="home-entry-sub num" id="e-tourism">from 2003</span><span class="home-entry-open">Open</span></a>
+      <a class="home-entry r d6" href="rice.html"><span class="home-entry-name">Agriculture</span><span class="home-entry-sub num" id="e-agri">from 1957</span><span class="home-entry-open">Open</span></a>
+      <a class="home-entry r d6" href="equities.html"><span class="home-entry-name">Equities</span><span class="home-entry-sub num" id="e-equities">as filed</span><span class="home-entry-open">Open</span></a>
+      <a class="home-entry r d7" href="company.html"><span class="home-entry-name">Company Profile</span><span class="home-entry-sub">every dataset, one company</span><span class="home-entry-open">Open</span></a>
+      <a class="home-entry r d7" href="screener.html"><span class="home-entry-name">Screener</span><span class="home-entry-sub">rank on filed data</span><span class="home-entry-open">Open</span></a>
+    </nav>
+
+  </div>
+
+  <section class="home-band is-tint">
+    <div class="container">
+    <!-- Investment assistant: four scenarios rotate. Every number in them is
+         fetched from the API when the page loads; the tool names are the
+         MCP server's real ones. -->
+    <h2 id="assistant">Your Investment Assistant <span class="h2-note">Ask in plain language. The answer is drawn from the same API, and charted or tabulated beside it.</span></h2>
+    <div class="asst" id="asst"></div>
+    </div>
+  </section>
+
+  <section class="home-band">
+    <div class="container">
+    <h2 id="api">Or Call It Directly <span class="h2-note">REST, JSON, no key</span></h2>
+    <div class="home-api">
+      <div>
+        <div class="home-api-label">Request</div>
+<pre class="home-code"><span id="api-request">GET /api/v1/cpi-jp/observations
+    ?series=0001&amp;measure=yoy
+    &amp;start=2016-01
+    &amp;as_of=…        </span><span class="muted" id="api-request-note"># the release in force on that date</span></pre>
+        <p class="home-api-note">One endpoint per dataset. Add <code>as_of</code> and you get the vintage a
+        reader would have seen that day, not today's revision. <a href="/api/docs">API reference</a></p>
+      </div>
+      <div>
+        <div class="home-api-label">Response</div>
+<pre class="home-code" id="api-response">{ … }</pre>
+        <p class="home-api-note muted" id="api-response-note">Live response, abbreviated to its first points.</p>
+      </div>
+    </div>
+    </div>
+  </section>
+
+  <section class="home-band is-tint">
+    <div class="container">
+    <h2 id="trust">Why It Can Be Trusted</h2>
+    <div class="home-principles">
+      <div class="home-principle"><div class="home-rule"></div><div class="home-principle-title">Primary sources only</div><div class="home-principle-text">Every source file archived with its checksum.</div></div>
+      <div class="home-principle"><div class="home-rule"></div><div class="home-principle-title">Point-in-time vintages</div><div class="home-principle-text">A revision is a new vintage. Any date is replayable.</div></div>
+      <div class="home-principle"><div class="home-rule"></div><div class="home-principle-title">Official vs calculated</div><div class="home-principle-text">Published values exact. Computed values show their formula.</div></div>
+      <div class="home-principle"><div class="home-rule"></div><div class="home-principle-title">Every view has an address</div><div class="home-principle-text">The URL carries the whole chart or table.</div></div>
+    </div>
+    </div>
+  </section>
+
+  <section class="home-band">
+    <div class="container">
+    <h2 id="letter">From Asia Economics Observations <span class="h2-note">The research letter written on this data</span></h2>
+    <div class="home-letter">
+      <div class="home-featured">
+        <div class="home-featured-kicker num" id="post-kicker">Featured</div>
+        <div class="home-featured-title" id="post-title"></div>
+        <div class="ov-chart home-featured-chart" id="post-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+        <div class="home-featured-foot"><span class="source-line" id="post-source"></span><span class="ov-dls"><a class="ov-dl" id="post-link" href="#" hidden>Read the letter</a> <a class="ov-dl" href="boj.html">Open the chart</a></span></div>
+      </div>
+      <div class="home-posts" id="posts"></div>
+    </div>
+    </div>
+  </section>
+
+  <section class="home-band is-tint">
+    <div class="container">
+    <h2 id="audience">Built For</h2>
+    <div class="home-audience">
+      <div class="home-audience-item"><div class="home-audience-title">Sell-side economists</div><div class="home-audience-lead">The Japan chart pack, citable.</div><div class="home-audience-text">Contributions to headline CPI by group, breadth across 582 items, the curve on any date, the BOJ balance sheet by asset. Every chart exports with its source embedded.</div></div>
+      <div class="home-audience-item"><div class="home-audience-title">Quant and data teams</div><div class="home-audience-lead">One endpoint per dataset, vintage-selectable.</div><div class="home-audience-text">Replay any dataset as it stood on a given date for a point-in-time backtest. JSON with the formula and calc version in the payload.</div></div>
+      <div class="home-audience-item"><div class="home-audience-title">Academics</div><div class="home-audience-lead">Free, stable URLs, stated methodology.</div><div class="home-audience-text">Cite the page. The number, the formula and the source file behind it stay reachable at that address.</div></div>
+    </div>
+    </div>
+  </section>
 
 </main>
 
@@ -310,11 +165,18 @@
     via EDINET (Financial Services Agency). Published values are official; rates of change
     and aggregates are calculated on this platform.
     <a href="methodology.html">Methodology</a>
+    <div class="home-credits">Photographs: David Kernan
+      (<a href="https://commons.wikimedia.org/wiki/File:Minato_City,_Tokyo,_Japan.jpg">CC BY 4.0</a>) ·
+      Itoshin87 (<a href="https://commons.wikimedia.org/wiki/File:Skyscrapers_Shinjuku_2007_rev.jpg">public domain</a>) ·
+      Jason Goh (<a href="https://commons.wikimedia.org/wiki/File:Shinjuku_Park_Tower,_NTT_East,_and_Tokyo_Opera_City,_view_from_the_Tokyo_Metropolitan_Government_Building_No.2_(2013-06-07_by_Jason_Goh_@Pixabay_217878).jpg">CC0</a>) ·
+      anonymous (<a href="https://commons.wikimedia.org/wiki/File:2015-01-17_Skyline_in_Tokyo.jpg">CC0</a>),
+      via Wikimedia Commons.</div>
   </div>
 </footer>
 
+<script src="assets/echarts.min.js"></script>
 <script src="assets/format.js"></script>
-<script src="assets/landing.js"></script>
-<script>initThemeToggle();</script>
+<script src="assets/charts.js"></script>
+<script src="assets/home.js"></script>
 </body>
 </html>

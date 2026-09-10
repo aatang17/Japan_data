@@ -20,8 +20,12 @@
                        October and are a different measure, never mixed
                        into the same line.
 
-   Only published counts cross the wire. Every share and every rate on this
-   page is arithmetic done here, and each one states its formula. */
+   Nearly everything that crosses the wire is a published count, and every
+   share and rate computed from one is arithmetic done here, stating its
+   formula. The single exception is the total fertility rate: it is a
+   published rate, stored as issued because its denominator is in no table
+   the platform holds, and it is the only number on this page that carries
+   the official badge without being a count. */
 "use strict";
 
 var REG = null;          // register dataset payload
@@ -32,6 +36,7 @@ var NATIONAL = "00";
 var mapChart = null;
 var mapReady = false;    // japan geojson registered with ECharts
 var histChart = null;
+var pyramidChart = null;
 
 var MEASURES = {
   change_pct: {
@@ -59,12 +64,30 @@ var MEASURES = {
     calc: "aged 65+ % = (sum of the five-year bands from 65 upward) ÷ all residents × 100",
     help: "Residents aged 65 and over as a share of everyone on the register",
   },
+  birth_rate: {
+    label: "Births per 1,000", unit: "per 1,000", dp: 1, diverging: false,
+    calc: "crude birth rate = births ÷ mid-year population × 1,000, where " +
+          "mid-year population = (population at 1 January + population a year earlier) ÷ 2",
+    help: "Births over the calendar year, per thousand of the population living through it",
+  },
+  death_rate: {
+    label: "Deaths per 1,000", unit: "per 1,000", dp: 1, diverging: false,
+    calc: "crude death rate = deaths ÷ mid-year population × 1,000, where " +
+          "mid-year population = (population at 1 January + population a year earlier) ÷ 2",
+    help: "Deaths over the calendar year, per thousand of the population living through it",
+  },
   population: {
     label: "Registered residents", unit: "persons", dp: 0, diverging: false,
     calc: null,
     help: "Everyone on the register at 1 January",
   },
 };
+
+/* The pyramid's two modes and the two long-run views that are rates rather
+   than counts, kept here so the URL, the controls and the chart cannot
+   disagree about what exists. */
+var PYRAMID_MODES = ["count", "share"];
+var HIST_VIEWS = ["level", "index", "age", "vital", "fertility"];
 
 var SEGMENT_LABEL = { all: "All residents", jp: "Japanese residents", fgn: "Foreign residents" };
 
@@ -77,7 +100,8 @@ function urlState() {
   return {
     measure: MEASURES[measure] ? measure : "change_pct",
     pref: pref && GEO_BY_CODE[pref] && pref !== NATIONAL ? pref : "13",
-    hist: ["level", "index", "age"].indexOf(p.get("hist")) >= 0 ? p.get("hist") : "level",
+    hist: HIST_VIEWS.indexOf(p.get("hist")) >= 0 ? p.get("hist") : "level",
+    pyr: PYRAMID_MODES.indexOf(p.get("pyr")) >= 0 ? p.get("pyr") : "count",
     scale: p.get("scale") === "log" ? "log" : "linear",
     from: p.get("from") || "",
     to: p.get("to") || "",
@@ -94,6 +118,7 @@ function setUrlState(next) {
   if (s.measure !== "change_pct") p.set("measure", s.measure);
   if (s.pref !== "13") p.set("pref", s.pref);
   if (s.hist !== "level") p.set("hist", s.hist);
+  if (s.pyr !== "count") p.set("pyr", s.pyr);
   if (s.scale !== "linear") p.set("scale", s.scale);
   if (s.from) p.set("from", s.from);
   if (s.to) p.set("to", s.to);
@@ -176,6 +201,23 @@ function ratio(numerator, denominator) {
   return numerator / denominator * 100;
 }
 
+/* The population that lived through the flow year. A crude rate is per
+   thousand of the mid-year population, not of either endpoint: the register
+   publishes the count at 1 January and the change over the year before it,
+   so the opening count is one subtraction away and the mean of the two is
+   the closest thing the register offers to a mid-year figure. */
+function midyear(geo, segment) {
+  var pop = reg(geo, segment, "population");
+  var open = opening(geo, segment);
+  if (pop === null || open === null) return null;
+  return (pop + open) / 2;
+}
+
+function perThousand(numerator, denominator) {
+  if (numerator === null || denominator === null || !denominator) return null;
+  return numerator / denominator * 1000;
+}
+
 function measureValue(geo, key, segment) {
   var seg = segment || "all";
   if (key === "population") return reg(geo, seg, "population");
@@ -184,6 +226,8 @@ function measureValue(geo, key, segment) {
   if (key === "social_pct") return ratio(reg(geo, seg, "social_change"), opening(geo, seg));
   if (key === "foreign_pct") return ratio(reg(geo, "fgn", "population"), reg(geo, "all", "population"));
   if (key === "aged_pct") return ratio(agedTotal(geo, seg), reg(geo, seg, "population"));
+  if (key === "birth_rate") return perThousand(reg(geo, seg, "births"), midyear(geo, seg));
+  if (key === "death_rate") return perThousand(reg(geo, seg, "deaths"), midyear(geo, seg));
   return null;
 }
 
@@ -191,7 +235,20 @@ function fmtMeasure(v, key) {
   var m = MEASURES[key];
   if (v === null) return MISSING;
   if (m.unit === "persons") return fmtNum(v, 0);
+  // A count per thousand carries no percent sign; its unit is in the label.
+  if (m.unit === "per 1,000") return fmtNum(v, m.dp);
   return m.diverging ? fmtSigned(v, m.dp, "%") : fmtRate(v, m.dp);
+}
+
+/* Which reference date a measure is read on. Stocks and shares of stocks
+   are the 1 January count; anything built from a register flow covers the
+   calendar year before it. Both the map note and the PNG export read this,
+   so an export can never date a number differently from the screen. */
+function measurePeriodLabel(key) {
+  var m = MEASURES[key];
+  if (!m) return "";
+  var stockBased = m.unit === "persons" || key === "foreign_pct" || key === "aged_pct";
+  return stockBased ? fmtPeriodLong(stockPeriod()) : "calendar " + flowYear();
 }
 
 function prefectures() {
@@ -398,7 +455,8 @@ function renderHead() {
   document.getElementById("page-sub").textContent =
     "Everyone on the Basic Resident Register of all 47 prefectures at 1 January " +
     stockPeriod().slice(0, 4) + ", with the register's own account of the " +
-    flowYear() + " change, and fifty years of history behind it.";
+    flowYear() + " change, the age and sex of every resident, and fifty years of " +
+    "births, deaths and fertility behind it.";
   if (REG.credit_line) {
     document.getElementById("credit-line").textContent = REG.credit_line;
   }
@@ -639,10 +697,7 @@ function drawMap() {
   var st = urlState();
   var m = MEASURES[st.measure];
   document.getElementById("map-note").textContent =
-    m.label + " · " + (m.unit === "persons"
-      ? fmtPeriodLong(stockPeriod())
-      : (st.measure === "foreign_pct" || st.measure === "aged_pct"
-         ? fmtPeriodLong(stockPeriod()) : "calendar " + flowYear()));
+    m.label + " · " + measurePeriodLabel(st.measure);
   document.getElementById("map-source").innerHTML =
     trustBadge("official") + " " + escapeHtml(REG.credit_line || "") +
     " Release “" + escapeHtml(REG.release.label) + "”, ingested " +
@@ -703,6 +758,380 @@ function mapCsvRows() {
     }));
 }
 
+/* ---------- population pyramid ---------- */
+
+/* The register's five-year age bands by sex, for one area and one segment.
+   Rows run youngest first, which is bottom-first on the chart's category
+   axis. A band with no published value stays null: a pyramid drawn with a
+   missing band as zero would show a notch that is not there. */
+function pyramidRows(geo, segment) {
+  var bands = REG.age_bands || [];
+  return bands.map(function (b) {
+    return {
+      code: b.code,
+      label: b.label,
+      label_ja: b.label_ja,
+      male: reg(geo, segment, b.code + "_male"),
+      female: reg(geo, segment, b.code + "_female"),
+      total: reg(geo, segment, b.code + "_total"),
+    };
+  });
+}
+
+/* The denominator every share on this chart is taken over: the residents
+   who have a recorded age and sex, which is the sum of the bands, not the
+   published headcount. The two differ by a few dozen people nationally and
+   the difference is disclosed under the chart rather than hidden by
+   dividing by a total the bars do not add up to. */
+function pyramidBase(rows) {
+  var sum = 0, seen = false;
+  rows.forEach(function (r) {
+    if (r.male !== null) { sum += r.male; seen = true; }
+    if (r.female !== null) { sum += r.female; seen = true; }
+  });
+  return seen ? sum : null;
+}
+
+function pyramidValue(v, base, mode) {
+  if (v === null) return null;
+  if (mode !== "share") return v;
+  return base ? v / base * 100 : null;
+}
+
+/* The next round number at or above a value: 4.3 -> 4.5, 581,204 -> 600,000.
+   Half a power of ten is fine enough that the axis does not gain a lot of
+   empty space, and coarse enough that the ticks stay round. */
+function niceCeil(v) {
+  if (!v || !isFinite(v) || v <= 0) return 0;
+  var step = Math.pow(10, Math.floor(Math.log(v) / Math.LN10)) / 2;
+  return Math.ceil(v / step) * step;
+}
+
+function pyramidOption(pal) {
+  var st = urlState();
+  var geo = st.pref, segment = st.segment, mode = st.pyr;
+  var rows = pyramidRows(geo, segment);
+  var base = pyramidBase(rows);
+  var natRows = pyramidRows(NATIONAL, segment);
+  var natBase = pyramidBase(natRows);
+  var name = (GEO_BY_CODE[geo] || {}).name_en || geo;
+  var share = mode === "share";
+  var dp = share ? 2 : 0;
+  // A pyramid is read against its centre line, so the axis has to be
+  // symmetric. Left to itself ECharts picks a nice interval from the actual
+  // minimum and maximum, and with a longest bar of −4.3 against +3.9 it
+  // returns −6 to +4: the zero line sits off-centre and the two sexes look
+  // like they are drawn to different scales. So the extent is set here, from
+  // the largest bar on either side — including Japan's outline, which can be
+  // wider than the prefecture's own bars.
+  var extent = 0;
+  var widest = function (r, key, denominator, asMode) {
+    var v = pyramidValue(r[key], denominator, asMode);
+    if (v !== null && Math.abs(v) > extent) extent = Math.abs(v);
+  };
+  rows.forEach(function (r) {
+    widest(r, "male", base, mode); widest(r, "female", base, mode);
+  });
+
+  // Axis ticks read at one decimal; the tooltip keeps the second.
+  var fmtAxis = function (v) {
+    return v === null || v === undefined ? MISSING
+      : (share ? fmtRate(Math.abs(v), 1) : fmtNum(Math.abs(v), 0));
+  };
+
+  var series = [
+    {
+      name: "Male", type: "bar", stack: "sex", barWidth: "86%",
+      itemStyle: { color: pal.series[0] },
+      data: rows.map(function (r) {
+        var v = pyramidValue(r.male, base, mode);
+        return v === null ? null : -v;
+      }),
+    },
+    {
+      name: "Female", type: "bar", stack: "sex", barWidth: "86%",
+      itemStyle: { color: pal.series[1] },
+      data: rows.map(function (r) { return pyramidValue(r.female, base, mode); }),
+    },
+  ];
+  // Counts of two areas cannot share an axis; shares can. So the national
+  // outline is offered only in share mode, where it is the whole point.
+  var overlay = share && geo !== NATIONAL && natBase;
+  if (overlay) {
+    ["male", "female"].forEach(function (sex, i) {
+      series.push({
+        name: "Japan", type: "line", step: "middle", symbol: "none",
+        silent: true, z: 3,
+        lineStyle: { color: pal.muted, width: 1.2, type: "dashed" },
+        showInLegend: i === 0,
+        data: natRows.map(function (r) {
+          var v = pyramidValue(r[sex], natBase, "share");
+          return v === null ? null : (sex === "male" ? -v : v);
+        }),
+      });
+    });
+  }
+
+  if (overlay) {
+    natRows.forEach(function (r) {
+      widest(r, "male", natBase, "share"); widest(r, "female", natBase, "share");
+    });
+  }
+  var axisExtent = niceCeil(extent * 1.02) || 1;
+  var plot = document.getElementById("pop-pyramid");
+  var narrowPlot = plot ? plot.clientWidth < 560 : false;
+
+  return {
+    animation: false,
+    backgroundColor: "transparent",
+    legend: {
+      show: true, top: 0, right: 0, itemWidth: 16, itemHeight: 8,
+      data: [{ name: "Male" }, { name: "Female" }].concat(
+        overlay ? [{ name: "Japan" }] : []),
+      textStyle: { color: pal.muted, fontSize: 12 },
+    },
+    // The outermost x label is a six-digit count; 12px of gutter clipped it.
+    grid: { left: 8, right: 28, top: 30, bottom: 34, containLabel: true },
+    tooltip: {
+      trigger: "axis", axisPointer: { type: "shadow" }, confine: true,
+      backgroundColor: pal.surface, borderColor: pal.border,
+      textStyle: { color: pal.ink, fontSize: 12 },
+      formatter: function (items) {
+        if (!items.length) return "";
+        var i = items[0].dataIndex;
+        var r = rows[i];
+        var head = '<div style="font-weight:600;margin-bottom:2px">' +
+          escapeHtml(r.label) + "</div>";
+        var line = function (label, v) {
+          return escapeHtml(label) + ": " + (v === null ? MISSING :
+            (share ? fmtRate(v / (base || 1) * 100, 2) + " · " + fmtNum(v, 0)
+                   : fmtNum(v, 0))) + "<br>";
+        };
+        var nat = "";
+        if (overlay && natRows[i]) {
+          var nr = natRows[i];
+          var natShare = nr.total === null ? null : nr.total / natBase * 100;
+          nat = '<div style="margin-top:4px;font-size:11px;color:' + pal.muted +
+            '">Japan: ' + (natShare === null ? MISSING : fmtRate(natShare, 2)) +
+            " of all residents</div>";
+        }
+        return head + line("Male", r.male) + line("Female", r.female) +
+          line("Total", r.total) + nat;
+      },
+    },
+    xAxis: {
+      type: "value",
+      min: -axisExtent, max: axisExtent,
+      // Six-digit counts on a phone-width plot run into each other, so the
+      // tick count is cut rather than the labels shortened: "600,000" is a
+      // number a reader can use and "600k" is not.
+      splitNumber: narrowPlot ? 2 : 6,
+      name: share ? "% of residents" : "residents",
+      nameLocation: "middle", nameGap: 26,
+      nameTextStyle: { color: pal.muted, fontSize: 11 },
+      axisLine: { show: false }, axisTick: { show: false },
+      axisLabel: { color: pal.muted, fontSize: 11,
+                   formatter: function (v) { return fmtAxis(v); } },
+      splitLine: { lineStyle: { color: pal.grid } },
+    },
+    yAxis: {
+      type: "category",
+      data: rows.map(function (r) { return r.label.replace("Age ", ""); }),
+      axisLine: { lineStyle: { color: pal.border } },
+      axisTick: { show: false },
+      axisLabel: { color: pal.muted, fontSize: 11, interval: 0 },
+    },
+    series: series,
+  };
+}
+
+function pyramidPalette() {
+  var pal = readMapPalette();
+  pal.grid = cssVar("--obs-grid");
+  pal.series = [1, 2, 3, 4, 5, 6].map(function (i) {
+    return cssVar("--obs-series-" + i);
+  });
+  return pal;
+}
+
+function pyramidStats() {
+  var st = urlState();
+  var rows = pyramidRows(st.pref, st.segment);
+  var base = pyramidBase(rows);
+  var groups = REG.age_groups || {};
+  var byCode = {};
+  rows.forEach(function (r) { byCode[r.code] = r; });
+  // A partial sum would understate the group, so one missing band makes the
+  // whole group missing.
+  var sumOf = function (codes, sex) {
+    var sum = 0;
+    if (!codes || !codes.length) return null;
+    for (var i = 0; i < codes.length; i++) {
+      var r = byCode[codes[i]];
+      var v = r ? r[sex] : null;
+      if (v === null || v === undefined) return null;
+      sum += v;
+    }
+    return sum;
+  };
+  var young = sumOf(groups.under_15, "total");
+  var working = sumOf(groups.working_15_64, "total");
+  var old = sumOf(groups.aged_65_plus, "total");
+  var males = sumOf(rows.map(function (r) { return r.code; }), "male");
+  var females = sumOf(rows.map(function (r) { return r.code; }), "female");
+  var largest = null;
+  rows.forEach(function (r) {
+    if (r.total === null) return;
+    if (largest === null || r.total > largest.total) largest = r;
+  });
+  return {
+    rows: rows, base: base, young: young, working: working, aged: old,
+    males: males, females: females, largest: largest,
+    headcount: reg(st.pref, st.segment, "population"),
+  };
+}
+
+function renderPyramid() {
+  if (!REG) return;
+  var st = urlState();
+  var el = document.getElementById("pop-pyramid");
+  if (!el) return;
+  var name = (GEO_BY_CODE[st.pref] || {}).name_en || st.pref;
+  var stats = pyramidStats();
+  if (stats.base === null) {
+    el.innerHTML = '<p class="state-empty">No age bands are published for ' +
+      escapeHtml(name) + " on this segment.</p>";
+    if (pyramidChart) pyramidChart.dispose();
+    pyramidChart = null;
+  } else {
+    if (!pyramidChart) {
+      el.innerHTML = "";
+      pyramidChart = echarts.init(el, null, { renderer: "canvas" });
+    }
+    pyramidChart.setOption(pyramidOption(pyramidPalette()), true);
+  }
+
+  document.getElementById("pyr-note").textContent =
+    name + " · " + SEGMENT_LABEL[st.segment] + " · " +
+    fmtPeriodLong(stockPeriod());
+
+  var pct = function (v) { return ratio(v, stats.base); };
+  var rows = [
+    ["Under 15", stats.young, pct(stats.young)],
+    ["15 to 64", stats.working, pct(stats.working)],
+    ["65 and over", stats.aged, pct(stats.aged)],
+  ];
+  var dependency = (stats.aged !== null && stats.working)
+    ? stats.aged / stats.working * 100 : null;
+  var sexRatio = (stats.males !== null && stats.females)
+    ? stats.males / stats.females * 100 : null;
+  document.getElementById("pyr-stats").innerHTML =
+    "<h3>Age Structure</h3>" +
+    rows.map(function (r) {
+      return '<div class="pop-ex-row" style="cursor:default">' +
+        "<span>" + escapeHtml(r[0]) + "</span>" +
+        '<span class="v">' + (r[1] === null ? MISSING : fmtNum(r[1], 0)) +
+        '<span class="muted"> · ' + fmtRate(r[2], 1) + "</span></span></div>";
+    }).join("") +
+    "<h3>Ratios</h3>" +
+    '<div class="pop-ex-row" style="cursor:default"><span>Aged 65+ per 100 aged 15–64</span>' +
+      '<span class="v">' + (dependency === null ? MISSING : fmtNum(dependency, 1)) +
+      "</span></div>" +
+    '<div class="pop-ex-row" style="cursor:default"><span>Males per 100 females</span>' +
+      '<span class="v">' + (sexRatio === null ? MISSING : fmtNum(sexRatio, 1)) +
+      "</span></div>" +
+    '<div class="pop-ex-row" style="cursor:default"><span>Largest band</span>' +
+      '<span class="v">' + (stats.largest ? escapeHtml(stats.largest.label.replace("Age ", "")) +
+        '<span class="muted"> · ' + fmtNum(stats.largest.total, 0) + "</span>" : MISSING) +
+      "</span></div>" +
+    '<p class="pop-ex-note">Every share here is taken over the ' +
+      fmtNum(stats.base, 0) + " residents who have a recorded age and sex" +
+      (stats.headcount !== null && stats.base !== null && stats.headcount !== stats.base
+        ? ", " + fmtNum(stats.headcount - stats.base, 0) + " fewer than the " +
+          "published headcount of " + fmtNum(stats.headcount, 0) +
+          ". Those residents stay in the total rather than being spread across the bands."
+        : ".") +
+      "</p>";
+
+  document.getElementById("pyr-source").innerHTML =
+    trustBadge("official") + " " + escapeHtml(REG.credit_line || "") +
+    " Bars are published counts. Release “" + escapeHtml(REG.release.label) +
+    "”, ingested " + fmtStamp(REG.release.ingested_at) + ".";
+
+  document.getElementById("pyr-calc").innerHTML =
+    "<summary>Show calculation</summary><div class=\"calc-body\">" +
+    (st.pyr === "share"
+      ? "<code>share % = residents in the band and sex ÷ residents with a " +
+        "recorded age and sex × 100</code><br>"
+      : "The bars are published counts; nothing is computed.<br>") +
+    "<code>aged 65+ per 100 aged 15–64 = residents 65 and over ÷ residents " +
+    "15 to 64 × 100</code><br>" +
+    "<code>males per 100 females = male residents ÷ female residents × 100</code><br>" +
+    (st.pyr === "share"
+      ? "Japan's profile is drawn as a dashed outline for comparison. Two areas " +
+        "cannot share a count axis, so the outline appears only on shares.<br>"
+      : "Switch to Share of Residents to compare this profile with Japan's.<br>") +
+    "The register publishes five-year bands, so the chart has the shape the " +
+    "source has and no finer. Only one January is published on this basis so " +
+    "far, so there is no earlier profile to draw behind it yet." +
+    "</div>";
+}
+
+function pyramidCsvRows() {
+  var st = urlState();
+  var rows = pyramidRows(st.pref, st.segment);
+  var base = pyramidBase(rows);
+  var name = (GEO_BY_CODE[st.pref] || {}).name_en || st.pref;
+  return [["prefecture_code", "prefecture", "segment", "age_band", "age_band_ja",
+           "male", "female", "total", "share_pct"]].concat(
+    rows.map(function (r) {
+      return [st.pref, name, st.segment, r.label, r.label_ja,
+              r.male === null ? "" : r.male,
+              r.female === null ? "" : r.female,
+              r.total === null ? "" : r.total,
+              r.total === null || !base ? "" : r.total / base * 100];
+    }));
+}
+
+/* Like the map, the pyramid is not an obsChart, so it exports itself —
+   light theme, title and source burnt in. */
+function exportPyramidPng() {
+  if (!pyramidChart) return;
+  var root = document.documentElement;
+  var prev = root.getAttribute("data-theme");
+  root.setAttribute("data-theme", "light");
+  var st = urlState();
+  var name = (GEO_BY_CODE[st.pref] || {}).name_en || st.pref;
+  var off = document.createElement("div");
+  off.style.cssText = "position:absolute;left:-10000px;width:900px;height:720px";
+  document.body.appendChild(off);
+  var shot = echarts.init(off, null, { renderer: "canvas" });
+  var option = pyramidOption(pyramidPalette());
+  option.title = {
+    text: name + " — residents by age and sex",
+    subtext: SEGMENT_LABEL[st.segment] + " · " + fmtPeriodLong(stockPeriod()) +
+      " · " + (REG.credit_line || "") +
+      (st.pyr === "share"
+        ? "\nShare of residents with a recorded age and sex"
+        : ""),
+    left: 12, top: 10,
+    textStyle: { color: cssVar("--obs-ink"), fontSize: 15, fontWeight: 600 },
+    subtextStyle: { color: cssVar("--obs-text-muted"), fontSize: 11, lineHeight: 15 },
+  };
+  option.grid.top = 76;
+  option.legend.top = 58;
+  option.backgroundColor = cssVar("--obs-surface");
+  shot.setOption(option);
+  var url = shot.getDataURL({ pixelRatio: 2, backgroundColor: cssVar("--obs-surface") });
+  shot.dispose();
+  document.body.removeChild(off);
+  if (prev === null) root.removeAttribute("data-theme"); else root.setAttribute("data-theme", prev);
+  var a = document.createElement("a");
+  a.href = url;
+  a.download = "japan-" + name.toLowerCase() + "-population-pyramid.png";
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+
 /* ---------- history chart ---------- */
 
 var HIST_SERIES = [
@@ -718,6 +1147,32 @@ var AGE_SERIES = [
   { ind: "A1303", name: "65 and over", slot: 2 },
 ];
 
+/* Crude rates from the long-run table. Births and deaths are calendar-year
+   flows dated 1 January of the year they cover; the population they are
+   divided by is the 1 October estimate for that same year, which is the
+   mid-year figure the vital statistics themselves use. The two series are
+   therefore joined on the YEAR, never on the period — pairing them by date
+   would divide a flow by a population measured nine months later. The
+   denominator is the Japanese population, because these births and deaths
+   are the vital statistics' count of Japanese nationals. */
+var CRUDE_SERIES = [
+  { flow: "A4101", name: "Births per 1,000", slot: 1 },
+  { flow: "A4200", name: "Deaths per 1,000", slot: 2 },
+];
+var CRUDE_DENOMINATOR = "A1102";
+
+function crudeRate(geo, flowIndicator) {
+  var pop = {};
+  hist(geo, CRUDE_DENOMINATOR).forEach(function (p) { pop[p[0].slice(0, 4)] = p[1]; });
+  var out = [];
+  hist(geo, flowIndicator).forEach(function (p) {
+    var denominator = pop[p[0].slice(0, 4)];
+    // No population for that year is a gap, never a zero and never a guess.
+    if (denominator) out.push([p[0], p[1] / denominator * 1000]);
+  });
+  return out;
+}
+
 function histConfig() {
   var st = urlState();
   var w = histWindow();
@@ -728,6 +1183,12 @@ function histConfig() {
     var y = p[0].slice(0, 4);
     return (!w.from || y >= w.from) && (!w.to || y <= w.to);
   };
+
+  // The two rate views are built from different inputs and are not counts,
+  // so they are assembled here rather than run through the count pipeline.
+  if (st.hist === "vital" || st.hist === "fertility") {
+    return rateConfig(st, w, geo, name, inWindow);
+  }
 
   var series = defs.map(function (d) {
     var pts = hist(geo, d.ind).filter(inWindow);
@@ -760,6 +1221,81 @@ function histConfig() {
     title: name,
     window: w,
     logAvailable: positive,
+  };
+}
+
+/* The two views that show a rate rather than a count.
+
+   `vital` is ours: births and deaths per thousand people, computed here from
+   published counts, so it carries its formula and no badge. `fertility` is
+   the Bureau's own total fertility rate, stored exactly as published because
+   its denominator — women by single year of age — is in no table we hold, so
+   it carries the official badge instead. Never mixed on one axis: one is per
+   thousand people, the other is children per woman. */
+/* Annual points with every year between the first and the last present,
+   missing ones as null. A rate series can skip years — prefecture fertility
+   is published for 1980, 1985 and then annually — and on a time axis a
+   straight line across the gap would invent four readings. Nothing is added
+   before the first or after the last point: an absent tail is not a gap. */
+function padYears(points) {
+  if (points.length < 2) return points;
+  var byYear = {};
+  points.forEach(function (p) { byYear[Number(p[0].slice(0, 4))] = p; });
+  var years = Object.keys(byYear).map(Number).sort(function (a, b) { return a - b; });
+  var out = [];
+  for (var y = years[0]; y <= years[years.length - 1]; y++) {
+    out.push(byYear[y] || [y + "-01-01", null]);
+  }
+  return out;
+}
+
+function rateConfig(st, w, geo, name, inWindow) {
+  var series, unit, dp, yAxisName, trust, refLine, yMax;
+  if (st.hist === "vital") {
+    series = CRUDE_SERIES.map(function (d) {
+      return { name: d.name, slot: d.slot,
+               points: padYears(crudeRate(geo, d.flow).filter(inWindow)) };
+    });
+    unit = "per 1,000";
+    dp = 1;
+    yAxisName = "per 1,000 people";
+    trust = "derived";
+  } else {
+    series = [{ name: name, slot: 1,
+                points: padYears(hist(geo, "A4103").filter(inWindow)) }];
+    // A prefecture is read against the country, which is the comparison a
+    // reader makes anyway. The national line is dropped when the national
+    // row is what is already being shown.
+    if (geo !== NATIONAL) {
+      series.push({ name: "Japan", slot: 5,
+                    points: padYears(hist(NATIONAL, "A4103").filter(inWindow)) });
+    }
+    unit = "births per woman";
+    dp = 2;
+    yAxisName = "births per woman";
+    trust = "official";
+    refLine = { y: 2.07, label: "2.07 — replacement" };
+    // Without this the reference line sits above the top of the scale and
+    // is simply not drawn: no Japanese series has reached it since 1974.
+    yMax = 2.2;
+  }
+  series = series.filter(function (x) { return x.points.length; });
+  return {
+    series: series,
+    unit: unit,
+    dp: dp,
+    unitSuffix: st.hist === "vital" ? "per 1,000" : "per woman",
+    yAxisDp: dp,
+    refLine: refLine,
+    yMax: yMax,
+    showPoints: true,
+    logScale: false,
+    logAvailable: false,      // a rate on a log axis answers no question here
+    yAxisName: yAxisName,
+    trust: trust,
+    sourceLine: (HIST ? HIST.credit_line : "") + " " + name + ".",
+    title: name,
+    window: w,
   };
 }
 
@@ -836,6 +1372,29 @@ function renderRange() {
   });
 }
 
+var HIST_SUB = {
+  level: "The long run behind the latest year, from the Statistics Bureau's regional " +
+    "series. Registered residents are counted at 1 January and are split into " +
+    "Japanese and foreign residents only from 2013, when foreign residents joined " +
+    "the register; the total population line is the census and population estimate, " +
+    "measured at 1 October on a different basis, so the two are close but not the " +
+    "same number and neither is read off the other.",
+  age: "Under 15, working age and 65 and over, from the census and the population " +
+    "estimates, measured at 1 October. These three add to the total population, " +
+    "not to the register count, and the year the 65-and-over line crosses the " +
+    "under-15 line is the year the prefecture's age structure inverted.",
+  vital: "Births and deaths over each calendar year, per thousand people. Both are " +
+    "calculated here from published counts and the 1 October population of the same " +
+    "year. The year the death line crosses above the birth line is the year the " +
+    "prefecture began shrinking on its own, before anyone moved in or out.",
+  fertility: "The total fertility rate: the number of children a woman would have " +
+    "if she lived through the birth rates recorded in that single year. It is the " +
+    "Bureau's own figure, not calculated here. It reads a year rather than a " +
+    "generation, so it moves when births are postponed as well as when families get " +
+    "smaller, and the vital statistics behind it run about two years behind the " +
+    "register counts above.",
+};
+
 function renderHistory() {
   var st = urlState();
   var el = document.getElementById("hist-chart");
@@ -852,28 +1411,66 @@ function renderHistory() {
   renderRange();
   var name = (GEO_BY_CODE[st.pref] || {}).name_en || st.pref;
   var sub = document.getElementById("hist-sub");
-  if (sub) sub.textContent = st.hist === "age"
-    ? "Under 15, working age and 65 and over, from the census and the population " +
-      "estimates, measured at 1 October. These three add to the total population, " +
-      "not to the register count, and the year the 65-and-over line crosses the " +
-      "under-15 line is the year the prefecture's age structure inverted."
-    : "The long run behind the latest year, from the Statistics Bureau's regional " +
-      "series. Registered residents are counted at 1 January and are split into " +
-      "Japanese and foreign residents only from 2013, when foreign residents joined " +
-      "the register; the total population line is the census and population estimate, " +
-      "measured at 1 October on a different basis, so the two are close but not the " +
-      "same number and neither is read off the other.";
+  if (sub) sub.textContent = HIST_SUB[st.hist] || HIST_SUB.level;
   var w = cfg.window;
+  var viewNote = { age: "age structure", index: "indexed",
+                   vital: "births and deaths per 1,000",
+                   fertility: "births per woman", level: "residents" };
+  // A rate view can end years before the register does, so the note says the
+  // window actually drawn, not the window the reader asked for.
+  var drawn = { from: null, to: null };
+  cfg.series.forEach(function (x) {
+    x.points.forEach(function (pt) {
+      if (pt[1] === null) return;
+      var y = pt[0].slice(0, 4);
+      if (drawn.from === null || y < drawn.from) drawn.from = y;
+      if (drawn.to === null || y > drawn.to) drawn.to = y;
+    });
+  });
   document.getElementById("hist-note").textContent =
-    name + " · " + (st.hist === "age" ? "age structure" :
-      st.hist === "index" ? "indexed" : "residents") +
-    " · " + w.from + "–" + w.to + (cfg.logScale ? " · log scale" : "");
+    name + " · " + (viewNote[st.hist] || viewNote.level) +
+    " · " + (drawn.from || w.from) + "–" + (drawn.to || w.to) +
+    (cfg.logScale ? " · log scale" : "");
   document.getElementById("hist-source").innerHTML =
-    trustBadge("official") + " " + escapeHtml(HIST.credit_line || "") +
+    trustBadge(cfg.trust) + (cfg.trust === "official" ? " " : "") +
+    escapeHtml(HIST.credit_line || "") +
     " Release “" + escapeHtml(HIST.release.label) + "”, ingested " +
-    fmtStamp(HIST.release.ingested_at) + ".";
+    fmtStamp(HIST.release.ingested_at) + "." +
+    (st.hist === "vital"
+      ? " Rates are calculated on this page from the published counts; the " +
+        "formula is under Show calculation."
+      : "");
 
   var bases = (HIST.bases || {});
+  if (st.hist === "vital" || st.hist === "fertility") {
+    document.getElementById("hist-calc").innerHTML =
+      "<summary>Show calculation</summary><div class=\"calc-body\">" +
+      (st.hist === "vital"
+        ? "<code>births per 1,000 = births in year Y ÷ Japanese population at " +
+          "1 October Y × 1,000</code><br>" +
+          "<code>deaths per 1,000 = deaths in year Y ÷ Japanese population at " +
+          "1 October Y × 1,000</code><br>" +
+          "Births and deaths are the vital statistics' count for Japanese " +
+          "nationals, so the denominator is the Japanese population rather than " +
+          "the total. The 1 October estimate is the mid-year population the " +
+          "vital statistics themselves use. The two are joined on the year, not " +
+          "on the reference date, and a year missing either side is a gap."
+        : "The rate is the Statistics Bureau's own, stored exactly as published " +
+          "and not recomputed here. It is the sum of birth rates at each single " +
+          "year of a mother's age from 15 to 49; the female population by single " +
+          "year of age is in no table on this platform, so the rate cannot be " +
+          "rebuilt from the counts shown elsewhere on this page — which is why " +
+          "this one number is carried as published." +
+          (st.pref !== NATIONAL
+            ? " Japan is drawn alongside for comparison, on the same basis."
+            : "") +
+          " The dashed line at 2.07 is roughly the rate at which one generation " +
+          "replaces itself; it is a reference level, not a published series. " +
+          "Prefecture figures are published for 1980, 1985 and then every year " +
+          "from 1986, so the gap between 1980 and 1985 is a gap.") +
+      "</div>";
+    return;
+  }
   document.getElementById("hist-calc").innerHTML =
     "<summary>Show calculation</summary><div class=\"calc-body\">" +
     (st.hist === "index"
@@ -929,6 +1526,10 @@ var TABLE_COLS = [
   { key: "social_change", label: "Social", num: true, title: "Net change less natural change" },
   { key: "births", label: "Births", num: true },
   { key: "deaths", label: "Deaths", num: true },
+  { key: "birth_rate", label: "Births / 1,000", num: true,
+    title: "Births per thousand of the mid-year population" },
+  { key: "death_rate", label: "Deaths / 1,000", num: true,
+    title: "Deaths per thousand of the mid-year population" },
   { key: "foreign_pct", label: "Foreign (%)", num: true, title: "Foreign residents as a share of all residents" },
   { key: "aged_pct", label: "Aged 65+ (%)", num: true },
 ];
@@ -948,6 +1549,8 @@ function tableRows() {
       social_change: reg(g.code, seg, "social_change"),
       births: reg(g.code, seg, "births"),
       deaths: reg(g.code, seg, "deaths"),
+      birth_rate: measureValue(g.code, "birth_rate", seg),
+      death_rate: measureValue(g.code, "death_rate", seg),
       foreign_pct: measureValue(g.code, "foreign_pct", seg),
       aged_pct: measureValue(g.code, "aged_pct", seg),
     };
@@ -962,6 +1565,7 @@ function cellFor(row, key) {
   var v = row[key];
   if (key === "change_pct") return '<td class="num">' + (v === null ? MISSING : fmtSigned(v, 2, "%")) + "</td>";
   if (key === "foreign_pct" || key === "aged_pct") return '<td class="num">' + fmtRate(v, key === "aged_pct" ? 1 : 2) + "</td>";
+  if (key === "birth_rate" || key === "death_rate") return '<td class="num">' + fmtNum(v, 1) + "</td>";
   if (key === "net_change" || key === "natural_change" || key === "social_change") {
     return '<td class="num">' + (v === null ? MISSING : fmtSigned(v, 0, "")) + "</td>";
   }
@@ -1013,6 +1617,8 @@ function renderTable() {
     "<code>" + escapeHtml(MEASURES.change_pct.calc) + "</code><br>" +
     "<code>" + escapeHtml(MEASURES.foreign_pct.calc) + "</code><br>" +
     "<code>" + escapeHtml(MEASURES.aged_pct.calc) + "</code><br>" +
+    "<code>" + escapeHtml(MEASURES.birth_rate.calc) + "</code><br>" +
+    "<code>" + escapeHtml(MEASURES.death_rate.calc) + "</code><br>" +
     "The foreign share is always foreign residents over all residents, whichever " +
     "segment is shown, because a share of one nationality within itself has no " +
     "meaning. A small number of residents have no recorded age, so the age bands " +
@@ -1043,8 +1649,8 @@ function csvHeader(extra) {
     "# Release: " + REG.release.label + " (sha256 " + REG.release.sha256 + ")",
     "# Reference: stocks at " + REG.release.latest_period +
       "; flows cover calendar " + flowYear(),
-    "# Trust: counts are official statistics as published; any column ending _pct " +
-      "is calculated on the platform",
+    "# Trust: counts are official statistics as published; any column ending " +
+      "_pct or _rate is calculated on the platform, from the formulas below",
   ];
   return lines.concat(extra || []).map(function (l) { return l; });
 }
@@ -1069,7 +1675,7 @@ function downloadCsv(filename, rows, headerLines) {
 
 /* ---------- interaction ---------- */
 
-var PREF_SELECTS = ["pref-select", "muni-pref-select"];
+var PREF_SELECTS = ["pref-select", "muni-pref-select", "pyr-pref-select"];
 
 /* One prefecture drives the chart and the municipality table, and every
    picker on the page shows it. `scrollTo` is the element to bring into view
@@ -1084,6 +1690,7 @@ function selectPrefecture(code, scrollTo) {
   });
   renderHistory();
   renderExtremes();
+  renderPyramid();
   renderMunicipalities();
   if (scrollTo) {
     var el = document.getElementById(scrollTo);
@@ -1127,11 +1734,26 @@ function wire() {
     renderHistory();
   });
 
-  syncSeg("segment-seg", "data-segment", st.segment);
-  wireSeg("segment-seg", "data-segment", function (v) {
+  // The segment, like the prefecture, is one choice the whole page follows:
+  // the pyramid and the table each carry a control for it and both stay in
+  // step, so a reader never sees two different answers to "which residents".
+  var pickSegment = function (v) {
     setUrlState({ segment: v });
+    syncSeg("segment-seg", "data-segment", v);
+    syncSeg("pyr-segment-seg", "data-segment", v);
+    renderPyramid();
     renderTable();
     renderMunicipalities();
+  };
+  syncSeg("segment-seg", "data-segment", st.segment);
+  wireSeg("segment-seg", "data-segment", pickSegment);
+  syncSeg("pyr-segment-seg", "data-segment", st.segment);
+  wireSeg("pyr-segment-seg", "data-segment", pickSegment);
+
+  syncSeg("pyr-seg", "data-pyr", st.pyr);
+  wireSeg("pyr-seg", "data-pyr", function (v) {
+    setUrlState({ pyr: v });
+    renderPyramid();
   });
 
   syncSeg("muni-seg", "data-muni", st.muni);
@@ -1163,7 +1785,9 @@ function wire() {
       csvHeader(["# Segment: " + SEGMENT_LABEL[urlState().segment],
         "# " + MEASURES.change_pct.calc,
         "# " + MEASURES.foreign_pct.calc,
-        "# " + MEASURES.aged_pct.calc]));
+        "# " + MEASURES.aged_pct.calc,
+        "# " + MEASURES.birth_rate.calc,
+        "# " + MEASURES.death_rate.calc]));
   });
   document.getElementById("hist-csv").addEventListener("click", function () {
     var name = (GEO_BY_CODE[urlState().pref] || {}).name_en || "prefecture";
@@ -1179,8 +1803,15 @@ function wire() {
         (urlState().hist === "index"
           ? "# Values are indexed: value ÷ that series' " + cfg.window.from +
             " value × 100"
+          : urlState().hist === "vital"
+          ? "# Values are rates per 1,000 people, calculated on the platform: " +
+            "births (or deaths) in year Y ÷ Japanese population at 1 October Y × 1,000"
+          : urlState().hist === "fertility"
+          ? "# Values are the published total fertility rate, in births per woman"
           : "# Values are published counts, in persons"),
-        "# Trust: official statistics as published" ]);
+        (urlState().hist === "vital"
+          ? "# Trust: derived — calculated from official counts, formula above"
+          : "# Trust: official statistics as published") ]);
   });
   document.getElementById("muni-csv").addEventListener("click", function () {
     var name = (GEO_BY_CODE[urlState().pref] || {}).name_en || "prefecture";
@@ -1194,6 +1825,21 @@ function wire() {
                  "# " + MEASURES.foreign_pct.calc,
                  "# " + MEASURES.aged_pct.calc]));
   });
+  document.getElementById("pyr-csv").addEventListener("click", function () {
+    var st2 = urlState();
+    var name = (GEO_BY_CODE[st2.pref] || {}).name_en || "prefecture";
+    downloadCsv("japan-" + name.toLowerCase() + "-population-pyramid.csv",
+      pyramidCsvRows(),
+      csvHeader(["# Area: " + name,
+                 "# Segment: " + SEGMENT_LABEL[st2.segment],
+                 "# Bands are published counts of residents by five-year age " +
+                   "band and sex, at " + REG.release.latest_period,
+                 "# share_pct = band total ÷ residents with a recorded age and " +
+                   "sex × 100, calculated on the platform",
+                 "# Residents with no recorded age or sex are in the published " +
+                   "headcount but in no band"]));
+  });
+  document.getElementById("pyr-png").addEventListener("click", exportPyramidPng);
   document.getElementById("hist-png").addEventListener("click", function () {
     var name = (GEO_BY_CODE[urlState().pref] || {}).name_en || "prefecture";
     if (histChart) histChart.exportPNG("japan-" + name.toLowerCase() + "-population.png");
@@ -1218,8 +1864,7 @@ function exportMapPng() {
   var option = mapOption(pal);
   option.title = {
     text: "Japan — " + m.label + " by prefecture",
-    subtext: (m.unit === "persons" ? fmtPeriodLong(stockPeriod())
-              : (m.diverging ? "calendar " + flowYear() : fmtPeriodLong(stockPeriod()))) +
+    subtext: measurePeriodLabel(st.measure) +
              " · " + (REG.credit_line || "") +
              (m.calc ? "\n" + m.calc : ""),
     left: 12, top: 10,
@@ -1265,6 +1910,7 @@ function boot() {
     renderProvenance();
     wire();
     drawMap();
+    renderPyramid();
     renderTable();
     renderMunicipalities();
     if (HIST) {
@@ -1285,9 +1931,13 @@ function boot() {
 
   initThemeToggle(function () {
     drawMap();
+    renderPyramid();
     if (histChart) histChart.render();
   });
-  window.addEventListener("resize", function () { if (mapChart) mapChart.resize(); });
+  window.addEventListener("resize", function () {
+    if (mapChart) mapChart.resize();
+    if (pyramidChart) pyramidChart.resize();
+  });
 }
 
 boot();

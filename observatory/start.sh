@@ -80,7 +80,8 @@ while true; do
                        accommodation-jp population-jp population-jp-history population-jp-municipal \
                        trade-semis trade-inputs \
                        rice-prices-jp rice-inventory-jp agri-prices rice-production-cost \
-                       ja-statistics}; do
+                       ja-statistics \
+                       fsa-npl fsa-bank-results jba-banks}; do
             python -m app.ingest "$dataset" \
                 || echo "ingest $dataset did not publish; serving last published release"
         done

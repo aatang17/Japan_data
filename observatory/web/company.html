@@ -6,6 +6,13 @@
 <title>Company Profile · Japan Data Observatory</title>
 <link rel="stylesheet" href="assets/tokens.css">
 <link rel="stylesheet" href="assets/app.css">
+<style>
+/* Search results: the Japanese name sits under the English one, never beside it. */
+#search-results .cell-name { max-width: 420px; text-wrap: pretty; }
+#search-results .cell-name .sub {
+  display: block; font-size: 11px; color: var(--obs-text-muted); margin-top: 1px;
+}
+</style>
 </head>
 <body>
 
@@ -22,12 +29,18 @@
       <p class="metric-sub" id="page-sub">What a company reports by region and customer, beside
       the customs flows its business sits in — both in the company's own fiscal year.</p>
     </div>
-    <div class="controls">
-      <label for="company-select">Company</label>
-      <select id="company-select" aria-label="Company"></select>
-      <span class="spacer"></span>
+    <div class="explorer-controls">
+      <div class="search-rail">
+        <div class="search-field">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"
+               class="search-icon"><circle cx="7" cy="7" r="4.6"></circle><path d="M10.4 10.4 14 14"></path></svg>
+          <input type="search" id="q" placeholder="Company name in English or Japanese, or securities code. E.g. Toyota, トヨタ, 7203"
+                 aria-label="Search companies" autocomplete="off">
+        </div>
+      </div>
       <a class="btn" id="lens-csv" href="#" download>Download CSV</a>
     </div>
+    <div id="search-results"></div>
     <div class="strip">
       <div class="strip-grid cols-4" id="tiles">
         <div class="strip-cell skeleton" style="min-height:104px"></div>
@@ -51,7 +64,7 @@
     <details class="calc" id="regions-calc"></details>
   </section>
 
-  <section aria-labelledby="h-customs">
+  <section aria-labelledby="h-customs" id="sec-customs">
     <h2 id="h-customs">Filed Revenue Against Customs Exports <span class="h2-note" id="customs-note"></span></h2>
     <p class="section-sub">For each customs commodity this company is mapped to, Japan's
     exports to the partners each filed region names — summed into the company's fiscal
@@ -59,6 +72,8 @@
     size and direction, never an accounting identity: the company ships from overseas plants
     too, books revenue on acceptance rather than shipment, and shares the customs line with
     its competitors.</p>
+    <p class="table-foot" id="customs-empty" hidden></p>
+    <div id="customs-body">
     <div class="chart-panel">
     <div class="controls">
       <label for="commodity-select">Commodity</label>
@@ -77,9 +92,10 @@
     </div>
     <div class="table-wrap" id="relationship-table"></div>
     <p class="table-foot" id="relationship-foot"></p>
+    </div>
   </section>
 
-  <section aria-labelledby="h-quarters">
+  <section aria-labelledby="h-quarters" id="sec-quarters">
     <h2 id="h-quarters">Customs Exports, Quarterly <span class="h2-note" id="quarters-note"></span></h2>
     <p class="section-sub">The same customs series in the company's fiscal quarters — the
     frequency at which the company reports and a model is built. Customs data for a quarter is

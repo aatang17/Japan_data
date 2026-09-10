@@ -10,6 +10,7 @@ Trust labels: 'official' = value as published by the agency;
 the 'calc' field of the response).
 """
 import datetime
+import io
 import json
 import math
 import os
@@ -17,7 +18,7 @@ import time
 from typing import List
 
 from fastapi import APIRouter, HTTPException, Query, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 
 from . import db, fiscal, heartbeat, vintages
@@ -29,7 +30,8 @@ from .adapters import (boj_assets, cpi_jp, cpi_jp_items, jnto_visitors,
                        maff_rice_price,
                        maff_rice_stock,
                        mof_jgb, mof_trade,
-                       mof_trade_hs, ssds_population)
+                       mof_trade_hs, ssds_population,
+                       fsa_npl, fsa_bank_results, jba_banks)
 
 # The agent is optional: without the openai package installed the data API
 # and the site keep working, and /ask reports itself as unavailable.
@@ -58,7 +60,9 @@ ADAPTERS = {"cpi-jp": cpi_jp, "cpi-jp-items": cpi_jp_items, "boj-assets": boj_as
             "rice-inventory-jp": maff_rice_stock,
             "agri-prices": maff_agri_prices,
             "rice-production-cost": maff_rice_cost,
-            "ja-statistics": maff_ja_coops}
+            "ja-statistics": maff_ja_coops,
+            "fsa-npl": fsa_npl, "fsa-bank-results": fsa_bank_results,
+            "jba-banks": jba_banks}
 
 router = APIRouter(prefix="/api/v1")
 
@@ -88,6 +92,9 @@ UNIT = {"index": "index", "yoy": "%", "mom": "%", "ann3m": "%"}
 # would be a trust-contract breach, not a cosmetic slip.
 UNIT_LABEL = {"index": "index", "jpy_100mn": "¥100mn", "pct": "%",
               "persons": "persons", "jpy_1000": "¥1,000",
+              # Bank balance sheets are published in 百万円; the FSA's
+              # bad-loan flows in 兆円. Stored as released, never rescaled.
+              "jpy_million": "¥mn", "jpy_trillion": "¥tn",
               # A night slept, not a person: one visitor staying three nights
               # is three person-nights. Never interchangeable with "persons".
               "person_nights": "person-nights", "percent": "%",
@@ -750,6 +757,14 @@ def series_list(dataset, q: str = Query("", max_length=200)):
     adapter = _dataset_or_404(dataset)
     main = (adapter.PRESENTATION.get("main_series") or [{}])[0]
     if "name_ja" not in main and adapter.PRESENTATION.get("kinds"):
+        # A dataset of tens of thousands of series (every bank's every
+        # statement line) declares series_requires_query: the listing is a
+        # search, not a dump, and the unqualified form is refused rather
+        # than served as a multi-megabyte page nobody can read.
+        if adapter.PRESENTATION.get("series_requires_query") and not q.strip():
+            raise HTTPException(
+                422, "'%s' has too many series to list at once; pass ?q= to search "
+                     "by name or code." % dataset)
         return _level_series(adapter, dataset, q)
     _index_shaped_or_404(adapter, dataset)
     con = _con()
@@ -1223,9 +1238,12 @@ def accommodation(dataset, area: str = Query(None, max_length=4)):
 
 
 PREFECTURES_CALC = (
-    "Published counts of people, exactly as released. Shares, change rates "
-    "and age-group aggregates are calculated on the page from these counts "
-    "and carry their formula there."
+    "Published figures, exactly as released — counts of people, except where "
+    "a dataset's `indicators` mark a series `kind: \"rate\"`, which is a "
+    "published rate that could not be rebuilt from the counts and is stored "
+    "as issued. A rate is never summed or aggregated across areas. Shares, "
+    "change rates, crude birth and death rates and age-group aggregates are "
+    "calculated on the page from these figures and carry their formula there."
 )
 
 
@@ -1238,10 +1256,15 @@ def prefectures(dataset, prefecture: str = Query(None, max_length=2)):
     and a map needs all 47 areas at once, which /observations (capped at
     eight series) cannot give it.
 
-    Only published counts cross the wire. A prefecture's share of foreign
-    residents, its change rate and its 65-and-over share are arithmetic on
-    those counts, done on the page so the formula travels with the number,
-    exactly as the curve surface treats spreads.
+    Only published figures cross the wire. A prefecture's share of foreign
+    residents, its change rate, its crude birth and death rates and its
+    65-and-over share are arithmetic on those figures, done on the page so
+    the formula travels with the number, exactly as the curve surface treats
+    spreads. Almost everything served here is a count; the exception is a
+    series the dataset marks `kind: "rate"` in `indicators` — a published
+    rate that cannot be rebuilt from the counts (the total fertility rate is
+    the only one today). Such a series is stored as issued and must never be
+    summed across areas.
 
     `geographies`, `measures` and `bases` are served rather than assumed:
     the two population datasets carry different measures and, in the
@@ -1491,7 +1514,9 @@ def observations(dataset,
                                        "flows into the fiscal periods of a company whose "
                                        "year ends in month fy_end. Flows only."),
                  fy_end: int = Query(3, ge=1, le=12,
-                                     description="Month the fiscal year ends (3 = March)")):
+                                     description="Month the fiscal year ends (3 = March)"),
+                 format: str = Query("json", description="'json' or 'csv'"),
+                 request: Request = None):
     """Published values for up to eight series.
 
     With ``as_of=YYYY-MM-DD`` the response is the data *as it stood on that
@@ -1505,8 +1530,16 @@ def observations(dataset,
     monthly amounts qualify (customs values and quantities, visitor counts);
     an index, a stock or a rate is refused rather than summed into nonsense,
     and a period missing any month is left out rather than summed short.
+
+    With ``format=csv`` the same numbers come back as one wide table — one
+    row per period, one column per series — under a ``#`` metadata block
+    that states the source, the release, the formula and the vintage, so a
+    file saved from this URL is citable on its own. pandas reads it with
+    ``read_csv(url, comment="#")``, R with ``read.csv(url, comment.char="#")``.
     """
     adapter = _dataset_or_404(dataset)
+    if format not in ("json", "csv"):
+        raise HTTPException(400, "format must be 'json' or 'csv' (got '%s')" % format)
     if measure not in CALC:
         raise HTTPException(400, "Unknown measure '%s'; one of %s" % (measure, sorted(CALC)))
     if period is not None and period not in fiscal.GRANULARITIES:
@@ -1593,9 +1626,99 @@ def observations(dataset,
             # The vintage is part of the citation: the same URL must return the
             # same numbers next year, so the response says which one it read.
             body["as_of"] = p_as_of.isoformat()
+        if format == "csv":
+            return _observations_csv(body, adapter, request)
         return body
     finally:
         con.close()
+
+
+def _csv_cell(text):
+    text = "" if text is None else str(text)
+    return '"' + text.replace('"', '""') + '"' if any(c in text for c in ',"\n') else text
+
+
+def _observations_csv(body, adapter, request):
+    """The observations response as a wide CSV under a ``#`` metadata block.
+
+    The block is the trust contract in file form: a reader who saves this
+    file and nothing else can still see where every column came from, which
+    release it was read from, how a rate was calculated and which vintage
+    it reflects. Column headers are the series codes (stable, unambiguous);
+    the metadata names each one. Blank cells are missing values, never zero.
+    """
+    rel = body["release"]
+    manifest = getattr(adapter, "MANIFEST", None) or {}
+    title = (manifest.get("name") or {}).get("en") or adapter.DATASET.get("title") \
+        or body["dataset"]
+    credit = (manifest.get("source") or {}).get("credit") \
+        or adapter.PRESENTATION.get("credit_line") \
+        or "Source: %s." % adapter.DATASET.get("agency", "")
+    lines = []
+    w = lines.append
+    w("# Japan Data Observatory — %s (%s)" % (title, body["dataset"]))
+    w("# %s" % credit)
+    w("# Source document: %s — %s" % (rel["source_name"], rel["source_page"]))
+    w("# Source file: %s, retrieved %s, sha256 %s"
+      % (rel["download_url"], rel["retrieved_at"], rel["sha256"]))
+    w("# Release: %s; latest period %s; ingested %s"
+      % (rel["label"], rel["latest_period"], rel["ingested_at"]))
+    if body.get("as_of"):
+        w("# Point in time: the data as it stood on %s. This URL returns the same "
+          "numbers at any later date." % body["as_of"])
+    else:
+        w("# Vintage: live release. Add &as_of=YYYY-MM-DD to freeze this view for citation.")
+    trust = ("Official statistic — published values, exactly as released"
+             if body["trust"] == "official" else "Derived — calculated from published values")
+    w("# Measure: %s; unit: %s; trust: %s" % (body["measure"], body["unit"], trust))
+    w("# Calculation: %s" % body["calc"])
+    if body.get("period"):
+        w("# Period: %s, fiscal year ending in month %d; a period missing any month "
+          "is left out rather than summed short" % (body["period"], body["fy_end"]))
+    for s in body["series"]:
+        w("# Column %s: %s%s" % (s["code"], s["name_en"],
+                                 (" / " + s["name_ja"]) if s.get("name_ja") else ""))
+        if s.get("months_not_summed"):
+            w("# Column %s: months not summed (incomplete period): %s"
+              % (s["code"], ", ".join(s["months_not_summed"])))
+    w("# Blank = not published or not available; never zero.")
+    if request is not None:
+        w("# Retrieved from %s on %s" % (str(request.url),
+                                        datetime.date.today().isoformat()))
+    fiscal_labels = body.get("period") is not None
+    daily = rel.get("frequency") == "daily"
+    periods = set()
+    labels = {}
+    cols = {}
+    for s in body["series"]:
+        cols[s["code"]] = {p: v for p, v in s["points"]}
+        periods.update(cols[s["code"]])
+        if fiscal_labels:
+            for (p, _v), label in zip(s["points"], s.get("labels") or []):
+                labels[p] = label
+    header = ["period"] + (["label"] if fiscal_labels else []) + \
+             [s["code"] for s in body["series"]]
+    out = io.StringIO()
+    out.write("\n".join(lines) + "\n")
+    out.write(",".join(_csv_cell(h) for h in header) + "\n")
+    for p in sorted(periods):
+        # daily series keep the full date; monthly keep YYYY-MM, as the
+        # chart download does
+        row = [p if daily or fiscal_labels else p[:7]]
+        if fiscal_labels:
+            row.append(_csv_cell(labels.get(p, "")))
+        for s in body["series"]:
+            v = cols[s["code"]].get(p)
+            row.append("" if v is None else repr(v))
+        out.write(",".join(row) + "\n")
+    name = "%s-%s" % (body["dataset"], body["measure"])
+    if body.get("period"):
+        name += "-" + body["period"]
+    if body.get("as_of"):
+        name += "-asof-" + body["as_of"]
+    return PlainTextResponse(out.getvalue(), media_type="text/csv; charset=utf-8",
+                             headers={"Content-Disposition":
+                                      'attachment; filename="%s.csv"' % name})
 
 
 @router.get("/{dataset}/revisions")

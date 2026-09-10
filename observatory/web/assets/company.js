@@ -57,7 +57,10 @@ function calcBlock(el, lines) {
 function urlState() {
   const p = new URLSearchParams(location.search);
   return {
-    code: p.get("code") || "8035",
+    // Every other company page on the platform links with ?c=. This page used
+    // to read only ?code=, so every one of those links silently fell through
+    // to the default company. Both are read; ?c= is what we write.
+    code: p.get("c") || p.get("code") || "8035",
     commodity: p.get("commodity") || "",
     view: p.get("view") === "share" ? "share" : "level",
     qrange: p.get("qrange") || "10",
@@ -67,7 +70,7 @@ function urlState() {
 function setUrlState(next) {
   const s = Object.assign(urlState(), next);
   const p = new URLSearchParams();
-  p.set("code", s.code);
+  p.set("c", s.code);
   if (s.commodity) p.set("commodity", s.commodity);
   if (s.view !== "level") p.set("view", s.view);
   if (s.qrange !== "10") p.set("qrange", s.qrange);
@@ -153,23 +156,36 @@ function renderTiles() {
   const overseas = cur.filter(r => r.region_key !== "TOTAL" && r.region_key !== "JP")
     .reduce((s, r) => s + (r.value_yen || 0), 0);
   const base = total ? total.value_yen : cons;
-  const biggest = cur.filter(r => r.region_key !== "TOTAL" && r.region_key !== "JP")
+  // The filer's own consolidated revenue where it tags one; otherwise the
+  // segment note's total row, which is equally as filed and says so.
+  const revenue = (cons === null || cons === undefined) ? base : cons;
+  // A filer's "その他 / Other" line is a residual bucket, not a place. It counts
+  // towards the overseas total but must never be named as a region.
+  const overseasRegions = cur.filter(r =>
+    r.region_key !== "TOTAL" && r.region_key !== "JP" && r.region_key !== "OT");
+  const biggest = overseasRegions.slice()
     .sort((a, b) => (b.value_yen || 0) - (a.value_yen || 0))[0];
   const named = L.filed.customers.filter(c => c.year_offset === 0);
   const fy = cur.length ? cur[0].fiscal_label : "";
 
   $("tiles").innerHTML =
-    tile("Consolidated Revenue", cons === null || cons === undefined ? MISSING
-      : fmtNum(cons / 1e9, 1) + '<span class="unit"> ¥bn</span>', fy + " · as filed",
-      "Consolidated revenue from the financial statements, as filed") +
+    tile("Consolidated Revenue",
+      revenue === null || revenue === undefined ? MISSING
+        : fmtNum(revenue / 1e9, 1) + '<span class="unit"> ¥bn</span>',
+      fy + (cons === null || cons === undefined
+        ? " \u00b7 segment-note total, as filed" : " \u00b7 as filed"),
+      cons === null || cons === undefined
+        ? "The segment note's own total row, as filed \u2014 this filer does not tag a separate consolidated revenue figure"
+        : "Consolidated revenue from the financial statements, as filed") +
     tile("Overseas Share of Revenue", base && cur.length
       ? fmtNum(overseas / base * 100, 1) + '<span class="unit"> %</span>' : MISSING,
       cur.length ? "on the filer's basis: " + (f.basis_text || "not stated") : (f.region_omitted_reason || "no region table"),
       "Sum of every non-Japan region the filer reports, over the filed total") +
     tile("Largest Overseas Region", biggest
       ? escapeHtml(biggest.region_label_en || biggest.label_ja) : MISSING,
-      biggest ? fmtBn(biggest.value_yen) + " ¥bn · " + fmtNum(biggest.value_yen / base * 100, 1) + "% of revenue" : "",
-      "The non-Japan region with the most filed revenue") +
+      biggest ? fmtBn(biggest.value_yen) + " ¥bn · " + fmtNum(biggest.value_yen / base * 100, 1) + "% of revenue"
+        : (cur.length ? "the filer names no overseas region beyond a residual \u201cother\u201d" : ""),
+      "The non-Japan region with the most filed revenue, excluding the filer's residual \u201cother\u201d bucket") +
     tile("Named Customers", named.length ? String(named.length) : "0",
       named.length ? named.map(c => c.customer_name.length > 26 ? c.customer_name.slice(0, 24) + "…" : c.customer_name).join(" · ") : "none at or above 10% of revenue",
       "Customers the filer names as ten percent or more of revenue");
@@ -278,11 +294,18 @@ function renderCustoms() {
   const st = urlState();
   const block = currentBlock();
   const el = $("customs-chart");
-  if (!block) {
-    el.innerHTML = '<p class="table-foot" style="padding:24px">This company is not mapped to a customs commodity, so there is nothing to put beside its filed regions.</p>';
-    $("customs-source").textContent = "";
-    $("relationship-table").innerHTML = "";
-    $("relationship-foot").textContent = "";
+  // Most filers are not mapped to a customs commodity — the mapping only
+  // covers the semiconductor chain. Say so once and drop the two customs
+  // sections, rather than leaving two empty chart wells down the page.
+  const mapped = !!block;
+  $("customs-body").hidden = !mapped;
+  $("customs-empty").hidden = mapped;
+  $("sec-quarters").hidden = !mapped;
+  if (!mapped) {
+    $("customs-empty").textContent = "This company is not mapped to a customs commodity, " +
+      "so there is nothing to put beside its filed regions. The mapping covers the " +
+      "semiconductor supply chain only; everything above is the company's own filing.";
+    $("customs-note").textContent = "not mapped";
     return;
   }
   const rel = L.relationship.rows.filter(r => r.commodity_key === block.key);
@@ -433,26 +456,55 @@ function renderProducts() {
   $("products-note").textContent = rows.length ? (rows.filter(r => r.year_offset === 0).length + " segments") : (L.filing.single_segment ? "single segment" : "");
 }
 
-/* ---- company picker ---- */
+/* ---- company search ---- */
 
-function renderCompanyPicker(chain) {
-  const sel = $("company-select");
-  const seen = {};
-  const opts = [];
-  chain.commodities.forEach(c => c.companies.forEach(co => {
-    if (seen[co.sec_code] || !co.latest_filing) return;
-    seen[co.sec_code] = true;
-    opts.push(co);
-  }));
-  opts.sort((a, b) => (a.name_en || a.name_ja || "").localeCompare(b.name_en || b.name_ja || ""));
-  sel.innerHTML = opts.map(co => '<option value="' + escapeHtml(co.sec_code) + '">' +
-    escapeHtml(co.name_en || co.name_ja) + " (" + escapeHtml(co.sec_code) + ")</option>").join("");
-  sel.value = urlState().code;
-  if (sel.value !== urlState().code) {
-    sel.insertAdjacentHTML("afterbegin", '<option value="' + escapeHtml(urlState().code) + '">' + escapeHtml(urlState().code) + "</option>");
-    sel.value = urlState().code;
+/* The picker used to be a <select> built from the semiconductor supply-chain
+   mapping: eighteen companies. Every other company on the platform — and the
+   lens serves any filer with an accepted segment note — was unreachable, so
+   the page sat on its default. The search rail is the same one the rest of the
+   equity pages use, against the same kind of endpoint. */
+
+function nameCell(en, ja, code) {
+  const main = en || ja || code;
+  const sub = en && ja ? "<span class='sub'>" + escapeHtml(ja) + "</span>" : "";
+  return "<div class='cell-name'><a href='company.html?c=" + escapeHtml(code) + "'>" +
+    escapeHtml(main) + "</a>" + sub + "</div>";
+}
+
+function renderSearch(d) {
+  const box = $("search-results");
+  if (!d.companies.length) {
+    box.innerHTML = "<p class='table-foot'>No company with an accepted segment note " +
+      "matches that.</p>";
+    return;
   }
-  sel.onchange = () => { setUrlState({ code: sel.value, commodity: "" }); load(); };
+  box.innerHTML = "<div class='table-wrap'><table class='data' data-no-enhance><thead><tr>" +
+    "<th>Company</th><th>Sector</th><th class='num'>Filings</th>" +
+    "<th class='num'>Latest FY end</th></tr></thead><tbody>" +
+    d.companies.map(c =>
+      "<tr><td>" + nameCell(c.name_en, c.name, c.sec_code) + "</td>" +
+      "<td>" + escapeHtml(c.industry || MISSING) + "</td>" +
+      "<td class='num'>" + fmtNum(c.filings, 0) + "</td>" +
+      "<td class='num'>" + (c.period_end ? escapeHtml(fmtPeriodLong(c.period_end)) : MISSING) +
+      "</td></tr>").join("") + "</tbody></table></div>";
+}
+
+function initSearch() {
+  const input = $("q");
+  let timer = null;
+  input.addEventListener("input", () => {
+    const q = input.value.trim();
+    clearTimeout(timer);
+    if (!q) { $("search-results").innerHTML = ""; return; }
+    timer = setTimeout(() => {
+      getJSON("/api/v1/equity/segments/companies?q=" + encodeURIComponent(q))
+        .then(renderSearch)
+        .catch(err => {
+          $("search-results").innerHTML = "<p class='table-foot'>Company search is " +
+            "unavailable (" + escapeHtml(err.message) + ").</p>";
+        });
+    }, 180);
+  });
 }
 
 /* ---- load ---- */
@@ -493,6 +545,6 @@ function load() {
     const b = e.target.closest("button"); if (!b) return;
     setUrlState({ qrange: b.getAttribute("data-qrange") }); pressGroup("qrange-seg", "data-qrange", b.getAttribute("data-qrange")); renderQuarters();
   });
-  getJSON(API + "/supply-chain").then(renderCompanyPicker).catch(() => {});
+  initSearch();
   load();
 })();

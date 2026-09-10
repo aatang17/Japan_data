@@ -60,6 +60,7 @@ SECTIONS = [
     {"id": "prices", "label": "Prices"},
     {"id": "agriculture", "label": "Agriculture"},
     {"id": "monetary", "label": "Monetary"},
+    {"id": "banking", "label": "Banking"},
     {"id": "rates", "label": "Rates"},
     {"id": "tourism", "label": "Tourism"},
     {"id": "demography", "label": "Demography"},
@@ -74,7 +75,7 @@ SECTION_IDS = [s["id"] for s in SECTIONS]
 
 SHAPES = ("series", "company", "events")
 TRUST = ("official", "derived")          # "model" is reserved; refused today
-FREQUENCIES = ("daily", "monthly", "annual", "per-filing", "per-event")
+FREQUENCIES = ("daily", "monthly", "semiannual", "annual", "per-filing", "per-event")
 VINTAGE_UNITS = ("release", "filing")
 # "captured_at" is deliberately absent: capture time was never recorded,
 # so no dataset can honestly claim it. See app/asof.py.
@@ -90,8 +91,16 @@ CAPABILITIES = ("series", "company", "screen", "search", "summary")
 # "JPY_per_60kg" is its own unit, not a JPY level: rice is contracted and
 # published by the 60kg bag of brown rice, and a price per bag must never be
 # ranked against, or summed with, a yen amount that means something else.
-UNITS = ("index", "%", "pp", "per_10000", "JPY", "JPY_per_60kg",
-         "JPY_thousand", "JPY_100mn", "tonnes_10k",
+# Bank statements are published in 百万円 and the FSA's bad-loan flows in
+# 兆円; each is stored in the unit it was released in, never rescaled.
+# "per_1000" is the demographers' unit: a crude birth or death rate is per
+# thousand of the mid-year population, and is not a percentage of anything.
+# "births_per_woman" is the total fertility rate's own unit — a count of
+# children, not a rate of a population — and must never be ranked against
+# either of the above.
+UNITS = ("index", "%", "pp", "per_10000", "per_1000", "births_per_woman",
+         "JPY", "JPY_per_60kg",
+         "JPY_thousand", "JPY_million", "JPY_100mn", "JPY_trillion", "tonnes_10k",
          "persons", "person_nights", "count", "quantity", "shares",
          "voting_rights", "m2", "JPY_per_m2", "x", "years", "days", "date",
          "category", "boolean", "text")
@@ -117,6 +126,7 @@ GENERIC_MEASURES = ("index", "yoy", "mom", "ann3m")
 _API_UNIT = {"index": "index", "JPY_100mn": "jpy_100mn", "%": "pct",
              "persons": "persons", "person_nights": "person_nights",
              "JPY_thousand": "jpy_1000", "JPY_per_60kg": "jpy_per_60kg",
+             "JPY_million": "jpy_million", "JPY_trillion": "jpy_trillion",
              "tonnes_10k": "t10k_brown_rice", "JPY": "jpy"}
 
 # Equity API modules, in registration order. Macro modules come from

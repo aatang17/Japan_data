@@ -16,6 +16,23 @@ plus two monetary datasets:
 - **jgb-yields** — the JGB yield curve: Ministry of Finance daily constant-maturity yields,
   15 tenors (1–40Y), every business day since September 1974
 
+three banking datasets:
+
+- **fsa-npl** — bad loans by bank group: the FSA's half-yearly disclosure of claims under the
+  Financial Reconstruction Act (total credit, the three tiers of disclosed claims, the bad-loan
+  ratio, disposal losses, real net business profit) for thirteen lender groups from city banks
+  to credit co-operatives, every half-year from March 1999. Stitched from table 1 of every
+  release, newest release winning where they overlap.
+- **fsa-bank-results** — the FSA's aggregate results summary for the major banks (from March
+  2008) and the regional banks (from March 2005): the income statement, loans, bad loans and
+  capital ratios, in ¥100mn and ¥tn as published. Income-statement lines are `.fy` (full year,
+  March) and `.h1` (first half, September) series.
+- **jba-banks** — every JBA member bank's balance sheet and income statement, non-consolidated
+  and consolidated, plus the association's aggregates by bank type, every half-year from March
+  2002 (~44,000 series, ¥mn; editions before fiscal 2001 are Excel 5/95 files and are archived
+  unread). Series are `{s|c}.{金融機関コード}.{reference code}`; the
+  Reference Code sheet of any edition is the key. ~72MB of workbooks per ingest; about 8 minutes on a laptop, most of it the download — lift it out of the boot path with `INGEST_DATASETS` if the healthcheck window is tight.
+
 and one trade dataset:
 
 - **trade-semis** — Japan's semiconductor trade by partner country: monthly customs value
@@ -88,9 +105,12 @@ and one demographic dataset:
   are missing, never zero. Because 584,781 series is not a payload,
   `/api/v1/population-jp-municipal/prefectures` **requires** `?prefecture=NN`.
 - **population-jp-history** — the long run behind it: population, age structure, foreign
-  residents, households, births, deaths and migration for the same 47 prefectures back to
-  **1975**, from the System of Social and Demographic Statistics (社会・人口統計体系, table A)
-  via the e-Stat API. Reference dates differ by indicator and are pinned per series —
+  residents, households, births, deaths, migration and the total fertility rate for the same
+  47 prefectures back to **1975**, from the System of Social and Demographic Statistics
+  (社会・人口統計体系, table A) via the e-Stat API. The fertility rate is the one published
+  *rate* the platform stores rather than calculates — its denominator (women by single year of
+  age) is in no table held here, so it cannot be rebuilt from the counts; it is served exactly
+  as published, and must never be summed across prefectures. Reference dates differ by indicator and are pinned per series —
   register counts at 1 January of the following year, census/estimates at 1 October, births
   and migration as calendar-year flows — because the API carries no reference date of its
   own. The two datasets join exactly: registered residents were 124,330,690 at 1 Jan 2025
@@ -133,6 +153,9 @@ python3 -m venv .venv
 ./.venv/bin/python -m app.ingest population-jp-municipal # ~12 min: 585k series
 ./.venv/bin/python -m app.ingest trade-semis             # needs ESTAT_APP_ID
 ./.venv/bin/python -m app.ingest trade-inputs            # needs ESTAT_APP_ID
+./.venv/bin/python -m app.ingest fsa-npl                 # 40 small FSA workbooks
+./.venv/bin/python -m app.ingest fsa-bank-results
+./.venv/bin/python -m app.ingest jba-banks               # ~72MB of JBA workbooks, ~8 min
 
 # segment notes (revenue by region, named customers, reportable segments) from the
 # annual reports already archived — the company side of the Company Lens
@@ -433,6 +456,8 @@ web/
   macro.html         Macro / Overview — all five datasets on one screen (+ assets/macro.js)
   cpi.html           Macro / Inflation (CPI)  (+ assets/overview.js)
   explorer.html      Macro / Item Explorer (+ assets/explorer.js)
+  semis.html         Trade / Semiconductor Trade (+ assets/semis.js)
+  population.html    Demographics / Population · representation.html (Vote Weight)
   equities.html      Equities / Overview — live summary per dataset (+ assets/equities.js)
   holdings.html      Equities / Cross-Shareholdings (+ assets/holdings.js)
   ownership.html     Equities / Register           (+ assets/ownership.js)
@@ -474,6 +499,12 @@ GET /api/v1/catalog/datasets
 GET /api/v1/cpi-jp/overview
 GET /api/v1/cpi-jp/series?q=electricity
 GET /api/v1/cpi-jp/observations?series=0001,0161&measure=yoy&start=2020-01
+GET /api/v1/cpi-jp/observations?series=0001,0161&measure=yoy&format=csv
+                                                   # the same numbers as one wide CSV under a
+                                                   #   '#' metadata block (source, release, formula,
+                                                   #   vintage). pandas: read_csv(url, comment="#");
+                                                   #   R: read.csv(url, comment.char="#"). Add
+                                                   #   &as_of=YYYY-MM-DD for a frozen, citable file.
 GET /api/v1/cpi-jp/contributions?start=2023-01     # pp decomposition of headline YoY by group
 GET /api/v1/cpi-jp-items/breadth?threshold=2       # share of the 582 priced items rising/falling
 GET /api/v1/jgb-yields/curve                       # every date x every tenor, one payload

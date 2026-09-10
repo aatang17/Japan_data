@@ -14,6 +14,10 @@
   #pop-map { width: 100%; height: 560px; border: 1px solid var(--obs-border); }
   /* Keep a range label with its own select when the row wraps. */
   .range-pair { display: inline-flex; align-items: center; gap: 4px; }
+  .pop-pyr-row { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
+  /* 21 age bands need about 22px each to keep their labels legible; below
+     that the axis starts dropping every other band's label. */
+  #pop-pyramid { width: 100%; height: 540px; }
   .pop-ex-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 24px; }
   .pop-extremes h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
     color: var(--obs-text-muted); font-weight: 600; margin: 0 0 6px; }
@@ -28,18 +32,19 @@
   .pop-ex-row .v { font-variant-numeric: tabular-nums; white-space: nowrap; }
   .pop-select { font: inherit; font-size: 12.5px; padding: 4px 8px; color: var(--obs-ink);
     background: var(--obs-surface); border: 1px solid var(--obs-border); border-radius: 3px; }
-  /* This page's measure control has six options and the history control has
-     long ones. A .seg is a joined group with overflow:hidden, so at narrow
-     widths the last option is silently clipped rather than reachable. Below
-     700px the group becomes wrapped outline buttons instead — no clipping,
-     and no horizontal scroll a reader has to discover. */
-  @media (max-width: 700px) {
+  /* A .seg is a joined group with overflow:hidden, so at narrow widths the
+     last option is silently clipped rather than reachable. This page's
+     measure control carries eight options and the history control five, so
+     the wrapped-outline treatment has to start well before the phone
+     breakpoint — otherwise the last option disappears with nothing to show a
+     reader it was ever there. */
+  @media (max-width: 1100px) {
     .pop-map-row .seg, .controls .seg { flex-wrap: wrap; overflow: visible;
       border: 0; gap: 6px; }
     .controls .seg button { border: 1px solid var(--obs-border); border-radius: 3px; }
   }
   @media (max-width: 900px) {
-    .pop-map-row { grid-template-columns: minmax(0, 1fr); }
+    .pop-map-row, .pop-pyr-row { grid-template-columns: minmax(0, 1fr); }
     /* Stacked, the map would go full-width and landscape again, which is the
        shape that wasted half the canvas. Cap it and centre it instead. */
     #pop-map { height: 480px; max-width: 420px; margin: 0 auto; }
@@ -52,7 +57,7 @@
 </head>
 <body>
 
-<header class="site-header" data-section="macro" data-page="population"></header>
+<header class="site-header" data-section="demographics" data-page="population"></header>
 <script src="assets/nav.js"></script>
 
 <main class="container">
@@ -89,6 +94,8 @@
         <button type="button" data-measure="change_pct" aria-pressed="true">Change</button>
         <button type="button" data-measure="natural_pct">Natural</button>
         <button type="button" data-measure="social_pct">Social</button>
+        <button type="button" data-measure="birth_rate">Births / 1,000</button>
+        <button type="button" data-measure="death_rate">Deaths / 1,000</button>
         <button type="button" data-measure="foreign_pct">Foreign Share</button>
         <button type="button" data-measure="aged_pct">Aged 65+</button>
         <button type="button" data-measure="population">Population</button>
@@ -106,8 +113,45 @@
     </div>
   </section>
 
+  <section aria-labelledby="h-pyramid">
+    <h2 id="h-pyramid">Population Pyramid <span class="h2-note" id="pyr-note"></span></h2>
+    <p class="section-sub">The register's own count of residents in each five-year age
+    band, male to the left and female to the right. The prefecture is the one chosen
+    anywhere on this page. Switch to shares to compare a prefecture's profile with
+    Japan's, which is drawn behind it as a dashed outline. The register publishes this
+    breakdown for one January so far, so there is no earlier profile to draw behind it
+    yet; another follows each July.</p>
+    <div class="chart-panel">
+    <div class="controls">
+      <label class="visually-hidden" for="pyr-pref-select">Prefecture</label>
+      <select class="pop-select" id="pyr-pref-select"></select>
+      <div class="seg" role="group" aria-label="Residents counted" id="pyr-segment-seg">
+        <button type="button" data-segment="all" aria-pressed="true">All Residents</button>
+        <button type="button" data-segment="jp">Japanese</button>
+        <button type="button" data-segment="fgn">Foreign</button>
+      </div>
+      <div class="seg" role="group" aria-label="Bars show" id="pyr-seg">
+        <button type="button" data-pyr="count" aria-pressed="true">Residents</button>
+        <button type="button" data-pyr="share">Share of Residents</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="pyr-png">Download PNG</button>
+      <button type="button" class="btn" id="pyr-csv">Download CSV</button>
+    </div>
+    <div class="pop-pyr-row">
+      <div class="chart" id="pop-pyramid"><div class="skeleton" style="width:100%;height:100%"></div></div>
+      <div class="pop-extremes" id="pyr-stats"></div>
+    </div>
+    <p class="source-line" id="pyr-source"></p>
+    <details class="calc" id="pyr-calc"></details>
+    </div>
+  </section>
+
   <section aria-labelledby="h-history">
     <h2 id="h-history">Long-Run Prefecture History <span class="h2-note" id="hist-note"></span></h2>
+    <p class="section-sub" style="margin-bottom:6px">Residents, age structure, births and
+    deaths per thousand people, and the fertility rate — one prefecture at a time, from
+    1975.</p>
     <p class="section-sub" id="hist-sub">The long run behind the latest year, from the
     Statistics Bureau's regional series. Registered residents are counted at 1 January and
     are split into Japanese and foreign residents only from 2013, when foreign residents
@@ -122,6 +166,8 @@
         <button type="button" data-hist="level" aria-pressed="true">Residents</button>
         <button type="button" data-hist="index">Indexed</button>
         <button type="button" data-hist="age">Age Structure</button>
+        <button type="button" data-hist="vital">Births &amp; Deaths</button>
+        <button type="button" data-hist="fertility">Fertility</button>
       </div>
       <span class="spacer"></span>
       <button type="button" class="btn" id="hist-png">Download PNG</button>
@@ -189,8 +235,9 @@
 <footer class="site-footer">
   <div class="inner">
     <span id="credit-line">Source: Ministry of Internal Affairs and Communications, Japan.</span>
-    Counts of residents are official statistics as published; shares, change rates and
-    age-group aggregates are calculated from them.
+    Counts of residents are official statistics as published; shares, change rates, crude
+    birth and death rates and age-group aggregates are calculated from them. The total
+    fertility rate is the Statistics Bureau's own figure, stored as published.
     <a href="methodology.html">Methodology</a>
   </div>
 </footer>

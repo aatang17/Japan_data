@@ -44,8 +44,28 @@ var NAV_SECTIONS = [
           { id: "explorer", label: "Item Explorer", href: "explorer.html" },
         ] },
       { id: "boj", label: "Bank of Japan", href: "boj.html" },
+      // Banks sit beside the central bank: the FSA's bad-loan and earnings
+      // summaries and the JBA's per-bank statements are the private-sector
+      // half of the same credit story, and one page reads them together.
+      { id: "banks", label: "Banks", href: "banks.html" },
       { id: "rates", label: "Yield Curve", href: "rates.html" },
+    ],
+  },
+  {
+    // Trade is customs data, not a macro aggregate: chips and chipmaking
+    // equipment by partner country answer an industry question, and the
+    // page sat in the macro strip only because it had nowhere else to go.
+    id: "trade", label: "Trade", suffix: "Trade",
+    pages: [
       { id: "semis", label: "Semiconductor Trade", href: "semis.html" },
+    ],
+  },
+  {
+    // Population and the vote-weight page are one subject read two ways:
+    // the register counts people, and Vote Weight divides seats by them.
+    // Neither is a price, a rate or a balance sheet.
+    id: "demographics", label: "Demographics", suffix: "Demographics",
+    pages: [
       { id: "population", label: "Population", href: "population.html" },
       { id: "representation", label: "Vote Weight", href: "representation.html" },
     ],

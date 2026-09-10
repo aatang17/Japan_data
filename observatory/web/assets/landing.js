@@ -83,6 +83,16 @@ function fillCpi() {
   }).catch(() => rowFailed("r-cpi", "a-cpi"));
 }
 
+function fillBanks() {
+  return getJSON("/api/v1/fsa-npl/overview").then(d => {
+    const t = d.tiles.find(x => x.key === "ratio");
+    setReading("r-banks", fmtRate(t.value, 1),
+               "bad-loan ratio, all banks, as published");
+    // A half-year is dated to the first day of its closing month.
+    setAsOf("a-banks", fmtPeriodLong(d.release.latest_period), d.stale);
+  }).catch(() => rowFailed("r-banks", "a-banks"));
+}
+
 function fillBoj() {
   return getJSON("/api/v1/boj-assets/overview").then(d => {
     const h = d.tiles.find(x => x.key === "holdings");
@@ -245,6 +255,7 @@ function wireCopy(btnId, textId) {
 
 fillCpi();
 fillBoj();
+fillBanks();
 fillRates();
 fillInbound();
 fillAccommodation();
