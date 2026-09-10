@@ -14,7 +14,18 @@
    Two tiers, because the platform has products and products have pages: the
    navy bar carries the sections, and a section with more than one page gets a
    light strip beneath it. The landing page belongs to no section and sets
-   data-section="" — it gets the bar with nothing marked current. */
+   data-section="" — it gets the bar with nothing marked current.
+
+   A third tier exists only where one destination has more than one view of the
+   same data (Inflation: the headline page and the item table). Those are the
+   page entry's `tabs`, and they are deliberately NOT a third sticky bar — the
+   strip is rendered inside the content column, into a placeholder the page
+   puts at the top of <main>:
+
+     <div class="page-tabs" data-page-tabs></div>
+
+   The placeholder is filled on DOMContentLoaded, since <main> does not exist
+   yet when this script runs. A page with no placeholder simply gets no tabs. */
 
 var NAV_BRAND = "Japan Data Observatory";
 
@@ -23,8 +34,15 @@ var NAV_SECTIONS = [
     id: "macro", label: "Macro", suffix: "Macro",
     pages: [
       { id: "overview", label: "Overview", href: "macro.html" },
-      { id: "inflation", label: "Inflation", href: "cpi.html" },
-      { id: "explorer", label: "Item Explorer", href: "explorer.html" },
+      // Inflation is one destination with two views. The headline page and
+      // the item table are the same dataset family read at two depths, and
+      // as two peers in the strip they read as unrelated products. A page
+      // with `tabs` owns them; nav.js renders the third tier in-page.
+      { id: "inflation", label: "Inflation", href: "cpi.html",
+        tabs: [
+          { id: "inflation", label: "Overview", href: "cpi.html" },
+          { id: "explorer", label: "Item Explorer", href: "explorer.html" },
+        ] },
       { id: "boj", label: "Bank of Japan", href: "boj.html" },
       { id: "rates", label: "Yield Curve", href: "rates.html" },
       { id: "semis", label: "Semiconductor Trade", href: "semis.html" },
@@ -56,24 +74,41 @@ var NAV_SECTIONS = [
   },
   {
     id: "equities", label: "Equities", suffix: "Equities",
+    // Thirteen datasets as thirteen peers overran the strip at every width.
+    // They are grouped by the question they answer — who holds it, who runs
+    // it, what it reports — and each group's pages are its in-page tabs.
+    // A group's id is its first tab's, so the strip entry and that page are
+    // one destination. Every URL is unchanged.
     pages: [
       { id: "overview", label: "Overview", href: "equities.html" },
-      { id: "holdings", label: "Cross-Shareholdings", href: "holdings.html" },
-      { id: "ownership", label: "Register", href: "ownership.html" },
-      { id: "stakes", label: "5% Filings", href: "stakes.html" },
-      { id: "governance", label: "Boards & Pay", href: "governance.html" },
-      { id: "company", label: "Company Lens", href: "company.html" },
-      { id: "customers", label: "Customers", href: "customers.html" },
-      { id: "agm", label: "AGM Votes", href: "agm.html" },
-      { id: "buyback", label: "Buybacks", href: "buyback.html" },
-      { id: "facilities", label: "Facilities & Land", href: "facilities.html" },
-      { id: "financials", label: "Financials", href: "financials.html" },
-      { id: "screener", label: "Screener", href: "screener.html" },
-      { id: "cohorts", label: "Peer Groups", href: "cohorts.html" },
+      { id: "holdings", label: "Ownership", href: "holdings.html",
+        tabs: [
+          { id: "holdings", label: "Cross-Shareholdings", href: "holdings.html" },
+          { id: "ownership", label: "Register", href: "ownership.html" },
+          { id: "stakes", label: "5% Filings", href: "stakes.html" },
+        ] },
+      { id: "governance", label: "Governance", href: "governance.html",
+        tabs: [
+          { id: "governance", label: "Boards & Pay", href: "governance.html" },
+          { id: "agm", label: "AGM Votes", href: "agm.html" },
+          { id: "buyback", label: "Buybacks", href: "buyback.html" },
+        ] },
+      { id: "financials", label: "Financials", href: "financials.html",
+        tabs: [
+          { id: "financials", label: "Statements", href: "financials.html" },
+          { id: "facilities", label: "Facilities & Land", href: "facilities.html" },
+          { id: "customers", label: "Customers", href: "customers.html" },
+        ] },
+      { id: "company", label: "Company Profile", href: "company.html" },
+      { id: "screener", label: "Screens", href: "screener.html",
+        tabs: [
+          { id: "screener", label: "Screener", href: "screener.html" },
+          { id: "cohorts", label: "Peer Groups", href: "cohorts.html" },
+        ] },
     ],
   },
   {
-    id: "connect", label: "Connect Your AI", suffix: "Connect Your AI",
+    id: "connect", label: "Data Access", suffix: "Data Access",
     pages: [
       { id: "connect", label: "Setup", href: "connect.html" },
       { id: "manual", label: "Manual", href: "manual.html" },
@@ -124,6 +159,17 @@ var NAV_SECTIONS = [
     '<button class="theme-toggle" type="button">Dark Mode</button>' +
     "</div></div>";
 
+  // A page owning tabs stays marked current while any of its tabs is open —
+  // otherwise opening the Item Explorer would un-highlight Inflation and the
+  // strip would show no current page at all.
+  function owns(p) {
+    if (p.id === pageId) return true;
+    for (var t = 0; p.tabs && t < p.tabs.length; t++) {
+      if (p.tabs[t].id === pageId) return true;
+    }
+    return false;
+  }
+
   // Second tier: only where a section has somewhere else to go.
   if (section && section.pages.length > 1) {
     var sub = document.createElement("nav");
@@ -131,7 +177,7 @@ var NAV_SECTIONS = [
     sub.setAttribute("aria-label", section.label);
     sub.innerHTML = '<div class="inner">' + section.pages.map(function (p) {
       return '<a href="' + esc(p.href) + '"' +
-        (p.id === pageId ? ' aria-current="page"' : "") + ">" +
+        (owns(p) ? ' aria-current="page"' : "") + ">" +
         esc(p.label) + "</a>";
     }).join("") + "</div>";
     header.parentNode.insertBefore(sub, header.nextSibling);
@@ -145,4 +191,22 @@ var NAV_SECTIONS = [
       inner.scrollLeft = Math.max(0, current.offsetLeft - 20);
     }
   }
+
+  // Third tier: the views of one destination, in the content column.
+  var group = null;
+  for (var j = 0; section && j < section.pages.length; j++) {
+    if (section.pages[j].tabs && owns(section.pages[j])) group = section.pages[j];
+  }
+  if (!group) return;
+  document.addEventListener("DOMContentLoaded", function () {
+    var slot = document.querySelector("[data-page-tabs]");
+    if (!slot) return;
+    slot.setAttribute("role", "navigation");
+    slot.setAttribute("aria-label", group.label);
+    slot.innerHTML = group.tabs.map(function (t) {
+      return '<a href="' + esc(t.href) + '"' +
+        (t.id === pageId ? ' aria-current="page"' : "") + ">" +
+        esc(t.label) + "</a>";
+    }).join("");
+  });
 })();

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Segment notes and the Company Lens: what a company reports by region and
+"""Segment notes and the Company Profile: what a company reports by region and
 customer, beside the customs flows its business sits in.
 
 Three surfaces, one rule. Everything a filer states — revenue by region on its
@@ -575,7 +575,7 @@ def lens_csv(sec_code: str):
     years.sort()
     out = io.StringIO()
     w = lambda line: out.write(line + "\n")
-    w("# Japan Data Observatory — Company Lens: %s (%s)" % (name, sec_code))
+    w("# Japan Data Observatory — Company Profile: %s (%s)" % (name, sec_code))
     w("# Filed figures: %s" % d["credit_lines"][0])
     w("# Customs figures: %s Release %s (sha256 %s), retrieved %s"
       % (d["credit_lines"][1], d["customs"]["release"]["label"],
@@ -768,12 +768,12 @@ def coverage():
 MANIFEST = {
     "id": "segments",
     "section": "financials",
-    "name": {"en": "Segment notes and Company Lens", "ja": "セグメント情報・地域別売上・主要顧客"},
+    "name": {"en": "Segment notes and Company Profile", "ja": "セグメント情報・地域別売上・主要顧客"},
     "shape": "company",
     "summary": ("Revenue by region on the filer's own basis, the customers each "
                 "company names with the revenue booked from them, and reportable "
                 "segments — from the segment note of every annual securities report, "
-                "current and prior year. The Company Lens puts the filed figures "
+                "current and prior year. The Company Profile puts the filed figures "
                 "beside Japan's customs flows for the commodities the company is "
                 "mapped to, in the company's own fiscal periods."),
     "source": dict(_EDINET_SOURCE,

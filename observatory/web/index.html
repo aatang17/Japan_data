@@ -28,250 +28,276 @@
 <main class="container">
   <div class="page-head">
     <h1>Japanese Macro and Market Data</h1>
-    <p class="page-sub">Rebuilt from the primary sources on a schedule. Every number carries
-    where it came from, the formula if we calculated it, and a permanent URL you can cite.</p>
+    <p class="page-sub">Official statistics and company filings, rebuilt from the primary
+    sources on a schedule. Every figure carries its source, its formula where calculated,
+    and a permanent URL.</p>
   </div>
 
-  <h2 id="macro">Macro <span class="h2-note">Prices, money and the balance sheet</span></h2>
-  <p class="section-sub"><a href="macro.html">Open the Macro overview</a> — the section's
-  live datasets on one screen. The readings below are live.</p>
+  <!-- One directory table per section. Each row is a dataset: what it holds,
+       where it comes from and how far back, and one live reading from the
+       same API the product pages use. The reading is the proof the pipeline
+       ran; it is never a value baked into the markup. -->
+
+  <h2 id="macro">Macro <span class="h2-note"><a href="macro.html">Section overview</a></span></h2>
 
   <div class="table-wrap">
     <table class="data dir" data-no-enhance>
       <thead>
         <tr>
           <th>Dataset</th>
-          <th class="col-desc">What's In It</th>
-          <th class="num">Latest Reading</th>
+          <th class="col-desc">Content</th>
+          <th class="col-cov">Source · Coverage</th>
+          <th class="num">Latest</th>
           <th>As Of</th>
         </tr>
       </thead>
       <tbody>
         <tr>
           <td class="col-name"><a href="cpi.html">Inflation</a></td>
-          <td class="col-desc">Headline and core CPI, the ten major expenditure groups and 582
-          individually priced items — 822 series, monthly from January 1970.</td>
+          <td class="col-desc">Headline and core CPI, ten major groups, 582 priced items;
+          822 series with item-level search.</td>
+          <td class="col-cov">Statistics Bureau · monthly from 1970</td>
           <td class="num" id="r-cpi"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
           <td class="col-asof" id="a-cpi"></td>
         </tr>
         <tr>
-          <td class="col-name"><a href="explorer.html">Item Explorer</a></td>
-          <td class="col-desc">Every CPI series, searchable in English and Japanese, with full
-          history, weights and provenance per item.</td>
-          <td class="num muted">822 series</td>
-          <td class="col-asof" id="a-explorer"></td>
-        </tr>
-        <tr>
           <td class="col-name"><a href="boj.html">Bank of Japan</a></td>
-          <td class="col-desc">End-of-month holdings and during-month flows — JGBs with
-          purchases and redemptions split out, ETFs, J-REITs, corporate bonds and the monetary
-          base, from July 1996.</td>
+          <td class="col-desc">JGB, ETF, J-REIT and corporate bond holdings and flows;
+          monetary base.</td>
+          <td class="col-cov">Bank of Japan · monthly from 1996</td>
           <td class="num" id="r-boj"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
           <td class="col-asof" id="a-boj"></td>
         </tr>
         <tr>
           <td class="col-name"><a href="rates.html">Yield Curve</a></td>
-          <td class="col-desc">The Ministry of Finance's constant-maturity yields for 15
-          tenors, every business day since September 1974 — replay the curve through ZIRP,
-          QQE, negative rates and yield curve control.</td>
+          <td class="col-desc">Constant-maturity JGB yields for 15 tenors.</td>
+          <td class="col-cov">Ministry of Finance · daily from 1974</td>
           <td class="num" id="r-rates"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
           <td class="col-asof" id="a-rates"></td>
         </tr>
         <tr>
-          <td class="col-name"><a href="inbound.html">Inbound</a></td>
-          <td class="col-desc">Foreign visitor arrivals by market, monthly from 2003, from
-          JNTO — with recovery versus 2019 and market shares.</td>
-          <td class="num" id="r-inbound"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
-          <td class="col-asof" id="a-inbound"></td>
-        </tr>
-        <tr>
-          <td class="col-name"><a href="accommodation.html">Guest Nights</a></td>
-          <td class="col-desc">Where those visitors actually slept: person-nights and room
-          occupancy for every prefecture, monthly from 2011, by visitor nationality and hotel
-          type, from the Japan Tourism Agency.</td>
-          <td class="num" id="r-acc"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
-          <td class="col-asof" id="a-acc"></td>
-        </tr>
-        <tr>
           <td class="col-name"><a href="semis.html">Semiconductor Trade</a></td>
-          <td class="col-desc">Chips, components and chipmaking equipment shipped in and out
-          of Japan, by partner country and month since 2001, from customs records — with the
-          destination mix and the revision stage each figure is at.</td>
+          <td class="col-desc">Chips, components and chipmaking equipment, imports and
+          exports by partner country, with revision stage.</td>
+          <td class="col-cov">MOF Trade Statistics · monthly from 2001</td>
           <td class="num" id="r-semis"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
           <td class="col-asof" id="a-semis"></td>
         </tr>
         <tr>
           <td class="col-name"><a href="population.html">Population</a></td>
-          <td class="col-desc">Residents by prefecture, age band and nationality from the
-          Basic Resident Register, with national totals back to 1975.</td>
+          <td class="col-desc">Registered residents by prefecture, age band and
+          nationality.</td>
+          <td class="col-cov">Basic Resident Register · annual from 1975</td>
           <td class="num" id="r-pop"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
           <td class="col-asof" id="a-pop"></td>
         </tr>
       </tbody>
     </table>
   </div>
-  <p class="dir-foot">Index levels, yields and counts are official statistics exactly as
-  published; rates of change and spreads are calculated from them, and each page shows the
-  formula. On the roadmap: producer and services prices · Tokyo advance and regional CPI ·
-  BOJ holdings by individual issue.</p>
+  <p class="dir-foot">Planned: producer and services prices · Tokyo advance and regional CPI ·
+  BOJ holdings by issue.</p>
 
-  <h2 id="agriculture">Agriculture <span class="h2-note">Rice, farm costs and the co-ops</span></h2>
-  <p class="section-sub"><a href="rice.html">Open Rice &amp; Farm Prices</a> — the price, the
-  stock behind it and what it costs to grow, on one screen. All of it from the Ministry of
-  Agriculture, Forestry and Fisheries.</p>
+  <h2 id="tourism">Tourism <span class="h2-note"><a href="inbound.html">Section overview</a></span></h2>
 
   <div class="table-wrap">
     <table class="data dir" data-no-enhance>
       <thead>
         <tr>
           <th>Dataset</th>
-          <th class="col-desc">What's In It</th>
-          <th class="num">Latest Reading</th>
+          <th class="col-desc">Content</th>
+          <th class="col-cov">Source · Coverage</th>
+          <th class="num">Latest</th>
+          <th>As Of</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="col-name"><a href="inbound.html">Arrivals</a></td>
+          <td class="col-desc">Foreign visitor arrivals by market, with recovery versus 2019
+          and market shares.</td>
+          <td class="col-cov">JNTO · monthly from 2003</td>
+          <td class="num" id="r-inbound"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
+          <td class="col-asof" id="a-inbound"></td>
+        </tr>
+        <tr>
+          <td class="col-name"><a href="accommodation.html">Guest Nights</a></td>
+          <td class="col-desc">Person-nights and room occupancy by prefecture, nationality
+          and hotel type.</td>
+          <td class="col-cov">Japan Tourism Agency · monthly from 2011</td>
+          <td class="num" id="r-acc"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
+          <td class="col-asof" id="a-acc"></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2 id="agriculture">Agriculture <span class="h2-note"><a href="rice.html">Section overview</a></span></h2>
+
+  <div class="table-wrap">
+    <table class="data dir" data-no-enhance>
+      <thead>
+        <tr>
+          <th>Dataset</th>
+          <th class="col-desc">Content</th>
+          <th class="col-cov">Source · Coverage</th>
+          <th class="num">Latest</th>
           <th>As Of</th>
         </tr>
       </thead>
       <tbody>
         <tr>
           <td class="col-name"><a href="rice.html">Rice Contract Prices</a></td>
-          <td class="col-desc">The benchmark price of Japanese rice: the volume-weighted
-          average actually contracted between shippers and wholesalers, for each of about 120
-          origin-and-variety brands, monthly since September 2008.</td>
+          <td class="col-desc">Volume-weighted contract price between shippers and
+          wholesalers, about 120 origin-and-variety brands.</td>
+          <td class="col-cov">MAFF · monthly from 2008</td>
           <td class="num" id="r-rice"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
           <td class="col-asof" id="a-rice"></td>
         </tr>
         <tr>
           <td class="col-name"><a href="rice.html">Rice Inventories</a></td>
-          <td class="col-desc">What the trade is holding at the end of each month, by stage and
-          by crop age — the stock that turns before the price does.</td>
+          <td class="col-desc">Private end-of-month brown rice stocks by stage and crop
+          age.</td>
+          <td class="col-cov">MAFF · monthly from 2020</td>
           <td class="num" id="r-stock"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
           <td class="col-asof" id="a-stock"></td>
         </tr>
         <tr>
           <td class="col-name"><a href="rice.html">Farm Prices &amp; Costs</a></td>
-          <td class="col-desc">What farmers are paid and what they pay for fertiliser, feed,
-          machinery and fuel, monthly since 1957 — with the published cost of growing a crop of
-          rice, per 60kg, since 1951.</td>
+          <td class="col-desc">Farm output and input price indices; published cost of
+          growing rice per 60kg.</td>
+          <td class="col-cov">MAFF · monthly from 1957</td>
           <td class="num" id="r-agri"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
           <td class="col-asof" id="a-agri"></td>
         </tr>
         <tr>
           <td class="col-name"><a href="ja.html">JA Co-operatives</a></td>
-          <td class="col-desc">The co-ops' own income statement split across the five businesses
-          they run, by fiscal year since 2004 — including the farm-guidance loss charged back to
-          the businesses that earn.</td>
+          <td class="col-desc">Co-operative income statement by business segment, with the
+          farm-guidance loss charged back.</td>
+          <td class="col-cov">MAFF · fiscal years from 2004</td>
           <td class="num" id="r-ja"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
           <td class="col-asof" id="a-ja"></td>
         </tr>
       </tbody>
     </table>
   </div>
-  <p class="dir-foot">Prices, stocks, costs and index levels are official statistics exactly as
-  published; crop-year averages, the farmer's terms of trade and every change are calculated
-  from them, and each page shows the formula. On the roadmap: crop statistics and the crop
-  condition index · the food balance sheet and per-capita rice consumption · farmland area and
-  abandonment · the rice supply-demand guideline.</p>
+  <p class="dir-foot">Planned: crop statistics and crop condition index · food balance sheet ·
+  farmland area and abandonment · rice supply-demand guideline.</p>
 
-  <h2 id="equities">Equities <span class="h2-note">Ownership and governance</span></h2>
-  <p class="section-sub"><a href="equities.html">Open the Equities overview</a> — every
-  dataset with its live coverage figures. All of it from companies' own filings on EDINET.</p>
+  <h2 id="equities">Equities <span class="h2-note"><a href="equities.html">Section overview</a> ·
+  <a href="company.html">Company Profile</a> · <a href="screener.html">Screener</a></span></h2>
 
   <div class="table-wrap">
     <table class="data dir" data-no-enhance>
       <thead>
         <tr>
           <th>Dataset</th>
-          <th class="col-desc">What's In It</th>
-          <th class="num">Latest Reading</th>
+          <th class="col-desc">Content</th>
+          <th class="col-cov">Source · Coverage</th>
+          <th class="num">Latest</th>
           <th>As Of</th>
         </tr>
       </thead>
       <tbody>
         <tr>
           <td class="col-name"><a href="holdings.html">Cross-Shareholdings</a></td>
-          <td class="col-desc">Policy shareholdings as disclosed in annual reports — what each
-          company holds, who holds it back, the stated reason, and how fast the unwind runs.</td>
+          <td class="col-desc">Policy shareholdings as disclosed: holder, issuer, stated
+          reason, pace of unwind.</td>
+          <td class="col-cov">EDINET annual reports · partial, coverage stated</td>
           <td class="num" id="r-hold"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
           <td class="col-asof" id="a-hold"></td>
         </tr>
         <tr>
           <td class="col-name"><a href="ownership.html">Register</a></td>
-          <td class="col-desc">Who owns each listed company: named large holders and the whole
-          register split by investor category, nominees marked.</td>
+          <td class="col-desc">Named large holders and the register by investor category,
+          nominees marked.</td>
+          <td class="col-cov">EDINET annual reports · all listed companies</td>
           <td class="num" id="r-own"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
           <td class="col-asof" id="a-own"></td>
         </tr>
         <tr>
           <td class="col-name"><a href="stakes.html">5% Filings</a></td>
-          <td class="col-desc">Every large-shareholding report: who crossed 5%, in whom, how
-          the stake moved, and who reserves the right to make proposals to the board.</td>
+          <td class="col-desc">Large-shareholding reports: filer, issuer, stake movement,
+          stated intent to make proposals.</td>
+          <td class="col-cov">EDINET large-holding reports · about five years</td>
           <td class="num" id="r-stk"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
           <td class="col-asof" id="a-stk"></td>
         </tr>
         <tr>
           <td class="col-name"><a href="governance.html">Boards &amp; Pay</a></td>
-          <td class="col-desc">Every director of every listed company — role, age, seat and
-          shareholding — with officer pay by category and every individual at ¥100m or more.</td>
+          <td class="col-desc">Every director by role, age, seat and shareholding; officer
+          pay by category and every individual at ¥100m or more.</td>
+          <td class="col-cov">EDINET annual reports · five fiscal years</td>
           <td class="num" id="r-gov"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
           <td class="col-asof" id="a-gov"></td>
         </tr>
         <tr>
           <td class="col-name"><a href="buyback.html">Buybacks</a></td>
-          <td class="col-desc">What each company said it would buy back, what it actually
-          bought month by month, and whether the shares were cancelled.</td>
+          <td class="col-desc">Authorised amount, monthly execution and cancellation per
+          programme.</td>
+          <td class="col-cov">EDINET monthly status reports</td>
           <td class="num" id="r-bb"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
           <td class="col-asof" id="a-bb"></td>
         </tr>
         <tr>
           <td class="col-name"><a href="facilities.html">Facilities &amp; Land</a></td>
-          <td class="col-desc">Every disclosed plant, office, store and landholding, geocoded
-          and mapped, with land at book value and headcount by site.</td>
+          <td class="col-desc">Disclosed plants, offices, stores and land, geocoded, with
+          book value and headcount by site.</td>
+          <td class="col-cov">EDINET annual reports</td>
           <td class="num" id="r-fac"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
           <td class="col-asof" id="a-fac"></td>
         </tr>
         <tr>
           <td class="col-name"><a href="financials.html">Financials</a></td>
-          <td class="col-desc">Balance sheet, income statement and cash flows line by line as
-          filed, and each company's own five-year record of revenue, profit, ROE and dividends.</td>
+          <td class="col-desc">Balance sheet, income statement and cash flows line by line
+          as filed; five-year key figures.</td>
+          <td class="col-cov">EDINET annual reports · FY2021 onward</td>
           <td class="num" id="r-fin"><span class="skeleton" style="display:inline-block;width:110px;height:12px"></span></td>
           <td class="col-asof" id="a-fin"></td>
         </tr>
       </tbody>
     </table>
   </div>
-  <p class="dir-foot">Figures exactly as filed on EDINET; aggregates and comparisons are
-  calculated, and each page states its coverage. On the roadmap: ranked unwind screens and
-  overlap with disclosed activist positions.</p>
+  <p class="dir-foot">Planned: ranked unwind screens · overlap with disclosed activist
+  positions.</p>
 
-  <h2 id="ai">Access From an AI Assistant</h2>
-  <p class="section-sub">Connect Claude — or any assistant that supports the Model Context
-  Protocol — and ask about this data in plain English. Answers come back with the trust label,
-  the formula, and a link to the page the figures came from. No account, no key.</p>
-  <div class="connect-url">
-    <code id="mcp-url">https://web-production-c9178.up.railway.app/mcp</code>
-    <button type="button" class="btn" id="copy-url">Copy</button>
-  </div>
-  <p class="prod-links">
-    <a href="connect.html">Setup steps</a>
-    <a href="manual.html">Full manual</a>
-    <a href="/api/docs">REST API</a>
-  </p>
+  <h2 id="access">Data Access <span class="h2-note">No account, no key</span></h2>
+  <dl class="access-list">
+    <div>
+      <dt>REST API</dt>
+      <dd>JSON for every dataset, with the release in force on a given date. CSV and PNG
+      from every chart. <a href="/api/docs">API reference</a></dd>
+    </div>
+    <div>
+      <dt>MCP</dt>
+      <dd>Connect Claude or any Model Context Protocol client. Answers cite the trust label,
+      the formula and the page. <a href="connect.html">Setup</a> · <a href="manual.html">Manual</a></dd>
+    </div>
+    <div>
+      <dt>Endpoint</dt>
+      <dd>
+        <div class="connect-url">
+          <code id="mcp-url">https://web-production-c9178.up.railway.app/mcp</code>
+          <button type="button" class="btn" id="copy-url">Copy</button>
+        </div>
+      </dd>
+    </div>
+  </dl>
 
-  <h2 id="how">How the Platform Is Built</h2>
+  <h2 id="how">Data Principles</h2>
   <ul class="build-list">
-    <li><b>Primary sources only.</b> Consumer prices come from the Statistics Bureau of Japan
-    via e-Stat; monetary data from the Bank of Japan; yields from the Ministry of Finance;
-    ownership and governance from companies' own filings on EDINET. Every source file is
-    archived with its SHA-256 checksum before anything is parsed.</li>
-    <li><b>Official and calculated are never blurred.</b> Index levels and filed figures are
-    published exactly as they came. Anything this platform computes — year-over-year rates,
-    contributions, breadth, unwind pace — carries its formula instead of a badge.</li>
+    <li><b>Primary sources only.</b> Every source file is archived with its SHA-256 checksum
+    before it is parsed.</li>
+    <li><b>Point-in-time vintages.</b> A stored release is never edited. A revision is a new
+    vintage, and the API can serve any dataset as it stood on a given date.</li>
+    <li><b>Official and calculated never blurred.</b> Published values appear exactly as
+    issued. Anything computed here carries its formula.</li>
     <li><b>Missing stays missing.</b> A gap is shown as an em dash and exported as empty,
     never as zero.</li>
-    <li><b>Coverage is stated, not implied.</b> Where a dataset is partial, every aggregate
-    names its denominator.</li>
-    <li><b>Every view has an address.</b> The URL carries the full state of a chart or table,
-    so anything you publish stays reproducible. See the
-    <a href="methodology.html">Methodology</a> for formulas, limitations, and attribution.</li>
+    <li><b>Coverage is stated.</b> Where a dataset is partial, every aggregate names its
+    denominator.</li>
+    <li><b>Every view has an address.</b> The URL carries the full state of a chart or
+    table. <a href="methodology.html">Methodology</a> has the formulas, limitations and
+    attribution.</li>
   </ul>
 
 </main>
@@ -279,9 +305,10 @@
 <footer class="site-footer">
   <div class="inner">
     Sources: Statistics Bureau of Japan via e-Stat · Bank of Japan · Ministry of Finance ·
-    Japan National Tourism Organization · Ministry of Internal Affairs and Communications ·
-    company filings via EDINET (Financial Services Agency). Published values are official;
-    rates of change and aggregates are calculated on this platform.
+    Ministry of Agriculture, Forestry and Fisheries · Japan National Tourism Organization ·
+    Japan Tourism Agency · Ministry of Internal Affairs and Communications · company filings
+    via EDINET (Financial Services Agency). Published values are official; rates of change
+    and aggregates are calculated on this platform.
     <a href="methodology.html">Methodology</a>
   </div>
 </footer>

@@ -1,4 +1,4 @@
-/* Company Lens. The question this screen answers:
+/* Company Profile. The question this screen answers:
    "What does this company report by region and customer, and how does that
    sit against the customs flows its business is part of — in its own fiscal
    year, so I can put it in a model?"
@@ -110,7 +110,7 @@ function customsSource(extra) {
 function csvHeader(what, formulas) {
   const f = L.filing, rel = L.customs.release;
   return [
-    "Japan Data Observatory — Company Lens: " + companyName() + " (" + L.company.sec_code + ") — " + what,
+    "Japan Data Observatory — Company Profile: " + companyName() + " (" + L.company.sec_code + ") — " + what,
     "Filed figures: " + L.credit_lines[0] + " Filing " + f.doc_id + ", FY to " + f.period_end +
       ", filed " + f.filed_date + ", status " + f.status + (f.detail ? " — " + f.detail : ""),
     "Customs figures: " + L.credit_lines[1] + " Release " + rel.label + " (sha256 " + rel.sha256 +

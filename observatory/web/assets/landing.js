@@ -80,8 +80,7 @@ function fillCpi() {
     const t = d.tiles.find(x => x.key === "headline_yoy");
     setReading("r-cpi", fmtRate(t.value, 1), "headline YoY, calculated");
     setAsOf("a-cpi", fmtPeriodLong(d.release.latest_period), d.stale);
-    setAsOf("a-explorer", fmtPeriodLong(d.release.latest_period), d.stale);
-  }).catch(() => { rowFailed("r-cpi", "a-cpi"); document.getElementById("a-explorer").textContent = MISSING; });
+  }).catch(() => rowFailed("r-cpi", "a-cpi"));
 }
 
 function fillBoj() {
