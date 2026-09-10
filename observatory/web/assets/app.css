@@ -664,6 +664,12 @@ table.data td.num {
   color: var(--obs-ink);
 }
 table.data td.muted, table.data .muted { color: var(--obs-text-muted); }
+/* Statement-style tables indent a sub-line INSIDE the cell inset, never in
+   place of it: an inline padding-left of 0 for a top-level line put the text
+   on the table border. Levels add to the 10px every cell has. */
+table.data td.indent-1 { padding-left: 28px; }
+table.data td.indent-2 { padding-left: 46px; }
+table.data td.indent-3 { padding-left: 64px; }
 table.data tbody tr:hover { background: var(--obs-surface-subtle); }
 table.data tbody tr.clickable { cursor: pointer; }
 

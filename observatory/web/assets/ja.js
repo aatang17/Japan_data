@@ -375,7 +375,7 @@ function renderStatement() {
     // leading "+" on every revenue and cost line would be noise. Only the
     // change column is a signed quantity.
     return "<tr>" +
-      '<td style="padding-left:' + (indent * 18) + 'px">' + escapeHtml(label) + "</td>" +
+      '<td' + (indent ? ' class="indent-' + indent + '"' : "") + '>' + escapeHtml(label) + "</td>" +
       '<td class="num" data-sort="' + (now ?? "") + '">' +
         fmtNum(now === null ? null : now / BN, 1) + "</td>" +
       '<td class="num" data-sort="' + (was ?? "") + '">' +
