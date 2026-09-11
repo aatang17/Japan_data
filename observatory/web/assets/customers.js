@@ -19,7 +19,7 @@ const API = "/api/v1/equity/segments/concentration";
 let C = null;                 // the payload
 let EDGES = [];               // flattened filer × customer rows
 
-const SUGGEST = ["Samsung", "Toyota", "トヨタ", "Apple", "TSMC", "キオクシア", "NTT", "SK Hynix"];
+const SUGGEST = ["Samsung", "Toyota", "トヨタ", "Apple", "Taiwan Semiconductor", "キオクシア", "NTT", "SK Hynix"];
 
 function $(id) { return document.getElementById(id); }
 function bn(v) { return v === null || v === undefined ? MISSING : fmtNum(v / 1e9, 1); }
