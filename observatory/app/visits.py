@@ -115,17 +115,28 @@ def _client_ip(scope, forwarded):
 
 
 def _referrer_host(referer, host):
-    """Only the sending host is kept: enough to tell Substack from a search
+    """(sending site, came from our own pages).
+
+    Only the sending host is kept: enough to tell Substack from a search
     engine, without recording the page someone came from. The port is stripped
     from both sides before comparing, or every click inside a host:port
-    deployment reads as an external referral."""
+    deployment reads as an external referral.
+
+    The second value is what separates the two ways a request can carry no
+    site: one of our own pages fetching its chart data, and somebody arriving
+    with no referring link at all. Recording only the first made those
+    identical, so direct arrivals were invisible and in-page fetches were
+    counted as API use.
+    """
     if not referer:
-        return None
+        return None, False
     rest = referer.split("://", 1)[-1]
     sender = rest.split("/", 1)[0].split("@")[-1].split(":")[0].lower()
-    if not sender or sender == (host or "").split(":")[0].lower():
-        return None
-    return sender[:MAX_PATH_CHARS] or None
+    if not sender:
+        return None, False
+    if sender == (host or "").split(":")[0].lower():
+        return None, True
+    return sender[:MAX_PATH_CHARS], False
 
 
 def _is_bot(user_agent):
@@ -216,14 +227,16 @@ def observe(scope, status):
     # it — the address itself goes no further than this function.
     geoip.prepare()
     country, network = geoip.lookup(ip)
+    sender, internal = _referrer_host(_header(headers, b"referer"),
+                                      _header(headers, b"host"))
     _record({
         "at": now.isoformat(timespec="seconds") + "Z",
         "visitor": _visitor(ip, user_agent, day),
         "path": path,
         "kind": kind,
         "status": status,
-        "ref": _referrer_host(_header(headers, b"referer"),
-                              _header(headers, b"host")),
+        "ref": sender,
+        "internal": internal,
         "country": country,
         "network": network,
         "bot": _is_bot(user_agent),
@@ -315,8 +328,11 @@ def summary(days=30, top=15):
 
     daily = {}
     pages, refs, countries, networks = {}, {}, {}, {}
+    direct = {"views": 0, "visitors": set()}
+    direct_networks, direct_pages = {}, {}
     located, unlocated = 0, 0
     visitors, bot_hits, api_calls, mcp_calls = set(), 0, 0, 0
+    api_in_page, api_external = 0, 0
     first_event, last_event = None, None
     lines_read, unreadable = 0, 0
 
@@ -362,12 +378,22 @@ def summary(days=30, top=15):
                 if visitor:
                     bucket["visitors"].add(visitor)
                     visitors.add(visitor)
-                if kind == "api":
-                    api_calls += 1
+                # Older records predate the in-page flag and cannot be told
+                # apart; they are left out of both splits rather than guessed at.
+                knows_origin = "internal" in event
+                in_page = bool(event.get("internal"))
+
+                if kind in ("api", "mcp"):
+                    if kind == "api":
+                        api_calls += 1
+                    else:
+                        mcp_calls += 1
                     bucket["api"] += 1
-                elif kind == "mcp":
-                    mcp_calls += 1
-                    bucket["api"] += 1
+                    if knows_origin:
+                        if in_page:
+                            api_in_page += 1
+                        else:
+                            api_external += 1
                 elif kind == "page" and (event.get("status") or 0) < 400:
                     bucket["pageviews"] += 1
                     page = pages.setdefault(
@@ -375,12 +401,30 @@ def summary(days=30, top=15):
                     page["views"] += 1
                     if visitor:
                         page["visitors"].add(visitor)
+                # How a page was reached. Page reads only: a referrer answers
+                # "how did someone get here", and in-page chart fetches would
+                # otherwise drown the answer.
                 sender = event.get("ref")
-                if sender:
+                is_read = kind == "page" and (event.get("status") or 0) < 400
+                if is_read and sender:
                     ref = refs.setdefault(sender, {"views": 0, "visitors": set()})
                     ref["views"] += 1
                     if visitor:
                         ref["visitors"].add(visitor)
+                elif is_read and knows_origin and not in_page:
+                    # No referring link: typed, bookmarked, or opened from a
+                    # mail or messaging app, which strip the header.
+                    direct["views"] += 1
+                    if visitor:
+                        direct["visitors"].add(visitor)
+                    for source, key in ((direct_networks, event.get("network")),
+                                        (direct_pages, event.get("path"))):
+                        if not key:
+                            continue
+                        row = source.setdefault(key, {"views": 0, "visitors": set()})
+                        row["views"] += 1
+                        if visitor:
+                            row["visitors"].add(visitor)
 
                 # Location covers page reads AND API calls: an institution
                 # pulling the API is the readership worth knowing about, and a
@@ -441,6 +485,14 @@ def summary(days=30, top=15):
         "daily": series,
         "top_pages": ranked(pages),
         "top_referrers": ranked(refs),
+        # Arrivals carrying no referring link, and the only things known about
+        # them. Without this the referrer table silently omits most arrivals
+        # and an empty table reads as broken detection.
+        "direct": {"views": direct["views"], "visitors": len(direct["visitors"])},
+        "direct_networks": ranked(direct_networks),
+        "direct_pages": ranked(direct_pages),
+        "api_in_page": api_in_page,
+        "api_external": api_external,
         "top_countries": ranked(countries),
         "top_networks": ranked(networks),
         # What share of counted traffic could be placed at all. Without it an

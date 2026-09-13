@@ -591,12 +591,9 @@ function trafficMarkup(d, days) {
     "window</span></div>" +
     trafficTable(d.top_pages, "Page",
       { link: true, empty: "No page views recorded in this window." }) +
-    '<div class="admin-section">Referring Sites <span class="note">only the sending site ' +
-    "is recorded, never the page a reader came from</span></div>" +
-    trafficTable(d.top_referrers, "Site",
-      { empty: "No referring sites recorded in this window. A reader who typed the " +
-               "address or followed a link from an email arrives with no referrer." }) +
-    trafficPlaces(d);
+    '<div class="admin-section">How Readers Arrived <span class="note">only the sending ' +
+    "site is recorded, never the page a reader came from</span></div>" +
+    trafficArrivals(d) + trafficDirect(d) + trafficPlaces(d);
 }
 
 /* ISO country code -> "Japan". Built into the browser, so no country table
@@ -638,6 +635,54 @@ function trafficTable(rows, label, opts) {
     "<thead><tr><th>" + escapeHtml(label) + '</th><th class="num">' +
     escapeHtml(opts.viewsLabel || "Page Views") + '</th>' +
     '<th class="num">Visits</th></tr></thead><tbody>' + body + "</tbody></table></div>";
+}
+
+/* Referring sites and direct arrivals in one table, so the sources account for
+   every page read. Without the direct row an empty table reads as broken
+   detection rather than "nobody followed a link". */
+function trafficArrivals(d) {
+  var rows = (d.top_referrers || []).map(function (r) {
+    return { key: r.key, views: r.views, visitors: r.visitors, direct: false };
+  });
+  var direct = d.direct || { views: 0, visitors: 0 };
+  if (direct.views) {
+    rows.push({ key: "Direct — no referring link", views: direct.views,
+                visitors: direct.visitors, direct: true });
+  }
+  if (!rows.length) {
+    return '<p class="table-empty">No page reads in this window.</p>';
+  }
+  rows.sort(function (a, b) { return b.views - a.views; });
+  var total = rows.reduce(function (n, r) { return n + r.views; }, 0);
+  var body = rows.map(function (r) {
+    var share = total ? Math.round((r.views / total) * 100) : 0;
+    return "<tr>" +
+      (r.direct ? "<td><strong>" + escapeHtml(r.key) + "</strong></td>"
+                : '<td class="mono">' + escapeHtml(r.key) + "</td>") +
+      '<td class="num">' + fmtCount(r.views) + "</td>" +
+      '<td class="num">' + share + "%</td>" +
+      '<td class="num">' + fmtCount(r.visitors) + "</td></tr>";
+  }).join("");
+  return '<div class="table-wrap"><table class="data">' +
+    '<thead><tr><th>Source</th><th class="num">Page Views</th>' +
+    '<th class="num">Share</th><th class="num">Visits</th></tr></thead><tbody>' +
+    body + "</tbody></table></div>";
+}
+
+/* A direct arrival carries no referrer by definition, so the network it came
+   from and the page it opened are the only things that can stand in for one. */
+function trafficDirect(d) {
+  if (!d.direct || !d.direct.views) return "";
+  return '<div class="admin-section">Direct Arrivals by Network ' +
+    '<span class="note">the closest thing to a source a direct arrival has' +
+    "</span></div>" +
+    trafficTable(d.direct_networks, "Network",
+      { plain: true, empty: "No direct arrival could be attributed to a network." }) +
+    '<div class="admin-section">Pages Opened Directly ' +
+    '<span class="note">opened with no referring link, so typed, bookmarked or ' +
+    "followed from a mail or messaging app</span></div>" +
+    trafficTable(d.direct_pages, "Page",
+      { link: true, empty: "No page recorded for direct arrivals." });
 }
 
 /* Country and network operator. Both are derived from the address while the
@@ -688,7 +733,15 @@ function trafficCalc(d) {
     "<p>A <strong>page view</strong> is a successful page request. Styles, scripts, images, " +
     "the admin console itself and the internal cache warm-up are not counted; a page request " +
     "that returned an error is recorded but is not counted as a page view. " +
-    "<strong>API requests</strong> covers both the public API and connector traffic.</p>" +
+    "<strong>API requests</strong> covers both the public API and connector traffic — of " +
+    "them, " + fmtCount(d.api_in_page) + " were this site's own pages fetching the data " +
+    "for a chart and " + fmtCount(d.api_external) + " came from outside it. Only the " +
+    "second is somebody using the API. Requests recorded before this split existed are " +
+    "in neither figure.</p>" +
+    "<p>A <strong>source</strong> is the site that linked a reader here. Arrivals with no " +
+    "referring link are counted as direct rather than dropped: a typed address, a bookmark, " +
+    "and a link opened from a mail or messaging app all send nothing, and so do scripts. " +
+    "A reader moving between our own pages is not a new arrival and is not counted again.</p>" +
     "<p><strong>Automated hits</strong> — crawlers, uptime monitors, the platform " +
     "healthcheck and anything sending no browser identification — are counted separately " +
     "and excluded from every other figure here.</p>" +
