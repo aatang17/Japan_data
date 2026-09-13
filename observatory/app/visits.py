@@ -67,6 +67,16 @@ _BUFFER = []
 _LOCK = Lock()
 _LAST_FLUSH = [time.monotonic()]
 
+# Visitors already confirmed to be running a browser today. A page render pulls
+# styles, scripts and images; a script fetching HTML pulls none — so an asset
+# request is the evidence that separates a reader from something wearing a
+# browser's user agent. One confirmation per visitor per day is recorded, never
+# the assets themselves: a page load is a dozen of them and logging each would
+# multiply the log for no extra information.
+_BROWSER_DAY = [""]
+_BROWSER_SEEN = set()
+MAX_BROWSER_SEEN = 100000
+
 
 def _salt():
     """The HMAC key, generated once and kept on the volume."""
@@ -160,7 +170,7 @@ def _kind(path):
     lowered = path.lower()
     for suffix in ASSET_SUFFIXES:
         if lowered.endswith(suffix):
-            return None
+            return "asset"
     return "page"
 
 
@@ -203,6 +213,20 @@ def _record(event):
             _flush_locked()
 
 
+def _confirm_browser(visitor, day):
+    """True the first time today that this visitor fetches an asset."""
+    with _LOCK:
+        if _BROWSER_DAY[0] != day:
+            _BROWSER_DAY[0] = day
+            _BROWSER_SEEN.clear()
+        if visitor in _BROWSER_SEEN:
+            return False
+        if len(_BROWSER_SEEN) >= MAX_BROWSER_SEEN:
+            return False  # bounded; a busier day simply confirms fewer
+        _BROWSER_SEEN.add(visitor)
+        return True
+
+
 def observe(scope, status):
     """Note one finished request. Called from the middleware's finally block,
     so every exit path is counted and none can raise into the response."""
@@ -217,6 +241,8 @@ def observe(scope, status):
         return
     if kind == "page" and method == "POST":
         return  # a form post is not a page read
+    if kind == "asset" and method != "GET":
+        return
 
     headers = [(k.lower(), v) for k, v in scope.get("headers") or ()]
     user_agent = _header(headers, b"user-agent")
@@ -227,11 +253,26 @@ def observe(scope, status):
     # it — the address itself goes no further than this function.
     geoip.prepare()
     country, network = geoip.lookup(ip)
+    visitor = _visitor(ip, user_agent, day)
+
+    if kind == "asset":
+        if not _confirm_browser(visitor, day):
+            return
+        _record({
+            "at": now.isoformat(timespec="seconds") + "Z",
+            "visitor": visitor,
+            "kind": "browser",
+            "country": country,
+            "network": network,
+            "bot": _is_bot(user_agent),
+        })
+        return
+
     sender, internal = _referrer_host(_header(headers, b"referer"),
                                       _header(headers, b"host"))
     _record({
         "at": now.isoformat(timespec="seconds") + "Z",
-        "visitor": _visitor(ip, user_agent, day),
+        "visitor": visitor,
         "path": path,
         "kind": kind,
         "status": status,
@@ -333,6 +374,7 @@ def summary(days=30, top=15):
     located, unlocated = 0, 0
     visitors, bot_hits, api_calls, mcp_calls = set(), 0, 0, 0
     api_in_page, api_external = 0, 0
+    browsers = set()
     first_event, last_event = None, None
     lines_read, unreadable = 0, 0
 
@@ -374,6 +416,11 @@ def summary(days=30, top=15):
                     continue
 
                 kind = event.get("kind")
+                # Not traffic, just the note that this visitor rendered a page.
+                if kind == "browser":
+                    if event.get("visitor"):
+                        browsers.add(event["visitor"])
+                    continue
                 visitor = event.get("visitor")
                 if visitor:
                     bucket["visitors"].add(visitor)
@@ -466,7 +513,10 @@ def summary(days=30, top=15):
         cursor += datetime.timedelta(days=1)
 
     def ranked(source):
-        rows = [{"key": k, "views": v["views"], "visitors": len(v["visitors"])}
+        rows = [{"key": k, "views": v["views"], "visitors": len(v["visitors"]),
+                 # Visits from something that also fetched the page's styles and
+                 # images, so was rendering it rather than only reading the HTML.
+                 "browser_visits": len(v["visitors"] & browsers)}
                 for k, v in source.items()]
         rows.sort(key=lambda r: (-r["views"], r["key"]))
         return rows[:max(1, min(int(top), 100))]
@@ -493,6 +543,10 @@ def summary(days=30, top=15):
         "direct_pages": ranked(direct_pages),
         "api_in_page": api_in_page,
         "api_external": api_external,
+        # Visits that rendered a page rather than only pulling its HTML. The
+        # honest test for "was this a person": a browser fetches the styles and
+        # images, a script almost never does.
+        "browser_visits": len(visitors & browsers),
         "top_countries": ranked(countries),
         "top_networks": ranked(networks),
         # What share of counted traffic could be placed at all. Without it an

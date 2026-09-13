@@ -568,6 +568,7 @@ function trafficMarkup(d, days) {
   // is the sum of each day's visitors, not a headcount of people.
   var kpis =
     kpi(fmtCount(d.visitors), "Visits", "") +
+    kpi(fmtCount(d.browser_visits), "Rendered a Page", "") +
     kpi(fmtCount(d.pageviews), "Page Views", "") +
     kpi(fmtCount(d.api_calls + d.mcp_calls), "API Requests", "") +
     kpi(fmtCount(d.bot_hits), "Automated Hits", "");
@@ -629,12 +630,17 @@ function trafficTable(rows, label, opts) {
       : escapeHtml(opts.label ? opts.label(r.key) : r.key);
     return "<tr><td" + (opts.plain ? "" : ' class="mono"') + ">" + name + "</td>" +
       '<td class="num">' + fmtCount(r.views) + "</td>" +
-      '<td class="num">' + fmtCount(r.visitors) + "</td></tr>";
+      '<td class="num">' + fmtCount(r.visitors) + "</td>" +
+      (opts.browser
+        ? '<td class="num">' + fmtCount(r.browser_visits) + "</td>"
+        : "") + "</tr>";
   }).join("");
   return '<div class="table-wrap"><table class="data">' +
     "<thead><tr><th>" + escapeHtml(label) + '</th><th class="num">' +
     escapeHtml(opts.viewsLabel || "Page Views") + '</th>' +
-    '<th class="num">Visits</th></tr></thead><tbody>' + body + "</tbody></table></div>";
+    '<th class="num">Visits</th>' +
+    (opts.browser ? '<th class="num">Rendered</th>' : "") +
+    "</tr></thead><tbody>" + body + "</tbody></table></div>";
 }
 
 /* Referring sites and direct arrivals in one table, so the sources account for
@@ -707,13 +713,13 @@ function trafficPlaces(d) {
   return '<div class="admin-section">Requests by Country ' +
     '<span class="note">' + escapeHtml(coverage) + "</span></div>" +
     trafficTable(d.top_countries, "Country",
-      { plain: true, label: countryName, viewsLabel: "Requests",
+      { plain: true, label: countryName, viewsLabel: "Requests", browser: true,
         empty: "No request in this window could be placed." }) +
     '<div class="admin-section">Requests by Network Operator ' +
     '<span class="note">the network a request came from, which is not the same ' +
     "as who the reader works for</span></div>" +
     trafficTable(d.top_networks, "Network",
-      { plain: true, viewsLabel: "Requests",
+      { plain: true, viewsLabel: "Requests", browser: true,
         empty: "No request in this window could be attributed to a network." }) +
     '<p class="source-line">Location and network from ' +
     '<a href="https://db-ip.com" target="_blank" rel="noopener">IP Geolocation by ' +
@@ -742,6 +748,13 @@ function trafficCalc(d) {
     "referring link are counted as direct rather than dropped: a typed address, a bookmark, " +
     "and a link opened from a mail or messaging app all send nothing, and so do scripts. " +
     "A reader moving between our own pages is not a new arrival and is not counted again.</p>" +
+    "<p><strong>Rendered a page</strong> counts visits that also fetched the styles, " +
+    "scripts or images a page needs to display. A browser showing the page to somebody " +
+    "always pulls them; a script reading the HTML almost never does, so this separates " +
+    "readers from software wearing a browser's name far better than the user agent can. " +
+    "Treat it as strong evidence rather than proof — a determined scraper can request " +
+    "assets too, and a reader whose browser had everything cached already may not. " +
+    "Counted once per visitor per day; the assets themselves are never logged.</p>" +
     "<p><strong>Automated hits</strong> — crawlers, uptime monitors, the platform " +
     "healthcheck and anything sending no browser identification — are counted separately " +
     "and excluded from every other figure here.</p>" +
