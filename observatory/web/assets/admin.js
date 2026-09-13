@@ -589,29 +589,91 @@ function trafficMarkup(d, days) {
     "page views per day</span></div>" + chart +
     '<div class="admin-section">Most-Read Pages <span class="note">page views in this ' +
     "window</span></div>" +
-    trafficTable(d.top_pages, "Page", true, "No page views recorded in this window.") +
+    trafficTable(d.top_pages, "Page",
+      { link: true, empty: "No page views recorded in this window." }) +
     '<div class="admin-section">Referring Sites <span class="note">only the sending site ' +
     "is recorded, never the page a reader came from</span></div>" +
-    trafficTable(d.top_referrers, "Site", false, "No referring sites recorded in this " +
-      "window. A reader who typed the address or followed a link from an email arrives " +
-      "with no referrer.");
+    trafficTable(d.top_referrers, "Site",
+      { empty: "No referring sites recorded in this window. A reader who typed the " +
+               "address or followed a link from an email arrives with no referrer." }) +
+    trafficPlaces(d);
 }
 
-function trafficTable(rows, label, linkKeys, emptyNote) {
-  if (!rows || !rows.length) return '<p class="table-empty">' + escapeHtml(emptyNote) + "</p>";
+/* ISO country code -> "Japan". Built into the browser, so no country table
+   ships with the page; the bare code stands in where it is unavailable. */
+var REGION_NAMES = (function () {
+  try {
+    return new Intl.DisplayNames(["en"], { type: "region" });
+  } catch (e) {
+    return null;
+  }
+})();
+
+function countryName(code) {
+  if (!code) return MISSING;
+  try {
+    return (REGION_NAMES && REGION_NAMES.of(code)) || code;
+  } catch (e) {
+    return code;
+  }
+}
+
+function trafficTable(rows, label, opts) {
+  opts = opts || {};
+  if (!rows || !rows.length) {
+    return '<p class="table-empty">' + escapeHtml(opts.empty || "Nothing recorded.") + "</p>";
+  }
   var body = rows.map(function (r) {
-    // A referring host is attacker-supplied text: shown, never linked.
-    var name = linkKeys
+    // A referring host or network name is text someone else chose: shown as
+    // text, and only our own paths are ever turned into links.
+    var name = opts.link
       ? '<a href="' + escapeHtml(r.key) + '" target="_blank" rel="noopener">' +
         escapeHtml(r.key) + "</a>"
-      : escapeHtml(r.key);
-    return '<tr><td class="mono">' + name + "</td>" +
+      : escapeHtml(opts.label ? opts.label(r.key) : r.key);
+    return "<tr><td" + (opts.plain ? "" : ' class="mono"') + ">" + name + "</td>" +
       '<td class="num">' + fmtCount(r.views) + "</td>" +
       '<td class="num">' + fmtCount(r.visitors) + "</td></tr>";
   }).join("");
   return '<div class="table-wrap"><table class="data">' +
-    "<thead><tr><th>" + escapeHtml(label) + '</th><th class="num">Page Views</th>' +
+    "<thead><tr><th>" + escapeHtml(label) + '</th><th class="num">' +
+    escapeHtml(opts.viewsLabel || "Page Views") + '</th>' +
     '<th class="num">Visits</th></tr></thead><tbody>' + body + "</tbody></table></div>";
+}
+
+/* Country and network operator. Both are derived from the address while the
+   request is in flight; neither is stored, and neither is more than an
+   indication — see the caveats under "Show calculation". */
+function trafficPlaces(d) {
+  var geo = d.geoip || {};
+  if (!geo.loaded) {
+    return '<div class="admin-section">Requests by Country</div>' +
+      '<p class="table-empty">Location tables are not loaded' +
+      (geo.error ? ", so nothing can be placed yet. The server reported: " +
+        escapeHtml(geo.error) : " yet. They are fetched once a month and read in " +
+        "the background after the site comes up, so this fills in a few seconds " +
+        "after a restart.") + "</p>";
+  }
+
+  var placed = (d.located_hits || 0) + (d.unlocated_hits || 0);
+  var share = placed ? Math.round((d.located_hits / placed) * 100) : 0;
+  var coverage = fmtCount(d.located_hits) + " of " + fmtCount(placed) +
+    " counted requests placed (" + share + "%)";
+
+  return '<div class="admin-section">Requests by Country ' +
+    '<span class="note">' + escapeHtml(coverage) + "</span></div>" +
+    trafficTable(d.top_countries, "Country",
+      { plain: true, label: countryName, viewsLabel: "Requests",
+        empty: "No request in this window could be placed." }) +
+    '<div class="admin-section">Requests by Network Operator ' +
+    '<span class="note">the network a request came from, which is not the same ' +
+    "as who the reader works for</span></div>" +
+    trafficTable(d.top_networks, "Network",
+      { plain: true, viewsLabel: "Requests",
+        empty: "No request in this window could be attributed to a network." }) +
+    '<p class="source-line">Location and network from ' +
+    '<a href="https://db-ip.com" target="_blank" rel="noopener">IP Geolocation by ' +
+    "DB-IP</a>, " + escapeHtml(geo.edition || "") + " edition, " +
+    fmtCount(geo.ranges) + " address ranges.</p>";
 }
 
 function trafficCalc(d) {
@@ -633,6 +695,13 @@ function trafficCalc(d) {
     "<p>These are estimates, not exact headcounts. A whole office behind one address on the " +
     "same browser version counts as one visitor, while one person reading on a laptop and a " +
     "phone counts as two.</p>" +
+    "<p><strong>Country and network</strong> are looked up from the address while the request " +
+    "is being handled, and only the result is kept — the address is still never written down. " +
+    "Read the network as an indication, never as proof: a corporate VPN, a home connection " +
+    "and a phone all resolve to whoever runs that network, so a reader at a bank shows as the " +
+    "bank only when they browse from its own network. Cloud and CDN addresses resolve to the " +
+    "provider, and to wherever that address is registered rather than where the reader sat — " +
+    "which is why a Cloudflare address can read as Australia.</p>" +
     '<p class="muted">Visit log: ' + escapeHtml(String(d.log_files)) + " file" +
     (d.log_files === 1 ? "" : "s") + ", " + escapeHtml(fmtBytes(d.log_bytes)) +
     " on the data volume · " + escapeHtml(fmtCount(d.lines_read)) + " records read" +
@@ -695,6 +764,7 @@ function wireTraffic(target, d, days) {
       "Page views = successful page requests; assets and the admin console excluded",
       "Automated hits (crawlers, monitors, healthchecks) excluded from both series",
       "An empty cell is a day before counting began, which is not the same as zero",
+      "Country and network: IP Geolocation by DB-IP (https://db-ip.com), CC BY 4.0",
     ]);
   });
 }

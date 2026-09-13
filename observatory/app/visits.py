@@ -30,7 +30,7 @@ import os
 import time
 from threading import Lock
 
-from . import db
+from . import db, geoip
 
 ANALYTICS_DIR = db.DATA_DIR / "analytics"
 SALT_PATH = ANALYTICS_DIR / "salt"
@@ -212,6 +212,10 @@ def observe(scope, status):
     now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
     day = now.strftime("%Y-%m-%d")
     ip = _client_ip(scope, _header(headers, b"x-forwarded-for"))
+    # Derived here, while the address is still in hand, and stored in place of
+    # it — the address itself goes no further than this function.
+    geoip.prepare()
+    country, network = geoip.lookup(ip)
     _record({
         "at": now.isoformat(timespec="seconds") + "Z",
         "visitor": _visitor(ip, user_agent, day),
@@ -220,6 +224,8 @@ def observe(scope, status):
         "status": status,
         "ref": _referrer_host(_header(headers, b"referer"),
                               _header(headers, b"host")),
+        "country": country,
+        "network": network,
         "bot": _is_bot(user_agent),
     })
 
@@ -308,7 +314,8 @@ def summary(days=30, top=15):
     wanted = _months_in_window(start, today)
 
     daily = {}
-    pages, refs = {}, {}
+    pages, refs, countries, networks = {}, {}, {}, {}
+    located, unlocated = 0, 0
     visitors, bot_hits, api_calls, mcp_calls = set(), 0, 0, 0
     first_event, last_event = None, None
     lines_read, unreadable = 0, 0
@@ -375,6 +382,23 @@ def summary(days=30, top=15):
                     if visitor:
                         ref["visitors"].add(visitor)
 
+                # Location covers page reads AND API calls: an institution
+                # pulling the API is the readership worth knowing about, and a
+                # page-only cut would hide it.
+                place = event.get("country")
+                operator = event.get("network")
+                if place or operator:
+                    located += 1
+                else:
+                    unlocated += 1
+                for source, key in ((countries, place), (networks, operator)):
+                    if not key:
+                        continue
+                    row = source.setdefault(key, {"views": 0, "visitors": set()})
+                    row["views"] += 1
+                    if visitor:
+                        row["visitors"].add(visitor)
+
     # A day before counting began is UNKNOWN, not zero: padding the window
     # back to its requested length with zeros would draw weeks of invented
     # quiet. A day after it with no traffic is a true zero.
@@ -417,6 +441,14 @@ def summary(days=30, top=15):
         "daily": series,
         "top_pages": ranked(pages),
         "top_referrers": ranked(refs),
+        "top_countries": ranked(countries),
+        "top_networks": ranked(networks),
+        # What share of counted traffic could be placed at all. Without it an
+        # empty location table reads as "nobody came" rather than "the tables
+        # were not loaded".
+        "located_hits": located,
+        "unlocated_hits": unlocated,
+        "geoip": geoip.status(),
         "first_event": first_event,
         "last_event": last_event,
         "log_files": len(files),
