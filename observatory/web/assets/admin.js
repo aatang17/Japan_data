@@ -568,7 +568,7 @@ function trafficMarkup(d, days) {
   // is the sum of each day's visitors, not a headcount of people.
   var kpis =
     kpi(fmtCount(d.visitors), "Visits", "") +
-    kpi(fmtCount(d.browser_visits), "Rendered a Page", "") +
+    kpi(fmtCount(d.browser_visits), "Browser Visits", "") +
     kpi(fmtCount(d.pageviews), "Page Views", "") +
     kpi(fmtCount(d.api_calls + d.mcp_calls), "API Requests", "") +
     kpi(fmtCount(d.bot_hits), "Automated Hits", "");
@@ -639,7 +639,7 @@ function trafficTable(rows, label, opts) {
     "<thead><tr><th>" + escapeHtml(label) + '</th><th class="num">' +
     escapeHtml(opts.viewsLabel || "Page Views") + '</th>' +
     '<th class="num">Visits</th>' +
-    (opts.browser ? '<th class="num">Rendered</th>' : "") +
+    (opts.browser ? '<th class="num">Browser Visits</th>' : "") +
     "</tr></thead><tbody>" + body + "</tbody></table></div>";
 }
 
@@ -748,13 +748,15 @@ function trafficCalc(d) {
     "referring link are counted as direct rather than dropped: a typed address, a bookmark, " +
     "and a link opened from a mail or messaging app all send nothing, and so do scripts. " +
     "A reader moving between our own pages is not a new arrival and is not counted again.</p>" +
-    "<p><strong>Rendered a page</strong> counts visits that also fetched the styles, " +
-    "scripts or images a page needs to display. A browser showing the page to somebody " +
-    "always pulls them; a script reading the HTML almost never does, so this separates " +
-    "readers from software wearing a browser's name far better than the user agent can. " +
-    "Treat it as strong evidence rather than proof — a determined scraper can request " +
-    "assets too, and a reader whose browser had everything cached already may not. " +
-    "Counted once per visitor per day; the assets themselves are never logged.</p>" +
+    "<p><strong>Browser visits</strong> counts visits that also asked for the styles, " +
+    "images and scripts a page needs before it can be shown. A browser displaying the " +
+    "page to somebody has to fetch them; a script taking the text and leaving does not. " +
+    "It is much better evidence than the browser name, which anything can copy.</p>" +
+    "<p>It still is not proof that a person read anything. A scraper can drive a real " +
+    "browser, and a page can be opened in a tab nobody looks at. Knowing whether someone " +
+    "actually read a page would take a script running in the browser watching them, which " +
+    "this product deliberately does not do. Counted once per visitor per day, and the " +
+    "asset requests themselves are never counted as traffic or stored.</p>" +
     "<p><strong>Automated hits</strong> — crawlers, uptime monitors, the platform " +
     "healthcheck and anything sending no browser identification — are counted separately " +
     "and excluded from every other figure here.</p>" +
