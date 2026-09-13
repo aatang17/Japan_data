@@ -303,7 +303,7 @@ function renderTableNotes(rows) {
 function sourceLine(rel, trust) {
   const label = TRUST_LABELS[trust];
   return "Source: Statistics Bureau of Japan · " + rel.source_id +
-    " · 2020 = 100 · Data through " + fmtPeriod(rel.latest_period) +
+    " · " + (rel.base || "").replace("=", " = ") + " · Data through " + fmtPeriod(rel.latest_period) +
     " · Retrieved " + fmtStamp(rel.retrieved_at) +
     (label ? " · " + label : "");
 }
@@ -422,7 +422,7 @@ function applyDetailRange() {
   detailChart = obsChart(el, "line", {
     series: [{ name: detailMeta.name_en, slot: 1, points: points }],
     unit: detailData.unit,
-    yAxisName: measure === "index" ? "Index (2020 = 100)" : "%",
+    yAxisName: measure === "index" ? "Index (" + (ALL.release.base || "").replace("=", " = ") + ")" : "%",
     trust: detailData.trust,
     sourceLine: src,
   });
@@ -441,7 +441,7 @@ function applyDetailRange() {
         : "Trust: calculated from official index values (formula below)",
       "Calculation: " + detailData.calc,
       "Source: Statistics Bureau of Japan via e-Stat, " + ALL.release.source_id,
-      "Release: " + ALL.release.label + " (2020 = 100)",
+      "Release: " + ALL.release.label + " (" + (ALL.release.base || "").replace("=", " = ") + ")",
       "Retrieved: " + fmtStamp(ALL.release.retrieved_at),
       "Permalink: " + location.href,
     ]);
@@ -474,7 +474,7 @@ async function renderDetail() {
     '<option value="yoy">Year over Year (%)</option>' +
     '<option value="mom">Month over Month (%)</option>' +
     '<option value="ann3m">3-Month Annualized (%)</option>' +
-    '<option value="index">Index Level (2020 = 100)</option>' +
+    '<option value="index">Index Level (' + (ALL.release.base || "").replace("=", " = ") + ')</option>' +
     "</select>" +
     '<span class="spacer"></span>' +
     '<button type="button" class="btn" id="detail-png">Download PNG</button>' +
@@ -549,7 +549,7 @@ function exportFilteredCSV() {
     "Note: rows overlap (an aggregate contains its own components), so contribution_pp does not sum to headline YoY",
     "Flags: step = one month is at least 70% of the 12-month move and shifted the index at least 10%; low_base = index level below 5.0, so percent changes are unstable",
     "Source: Statistics Bureau of Japan via e-Stat, " + rel.source_id,
-    "Release: " + rel.label + " (2020 = 100)",
+    "Release: " + rel.label + " (" + (rel.base || "").replace("=", " = ") + ")",
     "Retrieved: " + fmtStamp(rel.retrieved_at),
     "Permalink: " + location.href,
   ].map(l => "# " + l).join("\n");

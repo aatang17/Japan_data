@@ -50,7 +50,7 @@ from . import asof
 
 from .equity_api import NAMES_NOTE, PROVENANCE, _cur, _rows
 
-router = APIRouter(prefix="/api/v1/equity/agm")
+router = APIRouter(prefix="/api/v1/equity/agm", tags=["AGM votes"])
 
 CLEAN = "status IN ('clean','partial')"
 

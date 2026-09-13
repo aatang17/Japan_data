@@ -500,7 +500,14 @@ def _cached(table_id, stamp, kind, produce):
     return value
 
 
-def _table_payload(table_id, flow, stamp, codes=None):
+def _table_payload(table_id, flow, stamp, codes=None, kind="data"):
+    """One table's data and both metadata languages, cached under the stamp.
+
+    `kind` names the data cache entry: sibling datasets read *different
+    commodity codes from the same table*, and a cache keyed on the table
+    alone would hand the motor-vehicle adapter the semiconductor slice.
+    Metadata is the whole classification and is shared.
+    """
     if codes is None:
         codes = ",".join(c for c, _e, _j, _o, _k, _s in COMMODITIES[flow])
 
@@ -517,21 +524,32 @@ def _table_payload(table_id, flow, stamp, codes=None):
 
     return {
         "id": table_id, "flow": flow, "updated": stamp,
-        "data": _cached(table_id, stamp, "data", data),
+        "data": _cached(table_id, stamp, kind, data),
         "meta_ja": _cached(table_id, stamp, "metaJ", lambda: meta("J")),
         "meta_en": _cached(table_id, stamp, "metaE", lambda: meta("E")),
     }
 
 
 def fetch():
+    return fetch_commodities(COMMODITIES)
+
+
+def fetch_commodities(commodities, kind="data"):
     """Every year-block, in one deterministic gzipped envelope.
 
     Timestamps are stripped from each API response, so two runs against an
     unchanged upstream produce identical bytes and the runner's plain SHA-256
     comparison gives idempotency without a canonical_bytes() hook.
+
+    Sibling datasets (motor vehicles, energy) pass their own commodity table
+    and a cache `kind` of their own; everything else — the year-blocks, the
+    stamps, the partner vocabulary — is the same statistic.
     """
     stamps = _updated_dates()
-    envelope = {"tables": [_table_payload(tid, flow, stamps[tid])
+    envelope = {"tables": [_table_payload(
+                               tid, flow, stamps[tid],
+                               ",".join(c for c, _e, _j, _o, _k, _s in commodities[flow]),
+                               kind)
                            for tid, flow, _era in TABLES]}
     return gzip.compress(
         json.dumps(envelope, sort_keys=True, ensure_ascii=False).encode("utf-8"),
@@ -588,7 +606,8 @@ def _number(text):
         return None
 
 
-def parse(raw_bytes):
+def parse(raw_bytes, commodities=None):
+    commodities = COMMODITIES if commodities is None else commodities
     envelope = json.loads(gzip.decompress(raw_bytes).decode("utf-8"))
 
     # Names, newest table last so the current classification wins a tie.
@@ -603,7 +622,7 @@ def parse(raw_bytes):
         flow = table["flow"]
         area_en.update(_class_names(table["meta_en"], "area"))
         area_ja.update(_class_names(table["meta_ja"], "area"))
-        known = set(c for c, _e, _j, _o, _k, _s in COMMODITIES[flow])
+        known = set(c for c, _e, _j, _o, _k, _s in commodities[flow])
 
         for cell in _values_of(table["data"]):
             commodity = cell["@cat01"]
@@ -643,7 +662,7 @@ def parse(raw_bytes):
 
     series, observations = [], []
     for flow in ("exp", "imp"):
-        for commodity, name_en, name_ja, order, _kind, _short in COMMODITIES[flow]:
+        for commodity, name_en, name_ja, order, _kind, _short in commodities[flow]:
             unit_q = qty_unit.get((flow, commodity))
             for area in areas:
                 for measure in ("val", "qty"):
@@ -698,16 +717,28 @@ ANCHOR_PARTNERS = {"exp": ("50106", "50105"),      # Taiwan, China
                    "imp": ("50106", "50304")}      # Taiwan, United States
 FLAGSHIP = {"exp": "70323050", "imp": "70311030"}  # integrated circuits
 
+# What a sibling dataset hands validate(): its own flagship commodity per
+# direction, the partners that flagship must always reach, the floor on the
+# observation count, and how the flagship is named in a refusal and in the
+# summary ("ic" gives ic_exports_latest_jpy_1000).
+PROFILE = {"flagship": FLAGSHIP, "anchors": ANCHOR_PARTNERS,
+           "min_observations": MIN_OBSERVATIONS,
+           "flagship_name": "integrated-circuit", "stat_prefix": "ic"}
 
-def validate(series, observations):
+
+def validate(series, observations, profile=None):
+    profile = PROFILE if profile is None else profile
+    flagship, anchors = profile["flagship"], profile["anchors"]
+    min_observations = profile["min_observations"]
+
     codes = set(s["code"] for s in series)
     if not codes:
         raise ValidationError("no series parsed")
 
-    if len(observations) < MIN_OBSERVATIONS:
+    if len(observations) < min_observations:
         raise ValidationError(
             "only %d observations parsed, expected at least %d — a year-block "
-            "probably came back empty" % (len(observations), MIN_OBSERVATIONS))
+            "probably came back empty" % (len(observations), min_observations))
 
     seen = set()
     periods = set()
@@ -757,19 +788,19 @@ def validate(series, observations):
         if not any(c.startswith(flow + ".") for c in latest_codes):
             raise ValidationError(
                 "no %s data in the latest month %s" % (FLOW_LABEL[flow], latest))
-        for partner in ANCHOR_PARTNERS[flow]:
-            code = series_code(flow, FLAGSHIP[flow], partner, "val")
+        for partner in anchors[flow]:
+            code = series_code(flow, flagship[flow], partner, "val")
             if code not in latest_codes:
                 raise ValidationError(
-                    "no integrated-circuit %s value for partner %s in %s"
-                    % (FLOW_LABEL[flow], partner, latest))
+                    "no %s %s value for partner %s in %s"
+                    % (profile["flagship_name"], FLOW_LABEL[flow], partner, latest))
 
     partners = set(c.split(".")[2] for c in codes)
     unnamed = sorted(p for p in partners if p not in PARTNER_EN)
     world = {}
     for o in observations:
         flow, commodity, _area, measure = o["code"].split(".")
-        if measure == "val" and commodity == FLAGSHIP[flow]:
+        if measure == "val" and commodity == flagship[flow]:
             world.setdefault(flow, {}).setdefault(o["period"], 0.0)
             world[flow][o["period"]] += o["value"]
 
@@ -780,8 +811,10 @@ def validate(series, observations):
         "partners": len(partners),
         "partners_without_a_name": unnamed,
         "latest_period": latest.isoformat(),
-        "ic_exports_latest_jpy_1000": world.get("exp", {}).get(latest),
-        "ic_imports_latest_jpy_1000": world.get("imp", {}).get(latest),
+        "%s_exports_latest_jpy_1000" % profile["stat_prefix"]:
+            world.get("exp", {}).get(latest),
+        "%s_imports_latest_jpy_1000" % profile["stat_prefix"]:
+            world.get("imp", {}).get(latest),
     }
 
 
@@ -792,33 +825,152 @@ def validate(series, observations):
 # and then sits until the following month's update, so the newest month we
 # serve is routinely 60 days old and reaches ~90 just before the next release.
 # A tighter limit would cry stale every month of a perfectly healthy ingest.
-PRESENTATION = {
-    "credit_line": "Source: Ministry of Finance, Japan — Trade Statistics of Japan.",
-    "stale_after_days": 100,
-    "trade": {
-        "flows": [
-            {"key": "exp", "label": "Exports", "preposition": "to"},
-            {"key": "imp", "label": "Imports", "preposition": "from"},
-        ],
+CREDIT_LINE = "Source: Ministry of Finance, Japan — Trade Statistics of Japan."
+STALE_AFTER_DAYS = 100
+FLOWS = [
+    {"key": "exp", "label": "Exports", "preposition": "to"},
+    {"key": "imp", "label": "Imports", "preposition": "from"},
+]
+
+
+def balance_calc(exp_label, imp_label):
+    """The one formula that names commodities, so a sibling dataset's balance
+    tile and its card state exactly the same sentence."""
+    return ("balance[t] = exports[%s, t] − imports[%s, t], on 12-month totals. "
+            "The two directions are published under separate commodity codes that "
+            "carry the same name and are treated by the Ministry as counterparts; "
+            "they are not two readings of one series. Its change on a year earlier is "
+            "(balance[t] − balance[t−12 months]) / |balance[t−12 months]| × 100, so a "
+            "deficit that widens reads as a fall." % (exp_label, imp_label))
+
+
+def trade_presentation(commodities, default_flow, default_commodity,
+                       feature_partners, page):
+    """The `trade` block of a PRESENTATION, for this and every sibling dataset.
+
+    `page` is what the shared trade page (web/assets/trade.js) cannot know on
+    its own: the subtitle, which partners keep a fixed colour, which are
+    selected on first load, and which four tiles lead the screen. A tile is
+    {"kind": "month"|"ttm", "flow", "commodity", "label", "title"} or
+    {"kind": "balance", "exp", "imp", "label", "title"}; `title` is the
+    tooltip's opening phrase, completed by the page with the month.
+    """
+    return {
+        "flows": FLOWS,
         "commodities": dict(
             (flow, [{"code": c, "label": e, "label_ja": j, "short": sh,
                      "level": k, "order": o}
-                    for c, e, j, o, k, sh in COMMODITIES[flow]])
-            for flow in COMMODITIES),
-        "default_flow": "exp",
-        "default_commodity": {"exp": "70323050", "imp": "70311030"},
+                    for c, e, j, o, k, sh in commodities[flow]])
+            for flow in commodities),
+        "default_flow": default_flow,
+        "default_commodity": default_commodity,
+        "feature_partners": feature_partners,
+        "value_unit": VALUE_UNIT,
+        "page": page,
+    }
+
+
+BALANCE_CALC = balance_calc("semiconductors & electronic components",
+                            "semiconductors & electronic components")
+
+PRESENTATION = {
+    "credit_line": CREDIT_LINE,
+    "stale_after_days": STALE_AFTER_DAYS,
+    "trade": trade_presentation(
+        COMMODITIES, "exp", {"exp": "70323050", "imp": "70311030"},
         # The partners a semiconductor desk actually watches. Order is the
         # order they appear in the picker, not a ranking.
-        "feature_partners": ["50105", "50106", "50103", "50108", "50304", "50112"],
-        "value_unit": VALUE_UNIT,
-    },
+        ["50105", "50106", "50103", "50108", "50304", "50112"],
+        {
+            "name": "Semiconductor trade",
+            "file_tag": "semiconductor",
+            "subtitle": ("Monthly trade in semiconductors, components and "
+                         "chipmaking equipment by partner country"),
+            # Slot 1 is the aggregate everywhere; named partners keep a slot
+            # across every chart so China is one colour on the whole page.
+            "partner_slots": {"50105": 2, "50106": 3, "50103": 4, "50108": 5, "50304": 6},
+            "default_partners": ["50105", "50106"],
+            "tiles": [
+                {"kind": "month", "flow": "exp", "commodity": "70323050",
+                 "label": "Integrated Circuit Exports",
+                 "title": "World total of Japan's integrated-circuit exports"},
+                {"kind": "month", "flow": "exp", "commodity": "70131000",
+                 "label": "Chipmaking Equipment Exports",
+                 "title": "World total of Japan's semiconductor machinery and equipment exports"},
+                {"kind": "month", "flow": "imp", "commodity": "70311030",
+                 "label": "Integrated Circuit Imports",
+                 "title": "World total of Japan's integrated-circuit imports"},
+                {"kind": "balance", "exp": "70323000", "imp": "70311000",
+                 "label": "Components: Exports − Imports",
+                 "title": "Semiconductors and electronic components, exports less imports"},
+            ],
+            "balance_calc": BALANCE_CALC,
+            "strip_foot": ("The first three tiles are single months and move with "
+                           "shipment timing; the balance is a twelve-month sum."),
+        }),
 }
 
 
 # The dataset's card. Customs values in ¥ thousand and quantities in each
 # commodity's published unit; the world totals are summed by the API (this
 # table has no world row) and the rest of the page's arithmetic is recorded
-# here with the formula the page uses.
+# here with the formula the page uses. MEASURES and NOTES are shared with the
+# sibling datasets, which add their own balance measure (or none).
+MEASURES = [
+    {"id": "index", "label": "Customs value (¥ thousand) or quantity, as published",
+     "unit": "JPY_thousand", "trust": "official"},
+    {"id": "quantity", "label": "Quantity, in the commodity's published unit",
+     "unit": "quantity", "trust": "official"},
+    {"id": "yoy", "label": "Year over year", "unit": "%", "trust": "derived",
+     "calc": "(value[t] / value[t−12 months] − 1) × 100, from published values."},
+    {"id": "world_value", "label": "World total for a commodity", "unit": "JPY_thousand",
+     "trust": "derived",
+     "calc": ("world[commodity, t] = Σ value[partner, commodity, t] over every partner "
+              "country the Ministry publishes for that commodity, including the "
+              "non-country entries (For Order, Unknown, bonded areas). The Ministry "
+              "publishes no world total in this table, so it is summed here rather "
+              "than read off.")},
+    {"id": "ttm", "label": "12-month total", "unit": "JPY_thousand", "trust": "derived",
+     "calc": ("12-month total[t] = Σ value[t−11 … t]. A month in which the Ministry "
+              "records no customs entry for that partner contributes nothing to the "
+              "sum, which is what the absence of an entry means; the sum is left blank "
+              "until twelve months of history exist.")},
+    {"id": "share_pct", "label": "Partner share of the world total", "unit": "%",
+     "trust": "derived",
+     "calc": ("share[partner, t] = (12-month total[partner, t] / 12-month "
+              "total[world, t]) × 100, in percent. Both totals are over the same twelve "
+              "months, so a single strong month cannot move the share on its own.")},
+    {"id": "ttm_yoy", "label": "12-month total, year over year", "unit": "%",
+     "trust": "derived",
+     "calc": ("growth[t] = (12-month total[t] / 12-month total[t−12 months] − 1) "
+              "× 100, in percent.")},
+    {"id": "unit_value", "label": "Average unit value over 12 months", "unit": "JPY",
+     "trust": "derived",
+     "calc": ("unit value[t] = (12-month total of value[t] × 1,000) / 12-month total "
+              "of quantity[t], in yen per unit shipped. Value is published in thousands "
+              "of yen and quantity in the commodity's own published unit, so this is an "
+              "average realised price across a year of shipments, not a price index and "
+              "not comparable between commodities.")},
+]
+
+NOTES = [
+    "Export and import commodity codes are separate vocabularies and do not "
+    "correspond; a commodity is always resolved within one direction.",
+    "Figures pass through the Ministry's revision stages (preliminary, "
+    "confirmed, revised, final); each stage is stored as its own vintage.",
+    "Value and quantity are different measures and never share an axis.",
+]
+
+
+def endpoints(slug):
+    return {
+        "series": "/api/v1/%s/observations" % slug,
+        "trade": "/api/v1/%s/trade" % slug,
+        "releases": "/api/v1/%s/releases" % slug,
+        "revisions": "/api/v1/%s/revisions" % slug,
+    }
+
+
 MANIFEST = {
     "id": DATASET["slug"],
     "section": "trade",
@@ -845,63 +997,13 @@ MANIFEST = {
         "as_of_supported": True, "history_from": "2001-01",
         "stale_after_days": PRESENTATION["stale_after_days"],
     },
-    "measures": [
-        {"id": "index", "label": "Customs value (¥ thousand) or quantity, as published",
-         "unit": "JPY_thousand", "trust": "official"},
-        {"id": "quantity", "label": "Quantity, in the commodity's published unit",
-         "unit": "quantity", "trust": "official"},
-        {"id": "yoy", "label": "Year over year", "unit": "%", "trust": "derived",
-         "calc": "(value[t] / value[t−12 months] − 1) × 100, from published values."},
-        {"id": "world_value", "label": "World total for a commodity", "unit": "JPY_thousand",
-         "trust": "derived",
-         "calc": ("world[commodity, t] = Σ value[partner, commodity, t] over every partner "
-                  "country the Ministry publishes for that commodity, including the "
-                  "non-country entries (For Order, Unknown, bonded areas). The Ministry "
-                  "publishes no world total in this table, so it is summed here rather "
-                  "than read off.")},
-        {"id": "ttm", "label": "12-month total", "unit": "JPY_thousand", "trust": "derived",
-         "calc": ("12-month total[t] = Σ value[t−11 … t]. A month in which the Ministry "
-                  "records no customs entry for that partner contributes nothing to the "
-                  "sum, which is what the absence of an entry means; the sum is left blank "
-                  "until twelve months of history exist.")},
-        {"id": "share_pct", "label": "Partner share of the world total", "unit": "%",
-         "trust": "derived",
-         "calc": ("share[partner, t] = (12-month total[partner, t] / 12-month "
-                  "total[world, t]) × 100, in percent. Both totals are over the same twelve "
-                  "months, so a single strong month cannot move the share on its own.")},
-        {"id": "ttm_yoy", "label": "12-month total, year over year", "unit": "%",
-         "trust": "derived",
-         "calc": ("growth[t] = (12-month total[t] / 12-month total[t−12 months] − 1) "
-                  "× 100, in percent.")},
-        {"id": "unit_value", "label": "Average unit value over 12 months", "unit": "JPY",
-         "trust": "derived",
-         "calc": ("unit value[t] = (12-month total of value[t] × 1,000) / 12-month total "
-                  "of quantity[t], in yen per unit shipped. Value is published in thousands "
-                  "of yen and quantity in the commodity's own published unit, so this is an "
-                  "average realised price across a year of shipments, not a price index and "
-                  "not comparable between commodities.")},
+    "measures": MEASURES + [
         {"id": "balance", "label": "Trade balance in semiconductors, 12-month totals",
-         "unit": "JPY_thousand", "trust": "derived",
-         "calc": ("balance[t] = exports[semiconductors & electronic components, t] − "
-                  "imports[semiconductors & electronic components, t], on 12-month totals. "
-                  "The two directions are published under separate commodity codes that "
-                  "carry the same name and are treated by the Ministry as counterparts; "
-                  "they are not two readings of one series.")},
+         "unit": "JPY_thousand", "trust": "derived", "calc": BALANCE_CALC},
     ],
-    "endpoints": {
-        "series": "/api/v1/%s/observations" % DATASET["slug"],
-        "trade": "/api/v1/%s/trade" % DATASET["slug"],
-        "releases": "/api/v1/%s/releases" % DATASET["slug"],
-        "revisions": "/api/v1/%s/revisions" % DATASET["slug"],
-    },
+    "endpoints": endpoints(DATASET["slug"]),
     "capabilities": ["series"],
     "cite": "/semis.html",
     "page": "/semis.html",
-    "notes": [
-        "Export and import commodity codes are separate vocabularies and do not "
-        "correspond; a commodity is always resolved within one direction.",
-        "Figures pass through the Ministry's revision stages (preliminary, "
-        "confirmed, revised, final); each stage is stored as its own vintage.",
-        "Value and quantity are different measures and never share an axis.",
-    ],
+    "notes": NOTES,
 }

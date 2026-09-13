@@ -31,6 +31,7 @@ and the database is compacted once at the end rather than seven times. A
 routine night is one day of filings — roughly 130 documents.
 """
 import argparse
+import json
 import os
 import shutil
 import subprocess
@@ -61,6 +62,20 @@ EXTRACTORS = [
     ("lvh_extract.py",        "5pct-filings",         []),
     ("fin_extract.py",        "financials",           []),
     ("agm_extract.py",        "agm-votes",            []),
+    # Tender offers: the offer, its amendments, the target board's opinion and
+    # the result. Same cold-start budget as the three above — it reads t1
+    # packages and has no watermark on a fresh database.
+    ("toi_extract.py",        "tender-offers",        []),
+    # Semiannual reports — the only statutory accounts between annual reports
+    # since quarterlies were abolished. Its own tables, never mixed into the
+    # annual financials (see the module docstring).
+    ("ssr_extract.py",        "semiannual",           ["--all"]),
+    # Capital raises: new shares, who they go to, and at what price.
+    ("issue_extract.py",      "capital-raises",       []),
+    # The other half of the 臨時報告書 pile: mergers, share exchanges,
+    # subsidiary and parent moves, chief-executive and major-shareholder
+    # changes. agm_extract.py above reads the AGM half of the same documents.
+    ("event_extract.py",      "corporate-events",     []),
     # Segment notes (revenue by region, named customers, product segments).
     ("seg_extract.py",        "segments",             ["--all"]),
     ("buyback.py",            "buybacks",             []),
@@ -69,6 +84,10 @@ EXTRACTORS = [
     # writes, and it is as fail-safe as the rest — an unreachable publisher
     # leaves the standing vintage live.
     ("class_extract.py",      "classification",       []),
+    # Not EDINET either: the TDnet wire, whose 31-day public retention makes
+    # our archive the only copy. Day-partitioned rather than watermarked per
+    # document, and cheap — a nightly run reads a handful of days.
+    ("tdnet_extract.py",      "tdnet",                []),
 ]
 
 # buyback.py takes neither --db nor --no-compact; it reads EQUITY_DB_PATH and
@@ -233,8 +252,70 @@ def main():
               % (extractor, back_to or "(depth not recorded)", through))
     if failed:
         print("ATTENTION equity extractors failed: %s" % ", ".join(failed))
+
+    # --- did anything change shape tonight? ------------------------------
+    # A failed extractor announces itself. The dangerous failure is the one
+    # that does not: the parser runs, reports clean, and a column is quietly
+    # empty because the source renamed a field. Two checks for that, both
+    # advisory, neither able to stop the server coming back up.
+    trouble = []
+    try:
+        sys.path.insert(0, HERE)
+        import metrics
+        _n, _flags = metrics.snapshot_and_flag(args.db)
+        for f in _flags:
+            trouble.append("%s/%s %s: %s was %s%%, now %s%%"
+                           % (f["extractor"], f["table"], f["kind"], f["key"],
+                              f["was"], f["now"]))
+    except Exception as e:                                   # noqa: BLE001
+        print("EQUITY drift check skipped: %s" % e, flush=True)
+
+    drift_flags = len(trouble)
+    canary_total = canary_failed = 0
+    try:
+        import canary
+        with open(canary.EXPECTED, encoding="utf-8") as f:
+            cases = json.load(f)["canaries"]
+        canary_total = len(cases)
+        for case in cases:
+            try:
+                good, diffs = canary.run_one(case, args.source)
+            except Exception as e:                           # noqa: BLE001
+                good, diffs = False, [("(error)", "", str(e)[:100])]
+            if not good:
+                canary_failed += 1
+                for field, want, got in diffs:
+                    trouble.append("canary %s: %s expected %r, got %r"
+                                   % (case["name"], field, want, got))
+    except Exception as e:                                   # noqa: BLE001
+        print("EQUITY canaries skipped: %s" % e, flush=True)
+
+    if trouble:
+        print("\nATTENTION equity data changed shape "
+              "(%d/%d canaries failed, %d drift flags):"
+              % (canary_failed, canary_total, drift_flags), flush=True)
+        for line in trouble[:20]:
+            print("  %s" % line, flush=True)
+        if len(trouble) > 20:
+            print("  ... and %d more" % (len(trouble) - 20), flush=True)
+    else:
+        print("\nshape checks: %d canaries pass, no drift" % canary_total,
+              flush=True)
+
+    # The heartbeat is the only thing that reaches a human. Failed extractors
+    # and broken canaries both ping the failure endpoint; drift alone does not,
+    # because a warning that pages someone weekly stops being read.
+    try:
+        import heartbeat
+        heartbeat.ping("equity refresh: %d ok, %d failed, %d canaries failed, "
+                       "%d drift flags" % (len(ok), len(failed),
+                                           canary_failed, drift_flags),
+                       failed=bool(failed) or canary_failed > 0)
+    except Exception as e:                                   # noqa: BLE001
+        print("EQUITY heartbeat skipped: %s" % e, flush=True)
+
     # Always 0: a failed extractor leaves its previous data live and must not
-    # stop the server coming back up. The ATTENTION line above is the signal.
+    # stop the server coming back up. The ATTENTION lines above are the signal.
     return 0
 
 

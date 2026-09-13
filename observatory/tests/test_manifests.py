@@ -14,7 +14,7 @@ import unittest
 
 from fastapi.testclient import TestClient
 
-from app import api, equity_api, registry
+from app import api, equity_api, registry, sec_api
 from app.main import app
 
 WEB = pathlib.Path(__file__).resolve().parent.parent / "web"
@@ -73,8 +73,15 @@ class RegistryTest(unittest.TestCase):
                                              "market_contrib_pp", "share_pct")),
             "population-jp": ("population.js", ("change_pct", "natural_pct", "social_pct",
                                                 "foreign_pct", "aged_pct")),
-            "trade-semis": ("semis.js", ("ttm", "share_pct", "ttm_yoy", "unit_value",
-                                         "balance")),
+            # The trade pages share one script; the balance formula names the
+            # two commodities, so it is the adapter's sentence (served in the
+            # /trade payload's page block) rather than a literal in the script.
+            "trade-semis": ("trade.js", ("ttm", "share_pct", "ttm_yoy", "unit_value")),
+            "trade-autos": ("trade.js", ("ttm", "share_pct", "ttm_yoy", "unit_value")),
+            "trade-energy": ("trade.js", ("ttm", "share_pct", "ttm_yoy", "unit_value")),
+            "trade-machinery": ("trade.js", ("ttm", "share_pct", "ttm_yoy", "unit_value")),
+            "trade-pharma": ("trade.js", ("ttm", "share_pct", "ttm_yoy", "unit_value")),
+            "trade-food": ("trade.js", ("ttm", "share_pct", "ttm_yoy", "unit_value")),
         }
         for slug, (script, ids) in pairs.items():
             text = _js_text(script)
@@ -290,7 +297,9 @@ class CatalogEndpointTest(unittest.TestCase):
 
     def test_equity_absent_is_listed_but_unavailable(self):
         real = equity_api.DB_PATH
+        real_sec = sec_api.DB_PATH
         equity_api.DB_PATH = pathlib.Path("/nonexistent/equity.duckdb")
+        sec_api.DB_PATH = pathlib.Path("/nonexistent/sec.duckdb")   # the US shelf's own file
         try:
             r = self.client.get("/api/v1/catalog/manifests")
             self.assertEqual(r.status_code, 200)
@@ -301,6 +310,7 @@ class CatalogEndpointTest(unittest.TestCase):
                     self.assertFalse(d["available"], d["id"])
         finally:
             equity_api.DB_PATH = real
+            sec_api.DB_PATH = real_sec
 
 
 if __name__ == "__main__":

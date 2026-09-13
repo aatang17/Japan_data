@@ -1,0 +1,174 @@
+{
+  "_README": [
+    "Expected values read off the documents by a human, not produced by the",
+    "parsers they check. Every figure below was confirmed against the filing's",
+    "own table or sentence before being written here.",
+    "",
+    "A failing canary means the source changed shape or the parser broke. The",
+    "filing itself is immutable and cannot have changed, so NEVER edit an",
+    "expected value to make the check pass. Open the document first.",
+    "",
+    "Each canary is chosen for a different SHAPE, not a different company:",
+    "table-form against prose-form, third-party bid against issuer self-tender,",
+    "a blank forecast against a filled one. A canary that repeats another's",
+    "shape costs a download and proves nothing new."
+  ],
+  "canaries": [
+    {
+      "name": "tender offer, third-party bid, table form",
+      "parser": "toi",
+      "doc": "S100YZ5A",
+      "doc_type": "240",
+      "day": "2026-08-27",
+      "note": "Luxshare for Seed. Price and size are in text-block tables; the denominator sits in a prose footnote and is not the tagged total.",
+      "expect": {
+        "price_yen": 795,
+        "shares_sought": 15497386,
+        "shares_min": 5408800,
+        "consideration_yen": 12320421870,
+        "votes_sought": 154973,
+        "votes_total": 302411,
+        "denominator_votes": 302657,
+        "target_name": "株式会社シード",
+        "purpose": "going-private",
+        "self_tender": false
+      }
+    },
+    {
+      "name": "tender offer result, issuer self-tender, column table",
+      "parser": "toi",
+      "doc": "S100Z031",
+      "doc_type": "270",
+      "day": "2026-09-02",
+      "note": "Itochu buying its own shares. The result table is column-oriented, unlike the row-oriented third-party form.",
+      "expect": {
+        "shares_tendered": 83403785,
+        "shares_purchased": 82735750,
+        "self_tender": true
+      }
+    },
+    {
+      "name": "target board opinion",
+      "parser": "toi",
+      "doc": "S100YZ5G",
+      "doc_type": "290",
+      "day": "2026-08-27",
+      "note": "The element name for the opinion moved between taxonomy years; this canary is the reason the parser falls back to the Japanese heading.",
+      "expect": {
+        "opinion_stance": "support",
+        "opinion_recommends_tender": true,
+        "target_name": "株式会社シード",
+        "opinion_resolved_date": "2026-08-26"
+      }
+    },
+    {
+      "name": "tender offer amendment links to its parent",
+      "parser": "toi",
+      "doc": "S100Z0TG",
+      "doc_type": "250",
+      "day": "2026-09-07",
+      "note": "Amendment of S100YZ5A. Checks that an amended filing still resolves its parent and restates terms.",
+      "expect": {
+        "amendment_of": "S100YZ5A",
+        "price_yen": 795,
+        "submission_no": 2
+      }
+    },
+    {
+      "name": "major shareholder change, prose form",
+      "parser": "event",
+      "doc": "S100T320",
+      "doc_type": "180",
+      "day": "2024-04-15",
+      "note": "Amaze. No table at all: holder, votes and percentage are numbered sentences.",
+      "expect": {
+        "event_type": "major-shareholder-change",
+        "list|shareholders|0|0": "穴見 加代",
+        "list|shareholders|0|1": "ceasing",
+        "list|shareholders|0|2": 30090,
+        "list|shareholders|0|4": 0
+      }
+    },
+    {
+      "name": "parent change, prose identity card",
+      "parser": "event",
+      "doc": "S100T6CF",
+      "doc_type": "180",
+      "day": "2024-04-01",
+      "note": "Ryosan. The counterparty card is numbered prose, and the section heading lists every label word in one breath, which is what an over-loose pattern reads as the company name.",
+      "expect": {
+        "event_type": "parent-or-subsidiary-change",
+        "list|parties|0|name": "リョーサン菱洋ホールディングス株式会社"
+      }
+    },
+    {
+      "name": "share exchange, table identity card",
+      "parser": "event",
+      "doc": "S100XUOS",
+      "doc_type": "180",
+      "day": "2026-03-27",
+      "note": "Shizuoka Financial Group. Counterparty card is a two-column table; capital keeps the unit the filing printed.",
+      "expect": {
+        "event_type": "share-exchange",
+        "list|parties|0|name": "株式会社名古屋銀行",
+        "list|parties|0|capital": "25,090百万円"
+      }
+    },
+    {
+      "name": "third-party allotment, single allottee",
+      "parser": "issue",
+      "doc": "S100UI57",
+      "day": "2024-10-08",
+      "note": "Right-on. Proceeds identity holds exactly: 650,000,010 less 8,000,000 of costs is 642,000,010.",
+      "expect": {
+        "shares_new": 5909091,
+        "shares_third_party": 5909091,
+        "issue_price_yen": 110,
+        "gross_proceeds_yen": 650000010,
+        "issue_costs_yen": 8000000,
+        "net_proceeds_yen": 642000010,
+        "list|allottees|0|1": "有限会社藤原興産"
+      }
+    },
+    {
+      "name": "third-party allotment, several allottees",
+      "parser": "issue",
+      "doc": "S100VKEN",
+      "day": "2025-04-10",
+      "note": "Abalance. Issue price and payment per share differ here, which is why no gate compares them.",
+      "expect": {
+        "shares_new": 1102500,
+        "issue_price_yen": 465,
+        "gross_proceeds_yen": 490079310,
+        "net_proceeds_yen": 480079310
+      }
+    },
+    {
+      "name": "semiannual balance sheet",
+      "parser": "ssr",
+      "doc": "S100X0QF",
+      "day": "2025-11-10",
+      "dl_type": 5,
+      "note": "Seed's half year. Assets equal liabilities plus net assets to the yen, and the prior full-year comparative sits in a different context from the interim one.",
+      "expect": {
+        "fact|jppfs_cor:Assets|InterimInstant": 52321871000,
+        "fact|jppfs_cor:Liabilities|InterimInstant": 33543044000,
+        "fact|jppfs_cor:NetAssets|InterimInstant": 18778827000,
+        "fact|jppfs_cor:Assets|Prior1YearInstant": 51760886000
+      }
+    },
+    {
+      "name": "earnings release with a blank forward forecast",
+      "parser": "tdnet",
+      "doc": "081220260911534987.zip",
+      "day": "2026-09-11",
+      "note": "Nihon Ski Resort. THE canary for the self-closing trap: several forecast fields here are written xsi:nil and must stay absent. Before the fix the blank next-year sales came out as 15.8 yen, which was the +15.8% change figure two rows below.",
+      "expect": {
+        "fact|NetSales|CurrentYearDuration_ConsolidatedMember_ResultMember": 11498000000,
+        "fact|NetSales|NextYearDuration_ConsolidatedMember_ForecastMember": 13320000000,
+        "fact|NetSales|PriorYearDuration_ConsolidatedMember_ResultMember": 10461000000,
+        "fact|NetSales|NextYearDuration_ConsolidatedMember_UpperMember": null
+      }
+    }
+  ]
+}

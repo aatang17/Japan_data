@@ -33,8 +33,12 @@ is never started on a fast-restart cycle.
 Environment (all optional):
   BACKFILL_DATASETS         macro datasets to publish, space-separated
                             (default: the two the boot path leaves out)
+  BACKFILL_GDP_VINTAGES     0 to skip loading the archived GDP releases
+                            (default: on; one cheap check once they are
+                            present, loaded in slices otherwise)
   BACKFILL_CATCH_UP_DAYS    archive days per equity slice (default 40)
   BACKFILL_MAX_SLICES       stop after this many equity slices (default 400)
+  BACKFILL_SEC_QUARTERS     quarterly SEC data sets to hold in all (default 12; 0 = none)
 """
 import os
 import pathlib
@@ -55,6 +59,7 @@ DATA_DIR = db.DATA_DIR
 LIVE_MACRO = DATA_DIR / "observatory.duckdb"
 LIVE_EQUITY = pathlib.Path(os.environ.get("EQUITY_DB_PATH")
                            or str(DATA_DIR / "equity.duckdb"))
+LIVE_SEC = pathlib.Path(os.environ.get("SEC_DB_PATH") or str(DATA_DIR / "sec.duckdb"))
 
 DEFAULT_DATASETS = "accommodation-jp population-jp-municipal"
 
@@ -177,6 +182,48 @@ def backfill_macro(datasets):
             _discard(work)
 
 
+# Archived GDP releases per slice. Loading all 134 takes about three quarters
+# of an hour, and a copy that is swapped in only at the end loses every minute
+# of it to a restart. A slice is ~8 minutes and lands on the volume, so a
+# container stopped mid-backfill loses one slice, not the run.
+GDP_VINTAGE_SLICE = 20
+
+
+def backfill_gdp_vintages(max_slices=20):
+    """Load the archived GDP releases a slice at a time, swapping after each.
+
+    Same shape as a macro ingest — work on a copy, swap it in only if it
+    gained releases — but repeated, because the whole archive is far longer
+    than a container can be relied on to live. The loader records what it has
+    already recorded, so each slice resumes where the last one stopped and a
+    volume that holds the archive costs one listing call to confirm it.
+    """
+    work = DATA_DIR / "observatory.backfill.duckdb"
+    for n in range(1, max_slices + 1):
+        if _stopping:
+            return
+        if fresh_copy(LIVE_MACRO, work) is None:
+            return
+        before = _release_count(work)
+        env = dict(os.environ, OBSERVATORY_DB_PATH=str(work))
+        started = time.time()
+        rc = _run([sys.executable, "-m", "app.gdp_vintages", "load",
+                   "--limit", str(GDP_VINTAGE_SLICE)], env, ROOT)
+        took = time.time() - started
+        if rc != 0:
+            log("GDP vintage slice %d did not finish (exit %s, %.0fs); served data "
+                "untouched" % (n, rc, took))
+            _discard(work)
+            return
+        gained = _release_count(work) - before
+        if gained <= 0:
+            log("archived GDP releases complete (%.0fs); nothing to swap" % took)
+            _discard(work)
+            return
+        swap(work, LIVE_MACRO)
+        log("GDP vintage slice %d landed: %d release(s) (%.0fs)" % (n, gained, took))
+
+
 # --- equity history ----------------------------------------------------------
 
 def _floors(path):
@@ -230,17 +277,88 @@ def backfill_equity(days, max_slices):
         log("equity slice %d landed (%.0fs): %s" % (n, took, ", ".join(sorted(moved))))
 
 
+# --- the US shelf ------------------------------------------------------------
+
+def _sec_quarters(path):
+    """Quarters the SEC shelf file holds, or an empty set before any load."""
+    con = duckdb.connect(str(path), read_only=True)
+    try:
+        names = {r[0] for r in con.execute(
+            "SELECT table_name FROM duckdb_tables()").fetchall()}
+        if "sec_quarters" not in names:
+            return set()
+        return {r[0] for r in con.execute(
+            "SELECT quarter FROM sec_quarters WHERE status IN ('ok','partial')").fetchall()}
+    finally:
+        con.close()
+
+
+def backfill_sec(max_quarters, per_slice=2):
+    """Deepen data/sec.duckdb a couple of quarters at a time, oldest-loaded
+    downwards, until it holds `max_quarters` or the shelf runs out. Same
+    copy → load → swap discipline as the equity history: the served file is
+    never written in place, and a slice that fails leaves it untouched."""
+    if not os.environ.get("EDINET_S3_BUCKET"):
+        log("no EDINET_S3_BUCKET; the US shelf stays as it is")
+        return
+    work = DATA_DIR / "sec.backfill.duckdb"
+    script = ROOT / "equity" / "sec_extract.py"
+    n = 0
+    while not _stopping:
+        n += 1
+        if fresh_copy(LIVE_SEC, work) is None:
+            return
+        before = _sec_quarters(work)
+        if len(before) >= max_quarters:
+            log("US shelf holds %d quarters; cap is %d — history is complete"
+                % (len(before), max_quarters))
+            _discard(work)
+            return
+        take = min(per_slice, max_quarters - len(before))
+        log("US shelf slice %d: %d older quarter(s) below %s"
+            % (n, take, min(before) if before else "nothing loaded"))
+        started = time.time()
+        rc = _run([sys.executable, str(script), "--source", "s3", "--db", str(work),
+                   "--last", "0", "--deepen", str(take)], dict(os.environ), ROOT)
+        took = time.time() - started
+        if rc != 0:
+            log("US shelf slice %d did not complete (exit %s, %.0fs); served data untouched"
+                % (n, rc, took))
+            _discard(work)
+            return
+        after = _sec_quarters(work)
+        if after == before:
+            log("US shelf slice %d found nothing older on the shelf (%.0fs)" % (n, took))
+            _discard(work)
+            return
+        swap(work, LIVE_SEC)
+        log("US shelf slice %d landed (%.0fs): %s" % (n, took, ", ".join(sorted(after - before))))
+
+
 def main():
     signal.signal(signal.SIGTERM, _on_term)
     signal.signal(signal.SIGINT, _on_term)
     datasets = os.environ.get("BACKFILL_DATASETS", DEFAULT_DATASETS).split()
     days = int(os.environ.get("BACKFILL_CATCH_UP_DAYS", "40") or 0)
     max_slices = int(os.environ.get("BACKFILL_MAX_SLICES", "400") or 0)
-    log("starting: datasets=%s, equity slice=%d days" % (" ".join(datasets) or "-", days))
+    # The archived GDP releases: the real-time history of the national
+    # accounts, 2002-2019. Long once, nothing every time after, so it is opt-
+    # outable rather than opt-in — a fresh volume should acquire it without
+    # anyone remembering to ask.
+    gdp_vintages = os.environ.get("BACKFILL_GDP_VINTAGES", "1") not in ("", "0")
+    log("starting: datasets=%s, equity slice=%d days, gdp vintages=%s"
+        % (" ".join(datasets) or "-", days, "yes" if gdp_vintages else "no"))
     if datasets:
         backfill_macro(datasets)
+    if gdp_vintages and not _stopping:
+        backfill_gdp_vintages()
     if days > 0 and not _stopping:
         backfill_equity(days, max_slices)
+    # The US shelf: how many quarterly SEC data sets to hold in all (each is
+    # ~140MB; 12 is three years). 0 leaves the boot-time load as it is.
+    sec_max = int(os.environ.get("BACKFILL_SEC_QUARTERS", "12") or 0)
+    if sec_max > 0 and not _stopping:
+        backfill_sec(sec_max)
     log("stopped" if _stopping else "done")
     return 0
 

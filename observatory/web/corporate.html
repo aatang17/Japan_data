@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Corporate Finance · Japan Data Observatory</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/app.css">
+<style>
+  /* Page-local layout only; every colour comes from tokens.css. */
+  .cf-select { font: inherit; font-size: 12.5px; padding: 4px 8px; color: var(--obs-ink);
+    background: var(--obs-surface); border: 1px solid var(--obs-border); border-radius: 3px;
+    max-width: 100%; }
+  @media (max-width: 900px) {
+    .controls .seg { flex-wrap: wrap; overflow: visible; border: 0; gap: 6px; }
+    .controls .seg button { border: 1px solid var(--obs-border); border-radius: 3px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="site-header" data-section="macro" data-page="corporate"></header>
+<script src="assets/nav.js"></script>
+
+<main class="container">
+  <div id="stale-banner"></div>
+
+  <div class="metric-card">
+    <div class="metric-card-head">
+      <h1>Corporate Finance</h1>
+      <span class="metric-asof" id="page-asof"></span>
+      <p class="metric-sub" id="page-sub"><span class="skeleton" style="display:inline-block;width:420px;height:14px"></span></p>
+    </div>
+    <div class="controls" style="margin-bottom:10px">
+      <label class="visually-hidden" for="industry-select">Industry</label>
+      <select class="cf-select" id="industry-select"></select>
+      <div class="seg" role="group" aria-label="Capital size" id="size-seg"></div>
+    </div>
+    <div class="strip">
+      <div class="strip-grid cols-4" id="tiles">
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+      </div>
+    </div>
+    <p class="strip-foot" id="strip-foot"></p>
+    <details class="calc" id="strip-calc" style="display:none"></details>
+  </div>
+
+  <section aria-labelledby="h-growth">
+    <h2 id="h-growth">Sales, Profit and Investment <span class="h2-note" id="growth-note"></span></h2>
+    <p class="section-sub">Each quarter against the same quarter a year earlier, for the
+    industry and capital class chosen above. The survey is not seasonally adjusted, so a year
+    on year reading is the honest one: it compares like with like. Profit swings far more than
+    sales, and investment follows profit with a lag — that ordering is the whole chart.</p>
+    <div class="chart-panel">
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Date range" id="range-seg">
+        <button type="button" data-range="5">5Y</button>
+        <button type="button" data-range="10" aria-pressed="true">10Y</button>
+        <button type="button" data-range="20">20Y</button>
+        <button type="button" data-range="max">Max</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="growth-png">Download PNG</button>
+      <button type="button" class="btn" id="growth-csv">Download CSV</button>
+    </div>
+    <div class="chart" id="growth-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="growth-source"></p>
+    <details class="calc" id="growth-calc"></details>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-margin">
+    <h2 id="h-margin">Profit Margin by Capital Size <span class="h2-note" id="margin-note"></span></h2>
+    <p class="section-sub">Ordinary profit as a share of sales, for the chosen industry, with the
+    three capital classes drawn separately. Large companies and small ones live in different
+    economies: the gap between the top line and the bottom one is the story of Japan's
+    corporate sector since the 1990s, and it does not show in the all-sizes total.</p>
+    <div class="chart-panel">
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Date range" id="mrange-seg">
+        <button type="button" data-range="10">10Y</button>
+        <button type="button" data-range="20" aria-pressed="true">20Y</button>
+        <button type="button" data-range="max">Max</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="margin-png">Download PNG</button>
+      <button type="button" class="btn" id="margin-csv">Download CSV</button>
+    </div>
+    <div class="chart" id="margin-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="margin-source"></p>
+    <details class="calc" id="margin-calc"></details>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-table">
+    <h2 id="h-table">Industry Detail <span class="h2-note" id="table-note"></span></h2>
+    <p class="section-sub">Every industry on the newest quarter, at the capital class chosen
+    above. Amounts are the Ministry's own, in ¥ billion; the year-on-year changes and the margin
+    are calculated from them. Click a column to rank by it. The three aggregates — all industries,
+    manufacturing, non-manufacturing — are the Ministry's totals and contain the rows beneath
+    them.</p>
+    <div class="controls">
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="table-csv">Download CSV</button>
+    </div>
+    <div class="table-wrap" id="ind-table"><div class="skeleton" style="width:100%;height:320px"></div></div>
+    <p class="table-foot" id="table-foot"></p>
+    <details class="calc" id="table-calc"></details>
+  </section>
+
+  <section aria-label="Data source and provenance" class="prov">
+    <div id="prov-card"></div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="inner">
+    <span id="credit-line">Source: Ministry of Finance, Japan.</span>
+    Amounts are official statistics exactly as published; growth rates and margins are
+    calculated from them and carry their formula.
+    <a href="methodology.html">Methodology</a>
+  </div>
+</footer>
+
+<script src="assets/echarts.min.js"></script>
+<script src="assets/format.js"></script>
+<script src="assets/charts.js"></script>
+<script src="assets/sortable.js"></script>
+<script src="assets/corporate.js"></script>
+</body>
+</html>

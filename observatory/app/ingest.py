@@ -26,23 +26,35 @@ from . import db, env
 # this the ingest fails only for keyed sources, and only outside the server.
 env.load()
 
-from .adapters import (boj_assets, cpi_jp, cpi_jp_items, jnto_visitors,
+from .adapters import (boj_assets, cpi_jp, cpi_jp_goods_services, cpi_jp_items,
+                       cpi_jp_long, cpi_jp_sa, cpi_tokyo, cpi_tokyo_items,
+                       jnto_visitors,
                        jta_accommodation,
                        juki_municipal, juki_population, maff_agri_prices,
                        maff_ja_coops,
                        maff_rice_cost,
                        maff_rice_price,
                        maff_rice_stock,
-                       mof_jgb, mof_trade,
-                       mof_trade_hs, ssds_population,
+                       mof_jgb, mof_trade, mof_trade_autos, mof_trade_energy,
+                       mof_trade_food, mof_trade_hs, mof_trade_machinery,
+                       mof_trade_pharma, ssds_population,
+                       estat_gdp, mof_hojin,
                        fsa_npl, fsa_bank_results, jba_banks)
 
 ADAPTERS = {"cpi-jp": cpi_jp, "cpi-jp-items": cpi_jp_items, "boj-assets": boj_assets,
+            "cpi-jp-goods-services": cpi_jp_goods_services, "cpi-jp-sa": cpi_jp_sa,
+            "cpi-jp-long": cpi_jp_long,
+            "cpi-tokyo": cpi_tokyo, "cpi-tokyo-items": cpi_tokyo_items,
             "jgb-yields": mof_jgb, "jnto-visitors": jnto_visitors,
             "population-jp": juki_population,
             "population-jp-history": ssds_population,
+            "gdp-jp": estat_gdp,
+            "corporate-finance-jp": mof_hojin,
             "population-jp-municipal": juki_municipal,
             "trade-semis": mof_trade, "trade-inputs": mof_trade_hs,
+            "trade-autos": mof_trade_autos, "trade-energy": mof_trade_energy,
+            "trade-machinery": mof_trade_machinery, "trade-pharma": mof_trade_pharma,
+            "trade-food": mof_trade_food,
             "accommodation-jp": jta_accommodation,
             "rice-prices-jp": maff_rice_price,
             "rice-inventory-jp": maff_rice_stock,
@@ -166,8 +178,12 @@ def run(slug, from_file=None):
         latest = datetime.date.fromisoformat(summary["latest_period"])
         # A daily dataset gets daily vintages; a month-only label would give
         # many releases the same name, so the label carries the day.
-        label_fmt = ("%d %B %Y" if adapter.DATASET.get("frequency") == "daily"
-                     else "%B %Y")
+        frequency = adapter.DATASET.get("frequency")
+        label_fmt = "%d %B %Y" if frequency == "daily" else "%B %Y"
+        # A quarter is dated by its first month; "Data through April 2026"
+        # would read as a month, so a quarterly dataset names the quarter.
+        if frequency == "quarterly":
+            label_fmt = "Q%d %%Y" % ((latest.month - 1) // 3 + 1)
         # The live values this release is about to replace. Read before the
         # transaction rewrites them: the vintage delta is the difference
         # between these and the incoming ones.

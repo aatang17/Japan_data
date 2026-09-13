@@ -73,8 +73,17 @@ class ProtocolTest(Base):
         # which are not per-dataset and so could never be one of the six.
         self.assertEqual(len(counts["v2"]), 8)
         self.assertEqual(sorted(counts["v2"]), sorted(tools_v2.IMPLS))
-        self.assertEqual(len(counts["both"]), len(counts["v1"]) + 8)
         self.assertNotIn("get_series", counts["v1"])
+        # `both` is the union of the two surfaces, not their concatenation.
+        self.assertEqual(set(counts["both"]),
+                         set(counts["v1"]) | set(counts["v2"]))
+        # A name the surfaces share is advertised once. Duplicates in
+        # tools/list make a client shadow or reject an entry, and the two
+        # descriptors differ, so the wrong one can win.
+        for ts in ("v1", "v2", "both"):
+            self.assertEqual(len(counts[ts]), len(set(counts[ts])),
+                             "duplicate tool name advertised under %s" % ts)
+        self.assertIn("list_datasets", set(counts["v1"]) & set(counts["v2"]))
 
     def test_v1_tools_refused_under_v2_and_vice_versa(self):
         os.environ["MCP_TOOLSET"] = "v2"
@@ -118,7 +127,9 @@ class ToolTest(Base):
         self.assertEqual(data["count"], len(registry.ids()))
         self.assertTrue(all("capabilities" in d for d in data["datasets"]))
         data, err = call(self.client, "list_datasets", section="prices")
-        self.assertEqual([d["id"] for d in data["datasets"]], ["cpi-jp", "cpi-jp-items"])
+        self.assertEqual([d["id"] for d in data["datasets"]],
+                         ["cpi-jp", "cpi-jp-goods-services", "cpi-jp-items", "cpi-jp-long",
+                          "cpi-jp-sa", "cpi-tokyo", "cpi-tokyo-items"])
         data, err = call(self.client, "list_datasets", section="weather")
         self.assertTrue(err)
         self.assertIn("prices", data["error"])
@@ -250,6 +261,10 @@ class EquityToolTest(Base):
             m = registry.get(mid)
             if not registry.available(mid):
                 continue
+            # This one test makes several calls per dataset and the catalogue
+            # has outgrown the per-minute limit a real client gets; the limit
+            # is not what is under test here.
+            mcp._HITS.clear()
             if "company" in m["capabilities"]:
                 for code in ("7974", "0000"):
                     data, err = call(self.client, "get_company", code=code, dataset=mid)

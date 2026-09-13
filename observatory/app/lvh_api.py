@@ -41,7 +41,7 @@ from .equity_api import NAMES_NOTE, NAME_CTES, PROVENANCE, _cur, _rows
 from .filer_labels import (GROUP_NOTE, TYPE_EN, TYPE_NOTE, group_of, group_size,
                            type_of)
 
-router = APIRouter(prefix="/api/v1/equity/stakes")
+router = APIRouter(prefix="/api/v1/equity/stakes", tags=["5% filings"])
 
 THRESHOLD_PCT = 5.0
 
@@ -297,7 +297,7 @@ def company(sec_code: str,
     return _notes(head)
 
 
-@router.get("/holder/{key}")
+@router.get("/holder/{key}", openapi_extra={"x-example": "/api/v1/equity/stakes/holder/E12444"})
 def holder(key: str, limit: int = Query(200, ge=1, le=1000)):
     u"""One holder's book: every issuer it has filed on, latest position first.
 

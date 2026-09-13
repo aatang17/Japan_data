@@ -36,7 +36,7 @@ from . import asof
 from . import aliases
 from .equity_api import NAME_CTES, _cur, _rows
 
-router = APIRouter(prefix="/api/v1/equity/buyback")
+router = APIRouter(prefix="/api/v1/equity/buyback", tags=["Buybacks"])
 
 PROVENANCE = {
     "trust": "official",
@@ -268,6 +268,7 @@ def programs(lifecycle: str = Query("", description="one of the lifecycle states
 
 @router.get("/programs/sorts")
 def program_sorts():
+    """The sort keys /programs accepts."""
     return {"sorts": [
         {"key": "unspent_yen", "label": "Authorisation left unspent"},
         {"key": "authorised_yen", "label": "Yen authorised"},

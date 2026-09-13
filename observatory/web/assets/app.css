@@ -1870,3 +1870,78 @@ body.page-home .home-entries { margin-bottom: 48px; }
   .asst-q .w, .asst-tool, .asst-ans, .asst-tiles, .asst-cap, .asst-row, .asst-body { transition: none !important; }
 }
 
+
+/* ---------- API reference (api.html, rendered by apidocs.js) ---------- */
+
+/* One entry per endpoint: a stacked row, not a table, because the description
+   is prose. The method is an outlined mark, the path is the heading, and the
+   example is a plain link — a reader clicks it and sees the real response. */
+pre.code {
+  max-width: 100%;
+  overflow-x: auto;
+  margin: 10px 0 14px;
+  padding: 10px 12px;
+  background: var(--obs-surface-subtle);
+  border: 1px solid var(--obs-border);
+  border-radius: 3px;
+  font-family: "SF Mono", ui-monospace, "JetBrains Mono", Menlo, monospace;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--obs-ink);
+}
+.prose pre.code code { border: 0; background: none; padding: 0; font-size: inherit; }
+.api-try { margin-left: 22px; }
+.api-try li { margin: 6px 0; }
+.api-link {
+  font-family: "SF Mono", ui-monospace, "JetBrains Mono", Menlo, monospace;
+  font-size: 12.5px;
+  word-break: break-all;
+}
+.api-why { color: var(--obs-text-muted); margin-left: 8px; }
+.ep-group {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 26px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--obs-border);
+}
+.ep-count { font-size: 12px; font-weight: 400; color: var(--obs-text-muted); font-variant-numeric: tabular-nums; }
+.ep { padding: 14px 0 16px; border-bottom: 1px solid var(--obs-border); }
+.ep:last-child { border-bottom: 0; }
+.ep-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.ep-method {
+  flex: none;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  color: var(--obs-primary);
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  padding: 3px 6px;
+}
+.ep-path {
+  font-family: "SF Mono", ui-monospace, "JetBrains Mono", Menlo, monospace;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--obs-ink);
+  word-break: break-all;
+}
+.ep-path .var, .ep-list .var { color: var(--obs-text-muted); font-weight: 400; }
+.ep p { margin: 8px 0; }
+.ep-for { font-size: 13px; }
+.ep-for a { text-decoration: none; }
+.ep-params { font-size: 13px; }
+.ep-params td, .ep-params th { vertical-align: top; }
+.ep-params td:first-child { white-space: nowrap; }
+.ep-params .req { font-size: 11px; color: var(--obs-warn); margin-left: 4px; }
+.ep-try { margin-top: 10px; }
+.ep-list { list-style: none; margin-left: 0; }
+.ep-list li { margin: 3px 0; }
+.ds > summary .ja { font-weight: 400; color: var(--obs-text-muted); margin-left: 6px; }
+/* A five-column reference table scrolls inside its wrap on a phone rather
+   than squeezing every cell to one word per line. */
+@media (max-width: 600px) {
+  .ep-params { min-width: 720px; }
+}

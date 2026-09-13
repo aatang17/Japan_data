@@ -34,7 +34,7 @@ from . import equity_api
 from . import aliases
 from .equity_api import NAMES_NOTE, NAME_CTES, PROVENANCE, _cur, _rows
 
-router = APIRouter(prefix="/api/v1/equity/ownership")
+router = APIRouter(prefix="/api/v1/equity/ownership", tags=["Shareholder register"])
 
 NOMINEE_KINDS = ("trust_bank_nominee", "foreign_nominee")
 NOMINEE_SQL = "('trust_bank_nominee','foreign_nominee')"
@@ -254,7 +254,7 @@ def company(sec_code: str,
     return _notes(head)
 
 
-@router.get("/holder/{key}")
+@router.get("/holder/{key}", openapi_extra={"x-example": "/api/v1/equity/ownership/holder/E06125"})
 def holder(key: str,
            year: str = Query("", description="fiscal year; default latest filings"),
            limit: int = Query(200, ge=1, le=1000)):
@@ -416,6 +416,7 @@ def screen(metric: str = Query("foreign_pct", description="one of /screen/metric
 
 @router.get("/screen/metrics")
 def screen_metrics():
+    """The metrics /screen accepts, with the formula behind each."""
     return {"metrics": sorted(SCREEN_METRICS), "calc": CALC}
 
 

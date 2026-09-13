@@ -22,15 +22,19 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 
 from . import db, fiscal, heartbeat, vintages
-from .adapters import (boj_assets, cpi_jp, cpi_jp_items, jnto_visitors,
+from .adapters import (boj_assets, cpi_jp, cpi_jp_goods_services, cpi_jp_items,
+                       cpi_jp_long, cpi_jp_sa, cpi_tokyo, cpi_tokyo_items,
+                       jnto_visitors,
                        jta_accommodation,
                        juki_municipal, juki_population, maff_agri_prices,
                        maff_ja_coops,
                        maff_rice_cost,
                        maff_rice_price,
                        maff_rice_stock,
-                       mof_jgb, mof_trade,
-                       mof_trade_hs, ssds_population,
+                       mof_jgb, mof_trade, mof_trade_autos, mof_trade_energy,
+                       mof_trade_food, mof_trade_hs, mof_trade_machinery,
+                       mof_trade_pharma, ssds_population,
+                       estat_gdp, mof_hojin,
                        fsa_npl, fsa_bank_results, jba_banks)
 
 # The agent is optional: without the openai package installed the data API
@@ -50,11 +54,19 @@ def _ask_enabled():
     return os.environ.get("ASK_ENABLED", "").strip().lower() in ("1", "true", "yes", "on")
 
 ADAPTERS = {"cpi-jp": cpi_jp, "cpi-jp-items": cpi_jp_items, "boj-assets": boj_assets,
+            "cpi-jp-goods-services": cpi_jp_goods_services, "cpi-jp-sa": cpi_jp_sa,
+            "cpi-jp-long": cpi_jp_long,
+            "cpi-tokyo": cpi_tokyo, "cpi-tokyo-items": cpi_tokyo_items,
             "jgb-yields": mof_jgb, "jnto-visitors": jnto_visitors,
             "population-jp": juki_population,
             "population-jp-history": ssds_population,
+            "gdp-jp": estat_gdp,
+            "corporate-finance-jp": mof_hojin,
             "population-jp-municipal": juki_municipal,
             "trade-semis": mof_trade, "trade-inputs": mof_trade_hs,
+            "trade-autos": mof_trade_autos, "trade-energy": mof_trade_energy,
+            "trade-machinery": mof_trade_machinery, "trade-pharma": mof_trade_pharma,
+            "trade-food": mof_trade_food,
             "accommodation-jp": jta_accommodation,
             "rice-prices-jp": maff_rice_price,
             "rice-inventory-jp": maff_rice_stock,
@@ -64,7 +76,7 @@ ADAPTERS = {"cpi-jp": cpi_jp, "cpi-jp-items": cpi_jp_items, "boj-assets": boj_as
             "fsa-npl": fsa_npl, "fsa-bank-results": fsa_bank_results,
             "jba-banks": jba_banks}
 
-router = APIRouter(prefix="/api/v1")
+router = APIRouter(prefix="/api/v1", tags=["Datasets"])
 
 # What the pages fetch on load, primed at startup. Not every dataset serves
 # every one of these — the misses 404 harmlessly and simply aren't cached.
@@ -78,7 +90,7 @@ def warm_paths():
 
 
 CALC = {
-    "index": "Published index value (2020 = 100), as released.",
+    "index": "Published index value (base year = 100), as released.",
     "yoy": "(index[t] / index[t−12 months] − 1) × 100, from published index values.",
     "mom": "(index[t] / index[t−1 month] − 1) × 100, from published index values.",
     "ann3m": "((index[t] / index[t−3 months]) ^ 4 − 1) × 100, from published index values.",
@@ -95,6 +107,8 @@ UNIT_LABEL = {"index": "index", "jpy_100mn": "¥100mn", "pct": "%",
               # Bank balance sheets are published in 百万円; the FSA's
               # bad-loan flows in 兆円. Stored as released, never rescaled.
               "jpy_million": "¥mn", "jpy_trillion": "¥tn",
+              # The national accounts are published in 10億円.
+              "jpy_billion": "¥bn", "count": "count",
               # A night slept, not a person: one visitor staying three nights
               # is three person-nights. Never interchangeable with "persons".
               "person_nights": "person-nights", "percent": "%",
@@ -108,7 +122,10 @@ UNIT_LABEL = {"index": "index", "jpy_100mn": "¥100mn", "pct": "%",
               "jpy": "¥", "kg": "kg", "hours": "hours",
               # Customs quantity units, published full-width. Stored exactly
               # as released; only the label is normalised.
-              "ＮＯ": "units", "ＫＧ": "kg"}
+              "ＮＯ": "units", "ＫＧ": "kg",
+              # Fuels: crude and refined products by the kilolitre, coal and
+              # gas by the metric tonne, as the Ministry publishes them.
+              "ＫＬ": "kilolitre", "ＭＴ": "tonne", "ＧＲ": "gram"}
 
 
 def _calc_for(measure, unit):
@@ -154,6 +171,30 @@ def _months_ago(period, n):
     while m <= 0:
         y, m = y - 1, m + 12
     return datetime.date(y, m, 1)
+
+
+# Months between consecutive periods of a dataset. The level surfaces below
+# compare a reading with the one before it and with the one a year earlier;
+# on a monthly series those are one and twelve months back, on a quarterly
+# one three and twelve. A quarterly dataset read with monthly lags would
+# report every "previous period" as missing and a trailing "12-month" sum
+# over three years. Rates (yoy, ann3m) are unaffected: their lags are in
+# months by definition and read correctly on any period dated by its first
+# month.
+PERIOD_MONTHS = {"monthly": 1, "quarterly": 3, "semiannual": 6, "annual": 12}
+
+
+def _period_months(adapter):
+    return PERIOD_MONTHS.get(adapter.DATASET.get("frequency"), 1)
+
+
+def _period_label(period, step):
+    """'Aug 2026' for a month; 'Q3 2026' for a quarter; '2026' for a year."""
+    if step == 3:
+        return "Q%d %d" % ((period.month - 1) // 3 + 1, period.year)
+    if step == 12:
+        return str(period.year)
+    return period.strftime("%b %Y")
 
 
 def _series_map(con, dataset):
@@ -216,7 +257,7 @@ NOTES_CALC = (
     "step: the 12-month move is decomposed into its 12 monthly log changes; raised when "
     "the largest single month is at least 70% of the summed absolute change and moved the "
     "index by at least 10%. low_base: raised when the latest index level is below 5.0 "
-    "(2020 = 100). Both are calculated from published index values."
+    "(base year = 100). Both are calculated from published index values."
 )
 
 
@@ -253,14 +294,19 @@ def _row_notes(values, as_of):
 def _release(con, dataset, as_of=None):
     """The live release, or — given as_of — the one in force on that date.
 
-    An as_of release is looked up by ingest time regardless of status: the
-    point of a vintage is what a reader would have seen then, and every
-    release except the newest is 'superseded' today.
+    An as_of release is looked up regardless of status — the point of a
+    vintage is what a reader would have seen then, and every release except
+    the newest is 'superseded' today (a backfilled archive is 'archived').
+    It is looked up by COALESCE(published_at, ingested_at), the same
+    expression the vintage store orders by: a release we fetched sits at our
+    fetch, a release the agency published years ago sits where the agency
+    put it.
     """
+    at, published = vintages.known_at(con), vintages.published_col(con)
     sql = (
         "SELECT r.release_id, r.label, r.latest_period, r.ingested_at, "
         "       a.sha256, a.url, a.retrieved_at, s.name, s.url AS source_page, s.source_id, "
-        "       d.base, d.frequency "
+        "       d.base, d.frequency, " + published + " AS published_at, r.status "
         "FROM releases r JOIN source_artifacts a USING(artifact_id) "
         "JOIN sources s ON s.source_id = a.source_id "
         "JOIN datasets d ON d.slug = r.dataset "
@@ -269,11 +315,12 @@ def _release(con, dataset, as_of=None):
         row = con.execute(sql + "AND r.status='published'", [dataset]).fetchone()
     else:
         row = con.execute(
-            sql + "AND r.ingested_at <= ? ORDER BY r.ingested_at DESC LIMIT 1",
+            sql + "AND " + at + " <= ? ORDER BY " + at + " DESC LIMIT 1",
             [dataset, vintages.cutoff(as_of)]).fetchone()
         if row is None:
             first = con.execute(
-                "SELECT min(ingested_at) FROM releases WHERE dataset=?", [dataset]).fetchone()[0]
+                "SELECT min(" + vintages.known_at(con) + ") FROM releases r "
+                "WHERE r.dataset=?", [dataset]).fetchone()[0]
             raise HTTPException(
                 400, "No release of '%s' existed on %s; the first release is %s"
                      % (dataset, as_of.isoformat(),
@@ -282,10 +329,24 @@ def _release(con, dataset, as_of=None):
         raise HTTPException(503, "No published release for dataset '%s'" % dataset)
     keys = ("release_id", "label", "latest_period", "ingested_at", "sha256",
             "download_url", "retrieved_at", "source_name", "source_page", "source_id",
-            "base", "frequency")
+            "base", "frequency", "published_at", "status")
     rel = dict(zip(keys, row))
     rel["latest_period"] = rel["latest_period"].isoformat()
     rel["ingested_at"] = rel["ingested_at"].isoformat() + "Z"
+    # Where this release sits in history, and whether that is the agency's
+    # own date or ours. A surface that cites a vintage must be able to say
+    # which, so both travel rather than one collapsed field.
+    rel["published_at"] = (rel["published_at"].isoformat() + "Z"
+                           if rel["published_at"] else None)
+    rel["known_at"] = rel["published_at"] or rel["ingested_at"]
+    rel["known_at_basis"] = "agency publication" if rel["published_at"] else "our fetch"
+    # The base year lives on the dataset, which names the base the *current*
+    # source is on. A vintage taken from an earlier source (the 2020-base CPI
+    # files before the Bureau rebased) is not on that base, and claiming it
+    # would put a wrong label on a right number: leave it unstated instead.
+    adapter = ADAPTERS.get(dataset)
+    if adapter is not None and rel["source_id"] != adapter.SOURCE["source_id"]:
+        rel["base"] = None
     rel["retrieved_at"] = rel["retrieved_at"].isoformat() + "Z"
     coverage_start = con.execute(
         "SELECT MIN(o.period) FROM observations o JOIN series s USING(series_id) "
@@ -294,8 +355,12 @@ def _release(con, dataset, as_of=None):
     return rel
 
 
-@router.get("/catalog/datasets")
+@router.get("/catalog/datasets", tags=["Catalog"],
+            openapi_extra={"x-example": "/api/v1/catalog/datasets"})
 def catalog():
+    """Every dataset on the server with its title, publisher, base, frequency
+    and a one-paragraph description. The ids here are the `{dataset}` values
+    the dataset endpoints take; the fuller card is /catalog/manifests."""
     con = _con()
     try:
         rows = con.execute(
@@ -330,9 +395,18 @@ def health():
                 "SELECT r.latest_period, r.ingested_at, a.retrieved_at "
                 "FROM releases r JOIN source_artifacts a USING(artifact_id) "
                 "WHERE r.dataset=? AND r.status='published'", [slug]).fetchone()
+            # "Fetched but never published": an artifact that produced no
+            # accepted release — a failed validation or a crash. An artifact
+            # that DID become a release is not orphaned, whatever its status,
+            # which is what keeps a backfilled archive (134 files fetched in
+            # one afternoon, each one an accepted 'archived' release) from
+            # reading as 134 failures.
             newest_fetch = con.execute(
                 "SELECT max(a.retrieved_at) FROM source_artifacts a "
-                "JOIN sources s USING(source_id) WHERE s.dataset=?", [slug]).fetchone()[0]
+                "JOIN sources s USING(source_id) WHERE s.dataset=? "
+                "AND NOT EXISTS (SELECT 1 FROM releases r "
+                "                WHERE r.artifact_id = a.artifact_id "
+                "                  AND r.status <> 'rejected')", [slug]).fetchone()[0]
             vintage_count = con.execute(
                 "SELECT count(*) FROM releases WHERE dataset=?", [slug]).fetchone()[0]
             if row is None:
@@ -367,6 +441,13 @@ def health():
             equity = equity_api.health()
         except Exception:                                    # noqa: BLE001
             equity = []
+        # The US shelf keeps a quarterly clock of its own (the SEC's data
+        # sets), reported in the same shape so the console needs no new column.
+        try:
+            from . import sec_api
+            equity = equity + sec_api.health()
+        except Exception:                                    # noqa: BLE001
+            pass
 
         # The dataset manifests. A card that fails validation is quarantined
         # rather than fatal (see registry.py), so this is where it is noticed.
@@ -398,17 +479,22 @@ def health():
         con.close()
 
 
-@router.get("/catalog/health")
+@router.get("/catalog/health", tags=["Catalog"],
+            openapi_extra={"x-example": "/api/v1/catalog/health"})
 def health_endpoint(strict: int = Query(
-        0, description="Return 503 instead of 200 when anything needs attention, "
+        0, description="1: return 503 instead of 200 when anything needs attention, "
                        "so an uptime monitor can alert on data going stale or the "
-                       "refresh stopping. Never point a platform healthcheck at "
-                       "this: it would refuse a deploy over a late source file.")):
-    """Ingest health. Deliberately outside the response cache — see cache.py.
+                       "refresh stopping.")):
+    """Is every dataset current, and did an ingest go quiet?
 
-    Two shapes, one report. Default: always 200, for the admin console and for
-    anyone reading it. `?strict=1`: 503 when the report says attention, which
-    is the only form a plain uptime check can act on. The same URL then covers
+    One row per dataset: the newest period served, whether it is `stale`
+    against the dataset's own tolerance, and whether a newer source file was
+    fetched but never published (`unpublished_artifact` — a validation failure
+    or a crash). Never cached, so it always reflects the running server.
+
+    Two shapes, one report. Default: always 200, for anyone reading it.
+    `?strict=1`: 503 when the report says attention, which is the only form a
+    plain uptime check can act on. The same URL then covers
     both failure modes — stale data answers 503, and a service that is down
     answers nothing at all.
     """
@@ -456,7 +542,7 @@ class AskRequest(BaseModel):
     history: List[AskTurn] = []
 
 
-@router.get("/agent/info")
+@router.get("/agent/info", include_in_schema=False)
 def agent_info():
     """Whether natural-language questions are available on this server."""
     if not _ask_enabled():
@@ -473,7 +559,7 @@ def agent_info():
                           % (ASK_MAX_PER_WINDOW, ASK_WINDOW_SECONDS)}
 
 
-@router.post("/{dataset}/ask")
+@router.post("/{dataset}/ask", include_in_schema=False)
 def ask(dataset, body: AskRequest, request: Request):
     """Answer a question in prose, with the data lookups that produced it."""
     _dataset_or_404(dataset)
@@ -500,21 +586,40 @@ def ask(dataset, body: AskRequest, request: Request):
     return result
 
 
-@router.get("/{dataset}/releases")
+@router.get("/{dataset}/releases", openapi_extra={"x-example": "/api/v1/cpi-jp/releases"})
 def releases(dataset):
+    """Every accepted release of this dataset, newest first: label, latest
+    period, ingest time, validation result and the SHA-256 of the archived
+    source file. A release is a vintage; `as_of` on /observations reads them.
+
+    `known_at` is where the release sits in history and is what `as_of`
+    compares against. It is our fetch time for a release we learned of by
+    fetching it, and the agency's own publication date for a backfilled
+    archive — `known_at_basis` says which, on every row.
+    """
     _dataset_or_404(dataset)
     con = _con()
     try:
+        at = vintages.known_at(con)
         rows = con.execute(
             "SELECT r.release_id, r.label, r.latest_period, r.ingested_at, r.status, "
-            "       r.validation, a.sha256, a.bytes, a.path "
+            "       r.validation, a.sha256, a.bytes, a.path, "
+            + vintages.published_col(con) + " AS published_at "
             "FROM releases r JOIN source_artifacts a USING(artifact_id) "
-            "WHERE r.dataset=? ORDER BY r.release_id DESC", [dataset]).fetchall()
-        return {"releases": [dict(zip(
-            ("release_id", "label", "latest_period", "ingested_at", "status",
-             "validation", "sha256", "bytes", "archived_path"),
-            [c.isoformat() if isinstance(c, (datetime.date, datetime.datetime)) else c for c in r]))
-            for r in rows]}
+            "WHERE r.dataset=? ORDER BY " + at + " DESC, r.release_id DESC",
+            [dataset]).fetchall()
+        out = []
+        for r in rows:
+            rel = dict(zip(
+                ("release_id", "label", "latest_period", "ingested_at", "status",
+                 "validation", "sha256", "bytes", "archived_path", "published_at"),
+                [c.isoformat() if isinstance(c, (datetime.date, datetime.datetime)) else c
+                 for c in r]))
+            rel["known_at"] = rel["published_at"] or rel["ingested_at"]
+            rel["known_at_basis"] = ("agency publication" if rel["published_at"]
+                                     else "our fetch")
+            out.append(rel)
+        return {"releases": out}
     finally:
         con.close()
 
@@ -543,12 +648,13 @@ def _level_overview(adapter, dataset):
     distance and trailing average are derived and carry their formula.
     """
     pres = adapter.PRESENTATION
+    step = _period_months(adapter)
     con = _con()
     try:
         rel = _release(con, dataset)
         smap = {s["code"]: s for s in _series_map(con, dataset)}
         latest = datetime.date.fromisoformat(rel["latest_period"])
-        prior = _months_ago(latest, 1)
+        prior = _months_ago(latest, step)
 
         tiles = []
         for spec in pres["overview_tiles"]:
@@ -566,7 +672,7 @@ def _level_overview(adapter, dataset):
                 t.update({
                     "value": cur,
                     "delta": None if cur is None or prev is None else cur - prev,
-                    "comparison": "vs " + prior.strftime("%b %Y"),
+                    "comparison": "vs " + _period_label(prior, step),
                     "trust": "official", "calc": _calc_for("index", s["unit"]),
                 })
             elif spec["type"] == "drawdown":
@@ -578,22 +684,22 @@ def _level_overview(adapter, dataset):
                     "pct": None if cur is None or not peak_v else (cur / peak_v - 1) * 100,
                     "peak_period": peak_p.isoformat(), "peak_value": peak_v,
                     "delta": None,
-                    "comparison": "vs peak " + peak_p.strftime("%b %Y"),
+                    "comparison": "vs peak " + _period_label(peak_p, step),
                     "trust": "derived", "calc": LEVEL_TILE_CALCS["drawdown"],
                 })
             elif spec["type"] == "rolling_avg":
                 w = spec.get("window", 12)
 
                 def _avg(end):
-                    xs = [vals.get(_months_ago(end, k)) for k in range(w)]
+                    xs = [vals.get(_months_ago(end, k * step)) for k in range(w)]
                     return None if any(x is None for x in xs) else sum(xs) / w
 
                 cur, prev_avg = _avg(latest), _avg(prior)
                 t.update({
                     "value": cur, "window": w,
                     "delta": None if cur is None or prev_avg is None else cur - prev_avg,
-                    "comparison": "vs the %d-month window ending %s"
-                                  % (w, prior.strftime("%b %Y")),
+                    "comparison": "vs the %d-period window ending %s"
+                                  % (w, _period_label(prior, step)),
                     "trust": "derived", "calc": LEVEL_TILE_CALCS["rolling_avg"],
                 })
             else:
@@ -601,7 +707,7 @@ def _level_overview(adapter, dataset):
             tiles.append(t)
 
         today = datetime.date.today()
-        return {
+        payload = {
             "dataset": dataset, "release": rel, "tiles": tiles,
             "main_series": [
                 {"role": m["role"], "label": m["label"], "slot": m["slot"],
@@ -609,13 +715,25 @@ def _level_overview(adapter, dataset):
                 for m in pres.get("main_series", []) if m.get("code") in smap],
             "credit_line": pres.get("credit_line"),
             "stale": (today - latest).days > pres["stale_after_days"],
+            "period_months": _period_months(adapter),
         }
+        # Whatever vocabulary the dataset declares for its axes — the
+        # industries and capital classes of a corporate survey, the demand
+        # components of the national accounts — so a page builds its
+        # controls from the payload and never repeats the list.
+        for key in ("items", "industries", "sizes", "components", "reference_lines"):
+            if key in pres:
+                payload[key] = pres[key]
+        return payload
     finally:
         con.close()
 
 
-@router.get("/{dataset}/overview")
+@router.get("/{dataset}/overview", openapi_extra={"x-example": "/api/v1/cpi-jp/overview"})
 def overview(dataset):
+    """The dataset's headline reading: the main series with their latest
+    value and rates of change, and the release they come from. What the
+    dataset's page shows in its stat tiles."""
     adapter = _dataset_or_404(dataset)
     # An index dataset gets the YoY-tile overview below; a levels-and-flows
     # dataset that declares overview_tiles gets the level overview; anything
@@ -653,13 +771,16 @@ def overview(dataset):
             s = smap.get(m["name_ja"])
             if s:
                 tile(m["role"] + "_yoy", m["label"] + " · YoY", s, "yoy")
-        headline = smap.get(pres["main_series"][0]["name_ja"])
+        first = pres["main_series"][0]
+        headline = smap.get(first["name_ja"])
         if headline:
-            tile("headline_mom", "Headline CPI · MoM", headline, "mom")
-            tile("headline_ann3m", "Headline CPI · 3m Annualized", headline, "ann3m")
+            tile("headline_mom", first["label"] + " · MoM", headline, "mom")
+            tile("headline_ann3m", first["label"] + " · 3m Annualized", headline, "ann3m")
 
+        # A table published without weights (seasonally adjusted, the 1946
+        # series) declares no groups and gets no decomposition.
         groups = []
-        for ja in pres["groups_ja"]:
+        for ja in pres.get("groups_ja") or []:
             s = smap.get(ja)
             if not s:
                 continue
@@ -705,6 +826,8 @@ def _level_series(adapter, dataset, q):
     frozen line is never mistaken for a current one.
     """
     kinds = adapter.PRESENTATION.get("kinds") or {}
+    step = _period_months(adapter)
+    per_year = 12 // step
     con = _con()
     try:
         rel = _release(con, dataset)
@@ -724,9 +847,9 @@ def _level_series(adapter, dataset, q):
                 continue
             as_of = max(vals)
             cur = vals.get(as_of)
-            prev1 = vals.get(_months_ago(as_of, 1))
+            prev1 = vals.get(_months_ago(as_of, step))
             prev12 = vals.get(_months_ago(as_of, 12))
-            window = [vals.get(_months_ago(as_of, k)) for k in range(12)]
+            window = [vals.get(_months_ago(as_of, k * step)) for k in range(per_year)]
             complete = not any(v is None for v in window)
             spark_from = _months_ago(as_of, 60)
             out.append({
@@ -737,14 +860,21 @@ def _level_series(adapter, dataset, q):
                 "latest": cur,
                 "delta_1m": None if cur is None or prev1 is None else cur - prev1,
                 "delta_12m": None if cur is None or prev12 is None else cur - prev12,
-                "avg_12m": sum(window) / 12.0 if complete else None,
+                "avg_12m": sum(window) / float(per_year) if complete else None,
                 "sum_12m": sum(window) if complete else None,
                 "discontinued": as_of < latest,
                 "spark": [[p.isoformat(), v] for p, v in sorted(vals.items())
                           if p >= spark_from],
             })
         return {"dataset": dataset, "release": rel, "count": len(out), "query": q,
-                "calc": LEVEL_SERIES_CALCS, "series": out}
+                "period_months": step,
+                "calc": LEVEL_SERIES_CALCS if step == 1 else dict(
+                    (k, v.replace("1 month", "%d months" % step)
+                          .replace("12 published monthly values",
+                                   "%d published quarterly values" % per_year
+                                   if step == 3 else "one year of published values"))
+                    for k, v in LEVEL_SERIES_CALCS.items()),
+                "series": out}
     finally:
         con.close()
 
@@ -752,8 +882,11 @@ def _level_series(adapter, dataset, q):
 # This is the explorer's first fetch and the largest payload the API serves;
 # repeat hits are absorbed by the release cache in app/cache.py, which stores
 # the encoded body rather than re-running the work below.
-@router.get("/{dataset}/series")
-def series_list(dataset, q: str = Query("", max_length=200)):
+@router.get("/{dataset}/series", openapi_extra={"x-example": "/api/v1/cpi-jp/series?q=electricity"})
+def series_list(dataset, q: str = Query("", max_length=200,
+                                        description="Search by English name, Japanese name or code; empty lists every series where the dataset allows it")):
+    """Every series in the dataset with its latest reading, or the ones
+    matching `q`. Use it to find the codes that /observations takes."""
     adapter = _dataset_or_404(dataset)
     main = (adapter.PRESENTATION.get("main_series") or [{}])[0]
     if "name_ja" not in main and adapter.PRESENTATION.get("kinds"):
@@ -838,8 +971,10 @@ BREADTH_CALC = (
 )
 
 
-@router.get("/{dataset}/contributions")
-def contributions(dataset, start: str = Query(None), end: str = Query(None)):
+@router.get("/{dataset}/contributions", openapi_extra={"x-example": "/api/v1/cpi-jp/contributions?start=2023-01"})
+def contributions(dataset,
+                  start: str = Query(None, description="First period, YYYY-MM"),
+                  end: str = Query(None, description="Last period, YYYY-MM")):
     """Percentage-point decomposition of headline YoY by major group."""
     adapter = _dataset_or_404(dataset)
     pres = adapter.PRESENTATION
@@ -898,8 +1033,9 @@ def contributions(dataset, start: str = Query(None), end: str = Query(None)):
         con.close()
 
 
-@router.get("/{dataset}/breadth")
-def breadth(dataset, threshold: float = Query(2.0, ge=0.0, le=50.0)):
+@router.get("/{dataset}/breadth", openapi_extra={"x-example": "/api/v1/cpi-jp-items/breadth?threshold=2"})
+def breadth(dataset, threshold: float = Query(2.0, ge=0.0, le=50.0,
+                                             description="YoY rate, in percent, above which an item counts as rising")):
     """Share of individually priced items rising/falling year over year."""
     adapter = _dataset_or_404(dataset)
     cfg = adapter.PRESENTATION.get("breadth")
@@ -946,7 +1082,7 @@ CURVE_CALC = (
 )
 
 
-@router.get("/{dataset}/curve")
+@router.get("/{dataset}/curve", openapi_extra={"x-example": "/api/v1/jgb-yields/curve"})
 def curve(dataset):
     """The full published curve history: every date × every maturity.
 
@@ -1016,7 +1152,7 @@ ARRIVALS_CALC = (
 )
 
 
-@router.get("/{dataset}/arrivals")
+@router.get("/{dataset}/arrivals", openapi_extra={"x-example": "/api/v1/jnto-visitors/arrivals"})
 def arrivals(dataset):
     """Every market × every month, plus the hierarchy that relates them.
 
@@ -1111,8 +1247,9 @@ ACCOMMODATION_CALC = (
 _ACC_BACKBONE = ("nights.%s", "nights.%s.fx", "occ.%s")
 
 
-@router.get("/{dataset}/accommodation")
-def accommodation(dataset, area: str = Query(None, max_length=4)):
+@router.get("/{dataset}/accommodation", openapi_extra={"x-example": "/api/v1/accommodation-jp/accommodation?area=13"})
+def accommodation(dataset, area: str = Query(None, max_length=4,
+                                             description="Two-digit JIS prefecture code (13 = Tokyo) or a region code; omit for All Japan")):
     """Guest nights and occupancy: every area's backbone, one area's detail.
 
     The cube is area x measure x category x month, and the categories differ
@@ -1247,8 +1384,9 @@ PREFECTURES_CALC = (
 )
 
 
-@router.get("/{dataset}/prefectures")
-def prefectures(dataset, prefecture: str = Query(None, max_length=2)):
+@router.get("/{dataset}/prefectures", openapi_extra={"x-example": "/api/v1/population-jp/prefectures"})
+def prefectures(dataset, prefecture: str = Query(None, max_length=2,
+                                                 description="Two-digit JIS prefecture code, e.g. 13 for Tokyo; omit for every prefecture")):
     """Every area × every measure × every period, plus the geography.
 
     One payload serves a whole population surface — the map, the rankings
@@ -1373,7 +1511,7 @@ TRADE_WORLD_CALC = (
 )
 
 
-@router.get("/{dataset}/trade")
+@router.get("/{dataset}/trade", openapi_extra={"x-example": "/api/v1/trade-semis/trade?flow=exp&commodity=70323050"})
 def trade(dataset,
           flow: str = Query(None, description="'exp' or 'imp'"),
           commodity: str = Query(None, description="published commodity code")):
@@ -1480,6 +1618,9 @@ def trade(dataset,
             "commodity": chosen,
             "commodities": cfg["commodities"],
             "feature_partners": cfg.get("feature_partners", []),
+            # What the shared trade page cannot know on its own: subtitle,
+            # fixed partner colours, first-load partners and the four tiles.
+            "page": cfg.get("page", {}),
             "regions": [{"key": k, "label": l} for k, l in adapter.REGIONS],
             "units": {"value": UNIT_LABEL.get(cfg["value_unit"], cfg["value_unit"]),
                       "quantity": UNIT_LABEL.get(qty_unit, qty_unit)},
@@ -1503,12 +1644,14 @@ FISCAL_CALC = (
 )
 
 
-@router.get("/{dataset}/observations")
+@router.get("/{dataset}/observations", openapi_extra={"x-example": "/api/v1/cpi-jp/observations?series=0001,0161&measure=yoy&start=2020-01"})
 def observations(dataset,
-                 series: str = Query(..., max_length=200),
-                 measure: str = Query("index"),
-                 start: str = Query(None), end: str = Query(None),
-                 as_of: str = Query(None),
+                 series: str = Query(..., max_length=200,
+                                     description="Comma-separated series codes, up to eight; find them with /series"),
+                 measure: str = Query("index", description="index (as published) or a calculated rate the dataset offers: yoy, mom, ann3m, ... — see the dataset's measures"),
+                 start: str = Query(None, description="First period, YYYY-MM (YYYY-MM-DD for daily series)"),
+                 end: str = Query(None, description="Last period, inclusive"),
+                 as_of: str = Query(None, description="YYYY-MM-DD: the data as it stood on that date, from the vintage history"),
                  period: str = Query(
                      None, description="'fiscal_quarter' or 'fiscal_year': sum monthly "
                                        "flows into the fiscal periods of a company whose "
@@ -1666,6 +1809,14 @@ def _observations_csv(body, adapter, request):
     if body.get("as_of"):
         w("# Point in time: the data as it stood on %s. This URL returns the same "
           "numbers at any later date." % body["as_of"])
+        release = body.get("release") or {}
+        if release.get("known_at"):
+            # Which release answered, and whether its place in history is the
+            # agency's own publication date or the moment we fetched it. A
+            # citation that does not say this cannot be checked.
+            w("# Vintage: release \u201c%s\u201d, in force from %s (%s)"
+              % (release.get("label", ""), release["known_at"][:10],
+                 release.get("known_at_basis", "our fetch")))
     else:
         w("# Vintage: live release. Add &as_of=YYYY-MM-DD to freeze this view for citation.")
     trust = ("Official statistic — published values, exactly as released"
@@ -1721,10 +1872,10 @@ def _observations_csv(body, adapter, request):
                                       'attachment; filename="%s.csv"' % name})
 
 
-@router.get("/{dataset}/revisions")
+@router.get("/{dataset}/revisions", openapi_extra={"x-example": "/api/v1/cpi-jp/revisions?series=0001&period=2026-07"})
 def revisions(dataset,
-              series: str = Query(..., max_length=40),
-              period: str = Query(None)):
+              series: str = Query(..., max_length=40, description="One series code"),
+              period: str = Query(None, description="The period whose revision history to show, YYYY-MM; omit for every revised period")):
     """How one series has been revised, release by release.
 
     Only releases that actually changed a value appear: the vintage store is
@@ -1748,7 +1899,7 @@ def revisions(dataset,
             raise HTTPException(404, "Unknown series code '%s'" % code)
         rows = vintages.revisions(con, dataset, code, p_period)
         by_period = {}
-        for obs_period, value, release_id, label, ingested_at in rows:
+        for obs_period, value, release_id, label, at, published_at in rows:
             entry = by_period.setdefault(obs_period.isoformat(), [])
             change = None
             if entry and entry[-1]["value"] is not None and value is not None:
@@ -1757,7 +1908,10 @@ def revisions(dataset,
                 "value": value,                       # None = withdrawn
                 "release_id": release_id,
                 "release_label": label,
-                "known_at": ingested_at.isoformat() + "Z",
+                "known_at": at.isoformat() + "Z",
+                # Whether that stamp is the agency's own publication date or
+                # the moment we fetched the file.
+                "known_at_basis": "agency publication" if published_at else "our fetch",
                 "change": change,
                 "first": not entry,
             })

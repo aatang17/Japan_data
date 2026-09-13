@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Japan CPI — Since 1946 · Japan Data Observatory</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+
+<header class="site-header" data-section="macro" data-page="cpi-long"></header>
+<script src="assets/nav.js"></script>
+
+<main class="container" data-dataset="cpi-jp-long" data-default-range="max"
+      data-subtitle="National, all items less imputed rent, from August 1946" data-file-tag="cpi-since-1946"
+      data-strip-note="All items less imputed rent, the one aggregate the Bureau carries back to 1946">
+  <div id="stale-banner"></div>
+
+  <!-- Filled by assets/nav.js from the Inflation page's `tabs`. -->
+  <div class="page-tabs" data-page-tabs></div>
+
+  <!-- The ask assistant mounts itself from assets/ask.js as a floating
+       launcher; it stays absent unless the server reports it configured. -->
+
+  <div class="metric-card">
+    <div class="metric-card-head">
+      <h1>Japan CPI Since 1946</h1>
+      <span class="metric-asof" id="page-asof"></span>
+      <p class="metric-sub" id="page-sub"><span class="skeleton" style="display:inline-block;width:420px;height:14px"></span></p>
+    </div>
+    <div class="strip">
+      <div class="strip-grid" id="tiles">
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+      </div>
+    </div>
+    <p class="strip-foot" id="strip-foot"></p>
+  </div>
+
+  <section aria-labelledby="h-main">
+    <h2 id="h-main">Eighty Years of Consumer Price Inflation</h2>
+    <div class="chart-panel">
+    <div class="controls">
+      <label for="measure-select">Measure</label>
+      <select id="measure-select" aria-label="Transformation">
+        <option value="yoy">Year over Year (%)</option>
+        <option value="mom">Month over Month (%)</option>
+        <option value="ann3m">3-Month Annualized (%)</option>
+        <option value="index">Index Level</option>
+      </select>
+      <div class="seg" role="group" aria-label="Date range" id="range-seg">
+        <button type="button" data-range="1">1Y</button>
+        <button type="button" data-range="3">3Y</button>
+        <button type="button" data-range="5">5Y</button>
+        <button type="button" data-range="10">10Y</button>
+        <button type="button" data-range="25">25Y</button>
+        <button type="button" data-range="50">50Y</button>
+        <button type="button" data-range="max" aria-pressed="true">Max</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="main-png">Download PNG</button>
+      <button type="button" class="btn" id="main-csv">Download CSV</button>
+    </div>
+    <div class="chart" id="main-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="main-source"></p>
+    <details class="calc" id="main-calc"></details>
+    </div>
+  </section>
+
+        <!-- No h2 band here: the card carries its own "Data Source" head, and two
+       stacked headers saying the same thing read as a duplicate. -->
+  <section aria-label="Data source and provenance" class="prov">
+    <div id="prov-card"></div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="inner">
+    Source: Statistics Bureau of Japan, via e-Stat. Index values are official statistics;
+    rates of change are calculated from published index values.
+    <a href="methodology.html">Methodology</a>
+  </div>
+</footer>
+
+<script src="assets/echarts.min.js"></script>
+<script src="assets/format.js"></script>
+<script src="assets/charts.js"></script>
+<script src="assets/ask.js"></script>
+<script src="assets/sortable.js"></script>
+<script src="assets/overview.js"></script>
+</body>
+</html>

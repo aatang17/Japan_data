@@ -63,7 +63,14 @@ CREATE TABLE IF NOT EXISTS releases (
     label         TEXT NOT NULL,
     latest_period DATE NOT NULL,
     ingested_at   TIMESTAMP NOT NULL,
-    status        TEXT NOT NULL,    -- 'published' | 'superseded' | 'rejected'
+    -- When the AGENCY published this release, where that is known and
+    -- verified. NULL for every release we learned of by fetching it, which
+    -- is all of them except a backfilled archive: for those, ingest time is
+    -- the only honest stamp we have. Every as-of read orders by
+    -- COALESCE(published_at, ingested_at), so a backfilled release sits in
+    -- history where the agency put it and everything else is unaffected.
+    published_at  TIMESTAMP,
+    status        TEXT NOT NULL,    -- 'published' | 'superseded' | 'rejected' | 'archived'
     validation    TEXT              -- JSON summary of the gates that ran
 );
 
@@ -119,6 +126,9 @@ CREATE TABLE IF NOT EXISTS observation_vintages (
 MIGRATIONS = [
     "ALTER TABLE series ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT TRUE",
     "UPDATE series SET active = TRUE WHERE active IS NULL",
+    # Nullable on purpose: only a backfilled archive can state the agency's
+    # own publication date. See the column comment in SCHEMA.
+    "ALTER TABLE releases ADD COLUMN IF NOT EXISTS published_at TIMESTAMP",
 ]
 
 

@@ -35,7 +35,7 @@ from . import aliases
 from .equity_api import (INDUSTRY_EN, NAMES_NOTE, NAME_CTES, PROVENANCE, _cur,
                          _rows)
 
-router = APIRouter(prefix="/api/v1/equity/governance")
+router = APIRouter(prefix="/api/v1/equity/governance", tags=["Boards and pay"])
 
 # One filing per company, mirroring equity_api.LATEST_FILINGS but over this
 # dataset's own status column — 'no_tagged_board' and 'unsupported_form' filings
@@ -590,6 +590,7 @@ def screen(metric: str = Query("oldest_boards", description="one of /screen/metr
 
 @router.get("/screen/metrics")
 def screen_metrics():
+    """The metrics /screen accepts, each with its title."""
     return {"metrics": [{"metric": k, "title": v[2]} for k, v in sorted(SCREENS.items())]}
 
 

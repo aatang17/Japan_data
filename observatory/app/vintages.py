@@ -1,5 +1,14 @@
 """Point-in-time history: seeding it, and reading it back as of a date.
 
+**A release sits in history at `COALESCE(published_at, ingested_at)`**, and
+every query here uses that expression rather than `ingested_at` alone. For a
+release we learned of by fetching it — all of them, normally — the two are
+the same, because our fetch is the first moment we can honestly claim to
+know anything. A backfilled archive is the exception: `app/gdp_vintages.py`
+loads releases the Cabinet Office published years ago and records the date
+it published them, and those must order by that date or every `?as_of=`
+answer in the archive's span would be wrong.
+
 The `observation_vintages` table is append-only (see app/db.py). Ingest writes
 to it on every publish; this module handles the two things around that — the
 one-time seed of history that predates the table, and the as-of read the API
@@ -23,6 +32,41 @@ from . import db
 # would restate the whole history as a change made by the newest release —
 # thousands of phantom revisions, and change-only storage collapsing into a
 # full copy per release. (It did exactly that once, before this filter.)
+# Where a release sits in history. One definition, used by every query in this
+# module and by the as-of release lookup in app/api.py.
+#
+# It is resolved against the open database rather than hard-coded, because the
+# serving process opens the file READ-ONLY and so cannot run a migration on it
+# (one writer at a time; the ingest is the writer). A database written before
+# `published_at` existed must keep answering rather than raise a binder error
+# on every as-of request — and on such a file the fallback is not a compromise
+# but the correct expression: with no backfilled releases in it, our fetch is
+# where every release sits.
+def known_at(con, alias="r"):
+    """SQL for where a release sits in history, for the database `con` opens.
+
+    Asked of the catalogue every time rather than cached: one process can hold
+    connections to more than one file, and a cache keyed on anything cheaper
+    than the file itself answers for the wrong database the moment it does.
+    The lookup is a catalogue read and costs nothing next to the query it
+    builds.
+    """
+    have = bool(con.execute(
+        "SELECT count(*) FROM information_schema.columns "
+        "WHERE table_name = 'releases' AND column_name = 'published_at'"
+    ).fetchone()[0])
+    if not have:
+        return "%s.ingested_at" % alias
+    return "COALESCE(%s.published_at, %s.ingested_at)" % (alias, alias)
+
+
+def published_col(con, alias="r"):
+    """SQL for the agency's own publication date — NULL where the column
+    does not exist, which reads the same way: we have no such date."""
+    return ("%s.published_at" % alias
+            if known_at(con, alias).startswith("COALESCE") else "NULL")
+
+
 SEED_SQL = """
 INSERT INTO observation_vintages (series_id, period, value, release_id)
 SELECT o.series_id, o.period, o.value, o.release_id
@@ -63,7 +107,8 @@ WHERE EXISTS (
     JOIN releases rp ON rp.release_id = p.release_id
     JOIN releases rv ON rv.release_id = v.release_id
     WHERE p.series_id = v.series_id AND p.period = v.period
-      AND rp.ingested_at < rv.ingested_at
+      AND COALESCE(rp.published_at, rp.ingested_at)
+        < COALESCE(rv.published_at, rv.ingested_at)
       AND p.value IS NOT DISTINCT FROM v.value
       -- p must be the row immediately preceding v, not merely an earlier one:
       -- a value that changed and then changed back is a real revision twice.
@@ -71,7 +116,10 @@ WHERE EXISTS (
           SELECT 1 FROM observation_vintages q
           JOIN releases rq ON rq.release_id = q.release_id
           WHERE q.series_id = v.series_id AND q.period = v.period
-            AND rq.ingested_at > rp.ingested_at AND rq.ingested_at < rv.ingested_at
+            AND COALESCE(rq.published_at, rq.ingested_at)
+                  > COALESCE(rp.published_at, rp.ingested_at)
+            AND COALESCE(rq.published_at, rq.ingested_at)
+                  < COALESCE(rv.published_at, rv.ingested_at)
       )
 )
 """
@@ -99,9 +147,11 @@ def compact():
 def status():
     con = db.connect(read_only=True)
     try:
+        at = known_at(con)
         rows = con.execute(
             "SELECT s.dataset, count(DISTINCT v.release_id) AS vintages, count(*) AS rows, "
-            "       min(r.ingested_at) AS first_known, max(r.ingested_at) AS last_known "
+            "       min(" + at + ") AS first_known, "
+            "       max(" + at + ") AS last_known "
             "FROM observation_vintages v JOIN series s USING(series_id) "
             "JOIN releases r USING(release_id) GROUP BY 1 ORDER BY 1").fetchall()
         if not rows:
@@ -112,19 +162,21 @@ def status():
         # A row restating the value already in force is noise the store should
         # never contain; if any appear, something wrote history it should not
         # have. Surfaced here rather than left to be discovered in a chart.
+        p_at, v_at, q_at = (known_at(con, "rp"), known_at(con, "rv"), known_at(con, "rq"))
         noop = con.execute(
             "SELECT count(*) FROM observation_vintages v WHERE EXISTS ("
             "  SELECT 1 FROM observation_vintages p"
             "  JOIN releases rp ON rp.release_id = p.release_id"
             "  JOIN releases rv ON rv.release_id = v.release_id"
             "  WHERE p.series_id = v.series_id AND p.period = v.period"
-            "    AND rp.ingested_at < rv.ingested_at"
+            "    AND " + p_at + " < " + v_at +
             "    AND p.value IS NOT DISTINCT FROM v.value"
             "    AND NOT EXISTS ("
             "      SELECT 1 FROM observation_vintages q"
             "      JOIN releases rq ON rq.release_id = q.release_id"
             "      WHERE q.series_id = v.series_id AND q.period = v.period"
-            "        AND rq.ingested_at > rp.ingested_at AND rq.ingested_at < rv.ingested_at))"
+            "        AND " + q_at + " > " + p_at +
+            "        AND " + q_at + " < " + v_at + "))"
         ).fetchone()[0]
         if noop:
             print("WARNING: %d rows restate the value already in force — "
@@ -159,15 +211,18 @@ def values_as_of(con, dataset, as_of, codes=None):
     if codes:
         code_filter = " AND s.code IN (%s)" % ",".join("?" * len(codes))
         params.extend(codes)
+    at = known_at(con)
     rows = con.execute(
         "SELECT code, period, value FROM ("
         "  SELECT s.code AS code, v.period AS period, v.value AS value,"
         "         row_number() OVER (PARTITION BY v.series_id, v.period"
-        "                            ORDER BY r.ingested_at DESC, v.release_id DESC) AS rn"
+        "                            ORDER BY " + at + " DESC,"
+        "                                     v.release_id DESC) AS rn"
         "  FROM observation_vintages v"
         "  JOIN series s USING(series_id)"
         "  JOIN releases r USING(release_id)"
-        "  WHERE s.dataset = ? AND r.ingested_at <= ?" + code_filter +
+        "  WHERE s.dataset = ? AND " + at + " <= ?"
+        + code_filter +
         ") WHERE rn = 1 AND value IS NOT NULL", params).fetchall()
     out = {}
     for code, period, value in rows:
@@ -187,11 +242,15 @@ def revisions(con, dataset, code, period=None):
         period_filter = " AND v.period = ?"
         params.append(period)
     rows = con.execute(
-        "SELECT v.period, v.value, v.release_id, r.label, r.ingested_at "
+        "SELECT v.period, v.value, v.release_id, r.label, "
+        # NB: not aliased `at` — that is a reserved word in DuckDB (the AT
+        # time-travel clause) and ORDER BY on it dies at end of input.
+        "       " + known_at(con) + " AS known_at, "
+        + published_col(con) + " AS published_at "
         "FROM observation_vintages v JOIN series s USING(series_id) "
         "JOIN releases r USING(release_id) "
         "WHERE s.dataset = ? AND s.code = ?" + period_filter +
-        " ORDER BY v.period, r.ingested_at", params).fetchall()
+        " ORDER BY v.period, known_at", params).fetchall()
     return rows
 
 

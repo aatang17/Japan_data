@@ -36,7 +36,7 @@ from . import asof
 from . import aliases
 from .equity_api import NAME_CTES, _cur, _rows
 
-router = APIRouter(prefix="/api/v1/equity/financials")
+router = APIRouter(prefix="/api/v1/equity/financials", tags=["Financials"])
 
 PROVENANCE = {
     "trust": "official",
@@ -678,6 +678,7 @@ def screen(metric: str = Query("revenue", description="one of /screen/metrics"),
 
 @router.get("/screen/metrics")
 def screen_metrics():
+    """The filed metrics /screen accepts, each with its label."""
     return {"metrics": [{"metric": k, "label": v[0]} for k, v in SCREEN_METRICS.items()]}
 
 
@@ -785,7 +786,7 @@ def _num(v, name):
         raise HTTPException(400, "%s must be a number" % name)
 
 
-@router.get("/screener")
+@router.get("/screener", openapi_extra={"x-example": "/api/v1/equity/financials/screener?sort=roe_pct&limit=20"})
 def screener(industry: str = Query("", description="EDINET industry (Japanese), e.g. 銀行業; omit for all"),
              standard: str = Query("", description="Japan GAAP | IFRS | US GAAP"),
              min_revenue_yen: str = Query(""), min_assets_yen: str = Query(""),

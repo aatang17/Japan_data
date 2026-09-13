@@ -64,18 +64,24 @@ SECTIONS = [
     {"id": "rates", "label": "Rates"},
     {"id": "tourism", "label": "Tourism"},
     {"id": "demography", "label": "Demography"},
+    {"id": "national-accounts", "label": "National accounts"},
+    {"id": "corporate", "label": "Corporate"},
     {"id": "trade", "label": "Trade"},
     {"id": "ownership", "label": "Ownership"},
     {"id": "governance", "label": "Governance"},
     {"id": "capital-returns", "label": "Capital returns"},
     {"id": "assets", "label": "Assets"},
     {"id": "financials", "label": "Financials"},
+    # The US comparison shelf: not Japan, not a product surface, but served in
+    # the same shape so a Japanese figure has a counterpart to stand beside.
+    {"id": "us-reference", "label": "US reference"},
 ]
 SECTION_IDS = [s["id"] for s in SECTIONS]
 
 SHAPES = ("series", "company", "events")
 TRUST = ("official", "derived")          # "model" is reserved; refused today
-FREQUENCIES = ("daily", "monthly", "semiannual", "annual", "per-filing", "per-event")
+FREQUENCIES = ("daily", "monthly", "quarterly", "semiannual", "annual",
+               "per-filing", "per-event")
 VINTAGE_UNITS = ("release", "filing")
 # "captured_at" is deliberately absent: capture time was never recorded,
 # so no dataset can honestly claim it. See app/asof.py.
@@ -98,8 +104,12 @@ CAPABILITIES = ("series", "company", "screen", "search", "summary")
 # "births_per_woman" is the total fertility rate's own unit — a count of
 # children, not a rate of a population — and must never be ranked against
 # either of the above.
-UNITS = ("index", "%", "pp", "per_10000", "per_1000", "births_per_woman",
-         "JPY", "JPY_per_60kg",
+# "JPY_billion" is the Cabinet Office's unit for the national accounts
+# (10億円) and is stored as released, like every other yen unit here.
+# "USD" is the US shelf's own unit (sec_api.py); a filing reporting in another
+# currency carries that currency on the row and is never ranked against USD.
+UNITS = ("index", "%", "pp", "USD", "per_10000", "per_1000", "births_per_woman",
+         "JPY", "JPY_per_60kg", "JPY_billion",
          "JPY_thousand", "JPY_million", "JPY_100mn", "JPY_trillion", "tonnes_10k",
          "persons", "person_nights", "count", "quantity", "shares",
          "voting_rights", "m2", "JPY_per_m2", "x", "years", "days", "date",
@@ -127,13 +137,14 @@ _API_UNIT = {"index": "index", "JPY_100mn": "jpy_100mn", "%": "pct",
              "persons": "persons", "person_nights": "person_nights",
              "JPY_thousand": "jpy_1000", "JPY_per_60kg": "jpy_per_60kg",
              "JPY_million": "jpy_million", "JPY_trillion": "jpy_trillion",
-             "tonnes_10k": "t10k_brown_rice", "JPY": "jpy"}
+             "tonnes_10k": "t10k_brown_rice", "JPY": "jpy",
+             "JPY_billion": "jpy_billion"}
 
 # Equity API modules, in registration order. Macro modules come from
 # api.ADAPTERS, so a new adapter is registered here by being registered there.
 EQUITY_MODULES = ("equity_api", "ownership_api", "lvh_api", "governance_api",
                   "buyback_api", "facility_api", "financials_api", "agm_api",
-                  "segments_api")
+                  "segments_api", "sec_api")
 
 
 class RegistryError(Exception):

@@ -30,7 +30,7 @@ from fastapi import APIRouter, HTTPException, Query
 from . import cohorts, equity_api, fin_metrics
 from .equity_api import _cur, _rows
 
-router = APIRouter(prefix="/api/v1/equity/cohorts")
+router = APIRouter(prefix="/api/v1/equity/cohorts", tags=["Peer groups"])
 
 # ---- the metric registry ---------------------------------------------------
 # (key, label, unit, higher_is_better, family, formula-or-None-if-as-filed).
@@ -374,7 +374,7 @@ def company(sec_code: str, as_of: str = Query("")):
     return info
 
 
-@router.get("/compare")
+@router.get("/compare", openapi_extra={"x-example": "/api/v1/equity/cohorts/compare?cohort=size:core30&metric=roe_pct"})
 def compare(cohort: str = Query(..., description="a cohort spec, e.g. size:core30 or codes:7203,6758"),
             metric: str = Query("roe_pct", description="one of /cohorts/metrics"),
             highlight: str = Query("", description="a security code to locate in the cohort"),

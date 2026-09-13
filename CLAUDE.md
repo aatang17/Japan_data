@@ -94,6 +94,11 @@ Every number on every surface says where it came from:
   interpretation in one sentence before making changes.
 - I'm a businessman, not an engineer — explain things in plain language.
 - Never try to please me for the sake of it. Give your professional answer.
+- **Answer the question I asked. No unsolicited opinions.** If I ask you to find,
+  read, check or summarise something, report what you found and stop. Don't append a
+  verdict on whether it's worth it, how it fits the strategy, what I should do next,
+  or what the "real" lesson is. I'll ask for a view when I want one — and when I do,
+  give it straight (that rule stands, this one only governs when it applies).
 - Do not hallucinate. If you cite a number, it must come from the data; if you name a link
   or e-Stat table, verify it exists.
 - **Commit or push only when I ask.** No branches, commits, or pushes on your own

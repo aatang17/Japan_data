@@ -120,7 +120,7 @@
     spike that later reverts — fresh food, most commonly — puts its reversion into the
     denominator and falls below the threshold. Typical of an administered price, subsidy or tax
     that changes on a set date.</li>
-    <li><b>‡ Index near zero.</b> The latest index level is below 5.0 (2020 = 100). A percent
+    <li><b>‡ Index near zero.</b> The latest index level is below 5.0 (base year = 100). A percent
     change on a base that small is arithmetically unstable — a one-tenth move can read as a
     double-digit rate — so the rate is shown for completeness only.</li>
   </ul>
@@ -139,11 +139,19 @@
     <li><b>Source identity.</b> Each dataset names its publisher, table and retrieval time on
     its own page, in its CSV export header, and in the
     <a href="/api/v1/catalog/datasets" rel="noopener">dataset catalogue</a>. Consumer prices come from
-    two e-Stat tables:
-    <a href="https://www.e-stat.go.jp/stat-search/files?stat_infid=000032103842" rel="noopener">middle-class
-    indices</a> (statInfId 000032103842) and
-    <a href="https://www.e-stat.go.jp/stat-search/files?stat_infid=000032103844" rel="noopener">detailed
-    item indices</a> (statInfId 000032103844), both national and monthly.</li>
+    the Statistics Bureau's long-run e-Stat tables on the 2025 base, national and monthly:
+    <a href="https://www.e-stat.go.jp/stat-search/files?stat_infid=000040482943" rel="noopener">middle-class
+    indices</a> (statInfId 000040482943),
+    <a href="https://www.e-stat.go.jp/stat-search/files?stat_infid=000040482945" rel="noopener">detailed
+    item indices</a> (000040482945), the goods and services classification (000040482946), the
+    seasonally adjusted indices (000040482947) and all items less imputed rent from 1946
+    (000040482944); and the Tokyo ward-area middle-class and item tables (000040482965,
+    000040482967), whose newest month is the mid-month advance.</li>
+    <li><b>Base year.</b> The Bureau rebases every five years and publishes the rebased history
+    under a new e-Stat file; the previous file stops updating. The 2025 base arrived on 28 August
+    2026 and every CPI dataset here reads the 2025-base files. The switch is stored as a new
+    vintage: an as-of query dated before it returns the 2020-base figures exactly as they were
+    served, and the page reads the base off the release rather than assuming one.</li>
     <li><b>Missing values.</b> Periods where a series was not collected show as <code>—</code>
     and render as gaps in charts. A missing value is never displayed or exported as zero. A
     series with no value for the latest period is marked with the period it ends.</li>
@@ -201,6 +209,8 @@
     <tbody>
       <tr><td>JGB yield curve</td><td class="muted">Every business day, one day in arrears</td><td class="num">7 days</td></tr>
       <tr><td>Bank of Japan balance sheet</td><td class="muted">Monthly</td><td class="num">75 days</td></tr>
+      <tr><td>Quarterly GDP estimates</td><td class="muted">Quarterly, first estimate ~6 weeks after the quarter, second ~10</td><td class="num">260 days</td></tr>
+      <tr><td>Corporate financial statements (MOF)</td><td class="muted">Quarterly, about two months after the quarter</td><td class="num">270 days</td></tr>
       <tr><td>Consumer prices (both tables)</td><td class="muted">Monthly, about three weeks after the month</td><td class="num">90 days</td></tr>
       <tr><td>Visitor arrivals</td><td class="muted">Monthly, about the 19th of the following month</td><td class="num">90 days</td></tr>
       <tr><td>Rice contract prices and inventories</td><td class="muted">Monthly, about the 20th of the following month</td><td class="num">95 days</td></tr>
@@ -222,6 +232,98 @@
   <h2 id="datasets">Dataset notes<span class="h2-note">What does not reconcile, what is estimated, what is suppressed</span></h2>
   <p class="section-sub">One entry per dataset. Everything specific to a source lives here —
   open the one you are reading. The rules above still apply to all of them.</p>
+
+  <details class="ds" id="calc-gdp">
+    <summary><span>Quarterly GDP</span><span class="ds-note">Expenditure side, three bases, ¥bn</span></summary>
+    <div class="ds-body">
+    <ul>
+      <li><b>gdp-jp</b> is the Cabinet Office's 四半期別ＧＤＰ速報: real (chained 2020 prices),
+      nominal and the deflator, all seasonally adjusted at annual rates, quarterly from 1994 Q1,
+      read from the three e-Stat tables the Cabinet Office overwrites at every release. Levels
+      are stored in the ¥ billion published; pages show ¥ trillion (÷1,000, exact). A quarter is
+      dated by its first month: 2026-04-01 is April–June 2026.</li>
+      <li><b>Only levels are stored.</b> The Cabinet Office also publishes growth rates; they are
+      not ingested. Quarter on quarter: <code>qoq % = (level[t] ÷ level[t − 1 quarter] − 1) ×
+      100</code>. Annualized: <code>annualized % = ((level[t] ÷ level[t − 1 quarter]) ^ 4 − 1) ×
+      100</code>. Year on year: <code>yoy % = (level[t] ÷ level[t − 4 quarters] − 1) × 100</code>.
+      The Cabinet Office computes its own rates before rounding the levels, so a rate here can
+      differ from the published one by about a tenth of a point. That is disclosed, not
+      adjusted.</li>
+      <li>Contributions to growth: <code>contribution pp = (component[t] − component[t − 1
+      quarter]) ÷ GDP[t − 1 quarter] × 100</code> (and the same at four quarters for the
+      year-on-year view). In chained-price accounts the real components do not add to real
+      GDP; the Cabinet Office publishes the gap (開差) as a line of its own. The page bundles
+      that gap with rounding into one residual bar, <code>residual pp = GDP growth % − Σ
+      contributions pp</code>, so the bars always add to the line and nothing is hidden.</li>
+      <li>Three gates tie the three tables to one release: the nominal components must sum to
+      nominal GDP to the tenth of a billion; the real components plus the published discrepancy
+      must sum to real GDP; and nominal ÷ real × 100 must reproduce the published deflator to
+      within a quarter of a point. A release where any of these fails is not published.</li>
+      <li><b>Vintages: the real-time record, 2002 to today.</b> The same table ids are
+      rewritten at every release, so each revision is captured as a new vintage from our first
+      ingest onward. Behind that sit <b>134 backfilled releases</b> — every first and second
+      preliminary estimate the Cabinet Office published between August 2002 and March 2019,
+      loaded from its archived tables with the date it published each one.
+      <code>?as_of=</code> on the API re-draws any chart as it stood on a past date, and
+      <code>/releases</code> marks every vintage with whether its date is the agency's own
+      (<code>known_at_basis: agency publication</code>) or our fetch.</li>
+      <li><b>Where those publication dates come from.</b> e-Stat carries none — every archived
+      GDP table reports the day the whole archive was uploaded. Dating them by the usual rule
+      of thumb would have put releases on the wrong side of a month end and corrupted every
+      as-of answer in the span. Two of the Cabinet Office's own records are used instead: its
+      machine-readable release calendar, which covers 2009 Q3 onward, and the statistics-list
+      page each release publishes, which reaches back to 2002. On the 24 releases where both
+      were compared they agreed 24 times; that is what justifies using the page for the
+      earlier ones. Where both exist they must still agree or the release is refused. The
+      stamp is 08:50 Japan time, the hour GDP is released.</li>
+      <li><b>Levels are not comparable across vintages, and that is the point.</b> Each
+      release is on the price base and the SNA vintage in force when it was published — real
+      GDP appears in 1995, 2000, 2005, 2011 and 2020 chained prices at different dates, and
+      nominal GDP steps up by about ¥30tn at the December 2016 move to the 2008 SNA. So a
+      difference between two vintages can be a rebasing, a benchmark revision or a genuine
+      data revision, and the three are not the same thing. Each archived release records its
+      own base. Two renamed lines are carried across the break as one series each
+      (民間在庫品増加 → 民間在庫変動 and its public twin); the four "excluding FISIM" lines
+      published only during the changeover are kept as series of their own rather than folded
+      into the main ones.</li>
+      <li><b>One gap, stated rather than papered over.</b> e-Stat's archive of past estimates
+      stops at the 2018 Q4 second preliminary (published March 2019) and our own ingests begin
+      in September 2026. Nothing is recorded between those dates, so an <code>as_of</code>
+      anywhere in that window returns the March 2019 vintage — the last thing we can honestly
+      say was published on or before it.</li>
+    </ul>
+    </div>
+  </details>
+
+  <details class="ds" id="calc-corporate">
+    <summary><span>Corporate financial statements</span><span class="ds-note">MOF quarterly survey, ¥mn, not seasonally adjusted</span></summary>
+    <div class="ds-body">
+    <ul>
+      <li><b>corporate-finance-jp</b> is the Ministry of Finance's 法人企業統計調査 (quarterly),
+      the survey of companies with capital of ¥10 million or more, read from e-Stat's
+      time-series table for industries other than finance and insurance. A pinned subset is
+      carried: 21 lines (sales, operating and ordinary profit, personnel costs, directors'
+      remuneration, headcount, capital investment with and without software, depreciation,
+      cash, inventories, equity holdings, the balance-sheet totals, borrowings, bonds and
+      retained earnings) across 31 industry aggregates and four capital classes, quarterly from
+      1954. Amounts are in ¥ million as published; counts are counts.</li>
+      <li><b>Not seasonally adjusted.</b> The right reading is year on year: <code>(value[t] /
+      value[t−12 months] − 1) × 100</code>. A quarter-on-quarter change on these levels is
+      mostly seasonality and no surface shows one.</li>
+      <li>Margin: <code>margin % = ordinary profit ÷ sales × 100</code>. Trailing four quarters:
+      <code>ttm = sum of the four most recent published quarters, flows only</code>. The
+      Ministry's own published ratios are not ingested.</li>
+      <li>Three identities are gated on every ingest, for every industry, size and quarter:
+      total assets equal liabilities plus net assets; manufacturing plus non-manufacturing equal
+      all industries; and the three capital classes sum to all sizes. Yen lines reconcile to the
+      ¥ million; the company count is an estimate rounded within each class, so it is allowed
+      five parts in ten thousand.</li>
+      <li>The "up to fiscal 2008" legacy industry lines created by the 2008 reclassification are
+      not carried; finance and insurance are a separate table with a different line structure
+      and are not included.</li>
+    </ul>
+    </div>
+  </details>
 
   <details class="ds" id="calc-boj">
     <summary><span>Bank of Japan balance sheet</span><span class="ds-note">Stocks and flows, ¥100mn</span></summary>
@@ -469,20 +571,27 @@
   </details>
 
   <details class="ds" id="calc-semis">
-    <summary><span>Semiconductor and HS trade</span><span class="ds-note">MOF customs, by partner</span></summary>
+    <summary><span>Trade by partner: semiconductors, vehicles, energy, machinery, pharma, food</span><span class="ds-note">MOF customs, by partner</span></summary>
     <div class="ds-body">
     <ul>
-      <li>Ministry of Finance customs figures for Japan's trade in semiconductors, semiconductor
-      components and semiconductor manufacturing equipment, by partner country, from January
+      <li>Ministry of Finance customs figures for Japan's trade by partner country, from January
       2001 — from the principal-commodity by country tables (概況品別国別表) of the Trade
-      Statistics of Japan, shown exactly as published. Value is published in <b>thousands of
+      Statistics of Japan, shown exactly as published. Six slices of the one table, each its
+      own dataset and page: semiconductors, components and chipmaking equipment
+      (<code>trade-semis</code>); motor vehicles, parts and motorcycles (<code>trade-autos</code>);
+      mineral fuels — crude, LNG, coal, refined products and LPG by supplier, refined products
+      by destination (<code>trade-energy</code>); general machinery
+      (<code>trade-machinery</code>); medical products (<code>trade-pharma</code>); and food
+      (<code>trade-food</code>). Every rule in this section applies to all six. Value is published in <b>thousands of
       yen</b>; pages show billions (<code>value ÷ 1,000,000</code>), and no other transformation
       is applied. Quantity is published in the commodity's own unit — pieces for a chip,
       kilograms for a machine — which is why unit values are never compared between
       commodities.</li>
       <li><b>Export and import commodity codes are separate vocabularies and do not
       correspond.</b> Code <code>70311000</code> is semiconductors and electronic components on
-      the import side and audio equipment on the export side. Every surface validates a commodity
+      the import side and audio equipment on the export side; <code>70503000</code> is motor
+      vehicles on the export side and vehicle parts on the import side; <code>30301000</code>
+      is crude oil on the import side and refined petroleum products on the export side. Every surface validates a commodity
       against the direction being read, and the two directions are never joined on a code.</li>
       <li><b>A published group is never the sum of the items shown beneath it.</b> The Ministry
       publishes components inside a group that this dataset does not carry, so
@@ -510,7 +619,10 @@
       <li>Unit value: <code>(12-month total of value[t] × 1,000) / 12-month total of
       quantity[t]</code>, in yen per unit shipped. This is an average realised price across a
       year of shipments — not a price index, not quality-adjusted, and not comparable between
-      commodities or against the consumer price index.</li>
+      commodities or against the consumer price index. The quantity unit differs by line —
+      pieces for a chip, kilograms for a machine or for vehicle parts, number of vehicles,
+      kilolitres for crude and refined products, tonnes for coal, LNG and LPG — and the
+      mineral-fuel total is published with no quantity at all, so it has no unit value.</li>
       <li>A figure too small to show at the displayed scale reads as <code>&lt;0.1</code> rather
       than rounding to <code>0.0</code>, so a rounded-down value can never be mistaken for a
       genuine zero or a month with no entry.</li>
@@ -1011,7 +1123,7 @@
     splits are not yet ingested. The Overview page reads the middle-class table only.</li>
     <li>Rates of change are calculated here rather than ingested from the official change-rate
     tables (see <a href="#calc">Calculations</a> for the rounding consequence). Group
-    contributions use fixed 2020-base weights — the Laspeyres approximation the official
+    contributions use fixed base-year weights (2025 base) — the Laspeyres approximation the official
     decomposition also uses — and are not chain-linked across base revisions.</li>
     <li>Release history starts on 5 August 2026, the platform's first accepted release. Revisions
     made before that date are not recoverable here — nobody was saving the files. There is no
@@ -1048,8 +1160,8 @@
   <p><b>Statistics Bureau of Japan.</b> Consumer price data © Statistics Bureau of Japan,
   republished under the <a href="https://www.e-stat.go.jp/terms-of-use" rel="noopener">e-Stat terms
   of use</a> with attribution. Cite the underlying data as: Statistics Bureau of Japan, Consumer
-  Price Index, 2020-base national indices, via e-Stat (middle-class table statInfId 000032103842;
-  detailed-item table statInfId 000032103844).</p>
+  Price Index, 2025-base national indices, via e-Stat (middle-class table statInfId 000040482943;
+  detailed-item table statInfId 000040482945).</p>
   <p><b>Bank of Japan.</b> Retrieved through the Bank's public time-series API. As that service
   requires: “This service uses the API provided by the ‘Bank of Japan Time-Series Data Search.’
   The Bank of Japan does not guarantee the content of the service.”</p>

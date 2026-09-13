@@ -13,17 +13,17 @@ from fastapi.responses import JSONResponse
 
 from . import registry
 
-router = APIRouter(prefix="/api/v1/catalog")
+router = APIRouter(prefix="/api/v1/catalog", tags=["Catalog"])
 
 
-@router.get("/manifests")
+@router.get("/manifests", openapi_extra={"x-example": "/api/v1/catalog/manifests"})
 def manifests():
     """Every dataset's manifest, in section order."""
     rows = registry.datasets()
     return {"count": len(rows), "sections": registry.by_section(), "datasets": rows}
 
 
-@router.get("/manifests/{dataset_id}")
+@router.get("/manifests/{dataset_id}", openapi_extra={"x-example": "/api/v1/catalog/manifests/cpi-jp"})
 def manifest(dataset_id: str):
     """One dataset's manifest. An unknown id answers with the valid ones —
     never a bare 404 that leaves a client guessing at spellings."""
@@ -37,7 +37,7 @@ def manifest(dataset_id: str):
     return m
 
 
-@router.get("/sections")
+@router.get("/sections", openapi_extra={"x-example": "/api/v1/catalog/sections"})
 def sections():
     """The fixed section list, each with its dataset ids, in display order."""
     return {"sections": registry.by_section()}

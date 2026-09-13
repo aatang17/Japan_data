@@ -38,7 +38,7 @@ from . import aliases
 from . import facility_labels
 from .equity_api import NAME_CTES, _cur, _rows
 
-router = APIRouter(prefix="/api/v1/equity/facilities")
+router = APIRouter(prefix="/api/v1/equity/facilities", tags=["Facilities"])
 
 PROVENANCE = {
     "trust": "official",

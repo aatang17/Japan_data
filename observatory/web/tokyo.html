@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tokyo CPI — Advance · Japan Data Observatory</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+
+<header class="site-header" data-section="macro" data-page="tokyo"></header>
+<script src="assets/nav.js"></script>
+
+<main class="container" data-dataset="cpi-tokyo" data-items-dataset="cpi-tokyo-items"
+      data-compare-dataset="cpi-jp" data-compare-label="National" data-own-label="Tokyo"
+      data-subtitle="Tokyo ward area, middle-class indices, mid-month advance" data-file-tag="cpi-tokyo"
+      data-strip-note="Core excludes fresh food; core-core also excludes energy · the newest month is the mid-month advance">
+  <div id="stale-banner"></div>
+
+  <!-- Filled by assets/nav.js from the Inflation page's `tabs`. -->
+  <div class="page-tabs" data-page-tabs></div>
+
+  <!-- The ask assistant mounts itself from assets/ask.js as a floating
+       launcher; it stays absent unless the server reports it configured. -->
+
+  <div class="metric-card">
+    <div class="metric-card-head">
+      <h1>Tokyo Ward-Area CPI, Advance</h1>
+      <span class="metric-asof" id="page-asof"></span>
+      <p class="metric-sub" id="page-sub"><span class="skeleton" style="display:inline-block;width:420px;height:14px"></span></p>
+    </div>
+    <div class="strip">
+      <div class="strip-grid" id="tiles">
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+      </div>
+    </div>
+    <p class="strip-foot" id="strip-foot"></p>
+  </div>
+
+  <section aria-labelledby="h-main">
+    <h2 id="h-main">Tokyo Consumer Price Inflation, Monthly</h2>
+    <div class="chart-panel">
+    <div class="controls">
+      <label for="measure-select">Measure</label>
+      <select id="measure-select" aria-label="Transformation">
+        <option value="yoy">Year over Year (%)</option>
+        <option value="mom">Month over Month (%)</option>
+        <option value="ann3m">3-Month Annualized (%)</option>
+        <option value="index">Index Level</option>
+      </select>
+      <div class="seg" role="group" aria-label="Date range" id="range-seg">
+        <button type="button" data-range="1">1Y</button>
+        <button type="button" data-range="3">3Y</button>
+        <button type="button" data-range="5" aria-pressed="true">5Y</button>
+        <button type="button" data-range="10">10Y</button>
+        <button type="button" data-range="max">Max</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="main-png">Download PNG</button>
+      <button type="button" class="btn" id="main-csv">Download CSV</button>
+    </div>
+    <div class="chart" id="main-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="main-source"></p>
+    <details class="calc" id="main-calc"></details>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-compare">
+    <h2 id="h-compare">Tokyo Against the National Index <span class="h2-note" id="compare-note"></span></h2>
+    <p class="section-sub">The Tokyo ward-area advance beside the national index, on the measure and
+    range chosen above. Tokyo is published about three weeks earlier and runs one month ahead of
+    the country. It is a tenth of the national basket, heavier on rent and lighter on food, so it
+    leads the national figure without predicting it.</p>
+    <div class="chart-panel">
+    <div class="controls">
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="compare-png">Download PNG</button>
+      <button type="button" class="btn" id="compare-csv">Download CSV</button>
+    </div>
+    <div class="chart" id="compare-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="compare-source"></p>
+    <details class="calc" id="compare-calc"></details>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-contrib">
+    <h2 id="h-contrib">Contributions to Headline Inflation</h2>
+    <p class="section-sub">Each bar splits headline year-over-year inflation into the
+    percentage-point contribution of the major expenditure groups; the line is headline CPI
+    itself. The five largest current contributors are shown separately, the rest are bundled.</p>
+    <div class="chart-panel">
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Contribution date range" id="contrib-seg">
+        <button type="button" data-range="1">1Y</button>
+        <button type="button" data-range="3" aria-pressed="true">3Y</button>
+        <button type="button" data-range="5">5Y</button>
+        <button type="button" data-range="10">10Y</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="contrib-png">Download PNG</button>
+      <button type="button" class="btn" id="contrib-csv">Download CSV</button>
+    </div>
+    <div class="chart" id="contrib-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="contrib-source"></p>
+    <details class="calc" id="contrib-calc"></details>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-groups">
+    <h2 id="h-groups">Major Expenditure Groups <span class="h2-note" id="groups-note"></span></h2>
+    <div class="chart-panel">
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Group metric" id="groups-seg">
+        <button type="button" data-view="yoy" aria-pressed="true">Group inflation (%)</button>
+        <button type="button" data-view="contrib">Contribution to headline (pp)</button>
+      </div>
+    </div>
+    <div class="chart-bars" id="groups-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="groups-source"></p>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-breadth">
+    <h2 id="h-breadth">Breadth of Price Increases <span class="h2-note" id="breadth-note"></span></h2>
+    <p class="section-sub">Computed over the individually priced items of the Tokyo detailed-item
+    table, one month ahead of the national reading: the share whose price is up at least 2% on a year earlier, and the share falling.
+    Broad inflation means most items rising, not a few large movers.</p>
+    <div class="chart-panel">
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Breadth date range" id="breadth-seg">
+        <button type="button" data-range="5">5Y</button>
+        <button type="button" data-range="10" aria-pressed="true">10Y</button>
+        <button type="button" data-range="25">25Y</button>
+        <button type="button" data-range="max">Max</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="breadth-png">Download PNG</button>
+      <button type="button" class="btn" id="breadth-csv">Download CSV</button>
+    </div>
+    <div class="chart" id="breadth-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="breadth-source"></p>
+    <details class="calc" id="breadth-calc"></details>
+    </div>
+  </section>
+
+  <!-- No h2 band here: the card carries its own "Data Source" head, and two
+       stacked headers saying the same thing read as a duplicate. -->
+  <section aria-label="Data source and provenance" class="prov">
+    <div id="prov-card"></div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="inner">
+    Source: Statistics Bureau of Japan, via e-Stat. Index values are official statistics;
+    rates of change are calculated from published index values.
+    <a href="methodology.html">Methodology</a>
+  </div>
+</footer>
+
+<script src="assets/echarts.min.js"></script>
+<script src="assets/format.js"></script>
+<script src="assets/charts.js"></script>
+<script src="assets/ask.js"></script>
+<script src="assets/sortable.js"></script>
+<script src="assets/overview.js"></script>
+</body>
+</html>

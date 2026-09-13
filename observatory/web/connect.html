@@ -23,10 +23,11 @@
 
   <h2 id="url">Your connect URL</h2>
   <p>Add this URL to your assistant as a custom connector. It gives the assistant read-only
-  lookups over the same numbers this site publishes: ~820 Japanese CPI series, monthly from
-  January 1970 to the latest published month.</p>
+  lookups over the same numbers this site publishes — 25 datasets of Japanese official
+  statistics and company filings, from consumer prices back to 1970 to last month's board
+  and pay disclosures.</p>
   <div class="connect-url">
-    <code id="mcp-url">https://web-production-c9178.up.railway.app/mcp</code>
+    <code id="mcp-url">https://ploveranalytics.com/mcp</code>
     <button type="button" class="btn" id="copy-url">Copy</button>
   </div>
 
@@ -49,7 +50,7 @@
   <h3>Claude Code</h3>
   <p>One command in a terminal:</p>
   <div class="connect-url">
-    <code id="cc-cmd">claude mcp add --transport http japan-data-observatory https://web-production-c9178.up.railway.app/mcp</code>
+    <code id="cc-cmd">claude mcp add --transport http japan-data-observatory https://ploveranalytics.com/mcp</code>
     <button type="button" class="btn" id="copy-cmd">Copy</button>
   </div>
 
@@ -59,18 +60,57 @@
   <p>Once connected, the <a href="manual.html">full manual</a> covers every lookup, how to
   read the trust labels in what comes back, and what to do when something looks wrong.</p>
 
+  <h2 id="covers">What it covers</h2>
+  <p>Twenty-five datasets in twelve sections. The assistant sees all of them through the
+  same handful of lookups, so you never have to name a dataset yourself.</p>
+  <ul>
+    <li><b>Prices</b> — national CPI by category and at full item depth, monthly from
+    January 1970, including the 582 individually priced items.</li>
+    <li><b>Monetary</b> — the Bank of Japan's balance sheet: stocks and monthly flows of
+    JGBs, bills, corporate bonds, ETFs, J-REITs, loans and the monetary base, from 1996.</li>
+    <li><b>Rates</b> — the JGB yield curve, 15 maturities daily since 1974.</li>
+    <li><b>Tourism</b> — visitor arrivals by market from 2003, and the Accommodation Survey's
+    guest nights and occupancy by prefecture from 2011.</li>
+    <li><b>Demography</b> — population, households and register flows by prefecture and by
+    municipality, plus the long run back to 1975.</li>
+    <li><b>Trade</b> — semiconductors, semiconductor equipment and silicon wafers by partner
+    country, monthly from 2001.</li>
+    <li><b>Agriculture</b> — farm output and input price indices, rice contract prices by
+    variety, private rice stocks, rice production cost, and the agricultural co-operatives'
+    segment income statement.</li>
+    <li><b>Ownership</b> — cross-shareholdings in both directions, the shareholder register,
+    and the 5% large-shareholding tape.</li>
+    <li><b>Governance</b> — every director as filed with pay, and AGM voting results down to
+    each director's own approval percentage.</li>
+    <li><b>Capital returns</b> — buyback programmes from authorisation to execution to
+    cancellation.</li>
+    <li><b>Assets</b> — disclosed facilities and land, with book value, area and the rental
+    property note.</li>
+    <li><b>Financials</b> — statements as filed, calculated ratios with their formulas, and
+    segment notes including named customers.</li>
+  </ul>
+  <p>Bank-level financial statements and the FSA bad-loan series are built but not yet
+  published on this server. The <a href="datasets.html">datasets directory</a> is the
+  authoritative list; <b>List datasets</b> returns the same thing to your assistant.</p>
+
   <h2 id="ask">What to ask</h2>
   <ul>
-    <li>What is Japan's headline and core inflation right now?</li>
-    <li>Which expenditure groups are driving headline inflation, in percentage points?</li>
-    <li>How has the price of rice moved over the last three years?</li>
+    <li>What is Japan's headline and core inflation right now, and which groups are driving it?</li>
     <li>How broad is inflation across individual items — what share is rising more than 2%?</li>
-    <li>Compare electricity and city gas prices since 2022.</li>
+    <li>How much JGB did the Bank of Japan buy last month, net of redemptions?</li>
+    <li>Where is the 10-year JGB yield against a year ago?</li>
+    <li>Which visitor markets grew fastest last month, and how full were Kyoto's hotels?</li>
+    <li>Who holds Mitsubishi UFJ as a policy shareholding, and what reason do the filers state?</li>
+    <li>Which listed companies have the oldest boards? Which directors got the lowest approval
+    at the AGM?</li>
+    <li>Show me Toyota's financial statements as filed, then its ROE against its Core30 peers.</li>
+    <li>Which companies have the largest unspent buyback authorisations?</li>
+    <li>What did last month's CPI look like as of the day before the latest release?</li>
   </ul>
 
   <h2 id="tools">What your assistant can see</h2>
   <p>Read-only lookups, each a thin wrapper over this site's public API — the assistant can
-  only see numbers the site already publishes, from the same accepted release. Six generic
+  only see numbers the site already publishes, from the same accepted release. Eight generic
   tools cover every dataset on the server:</p>
   <ul>
     <li><b>List datasets</b> — every dataset: what it is, its shape, and which tools apply.</li>
@@ -83,39 +123,34 @@
     <li><b>Get series history</b> — published values or calculated rates, as of any date.</li>
     <li><b>Ranked screen</b> — the dataset's own screens: oldest boards, largest unspent buybacks,
     cheapest land, lowest director approval, highest ROE.</li>
+    <li><b>List peer groups</b> — the TOPIX scale bands, JPX market segments and the industry
+    classifications a company can be compared within.</li>
+    <li><b>Compare within a peer group</b> — one metric across one peer group, ranked, with the
+    group's own median and quartiles.</li>
   </ul>
-  <p>The dataset cards are also readable as MCP resources. The older per-dataset tools remain
-  available for compatibility. Consumer prices:</p>
-  <ul>
-    <li><b>List datasets</b> — the published tables and what each covers.</li>
-    <li><b>Search series</b> — find any of the ~820 series by English or Japanese name.</li>
-    <li><b>Get series history</b> — index levels or rates of change for up to six series.</li>
-    <li><b>Inflation overview</b> — headline, cores, and the ten major groups at the latest month.</li>
-    <li><b>Contributions to headline</b> — the percentage-point decomposition by group.</li>
-    <li><b>Inflation breadth</b> — the share of individually priced items rising or falling.</li>
-  </ul>
-  <p>Cross-shareholdings, where that dataset is published:</p>
-  <ul>
-    <li><b>Cross-shareholding coverage</b> — filers extracted, named holdings, total book value.</li>
-    <li><b>Search companies</b> — by Japanese name or securities code.</li>
-    <li><b>Company holdings</b> — what a company holds and who holds it, exactly as filed.</li>
-    <li><b>Unwind ranking</b> — filers by policy-holding value, with positions cut versus added.</li>
-  </ul>
+  <p>The dataset cards are also readable as MCP resources. The older per-dataset tools —
+  inflation overview, contributions, breadth, cross-shareholding coverage, the boards-and-pay
+  and financials lookups — remain available for compatibility.</p>
   <p>The <a href="manual.html">manual</a> documents each one in detail.</p>
 
   <h2 id="trust">Trust and limits</h2>
   <ul>
-    <li>Index levels are official statistics exactly as the Statistics Bureau of Japan published
-    them; year-over-year and other rates are calculated by this platform, and every lookup
-    result carries that label plus the formula used.</li>
+    <li>Published values are official statistics or filed figures exactly as the source
+    released them; year-over-year and other rates, ratios and aggregates are calculated by
+    this platform, and every lookup result carries that label plus the formula used.</li>
+    <li>Most lookups accept an <code>as of</code> date and answer as the data stood then,
+    from the stored vintage history — so a revised number can be compared with the one that
+    was on the screen at the time.</li>
     <li>Every result includes a permanent citation URL — the page on this site showing the same
     view — so any figure the assistant quotes can be checked at the source.</li>
-    <li>Missing values are returned as missing, never as zero.</li>
+    <li>Missing values are returned as missing, never as zero. Filing-derived datasets return
+    their own coverage with every aggregate: they accumulate filing by filing and are not the
+    whole market.</li>
     <li>The assistant's prose is the product of the AI client you connect, not of this site.
     Check its statements against the cited pages before quoting them; the
     <a href="methodology.html">Methodology</a> page explains every label and formula.</li>
-    <li>The endpoint is rate-limited per connection. For bulk or programmatic access, use the
-    <a href="/api/docs">public API</a> directly.</li>
+    <li>The endpoint is rate-limited to about 120 lookups a minute per connection. For bulk or
+    programmatic access, use the <a href="api.html">public API</a> directly.</li>
   </ul>
 
   </div>
@@ -123,7 +158,11 @@
 
 <footer class="site-footer">
   <div class="inner">
-    Source: Statistics Bureau of Japan, via e-Stat.
+    Sources: Statistics Bureau of Japan via e-Stat · Bank of Japan · Ministry of Finance ·
+    Ministry of Agriculture, Forestry and Fisheries · Japan National Tourism Organization ·
+    Japan Tourism Agency · Ministry of Internal Affairs and Communications · company filings
+    via EDINET (Financial Services Agency). Published values are official; rates of change
+    and aggregates are calculated on this platform.
   </div>
 </footer>
 

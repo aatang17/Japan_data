@@ -34,7 +34,7 @@ DB_PATH = pathlib.Path(os.environ.get(
     "EQUITY_DB_PATH",
     str(pathlib.Path(__file__).resolve().parent.parent / "data" / "equity.duckdb")))
 
-router = APIRouter(prefix="/api/v1/equity")
+router = APIRouter(prefix="/api/v1/equity", tags=["Cross-shareholdings"])
 
 _READER = None
 _READER_VERSION = None
@@ -147,9 +147,39 @@ def coverage():
     return cur.fetchall()
 
 
+def shape_flags():
+    """{extractor: [flag, ...]} — columns that changed shape on the last run.
+
+    Freshness answers "is it still arriving". This answers the question that
+    used to have no answer at all: "does it still look like itself". A parser
+    whose source renames a field keeps running and keeps reporting clean, and
+    the only visible trace is a column that used to be 92% full and is now 4%.
+
+    Read straight out of the table `equity/metrics.py` writes after each run,
+    so the comparison logic lives in one place and this module keeps no copy
+    of it. A database written before that table existed simply has no flags.
+    """
+    if not DB_PATH.exists():
+        return {}
+    cur = _cur()
+    names = {r[0] for r in cur.execute(
+        "SELECT table_name FROM duckdb_tables()").fetchall()}
+    if "eq_extract_drift" not in names:
+        return {}
+    out = {}
+    for ext, table, kind, key, was, now, detail in cur.execute(
+            "SELECT extractor, table_name, kind, key, was, now_pct, detail "
+            "FROM eq_extract_drift ORDER BY extractor, table_name, key").fetchall():
+        out.setdefault(ext, []).append({
+            "table": table, "kind": kind, "column": key,
+            "was_pct": was, "now_pct": now, "detail": detail})
+    return out
+
+
 def health():
-    """Per-extractor freshness, in the shape /catalog/health uses."""
+    """Per-extractor freshness and shape, in the shape /catalog/health uses."""
     today = datetime.date.today()
+    flags = shape_flags()
     out = []
     for extractor, through, ran, back_to in coverage():
         days = (today - through).days if through else None
@@ -168,6 +198,10 @@ def health():
             # filings were for months while 74,000 filings sat in the bucket:
             # freshness alone could not see it.
             "archive_read_back_to": back_to.isoformat() if back_to else None,
+            # Empty on a healthy night. A non-empty list means a column moved
+            # far enough to be worth a human look; it never means the data is
+            # wrong, and it never blocks anything.
+            "shape_flags": flags.get(extractor, []),
         })
     return out
 
@@ -680,6 +714,8 @@ def years():
 
 @router.get("/summary")
 def summary(year: str = Query("", description="fiscal year, e.g. 2025; default latest")):
+    """Market-wide totals for one fiscal year: filers covered, policy holdings
+    at book value, and the year-on-year change in the number of stakes held."""
     cur = _cur()
     head = _rows(cur, latest_filings() + """
         SELECT count(DISTINCT f.filer_key)                        AS filers,

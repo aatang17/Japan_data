@@ -42,7 +42,18 @@ var NAV_SECTIONS = [
         tabs: [
           { id: "inflation", label: "Overview", href: "cpi.html" },
           { id: "explorer", label: "Item Explorer", href: "explorer.html" },
+          // The other cuts of the same index the Bureau publishes, each a
+          // dataset of its own read by the same page script.
+          { id: "tokyo", label: "Tokyo Advance", href: "tokyo.html" },
+          { id: "goods-services", label: "Goods & Services", href: "goods-services.html" },
+          { id: "cpi-sa", label: "Seasonally Adjusted", href: "cpi-sa.html" },
+          { id: "cpi-long", label: "Since 1946", href: "cpi-long.html" },
         ] },
+      // The national accounts and the corporate survey are the two
+      // activity datasets: what the economy produced, and what companies
+      // earned and invested doing it. They sit before the balance sheets.
+      { id: "gdp", label: "GDP", href: "gdp.html" },
+      { id: "corporate", label: "Corporate Finance", href: "corporate.html" },
       { id: "boj", label: "Bank of Japan", href: "boj.html" },
       // Banks sit beside the central bank: the FSA's bad-loan and earnings
       // summaries and the JBA's per-bank statements are the private-sector
@@ -52,12 +63,18 @@ var NAV_SECTIONS = [
     ],
   },
   {
-    // Trade is customs data, not a macro aggregate: chips and chipmaking
-    // equipment by partner country answer an industry question, and the
-    // page sat in the macro strip only because it had nowhere else to go.
+    // Trade is customs data, not a macro aggregate: one industry's exports
+    // and imports by partner country answer an industry question. Each page
+    // is one slice of the same Ministry of Finance table, read by the same
+    // script; the strip names the industry, not the dataset.
     id: "trade", label: "Trade", suffix: "Trade",
     pages: [
-      { id: "semis", label: "Semiconductor Trade", href: "semis.html" },
+      { id: "semis", label: "Semiconductors", href: "semis.html" },
+      { id: "autos", label: "Motor Vehicles", href: "autos.html" },
+      { id: "energy", label: "Energy", href: "energy.html" },
+      { id: "machinery", label: "Machinery", href: "machinery.html" },
+      { id: "pharma", label: "Pharmaceuticals", href: "pharma.html" },
+      { id: "food", label: "Food", href: "food.html" },
     ],
   },
   {
@@ -132,6 +149,7 @@ var NAV_SECTIONS = [
     pages: [
       { id: "connect", label: "Setup", href: "connect.html" },
       { id: "manual", label: "Manual", href: "manual.html" },
+      { id: "api", label: "API Reference", href: "api.html" },
     ],
   },
   {

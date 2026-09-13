@@ -1,7 +1,9 @@
-"""Adapter: Japan CPI, national, detailed item indices (2020 base).
+"""Adapter: Japan CPI, national, detailed item indices (2025 base).
 
 Source: Statistics Bureau of Japan via e-Stat file download
-(statInfId 000032103844) — 品目別価格指数（全国・月次・1970年1月〜最新月）.
+(statInfId 000040482945) — 品目別価格指数（全国・月次・1970年1月〜最新月）, 2025年基準.
+The 2020-base file (000032103844) served this dataset until the Bureau
+rebased on 2026-08-28; its values remain as the earlier vintages.
 Same long-run CSV layout as the middle-class table (see estat_csv.py)
 but at full item depth: ~740 columns spanning the headline, every
 aggregation level, and individual items (rice varieties, bread,
@@ -17,20 +19,20 @@ DATASET = {
     "country": "Japan",
     "agency": "Statistics Bureau of Japan (Ministry of Internal Affairs and Communications)",
     "agency_ja": "総務省統計局",
-    "base": "2020=100",
+    "base": "2025=100",
     "frequency": "monthly",
     "description": (
         "Official national CPI at full item depth from January 1970 to the "
-        "latest month, on the 2020 base: every published aggregation level "
-        "plus the individual items priced for the index (about 740 series)."
+        "latest month, on the 2025 base: every published aggregation level "
+        "plus the individual items priced for the index (about 750 series)."
     ),
 }
 
 SOURCE = {
-    "source_id": "e-stat:000032103844",
-    "name": "CPI Japan, national, item-level price indices (Jan 1970 – latest month)",
-    "name_ja": "消費者物価指数 全国 品目別価格指数（1970年1月～最新月）",
-    "url": "https://www.e-stat.go.jp/stat-search/files?stat_infid=000032103844",
+    "source_id": "e-stat:000040482945",
+    "name": "CPI Japan, national, item-level price indices (Jan 1970 – latest month), 2025 base",
+    "name_ja": "消費者物価指数 全国 品目別価格指数（1970年1月～最新月） 2025年基準",
+    "url": "https://www.e-stat.go.jp/stat-search/files?stat_infid=000040482945",
     "license_note": (
         "e-Stat terms of use: reuse permitted with attribution to the "
         "Statistics Bureau of Japan."
@@ -39,7 +41,7 @@ SOURCE = {
 
 DOWNLOAD_URL = (
     "https://www.e-stat.go.jp/stat-search/file-download"
-    "?statInfId=000032103844&fileKind=1"
+    "?statInfId=000040482945&fileKind=1"
 )
 
 
@@ -50,7 +52,7 @@ PRESENTATION = {
     # the ten major expenditure groups appear in this table too
     "groups_ja": ["食料", "住居", "光熱・水道", "家具・家事用品", "被服及び履物",
                   "保健医療", "交通・通信", "教育", "教養娯楽", "諸雑費"],
-    # leaf items = the 582 individually priced series; aggregates and
+    # leaf items = the 589 individually priced series (2025 base); aggregates and
     # exclusion indices all carry codes starting with "0" in this table
     "breadth": {"exclude_code_prefix": "0"},
     "stale_after_days": 90,
@@ -83,8 +85,8 @@ MANIFEST = {
     "name": {"en": "Consumer Price Index — items",
              "ja": "消費者物価指数（品目別）"},
     "shape": "series",
-    "summary": ("National CPI at full item depth on the 2020 base — every "
-                "published aggregate plus the 582 individually priced items — "
+    "summary": ("National CPI at full item depth on the 2025 base — every "
+                "published aggregate plus the 589 individually priced items — "
                 "monthly from January 1970, with the breadth of price rises "
                 "across the basket."),
     "source": {
@@ -103,7 +105,7 @@ MANIFEST = {
         "stale_after_days": PRESENTATION["stale_after_days"],
     },
     "measures": [
-        {"id": "index", "label": "Index level (2020 = 100)", "unit": "index",
+        {"id": "index", "label": "Index level (2025 = 100)", "unit": "index",
          "trust": "official"},
         {"id": "weight", "label": "Basket weight (parts per 10,000)",
          "unit": "per_10000", "trust": "official"},
@@ -129,7 +131,7 @@ MANIFEST = {
          "calc": ("step: the 12-month move is decomposed into its 12 monthly log changes; raised when "
                   "the largest single month is at least 70% of the summed absolute change and moved the "
                   "index by at least 10%. low_base: raised when the latest index level is below 5.0 "
-                  "(2020 = 100). Both are calculated from published index values.")},
+                  "(base year = 100). Both are calculated from published index values.")},
     ],
     "endpoints": {
         "series": "/api/v1/%s/observations" % DATASET["slug"],
@@ -144,7 +146,7 @@ MANIFEST = {
     "cite": "/cpi.html",
     "page": "/cpi.html",
     "notes": [
-        "Leaf items are the series whose code does not start with 0 (582 "
+        "Leaf items are the series whose code does not start with 0 (589 "
         "individually priced items; weights sum to about 10,000). Codes "
         "starting with 0 are aggregates and exclusion indices.",
         "Index levels are exactly as published; rates computed from rounded "

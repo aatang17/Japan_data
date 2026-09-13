@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>API Reference · Japan Data Observatory</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+
+<header class="site-header" data-section="connect" data-page="api"></header>
+<script src="assets/nav.js"></script>
+
+<main class="container">
+  <div class="page-head">
+    <h1>API Reference</h1>
+    <p class="page-sub">Every number on this site over plain HTTPS: JSON or CSV, no key, no account.
+    The endpoint and dataset sections below are rendered from the server's own schema and dataset
+    cards, so they describe exactly what this server is running.</p>
+  </div>
+
+  <div class="prose">
+
+  <h2 id="start">Quick Start</h2>
+  <p>The base URL is:</p>
+  <div class="connect-url">
+    <code id="base-url">https://web-production-c9178.up.railway.app</code>
+    <button type="button" class="btn" id="copy-base">Copy</button>
+  </div>
+  <p>Three requests that show the shape of the whole API. Each opens in the browser.</p>
+  <ol class="api-try">
+    <li><a class="api-link" href="/api/v1/catalog/datasets">/api/v1/catalog/datasets</a>
+    <span class="api-why">what is on the server</span></li>
+    <li><a class="api-link" href="/api/v1/cpi-jp/series?q=electricity">/api/v1/cpi-jp/series?q=electricity</a>
+    <span class="api-why">find a series code by name, in English or Japanese</span></li>
+    <li><a class="api-link" href="/api/v1/cpi-jp/observations?series=0001,0161&amp;measure=yoy&amp;start=2020-01">/api/v1/cpi-jp/observations?series=0001,0161&amp;measure=yoy&amp;start=2020-01</a>
+    <span class="api-why">headline and core inflation, year over year, since 2020</span></li>
+  </ol>
+  <p>Add <code>&amp;format=csv</code> to any <code>/observations</code> URL for a file that pandas, R
+  and Excel read directly, and <code>&amp;as_of=YYYY-MM-DD</code> to freeze it as the data stood on
+  that date. <a href="#code">Code samples</a> are below; the machine-readable schema is at
+  <a href="/api/openapi.json">/api/openapi.json</a> and a try-it-out console at
+  <a href="/api/swagger">/api/swagger</a>.</p>
+
+  <h2 id="conventions">Conventions</h2>
+
+  <h3 id="base">Base URL and versioning</h3>
+  <p>All data endpoints sit under <code>/api/v1</code>. Within v1, response fields are added but
+  never removed or renamed, and a dataset's endpoints never change shape once published. Anything
+  that would break a client goes to a new version prefix. There is no authentication and every
+  endpoint is read-only.</p>
+
+  <h3 id="envelope">Response shape</h3>
+  <p>Every response says where its numbers came from. A dataset response carries a
+  <code>release</code> block naming the source document, the file that was downloaded, its SHA-256
+  and when it was retrieved, and a <code>trust</code> field: <code>official</code> for values exactly
+  as published, <code>derived</code> for a rate this platform calculated, in which case
+  <code>calc</code> states the formula. A trimmed <code>/observations</code> response:</p>
+<pre class="code"><code>{
+  "dataset": "cpi-jp",
+  "measure": "yoy",
+  "unit": "%",
+  "trust": "derived",
+  "calc": "(index[t] / index[t−12 months] − 1) × 100, from published index values.",
+  "release": {
+    "release_id": 12,
+    "label": "Data through July 2026",
+    "latest_period": "2026-07-01",
+    "ingested_at": "2026-09-01T12:30:43Z",
+    "sha256": "0688909146ea9ae0…",
+    "download_url": "https://www.e-stat.go.jp/stat-search/file-download?statInfId=000032103842&amp;fileKind=1",
+    "source_name": "CPI Japan, national, Table 1: middle-class indices (Jan 1970 – latest month)",
+    "source_id": "e-stat:000032103842",
+    "base": "2020=100",
+    "frequency": "monthly"
+  },
+  "series": [
+    { "code": "0001", "name_en": "All items", "name_ja": "総合",
+      "points": [["2026-06-01", 1.700985], ["2026-07-01", 2.055407]] }
+  ]
+}</code></pre>
+  <p>Points are <code>[period, value]</code> pairs. Values are unrounded: round at display time to the
+  precision the dataset's page uses. Company-disclosure endpoints under <code>/api/v1/equity</code>
+  carry the filing each row came from (<code>doc_id</code>, fiscal year, filed date) instead of a
+  release block.</p>
+
+  <h3 id="codes">Datasets, series and measures</h3>
+  <p>A <b>dataset</b> is one official table: <code>cpi-jp</code>, <code>boj-assets</code>,
+  <code>jgb-yields</code> and so on. The full list, with each dataset's series-code scheme, is in
+  <a href="#datasets">Datasets</a>. A <b>series</b> is one line in that table, addressed by its
+  code; find codes with <code>/{dataset}/series?q=</code>, which searches English and Japanese names
+  as well as codes. A <b>measure</b> is how the series is read: <code>index</code> is the published
+  value; <code>yoy</code>, <code>mom</code> and the rest are calculated, and each dataset card lists
+  the measures it offers with their formulas. Price changes, price levels, stocks and flows are
+  different kinds of number, and the API refuses a calculation that does not apply, for example a
+  percentage change on a flow that crosses zero, rather than serving nonsense.</p>
+
+  <h3 id="dates">Dates and periods</h3>
+  <p>Monthly periods are the first of the month (<code>2026-07-01</code>); <code>start</code> and
+  <code>end</code> accept <code>YYYY-MM</code>. Daily series such as JGB yields use full dates.
+  Annual datasets use the reference date the publisher states, and the dataset card says which.
+  Fiscal-year data from company filings is keyed by fiscal year end. Customs and visitor flows can be
+  re-summed into a company's own fiscal quarters or years with <code>period=fiscal_quarter</code>
+  and <code>fy_end=</code>; only complete periods are returned.</p>
+
+  <h3 id="missing">Missing values</h3>
+  <p>A value the publisher did not release is <code>null</code> in JSON and an empty cell in CSV,
+  never zero. Gaps stay gaps: nothing is interpolated, smoothed or seasonally adjusted. A
+  maturity not yet issued, an item not yet priced, a prefecture the survey suppressed, are all
+  <code>null</code>.</p>
+
+  <h3 id="pit">Point-in-time data</h3>
+  <p>Publishers revise. Every accepted download is kept as a <b>release</b>, and the vintage
+  history is append-only. <code>as_of=YYYY-MM-DD</code> on <code>/observations</code> returns the
+  numbers as they stood on that date, before any later revision, and the release block describes
+  the vintage that was live then. The same URL returns the same numbers next year, which is what
+  makes a chart citable and a backtest honest. <code>/revisions</code> shows how one figure moved
+  release by release, and <code>/releases</code> lists every vintage held.</p>
+
+  <h3 id="csv">CSV downloads</h3>
+  <p><code>format=csv</code> on <code>/observations</code> returns one wide table: a
+  <code>period</code> column and one column per series, under a <code>#</code> metadata block that
+  states the source, the release, the formula, the vintage and the URL it was retrieved from. The
+  block is what makes a saved file citable on its own. Readers skip it with
+  <code>comment="#"</code> in pandas and <code>comment.char="#"</code> in R.</p>
+
+  <h3 id="errors">Errors</h3>
+  <p>Errors are JSON with a <code>detail</code> field and the usual status codes:
+  <code>400</code> for a bad parameter value (the message lists the valid ones),
+  <code>404</code> for an unknown dataset, series or company, <code>422</code> for a missing
+  required parameter, and <code>503</code> when a dataset has no published release yet.</p>
+<pre class="code"><code>GET /api/v1/cpi-jp/observations?series=0001&amp;measure=bogus
+400  {"detail": "Unknown measure 'bogus'; one of ['ann3m', 'index', 'mom', 'yoy']"}</code></pre>
+
+  <h3 id="cache">Caching and limits</h3>
+  <p>Responses carry an <code>ETag</code> and <code>Cache-Control: max-age=60</code>. Data changes
+  only when a new release is published, so send <code>If-None-Match</code> on repeat requests and an
+  unchanged answer costs a bodiless <code>304</code>. Responses are gzip-compressed when the client
+  accepts it. There is no per-key quota because there are no keys; a scheduled job that pulls what it
+  needs once a day is the intended use, and <code>/api/v1/catalog/health</code> says whether anything
+  has changed.</p>
+
+  <h3 id="attribution">Attribution</h3>
+  <p>Every source is public and free. Each dataset card carries the publisher's credit line and its
+  reuse terms; the credit line is also in every CSV header. Bank of Japan data must display the
+  Bank's credit line wherever it appears. The platform adds nothing proprietary to an official value
+  and asks for a link back when a calculated figure is republished.</p>
+
+  <h2 id="endpoints">Endpoints <span class="h2-note" id="endpoints-note"></span></h2>
+  <p>Grouped by product area. Each entry shows what the endpoint returns, its parameters and one
+  working example. For the shared dataset endpoints, the datasets that offer them are listed.</p>
+  <div id="endpoints-body"><p class="muted">Loading the schema…</p></div>
+
+  <h2 id="datasets">Datasets <span class="h2-note" id="datasets-note"></span></h2>
+  <p>One card per dataset: its source and coverage, every measure with its formula, the endpoints it
+  offers, and the caveats that apply. Open a card for detail.</p>
+  <div id="datasets-body"><p class="muted">Loading dataset cards…</p></div>
+
+  <h2 id="code">Code Samples</h2>
+
+  <h3>Python</h3>
+<pre class="code"><code>import pandas as pd
+import requests
+
+BASE = "https://web-production-c9178.up.railway.app"
+
+# CSV: one column per series, metadata in the '#' header block
+url = f"{BASE}/api/v1/cpi-jp/observations?series=0001,0161&amp;measure=yoy&amp;start=2015-01&amp;format=csv"
+cpi = pd.read_csv(url, comment="#", index_col="period", parse_dates=True)
+
+# JSON, frozen as of a date so the backtest sees what was known then
+r = requests.get(f"{BASE}/api/v1/cpi-jp/observations",
+                 params={"series": "0001", "measure": "yoy", "as_of": "2026-08-20"})
+r.raise_for_status()
+body = r.json()
+points = pd.DataFrame(body["series"][0]["points"], columns=["period", "value"])
+print(body["trust"], body["calc"])           # derived, and the formula it was derived by
+
+# Company disclosures: calculated ratios for one filer
+fin = requests.get(f"{BASE}/api/v1/equity/financials/metrics/7203").json()</code></pre>
+
+  <h3>R</h3>
+<pre class="code"><code>base &lt;- "https://web-production-c9178.up.railway.app"
+
+cpi &lt;- read.csv(paste0(base, "/api/v1/cpi-jp/observations?series=0001,0161&amp;measure=yoy&amp;start=2015-01&amp;format=csv"),
+                comment.char = "#")
+
+library(jsonlite)
+curve &lt;- fromJSON(paste0(base, "/api/v1/jgb-yields/curve"))</code></pre>
+
+  <h3>Shell</h3>
+<pre class="code"><code>BASE=https://web-production-c9178.up.railway.app
+
+# the last three readings of headline inflation
+curl -s "$BASE/api/v1/cpi-jp/observations?series=0001&amp;measure=yoy" | jq '.series[0].points[-3:]'
+
+# is every dataset current?
+curl -s "$BASE/api/v1/catalog/health" | jq '.datasets[] | select(.stale or .unpublished_artifact)'
+
+# revalidate cheaply on a schedule
+curl -s -H 'If-None-Match: "fe631f52bc1f28710ebef0e51d047799"' -o /dev/null -w '%{http_code}\n' "$BASE/api/v1/cpi-jp/overview"</code></pre>
+
+  <h3>Excel and other tools</h3>
+  <p>Any tool that opens a CSV from a URL can use a <code>format=csv</code> link directly; in Excel,
+  <b>Data → From Web</b> with the URL. Skip the leading <code>#</code> lines or keep them as the
+  file's provenance. AI assistants use the same numbers over the
+  <a href="connect.html">MCP connector</a>.</p>
+
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="inner">
+    <span>Japan Data Observatory · API v1</span>
+    <span><a href="methodology.html">Methodology</a> · <a href="connect.html">Connect an assistant</a> · <a href="/api/openapi.json">OpenAPI schema</a></span>
+  </div>
+</footer>
+
+<script src="assets/format.js"></script>
+<script src="assets/apidocs.js"></script>
+<script>
+initThemeToggle();
+(function () {
+  var base = document.getElementById("base-url");
+  if (base && /^https?:/.test(location.origin) && location.hostname !== "localhost" &&
+      location.hostname !== "127.0.0.1") {
+    base.textContent = location.origin;
+  }
+  var btn = document.getElementById("copy-base");
+  if (btn && navigator.clipboard) {
+    btn.addEventListener("click", function () {
+      navigator.clipboard.writeText(base.textContent).then(function () {
+        btn.textContent = "Copied";
+        setTimeout(function () { btn.textContent = "Copy"; }, 1500);
+      });
+    });
+  }
+})();
+</script>
+</body>
+</html>

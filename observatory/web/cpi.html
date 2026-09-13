@@ -12,7 +12,9 @@
 <header class="site-header" data-section="macro" data-page="inflation"></header>
 <script src="assets/nav.js"></script>
 
-<main class="container">
+<main class="container" data-dataset="cpi-jp" data-items-dataset="cpi-jp-items"
+      data-subtitle="National, middle-class indices" data-file-tag="cpi"
+      data-strip-note="Core excludes fresh food; core-core also excludes energy">
   <div id="stale-banner"></div>
 
   <!-- Filled by assets/nav.js from the Inflation page's `tabs`. -->
@@ -48,7 +50,7 @@
         <option value="yoy">Year over Year (%)</option>
         <option value="mom">Month over Month (%)</option>
         <option value="ann3m">3-Month Annualized (%)</option>
-        <option value="index">Index Level (2020 = 100)</option>
+        <option value="index">Index Level</option>
       </select>
       <div class="seg" role="group" aria-label="Date range" id="range-seg">
         <button type="button" data-range="1">1Y</button>

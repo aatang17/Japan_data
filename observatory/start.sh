@@ -76,11 +76,13 @@ while true; do
         # lifted out of the boot path and ingested out of band, without a
         # deploy. The default stays complete, so a laptop and a fresh container
         # still build everything.
-        for dataset in ${INGEST_DATASETS:-cpi-jp cpi-jp-items boj-assets jgb-yields jnto-visitors \
+        for dataset in ${INGEST_DATASETS:-cpi-jp cpi-jp-items cpi-jp-goods-services cpi-jp-sa cpi-jp-long \
+                       cpi-tokyo cpi-tokyo-items boj-assets jgb-yields jnto-visitors \
                        accommodation-jp population-jp population-jp-history population-jp-municipal \
-                       trade-semis trade-inputs \
+                       trade-semis trade-inputs trade-autos trade-energy \
+                       trade-machinery trade-pharma trade-food \
                        rice-prices-jp rice-inventory-jp agri-prices rice-production-cost \
-                       ja-statistics \
+                       ja-statistics gdp-jp corporate-finance-jp \
                        fsa-npl fsa-bank-results jba-banks}; do
             python -m app.ingest "$dataset" \
                 || echo "ingest $dataset did not publish; serving last published release"
@@ -115,6 +117,18 @@ while true; do
         # the volume's, so a redeploy never discards accumulated nights.
         python equity/refresh_equity.py --seed seed/equity.duckdb \
             || echo "equity refresh did not complete; last good equity data stays live"
+
+        # The US comparison shelf: the SEC's quarterly Financial Statement
+        # Data Sets, already banked by us_capture.py, loaded into their own
+        # file (data/sec.duckdb) — the newest SEC_QUARTERS of them here, and
+        # app/backfill.py deepens the history after the port is open. One
+        # quarter is ~140MB and a few seconds to load; a routine boot finds
+        # nothing new and does nothing. Fail-safe like everything above.
+        if [ -n "${EDINET_S3_BUCKET:-}" ]; then
+            python equity/sec_extract.py --source s3 --last "${SEC_QUARTERS:-4}" \
+                --db data/sec.duckdb \
+                || echo "US financials (SEC) refresh did not complete; last good data stays live"
+        fi
 
         # Stamp the end of the cycle. This is the only proof that the refresh
         # machinery ran at all: the per-dataset staleness limits are 7 to 950

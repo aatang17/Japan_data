@@ -28,7 +28,7 @@ from . import apportionment as ap
 from .api import _con, _release, _series_map, _values_bulk
 from .adapters import juki_population, ssds_population
 
-router = APIRouter(prefix="/api/v1/representation")
+router = APIRouter(prefix="/api/v1/representation", tags=["Representation"])
 
 POP_DATASET = "population-jp"
 HISTORY_DATASET = "population-jp-history"

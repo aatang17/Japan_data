@@ -19,8 +19,9 @@ Plus resources/list and resources/read, which serve the dataset manifests
 (app/registry.py) as `observatory://datasets/{id}`.
 
 Two tool surfaces coexist behind MCP_TOOLSET (v1 | v2 | both, default both):
-the original per-dataset tools in tools.py, and the six generic tools in
-tools_v2.py whose `dataset` argument is resolved through the registry.
+the original per-dataset tools in tools.py, and the generic tools in
+tools_v2.py whose `dataset` argument is resolved through the registry. A name
+served by both surfaces is advertised once, by v2 — see _tools_for.
 
 Kill switch: MCP_ENABLED — on by default (unlike ASK_ENABLED, nothing here
 generates text or spends money; it serves the same bytes as the API), set it
@@ -35,8 +36,9 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, Response
 from starlette.concurrency import run_in_threadpool
 
-from .tools import (EQUITY_TOOL_IMPLS, EQUITY_TOOL_SCHEMAS, TOOL_IMPLS,
-                    TOOL_SCHEMAS, equity_available, run_tool)
+from .tools import (EQUITY_TOOL_IMPLS, EQUITY_TOOL_SCHEMAS, SEC_TOOL_IMPLS,
+                    SEC_TOOL_SCHEMAS, TOOL_IMPLS, TOOL_SCHEMAS, equity_available,
+                    run_tool, sec_available)
 from . import registry, tools_v2
 
 # Newest first; initialize echoes the client's version when we support it and
@@ -146,6 +148,11 @@ TOOL_TITLES = {
     "get_financials_screen": "Financials screen",
     "get_financial_metrics": "Calculated ratios (ROE, ROA, margins)",
     "screen_financial_metrics": "Ratio screener",
+    "search_us_companies": "Find a US SEC filer",
+    "get_us_financials": "US company key indicators (SEC)",
+    "get_us_financial_statement": "US financial statement as filed (SEC)",
+    "get_us_facts": "US tag history (SEC)",
+    "screen_us_financials": "US filers screen (SEC)",
 }
 
 
@@ -164,6 +171,7 @@ def _descriptors(schemas):
 
 MCP_TOOLS = _descriptors(TOOL_SCHEMAS)
 EQUITY_MCP_TOOLS = _descriptors(EQUITY_TOOL_SCHEMAS)
+SEC_MCP_TOOLS = _descriptors(SEC_TOOL_SCHEMAS)
 
 
 def _current_tools():
@@ -173,13 +181,16 @@ def _current_tools():
     so a server that has not received the dataset never advertises tools that
     could only fail. Checked per request — the file can arrive between calls.
     """
+    out = list(MCP_TOOLS)
     if equity_available():
-        return MCP_TOOLS + EQUITY_MCP_TOOLS
-    return MCP_TOOLS
+        out += EQUITY_MCP_TOOLS
+    if sec_available():
+        out += SEC_MCP_TOOLS
+    return out
 
 
 def _toolset():
-    """Which tool surface to advertise: v1 (the per-dataset tools), v2 (the six
+    """Which tool surface to advertise: v1 (the per-dataset tools), v2 (the
     generic tools over the registry), or both. `both` is the transition
     default — existing connectors keep their tool names while new ones get the
     generic surface; flip to v2 once nobody depends on the old names."""
@@ -188,11 +199,26 @@ def _toolset():
 
 
 def _tools_for(toolset):
-    out = []
+    """The advertised tool list, with each name appearing exactly once.
+
+    Under `both` the two surfaces overlap on `list_datasets`. A tools/list
+    carrying the same name twice is not a valid catalogue: a client may
+    shadow one entry, or reject the list outright. First wins, and v2 is
+    listed first, so the descriptor advertised is the implementation
+    tools/call would actually run for that name.
+    """
+    out, seen = [], set()
+    groups = []
     if toolset in ("v2", "both"):
-        out.extend(tools_v2.descriptors())
+        groups.append(tools_v2.descriptors())
     if toolset in ("v1", "both"):
-        out.extend(_current_tools())
+        groups.append(_current_tools())
+    for group in groups:
+        for tool in group:
+            if tool["name"] in seen:
+                continue
+            seen.add(tool["name"])
+            out.append(tool)
     return out
 
 
@@ -206,7 +232,7 @@ def _instructions(toolset):
     if toolset == "both":
         text += ("\n\nThe older per-dataset tools (get_overview, get_company_holdings, "
                  "get_governance_screen, …) remain available for compatibility; prefer "
-                 "the six generic tools above.")
+                 "the generic tools above.")
     return text
 
 
@@ -333,7 +359,8 @@ def _handle_one(msg):
         arguments = params.get("arguments") or {}
         if toolset != "v1" and name in tools_v2.IMPLS:
             text, is_error = tools_v2.run_tool(name, arguments)
-        elif toolset != "v2" and (name in TOOL_IMPLS or name in EQUITY_TOOL_IMPLS):
+        elif toolset != "v2" and (name in TOOL_IMPLS or name in EQUITY_TOOL_IMPLS
+                                  or name in SEC_TOOL_IMPLS):
             text, is_error = run_tool(name, arguments)
         else:
             return _error(msg_id, -32602, "Unknown tool: %s" % name)
@@ -373,7 +400,7 @@ def _handle(message):
 # HTTP surface
 # ---------------------------------------------------------------------------
 
-router = APIRouter()
+router = APIRouter(include_in_schema=False)
 
 _OFF = {"error": "The MCP endpoint is turned off on this server."}
 _STATELESS = {"error": ("This MCP server is stateless. POST JSON-RPC 2.0 "

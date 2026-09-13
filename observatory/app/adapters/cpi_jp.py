@@ -1,7 +1,10 @@
-"""Adapter: Japan CPI, national, middle-class indices (2020 base).
+"""Adapter: Japan CPI, national, middle-class indices (2025 base).
 
 Source: Statistics Bureau of Japan via e-Stat file download
-(statInfId 000032103842) — 中分類指数（全国・月次・1970年1月〜最新月）.
+(statInfId 000040482943) — 中分類指数（全国・月次・1970年1月〜最新月）, 2025年基準.
+The 2020-base file (000032103842) served this dataset until the Bureau
+rebased on 2026-08-28; it is frozen at July 2026 and every value it held
+remains available as the earlier vintages.
 CSV layout and parsing are shared with the other long-run CPI files;
 see estat_csv.py. The adapter returns plain dicts; it never touches
 the database schema.
@@ -15,20 +18,20 @@ DATASET = {
     "country": "Japan",
     "agency": "Statistics Bureau of Japan (Ministry of Internal Affairs and Communications)",
     "agency_ja": "総務省統計局",
-    "base": "2020=100",
+    "base": "2025=100",
     "frequency": "monthly",
     "description": (
         "Official national CPI middle-class indices from January 1970 to the "
-        "latest month, on the 2020 base. Includes headline and exclusion-based "
+        "latest month, on the 2025 base. Includes headline and exclusion-based "
         "aggregates, the ten major expenditure groups, and middle-class items."
     ),
 }
 
 SOURCE = {
-    "source_id": "e-stat:000032103842",
-    "name": "CPI Japan, national, Table 1: middle-class indices (Jan 1970 – latest month)",
-    "name_ja": "消費者物価指数 全国 1 中分類指数（1970年1月～最新月）",
-    "url": "https://www.e-stat.go.jp/stat-search/files?stat_infid=000032103842",
+    "source_id": "e-stat:000040482943",
+    "name": "CPI Japan, national, Table 1: middle-class indices (Jan 1970 – latest month), 2025 base",
+    "name_ja": "消費者物価指数 全国 1 中分類指数（1970年1月～最新月） 2025年基準",
+    "url": "https://www.e-stat.go.jp/stat-search/files?stat_infid=000040482943",
     "license_note": (
         "e-Stat terms of use: reuse permitted with attribution to the "
         "Statistics Bureau of Japan."
@@ -37,7 +40,7 @@ SOURCE = {
 
 DOWNLOAD_URL = (
     "https://www.e-stat.go.jp/stat-search/file-download"
-    "?statInfId=000032103842&fileKind=1"
+    "?statInfId=000040482943&fileKind=1"
 )
 
 
@@ -87,7 +90,7 @@ MANIFEST = {
     "name": {"en": "Consumer Price Index — categories",
              "ja": "消費者物価指数（中分類）"},
     "shape": "series",
-    "summary": ("National CPI on the 2020 base — headline, the exclusion-based "
+    "summary": ("National CPI on the 2025 base — headline, the exclusion-based "
                 "cores and the ten major expenditure groups — monthly from "
                 "January 1970, with contributions to headline inflation."),
     "source": {
@@ -106,7 +109,7 @@ MANIFEST = {
         "stale_after_days": PRESENTATION["stale_after_days"],
     },
     "measures": [
-        {"id": "index", "label": "Index level (2020 = 100)", "unit": "index",
+        {"id": "index", "label": "Index level (2025 = 100)", "unit": "index",
          "trust": "official"},
         {"id": "weight", "label": "Basket weight (parts per 10,000)",
          "unit": "per_10000", "trust": "official"},
@@ -127,7 +130,7 @@ MANIFEST = {
          "calc": ("step: the 12-month move is decomposed into its 12 monthly log changes; raised when "
                   "the largest single month is at least 70% of the summed absolute change and moved the "
                   "index by at least 10%. low_base: raised when the latest index level is below 5.0 "
-                  "(2020 = 100). Both are calculated from published index values.")},
+                  "(base year = 100). Both are calculated from published index values.")},
     ],
     "endpoints": {
         "series": "/api/v1/%s/observations" % DATASET["slug"],
@@ -146,5 +149,9 @@ MANIFEST = {
         "±0.1 pp; nothing is adjusted to close that gap.",
         "Weights are parts per 10,000 (１万分比), not percent.",
         "A missing value is missing, never zero.",
+        "The Bureau rebases every five years and publishes the rebased history under a "
+        "new e-Stat file; the switch from the 2020 base to the 2025 base (28 August 2026) "
+        "is stored as a new vintage, and an as-of query before it returns the 2020-base "
+        "figures.",
     ],
 }

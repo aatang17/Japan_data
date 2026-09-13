@@ -27,11 +27,11 @@ import duckdb
 from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel
 
-from . import db, filer_labels, parties, visits
+from . import db, filer_labels, parties, vintages, visits
 from .api import ADAPTERS, health
 from .equity_api import DB_PATH as EQUITY_DB_PATH
 
-router = APIRouter(prefix="/admin/api")
+router = APIRouter(prefix="/admin/api", include_in_schema=False)
 
 ADMIN_DIR = db.DATA_DIR / "admin"
 AUDIT_PATH = ADMIN_DIR / "audit.jsonl"
@@ -231,16 +231,22 @@ def releases(dataset, request: Request):
     if dataset not in ADAPTERS:
         raise HTTPException(404, "Unknown dataset '%s'" % dataset)
     con = db.read_cursor()
+    # Newest first BY PUBLICATION, not by when we fetched it: a backfilled
+    # archive is 134 releases sharing one ingest timestamp, and ordering those
+    # by it would list seventeen years of history in an arbitrary order.
+    at = vintages.known_at(con)
     rows = con.execute(
         "SELECT r.release_id, r.label, r.latest_period, r.ingested_at, r.status, "
         "       a.sha256, a.bytes, a.retrieved_at, "
         "       count(v.release_id) FILTER (v.value IS NOT NULL) AS recorded, "
-        "       count(v.release_id) FILTER (v.value IS NULL) AS withdrawn "
+        "       count(v.release_id) FILTER (v.value IS NULL) AS withdrawn, "
+        "       " + vintages.published_col(con) + " AS published_at "
         "FROM releases r "
         "JOIN source_artifacts a USING(artifact_id) "
         "LEFT JOIN observation_vintages v USING(release_id) "
         "WHERE r.dataset=? "
-        "GROUP BY 1,2,3,4,5,6,7,8 ORDER BY r.ingested_at DESC", [dataset]).fetchall()
+        "GROUP BY 1,2,3,4,5,6,7,8,11 ORDER BY " + at + " DESC, r.release_id DESC",
+        [dataset]).fetchall()
     first_release = rows[-1][0] if rows else None
     out = []
     for r in rows:
@@ -252,6 +258,9 @@ def releases(dataset, request: Request):
             "sha256": r[5], "bytes": r[6],
             "retrieved_at": r[7].isoformat() + "Z",
             "recorded": r[8], "withdrawn": r[9],
+            "published_at": r[10].isoformat() + "Z" if r[10] else None,
+            "known_at": (r[10] or r[3]).isoformat() + "Z",
+            "known_at_basis": "agency publication" if r[10] else "our fetch",
             "is_first_vintage": r[0] == first_release,
         })
     return {"dataset": dataset, "releases": out}
@@ -276,19 +285,23 @@ def release_changes(dataset, release_id: int, request: Request):
 
     # Each vintage row of this release, with the value previously in force:
     # the newest earlier vintage row for the same (series, period).
+    # "Earlier" means earlier in PUBLICATION order. Comparing ingest times
+    # would make every backfilled release look like it revised nothing, since
+    # the whole archive was fetched in one afternoon.
+    p_at, v_at = vintages.known_at(con, "rp"), vintages.known_at(con, "rv")
     rows = con.execute(
         "SELECT s.code, s.name_en, v.period, v.value, "
         "  (SELECT p.value FROM observation_vintages p "
         "   JOIN releases rp ON rp.release_id = p.release_id "
         "   JOIN releases rv ON rv.release_id = v.release_id "
         "   WHERE p.series_id = v.series_id AND p.period = v.period "
-        "     AND rp.ingested_at < rv.ingested_at "
-        "   ORDER BY rp.ingested_at DESC LIMIT 1) AS prior, "
+        "     AND " + p_at + " < " + v_at +
+        "   ORDER BY " + p_at + " DESC LIMIT 1) AS prior, "
         "  EXISTS (SELECT 1 FROM observation_vintages p "
         "   JOIN releases rp ON rp.release_id = p.release_id "
         "   JOIN releases rv ON rv.release_id = v.release_id "
         "   WHERE p.series_id = v.series_id AND p.period = v.period "
-        "     AND rp.ingested_at < rv.ingested_at) AS had_prior "
+        "     AND " + p_at + " < " + v_at + ") AS had_prior "
         "FROM observation_vintages v JOIN series s USING(series_id) "
         "WHERE v.release_id=? ORDER BY s.code, v.period", [release_id]).fetchall()
 

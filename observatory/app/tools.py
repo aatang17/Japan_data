@@ -23,7 +23,7 @@ from urllib.parse import urlencode
 
 from . import api
 from . import basis as basis_mod
-from . import equity_api, financials_api, governance_api
+from . import equity_api, financials_api, governance_api, sec_api
 from . import seo
 
 # Tool results are the bulk of an LLM caller's input tokens. These bound how
@@ -1460,6 +1460,232 @@ EQUITY_TOOL_SCHEMAS = [
     },
 ]
 
+# ---------------------------------------------------------------------------
+# The US comparison shelf (sec_api.py) — its own group, advertised only when
+# data/sec.duckdb is present, so a server without it never offers tools that
+# could only fail. Identity is the SEC CIK, not a Japanese securities code.
+# ---------------------------------------------------------------------------
+
+def sec_available():
+    """True when this server has the US financials database."""
+    return sec_api.DB_PATH.exists()
+
+
+_SEC_UNAVAILABLE = "The US financials (SEC) dataset is not published on this server."
+
+
+def _sec_guard(fn):
+    try:
+        return fn(), None
+    except Exception as exc:  # noqa: BLE001 — surfaced to the caller, not raised
+        detail = getattr(exc, "detail", None)
+        if getattr(exc, "status_code", None) == 503:
+            return None, _SEC_UNAVAILABLE
+        return None, str(detail) if detail else str(exc)
+
+
+def search_us_companies(query):
+    """Find US filers by name or CIK."""
+    raw, err = _sec_guard(lambda: call_api(sec_api.companies, q=query or "", limit=25))
+    if err:
+        return _fail(err)
+    raw["trust"] = "official"
+    raw["cite"] = _cite("/api/v1/us/financials/companies", q=query or "")
+    return json.dumps(raw, ensure_ascii=False, default=str)
+
+
+def get_us_financials(cik, form="10-K", limit=8):
+    """One US filer's key indicators per filing, each naming the tag used."""
+    code = (cik or "").strip()
+    if not code:
+        return _fail("No CIK given. Use search_us_companies to find one.")
+    raw, err = _sec_guard(lambda: call_api(sec_api.company_by_cik, cik=code,
+                                           form=form or "", limit=max(1, min(int(limit or 8), 40))))
+    if err:
+        return _fail(err)
+    out = {k: raw[k] for k in ("cik", "name", "sic", "country", "fiscal_year_end", "forms")}
+    out["latest_filing"] = {k: raw["latest_filing"][k] for k in
+                            ("adsh", "form", "period", "fy", "fp", "filed", "status", "note",
+                             "source_url")}
+    out["panel"] = raw["panel"]
+    out["trust"] = "official"
+    out["unit"] = ("as tagged — units per field on each row (USD for most filers; "
+                   "shares; EPS in USD per share)")
+    out["calc"] = raw["calc"]
+    out["cite"] = _cite("/api/v1/us/financials/company/%s" % raw["cik"], form=form or "")
+    return json.dumps(out, ensure_ascii=False, default=str)
+
+
+def get_us_financial_statement(cik, statement="BS", form="10-K", period="", fy=""):
+    """One statement of one US filing, every line as filed."""
+    code = (cik or "").strip()
+    if not code:
+        return _fail("No CIK given. Use search_us_companies to find one.")
+    raw, err = _sec_guard(lambda: call_api(
+        sec_api.statements_by_cik, cik=code, statement=statement or "BS",
+        form=form or "", period=period or "", fy=fy or ""))
+    if err:
+        return _fail(err)
+    raw["lines"] = [{
+        "label": l["label"], "tag": l["tag"], "custom": l["custom"],
+        "is_heading": l["is_heading"], "parenthetical": l["parenthetical"],
+        "negated": l["negated"], "unit": l["unit"], "current": l["current"],
+        "prior": l["prior"], "prior_date": l["prior_date"],
+    } for l in raw["lines"]]
+    raw["trust"] = "official"
+    raw["cite"] = _cite("/api/v1/us/financials/statements/%s" % raw["cik"],
+                        statement=raw["statement"], form=form or "", period=raw["period"])
+    return json.dumps(raw, ensure_ascii=False, default=str)
+
+
+def get_us_facts(cik, tag, form="10-K"):
+    """Every filed value of one tag for one US filer."""
+    code = (cik or "").strip()
+    if not code or not (tag or "").strip():
+        return _fail("Give a CIK and a us-gaap tag (e.g. NetIncomeLoss).")
+    raw, err = _sec_guard(lambda: call_api(sec_api.facts_by_cik, cik=code, tag=tag.strip(),
+                                           form=form or "", segments=0))
+    if err:
+        return _fail(err)
+    raw["values"] = raw["values"][:60]
+    raw["trust"] = "official"
+    raw["cite"] = _cite("/api/v1/us/financials/facts/%s" % raw["cik"], tag=tag.strip(),
+                        form=form or "")
+    return json.dumps(raw, ensure_ascii=False, default=str)
+
+
+def screen_us_financials(metric="revenue", fy="", limit=25):
+    """US filers ranked on one key indicator, latest annual report each."""
+    raw, err = _sec_guard(lambda: call_api(sec_api.screen, metric=metric or "revenue",
+                                           fy=fy or "", limit=max(1, min(int(limit or 25), 100))))
+    if err:
+        return _fail(err)
+    raw["trust"] = "official"
+    raw["cite"] = _cite("/api/v1/us/financials/screen", metric=metric or "revenue", fy=fy or "")
+    return json.dumps(raw, ensure_ascii=False, default=str)
+
+
+SEC_TOOL_IMPLS = {
+    "search_us_companies": search_us_companies,
+    "get_us_financials": get_us_financials,
+    "get_us_financial_statement": get_us_financial_statement,
+    "get_us_facts": get_us_facts,
+    "screen_us_financials": screen_us_financials,
+}
+
+_SEC_SCOPE = ("US periodic reports (10-K, 10-Q, 20-F, 40-F) from the SEC's own "
+              "Financial Statement Data Sets — the comparison shelf beside the "
+              "Japanese financials, NOT Japanese data. Values exactly as tagged, "
+              "in the filing's own unit (USD for most; some 20-F filers report in "
+              "their home currency — check `unit`/`units`). Missing is null, never 0. ")
+
+SEC_TOOL_SCHEMAS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "search_us_companies",
+            "description": ("Find US SEC filers by name substring or CIK. Returns the "
+                            "CIK the other US tools take. " + _SEC_SCOPE),
+            "parameters": {
+                "type": "object",
+                "properties": {"query": {"type": "string",
+                                         "description": "Name substring (e.g. 'micron') or CIK."}},
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_us_financials",
+            "description": (
+                "One US filer's key indicators per filing, newest first: revenue, "
+                "operating/pre-tax/net income, EPS, total assets, liabilities, equity, "
+                "cash, operating/investing/financing cash flow, capex, dividends and "
+                "buybacks paid, shares outstanding. Each field is the first of a short "
+                "list of us-gaap tags the filing carries for its own period, and the "
+                "row names the tag used (`tags`) and unit (`units`); a field with no "
+                "candidate tagged is null. form=10-K gives annual reports (10-K, 20-F, "
+                "40-F); form=10-Q gives quarterlies, where `values` are the quarter "
+                "itself and `ytd_values` the fiscal year to date. " + _SEC_SCOPE),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "cik": {"type": "string", "description": "SEC CIK, e.g. '320193' (Apple)."},
+                    "form": {"type": "string", "enum": ["10-K", "10-Q"],
+                             "description": "Annual (default) or quarterly reports."},
+                    "limit": {"type": "integer", "description": "Filings to return, default 8, max 40."},
+                },
+                "required": ["cik"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_us_financial_statement",
+            "description": (
+                "One statement of one US filing, every line in the filer's own order "
+                "with the filer's own label, the tag, the value for the filing's period "
+                "and the comparative the filer tagged (`prior`, `prior_date`). "
+                "statement: BS (balance sheet), IS (income statement), CF (cash flows), "
+                "CI (comprehensive income), EQ (equity). Default the latest annual "
+                "report; period=YYYY-MM-DD or fy=YYYY picks another. " + _SEC_SCOPE),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "cik": {"type": "string", "description": "SEC CIK."},
+                    "statement": {"type": "string", "enum": ["BS", "IS", "CF", "CI", "EQ"]},
+                    "form": {"type": "string", "enum": ["10-K", "10-Q"]},
+                    "period": {"type": "string", "description": "Period end YYYY-MM-DD; omit for latest."},
+                    "fy": {"type": "string", "description": "Fiscal year of the filing; omit for latest."},
+                },
+                "required": ["cik"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_us_facts",
+            "description": (
+                "Every filed value of one us-gaap tag for one US filer across its "
+                "filings — the raw panel (period end `ddate`, span `qtrs` in quarters: "
+                "0 = a point-in-time balance, 1 = one quarter, 4 = a year). Use "
+                "/api/v1/us/financials/tags to find a tag name. " + _SEC_SCOPE),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "cik": {"type": "string", "description": "SEC CIK."},
+                    "tag": {"type": "string", "description": "us-gaap tag, e.g. 'NetIncomeLoss'."},
+                    "form": {"type": "string", "enum": ["10-K", "10-Q", "all"]},
+                },
+                "required": ["cik", "tag"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "screen_us_financials",
+            "description": (
+                "US filers ranked on one key indicator from each company's latest annual "
+                "report, within one reporting unit (USD). metric: revenue, "
+                "operating_income, net_income, total_assets, equity, cash, cf_operating, "
+                "capex, buybacks, dividends_paid. " + _SEC_SCOPE),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "metric": {"type": "string", "description": "Default revenue."},
+                    "fy": {"type": "string", "description": "Fiscal year; omit for each company's latest."},
+                    "limit": {"type": "integer", "description": "Rows, default 25, max 100."},
+                },
+                "required": [],
+            },
+        },
+    },
+]
+
 
 def run_tool(name, args):
     """Run one tool with a dict of arguments; never raises.
@@ -1468,7 +1694,7 @@ def run_tool(name, args):
     {"error": ...} shape rather than data. _fail() is the only producer of
     that shape, so the prefix test below is exact.
     """
-    impl = TOOL_IMPLS.get(name) or EQUITY_TOOL_IMPLS.get(name)
+    impl = TOOL_IMPLS.get(name) or EQUITY_TOOL_IMPLS.get(name) or SEC_TOOL_IMPLS.get(name)
     if impl is None:
         return _fail("Unknown tool '%s'." % name), True
     if not isinstance(args, dict):

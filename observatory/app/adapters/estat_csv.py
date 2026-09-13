@@ -99,8 +99,13 @@ def parse_long_csv(raw_bytes):
     return series, observations
 
 
-def check_common(series, observations, min_series, min_observations, required_ja):
-    """Shared validation gates. Raises ValidationError; returns a summary dict."""
+def check_common(series, observations, min_series, min_observations, required_ja,
+                 headline_ja="総合"):
+    """Shared validation gates. Raises ValidationError; returns a summary dict.
+
+    `headline_ja` names the series whose latest level is sanity-checked: the
+    seasonally adjusted table calls it 総合（季節調整済） and the 1946– table
+    carries only 持家の帰属家賃を除く総合."""
     if len(series) < min_series:
         raise ValidationError("only %d series parsed" % len(series))
     if len(observations) < min_observations:
@@ -115,7 +120,7 @@ def check_common(series, observations, min_series, min_observations, required_ja
     if latest < datetime.date(2025, 1, 1):
         raise ValidationError("latest period %s implausibly old" % latest)
 
-    headline = by_ja["総合"]
+    headline = by_ja[headline_ja]
     head_latest = [o for o in observations if o["code"] == headline and o["period"] == latest]
     if not head_latest:
         raise ValidationError("headline has no value for latest period %s" % latest)

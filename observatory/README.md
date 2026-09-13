@@ -9,6 +9,19 @@ datasets, both monthly, January 1970 to the latest published month, ingested dir
 - **cpi-jp-items** — national detailed item indices (~740 series down to individual goods and
   services: rice, electricity, mobile phone charges, ...)
 
+- **cpi-jp-goods-services** — the same national index cut into goods and services (41 series:
+  agricultural, industrial, utilities, publications; public and general services; durables),
+  with the six-group contribution to headline. e-Stat statInfId `000040482946`.
+- **cpi-jp-sa** — the Bureau's seasonally adjusted headline, cores, goods and services, from
+  January 2010, published without weights (so no contributions). statInfId `000040482947`.
+- **cpi-jp-long** — all items less imputed rent, monthly from August 1946, one series on one
+  linked base. statInfId `000040482944`.
+- **cpi-tokyo** / **cpi-tokyo-items** — the Tokyo ward-area middle-class and item tables
+  (statInfIds `000040482965` / `000040482967`). The newest month is the mid-month advance,
+  published about three weeks before the national figure; `tokyo.html` reads it beside `cpi-jp`.
+- **All CPI datasets are on the 2025 base** since the Bureau rebased on 28 August 2026. The
+  2020-base files are frozen at July 2026 and their values remain as the earlier vintages.
+
 plus two monetary datasets:
 
 - **boj-assets** — Bank of Japan balance-sheet stocks and flows (JGB holdings, purchases,
@@ -33,7 +46,7 @@ three banking datasets:
   unread). Series are `{s|c}.{金融機関コード}.{reference code}`; the
   Reference Code sheet of any edition is the key. ~72MB of workbooks per ingest; about 8 minutes on a laptop, most of it the download — lift it out of the boot path with `INGEST_DATASETS` if the healthcheck window is tight.
 
-and one trade dataset:
+and six trade datasets, all from the same Ministry of Finance table and served by one page script:
 
 - **trade-semis** — Japan's semiconductor trade by partner country: monthly customs value
   (¥1,000) and quantity for integrated circuits, discrete semiconductors, thermionic tubes,
@@ -50,6 +63,32 @@ and one trade dataset:
   history is the source's own revision cycle rather than an artefact of when we fetched.
   Year-blocks the Ministry has closed are cached on the data volume under its own
   `UPDATED_DATE`, so a routine run re-downloads only the current year.
+
+- **trade-autos** — the same tables read for the vehicle lines: motor vehicles (the published
+  group), passenger cars, buses and trucks, vehicle parts and motorcycles, both directions, from
+  January 2001 (3,208 series, 232 partners). Same machinery and series-code shape as `trade-semis`,
+  so `/trade` and the shared page serve it unchanged. The code trap again: `70503000` is motor
+  vehicles on the export side and *parts* on the import side. **Needs `ESTAT_APP_ID`.**
+
+- **trade-energy** — the fuel lines, led by imports: the mineral-fuel total, crude oil, LNG,
+  coal, refined products and LPG by supplier, and refined products (gasoline, kerosene and jet
+  fuel, gas oil) by destination, from January 2001 (1,330 series, 199 partners). `30301000` is
+  crude on the import side and refined products on the export side; the mineral-fuel total has
+  no quantity and therefore no unit value. **Needs `ESTAT_APP_ID`.**
+
+- **trade-machinery** — general machinery: the published group plus machine tools, construction
+  and mining machinery, internal-combustion engines, pumps and compressors, and bearings on the
+  export side; the group plus machine tools, construction machinery, computers, power-generating
+  machinery and air conditioners on the import side. From January 2001. **Needs `ESTAT_APP_ID`.**
+
+- **trade-pharma** — medical products (医薬品): the published group in both directions plus the
+  vitamin, antibiotic and hormone lines the Ministry breaks out beneath it. Led by imports. From
+  January 2001. **Needs `ESTAT_APP_ID`.**
+
+- **trade-food** — food and live animals: the section total plus beef, pork, fish and shellfish,
+  wheat and maize on the import side; the total plus meat, fish and shellfish, rice and other
+  food preparations on the export side. Led by imports. From January 2001. **Needs
+  `ESTAT_APP_ID`.**
 
 - **trade-inputs** — the step upstream of `trade-semis`: silicon wafers (HS 3818.00) by partner
   country, monthly from January 2001, both directions, value (¥1,000) and quantity (kg), from the
@@ -104,6 +143,28 @@ and one demographic dataset:
   rest. Small cells are suppressed by the ministry (17,829 of them, foreign age bands only) and
   are missing, never zero. Because 584,781 series is not a payload,
   `/api/v1/population-jp-municipal/prefectures` **requires** `?prefecture=NN`.
+- **gdp-jp** — the Cabinet Office's quarterly GDP estimates on the expenditure side: real
+  (chained 2020 prices), nominal and the deflator, seasonally adjusted at annual rates in
+  ¥ billion, quarterly from 1994 Q1, from the three e-Stat tables the Cabinet Office
+  overwrites at every release (`0003109750`, `0003109785`, `0003109787`). Levels only —
+  growth rates and contributions are calculated on the platform and carry their formula.
+  Because the table ids are stable and rewritten each release, every revision is captured
+  as a vintage from the first ingest on. **Needs `ESTAT_APP_ID`.**
+
+  Its real-time history reaches back to 2002: `python -m app.gdp_vintages load` backfills
+  the 134 first and second preliminary estimates the Cabinet Office published between
+  August 2002 and March 2019 from its archived e-Stat tables, dated from the Cabinet
+  Office's own release calendar and release pages (the two agreed on all 24 releases where
+  both could be checked). Those releases are written **only** to `observation_vintages`,
+  with `status='archived'` and `releases.published_at` set — `observations` is never
+  touched, so the live answer is always the newest release. Nothing is recorded between
+  March 2019, where e-Stat's archive ends, and September 2026, where our ingests begin.
+- **corporate-finance-jp** — the Ministry of Finance's quarterly corporate survey
+  (法人企業統計調査): sales, profits, capital investment, cash, borrowings, equity holdings,
+  headcount and the balance-sheet totals for companies with capital of ¥10 million or more,
+  by 31 industry aggregates and four capital classes, quarterly from 1954, in ¥ million as
+  published and not seasonally adjusted. A pinned subset of e-Stat table `0003060191`
+  (~580,000 of its 23 million values). **Needs `ESTAT_APP_ID`.**
 - **population-jp-history** — the long run behind it: population, age structure, foreign
   residents, households, births, deaths, migration and the total fertility rate for the same
   47 prefectures back to **1975**, from the System of Social and Demographic Statistics
@@ -144,6 +205,11 @@ python3 -m venv .venv
 # fetch, archive, validate, and publish the latest official data
 ./.venv/bin/python -m app.ingest cpi-jp
 ./.venv/bin/python -m app.ingest cpi-jp-items
+./.venv/bin/python -m app.ingest cpi-jp-goods-services
+./.venv/bin/python -m app.ingest cpi-jp-sa
+./.venv/bin/python -m app.ingest cpi-jp-long
+./.venv/bin/python -m app.ingest cpi-tokyo                # the mid-month advance, ~3 weeks ahead
+./.venv/bin/python -m app.ingest cpi-tokyo-items
 ./.venv/bin/python -m app.ingest boj-assets
 ./.venv/bin/python -m app.ingest jgb-yields
 ./.venv/bin/python -m app.ingest jnto-visitors
@@ -153,6 +219,11 @@ python3 -m venv .venv
 ./.venv/bin/python -m app.ingest population-jp-municipal # ~12 min: 585k series
 ./.venv/bin/python -m app.ingest trade-semis             # needs ESTAT_APP_ID
 ./.venv/bin/python -m app.ingest trade-inputs            # needs ESTAT_APP_ID
+./.venv/bin/python -m app.ingest trade-autos             # needs ESTAT_APP_ID
+./.venv/bin/python -m app.ingest trade-energy            # needs ESTAT_APP_ID
+./.venv/bin/python -m app.ingest trade-machinery         # needs ESTAT_APP_ID
+./.venv/bin/python -m app.ingest trade-pharma            # needs ESTAT_APP_ID
+./.venv/bin/python -m app.ingest trade-food              # needs ESTAT_APP_ID
 ./.venv/bin/python -m app.ingest fsa-npl                 # 40 small FSA workbooks
 ./.venv/bin/python -m app.ingest fsa-bank-results
 ./.venv/bin/python -m app.ingest jba-banks               # ~72MB of JBA workbooks, ~8 min
@@ -274,8 +345,10 @@ development `uvicorn app.main:app` therefore never ends itself, whatever the clo
 ### The nightly equity refresh
 
 The EDINET-derived datasets — 5% filings, cross-shareholdings, boards and pay, buybacks,
-facilities, rental property, shareholder registers, financial statements — refresh in the same cycle, from the
-same S3 bucket the capture jobs write to. The listed-issue classification runs in the same job
+facilities, rental property, shareholder registers, financial statements, AGM votes, segments,
+tender offers, semiannual reports, capital raises, corporate events — refresh in the same
+cycle, from the same S3 bucket the capture jobs write to. The TDnet wire refreshes in the
+same job from its own prefix in that bucket. The listed-issue classification runs in the same job
 but reads two small files over HTTP instead (see **Peer groups** below):
 
 ```
@@ -454,9 +527,15 @@ web/
   assets/nav.js      the site header, rendered from one list of sections/pages
   index.html         Landing: live directory of every dataset (+ assets/landing.js)
   macro.html         Macro / Overview — all five datasets on one screen (+ assets/macro.js)
-  cpi.html           Macro / Inflation (CPI)  (+ assets/overview.js)
+  cpi.html           Macro / Inflation (CPI)  (+ assets/overview.js, shared by every CPI page)
+  tokyo.html         Macro / Inflation / Tokyo Advance · goods-services.html · cpi-sa.html · cpi-long.html
   explorer.html      Macro / Item Explorer (+ assets/explorer.js)
-  semis.html         Trade / Semiconductor Trade (+ assets/semis.js)
+  semis.html         Trade / Semiconductors (+ assets/trade.js, shared by the trade pages)
+  autos.html         Trade / Motor Vehicles  (+ assets/trade.js)
+  energy.html        Trade / Energy          (+ assets/trade.js)
+  machinery.html     Trade / Machinery       (+ assets/trade.js)
+  pharma.html        Trade / Pharmaceuticals (+ assets/trade.js)
+  food.html          Trade / Food            (+ assets/trade.js)
   population.html    Demographics / Population · representation.html (Vote Weight)
   equities.html      Equities / Overview — live summary per dataset (+ assets/equities.js)
   holdings.html      Equities / Cross-Shareholdings (+ assets/holdings.js)
@@ -551,7 +630,10 @@ GET /api/v1/company/7203?compact=1                 # facts and row counts only, 
 GET /api/v1/company/7203/coverage                  # which datasets hold this company and which do not
 ```
 
-Interactive docs at `/api/docs`.
+Human reference at `/api.html` (also `/api/docs`), rendered from the OpenAPI schema and the
+dataset manifests by `web/assets/apidocs.js`; the schema is `/api/openapi.json` and the framework's
+try-it-out console is `/api/swagger`. Tag a new router by product area and, where a handler needs
+parameters to answer, give it an `openapi_extra={"x-example": ...}` URL so the page can show one.
 
 ### Point-in-time (vintages)
 
@@ -795,6 +877,163 @@ over the latest filing per company and memoised per database version (about
 
 The page is `web/screener.html` (**Equities → Screener**); the URL carries every
 filter and the sort. MCP tools: `get_financial_metrics`, `screen_financial_metrics`.
+
+### US financials — the SEC shelf (`/api/v1/us/financials/...`)
+
+The US counterpart of the financials above, in the same shape, from the SEC's
+own parse of its filings: the quarterly *Financial Statement Data Sets*
+(every XBRL 10-K, 10-Q, 20-F and 40-F since 2009, four tab files per quarter)
+that `equity/us_capture.py` already banks under `us/`. Nothing is parsed from
+the submission text files; `observatory/equity/sec_extract.py` (parser
+`sec-1`) loads each quarter's zip straight into `data/sec.duckdb` — its own
+file, because a quarter is ~140MB and `equity.duckdb` ships as a seed. One
+quarter is one vintage: recorded with the zip's SHA-256 in `sec_quarters`,
+reloaded only when the SEC republishes it or the parser changes, staged and
+validated first and swapped in inside one transaction, so a bad file leaves
+the previous load live. Tables: `sec_filings` (every filing, with this
+platform's balance-sheet verdict: assets = liabilities + equity on the
+period end, one basis point of tolerance — `clean` / `partial` with the
+reason / `skipped` for non-periodic forms), `sec_facts` (every numeric fact
+of the periodic reports: tag, period end, span in quarters, unit, segment,
+value; the SEC's nil facts dropped as missing), `sec_lines` (which facts sit
+on which statement, in the filer's order with the filer's label),
+`sec_tags` (the taxonomy) and `sec_segments` (the dimensional qualifiers,
+once each). Identity is the SEC CIK; on the shared company surfaces it is
+written `cik:320193` so a four-digit Japanese code can never resolve to a US
+filer.
+
+| Endpoint | What it returns |
+| --- | --- |
+| `/us/financials/companies?q=` | filers by name or CIK |
+| `/us/financials/company/{cik}?form=10-K\|10-Q` | key indicators per filing — revenue, incomes, EPS, assets, equity, cash, cash flows, capex, dividends, buybacks, shares — each naming the tag it came from |
+| `/us/financials/statements/{cik}?statement=BS\|IS\|CF\|CI\|EQ&period=&fy=` | one statement as filed, with the filer's own comparative |
+| `/us/financials/facts/{cik}?tag=&form=&segments=1` | one tag's history across filings |
+| `/us/financials/tags?q=` | the taxonomy, to find a tag name |
+| `/us/financials/screen?metric=&fy=&unit=USD` | filers ranked on one indicator, latest annual report, within one unit |
+| `/us/financials/summary` | quarters loaded (with hashes), filings by form, verdict counts |
+
+Freshness sits in `/catalog/health` under `equity_extractors` as
+`sec-financials` (stale 130 days after the newest loaded quarter ends — by
+then the next set has been published). `start.sh` loads the newest
+`SEC_QUARTERS` (default 4) quarters at boot when the bucket is configured;
+`app/backfill.py` then deepens the file two quarters a slice, copy → load →
+swap, until it holds `BACKFILL_SEC_QUARTERS` (default 12; 0 = leave it).
+MCP tools: `search_us_companies`, `get_us_financials`,
+`get_us_financial_statement`, `get_us_facts`, `screen_us_financials`; the
+generic `get_company` / `search` / `screen` / `describe_dataset` reach it as
+dataset `sec-financials`. Not a product surface: it is the comparison shelf,
+served so a Japanese figure has a US counterpart in the same shape.
+
+### Noticing when a source changes shape
+
+Three things can go wrong with a feed. Until now only the first was caught.
+
+| | What happens | Caught by |
+| --- | --- | --- |
+| It stops | the job dies, the source is unreachable | the extractor records the failure, last good data stays live, freshness stops advancing |
+| It empties | the source renames a field; the parser still says `clean` and a column is blank | `equity/metrics.py` |
+| It lies | the field is full and the values are wrong | `equity/canary.py` |
+
+**Canaries** are filings whose answers a human has already read off the
+document. `equity/canary_expected.json` holds eleven of them, one per shape
+rather than one per company: a table-form filing and a prose-form filing, a
+third-party bid and an issuer self-tender, an earnings release with blank
+forecast fields. They are reparsed every night and asserted exactly. Both real
+bugs from the week the extractors were written are provably caught: restoring
+the old self-closing-blind pattern turns one expected 13.32bn into `None`, and
+loosening the prose label turns a company name into the section heading above
+it.
+
+A canary is never "fixed" by editing the expected value to match new output.
+The filing is immutable, so the old value was either right and the parser is
+now broken, or wrong and always was. Open the document first.
+
+**Metrics** cover the whole dataset approximately where canaries cover a few
+filings exactly. After every run `equity/metrics.py` records how many rows each
+table holds, what share of every COLUMN came back non-null, and the clean /
+partial / failed mix — roughly 600 measurements per run, with the column list
+taken from the database schema rather than a hand-kept list that would be wrong
+by the second dataset. It then compares against the median of the last five
+runs and flags a fill rate that falls more than 15 points, a column that empties
+or disappears, a column that appears, and a partial or failed share that rises
+more than 10 points. Tables under 200 rows are not compared, because a day with
+three filings swings wildly without anything being wrong.
+
+Flags land in `eq_extract_drift`, and `/api/v1/catalog/health` carries them per
+dataset as `shape_flags` beside freshness. **Drift only ever warns.** A quiet
+week with no takeover bids is not a broken parser, and a check that could block
+an ingest would cost a day of data the first time it cried wolf and be switched
+off within the month.
+
+**The heartbeat is the only thing that reaches a human.** Failed extractors and
+broken canaries ping `HEARTBEAT_URL`'s failure endpoint; drift alone does not,
+because a warning that pages someone weekly stops being read. Set
+`HEARTBEAT_URL` on the web service (healthchecks.io, Cronitor, Better Stack —
+anything with a ping URL) or none of this reaches you: unset, the ping is a
+no-op by design.
+
+### Recently extracted, not yet served
+
+Three EDINET families were archived for years before anything read them. They now have
+extractors and appear in `/api/v1/catalog/health` like every other dataset, but they have
+**no API surface and no page yet** — the tables are there to be queried, and the endpoints
+are the next piece of work.
+
+| Extractor | Doc types | Tables | Rows over the archive |
+| --- | --- | --- | --- |
+| `toi_extract.py` (`tender-offers`, `toi-1`) | 240 · 250 · 270 · 290 · 300 | `eq_toi_filings` | 2,417 documents, 566 bidder/target pairs |
+| `ssr_extract.py` (`semiannual`, `ssr-1`) | 160 · 170 | `eq_ssr_filings`, `eq_ssr_facts` | ~10,000 filings |
+| `issue_extract.py` (`capital-raises`, `iss-1`) | 030 · 040 | `eq_issue_filings`, `eq_issue_allottees` | 4,339 filings, 3,126 named allottees |
+| `event_extract.py` (`corporate-events`, `ev-1`) | 180 · 190 | `eq_event_filings` + shareholders, officers, parties | 23,534 filings, 12,373 of them non-AGM |
+| `tdnet_extract.py` (`tdnet`, `td-1`) | TDnet wire | `eq_tdnet_items`, `eq_tdnet_filings`, `eq_tdnet_facts` | 15,898 disclosures, 3,747 earnings releases, 207,535 facts |
+
+Three things about them are worth knowing before querying:
+
+- **A tender offer is a sequence of documents, not a state.** The offer, its amendments,
+  the target board's opinion and the result are each an immutable row; `pair_key` joins the
+  two sides and `round_no` separates one offer from the next by the same buyer for the same
+  target. Kamogawa Grand Hotel was bid for at ¥120 and again at ¥290 five weeks later —
+  two rounds, one pair.
+- **The two ownership ratios in a tender offer are stored exactly as filed and are not
+  gated.** The denominator is often not the tagged total but a base share count disclosed
+  in a footnote in prose, and it differs per filer. Our own arithmetic sits beside them in
+  `ratio_after_recomputed`, clearly derived, with `ratio_consistent` saying whether the two
+  agree. They disagree about two thirds of the time, which is exactly why it is not a gate.
+  Same lesson as the AGM approval percentage.
+- **Semiannual facts live in their own tables on purpose.** A half-year revenue and a
+  full-year revenue are the same element in the same unit for the same company; putting
+  them in `eq_fin_facts` would leave nothing but a remembered filter between a reader and a
+  2x error. `span` distinguishes six-month, three-month and full-year figures inside the
+  interim tables too.
+
+Capital raises carry the dilution signal the archive was kept for: 1,772 of the 4,339
+filings are third-party allotments (第三者割当), 1,750 of them naming the allottee.
+
+**Corporate events** are the other half of the 臨時報告書 pile. `agm_extract.py` has always
+opened every one of these documents, found no vote table in half of them, written
+`not_agm` and moved on; those 12,373 filings are now read for what they actually say —
+mergers, share exchanges, company splits, subsidiary and parent moves, chief-executive
+changes, major-shareholder changes, auditor changes, litigation, covenant breaches. The
+event type is not guessed: each filing carries one inline-XBRL block naming it, so all
+23,534 are classified across 40 types, and the enabling clause the filing cites
+(内閣府令 第19条第2項第N号) is stored beside it as an independent check. Four families also
+yield structured detail, at 87–96% coverage.
+
+**TDnet is the one dataset here that could not be rebuilt.** The exchange deletes the wire
+after about 31 days, so the archive that began on 2026-07-10 is the only copy outside the
+TSE, and it grows one day at a time rather than backwards. It is also the fast half of the
+record: a 決算短信 lands here roughly six weeks before the statutory filing reaches EDINET,
+and it carries the one thing EDINET never does — **management's own forecast**, with upper
+and lower bounds, revised whenever the company changes its mind. Of 3,747 earnings releases
+read so far, 3,671 carry forward guidance.
+
+One trap is worth repeating because it has now bitten in three separate parsers. A fact the
+company did not supply is written SELF-CLOSING (`<ix:nonFraction … xsi:nil="true" />`).
+Matched with a lazy `(.*?)</…>` the pattern runs past the slash and captures the next
+fact's digits, so a blank forecast silently takes its neighbour's number: Nihon Ski Resort's
+empty guidance came out as 15.8 yen against 11.5bn of actual sales, which was in fact the
++15.8% change figure two rows down. Every parser here refuses a tag whose attributes end
+in `/`.
 
 ### Buybacks (`/api/v1/equity/buyback/...`)
 

@@ -84,6 +84,34 @@ against the already-captured archive.
 - The laptop archive (`data/` here) is now the **backup copy**; the launchd agent
   below is optional redundancy.
 
+### EDINET retention: three different clocks (measured 2026-09-11)
+
+The "~5 years" in this file was wrong. Asking EDINET for each type, day by day:
+
+| Filing types | Retention | Earliest still served on 2026-09-11 |
+| --- | --- | --- |
+| 120/130 annual + 160/170 semiannual, 180/190, 240-300 tender offers, 030/040 | **10 years** | ~2016-10-01 (2016-09-01 is 404) |
+| 350/360 5% family | **5 years** | 2021-09-13 (2021-09-10 and earlier: zero) |
+| 220 buybacks | **12 months** | 2025-09-11 |
+
+Each boundary is rolling: one more day falls off every day. A 2017 annual
+report still downloads as a valid zip, so the 10-year window is real and not
+just list metadata.
+
+Consequences:
+
+- **We already hold 1,082 5%-family filings (2021-08-10..2021-09-10) that EDINET
+  no longer serves**, on top of the 542 buybacks. Both sets are now unique to us.
+- **The 2021-08-10 archive start was set by the 5-year window at backfill time,
+  not by what EDINET keeps.** Roughly 4.9 years of annual reports, extraordinary
+  reports, tender offers and capital raises (2016-10-01..2021-08-09) were still
+  downloadable and missing from the archive. Service `edinet-backfill` is
+  capturing that window now (started 2026-09-11; `CAPTURE_ARGS=--start 2016-10-01
+  --end 2021-08-09`, restart ON_FAILURE, no cron). It cannot recover 350/360 or
+  220 for those years — those are gone for good.
+- Test day 2017-06-28 (peak annual-report season): 893 documents, 252MB, zero
+  failures. Most days are far lighter.
+
 ### Scheduling (macOS)
 
 launchd (not cron: it fires after wake if the Mac was asleep). One-time install:
@@ -280,6 +308,13 @@ Left out, knowingly: FRED/ALFRED, BEA API, Census, USDA NASS (all need a
 free key — add when wanted); FFIEC call reports (web form only); the SEC
 13F structured data sets (the file naming could not be verified; the 13F
 filings themselves are on the EDGAR shelf).
+
+The `sec` source is the one file here that is also *served*:
+`observatory/equity/sec_extract.py` loads each quarterly zip into
+`observatory/data/sec.duckdb` (filings, long facts, statement lines, tags —
+the same shape as the EDINET financials) and `app/sec_api.py` serves it under
+`/api/v1/us/financials/…` and five MCP tools. See the observatory README,
+"US financials — the SEC shelf".
 
 The BLS and the SEC refuse undeclared clients; `EDGAR_USER_AGENT` is reused.
 One request at a time, half a second apart. Files stream to disk, so the
@@ -582,7 +617,9 @@ Beyond the three `bb-1` defects above, one more that crashes a naive run:
   `filer wrote impossible date(s): 2025-11-31` on the filing row. One filing in 6,236.
 
 **Horizon, permanently.** EDINET purges type 220 after ~12 months — nothing before
-**2025-08-12** is retrievable by anyone. The announcement press release (rationale,
+**2025-08-12** is retrievable by anyone. Verified 2026-09-11: the purge is exactly
+12 months to the day (2025-09-11 was the first day still served), and the 542
+type-220 filings we hold for 2025-08-12..2025-09-10 no longer exist at the source. The announcement press release (rationale,
 % of shares outstanding, and any *abandonment* of a live programme) is TDnet-only,
 PDF, no XBRL, ~31-day retention: that history starts at our capture, 2026-07-13.
 

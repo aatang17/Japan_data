@@ -42,7 +42,7 @@ from .adapters import mof_trade
 from .equity_api import EDINET_SOURCE as _EDINET_SOURCE
 from .equity_api import NAME_CTES, _cur, _rows
 
-router = APIRouter(prefix="/api/v1/equity/segments")
+router = APIRouter(prefix="/api/v1/equity/segments", tags=["Segments and customers"])
 
 CREDIT_LINE = "Source: company filings on EDINET (Financial Services Agency of Japan)."
 
@@ -343,7 +343,7 @@ def supply_chain():
         cur.close()
 
 
-@router.get("/customers")
+@router.get("/customers", openapi_extra={"x-example": "/api/v1/equity/segments/customers?name=Taiwan"})
 def customers(name: str = Query(None, max_length=80, description="customer name contains"),
               sec_code: str = Query(None, description="filer's securities code"),
               limit: int = Query(200, ge=1, le=1000)):
@@ -585,7 +585,8 @@ def _lens(sec_code):
     }
 
 
-@router.get("/lens/{sec_code}.csv", response_class=PlainTextResponse)
+@router.get("/lens/{sec_code}.csv", response_class=PlainTextResponse,
+            openapi_extra={"x-example": "/api/v1/equity/segments/lens/8035.csv"})
 def lens_csv(sec_code: str):
     """The lens as one wide table a model can paste: one row per fiscal year,
     filed regions and customs series side by side, every header line stating
@@ -647,7 +648,7 @@ def lens_csv(sec_code: str):
                                       'attachment; filename="company-lens-%s.csv"' % sec_code})
 
 
-@router.get("/lens/{sec_code}")
+@router.get("/lens/{sec_code}", openapi_extra={"x-example": "/api/v1/equity/segments/lens/8035"})
 def lens(sec_code: str):
     """What the company files by region, beside the customs flows it is mapped
     to, both in the company's own fiscal periods — and the ratio between them,

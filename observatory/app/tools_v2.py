@@ -42,7 +42,8 @@ from .tools import (DEFAULT_MONTHS, POINT_BUDGET, _cite, _fail, _record,
 ROW_BUDGET = 50
 MAX_LIMIT = 100
 SEARCH_LIMIT = 25
-COMPANY_CODE_MAX = 8
+# Long enough for a US filer written `cik:NNNNNNNNNN`; a Japanese code is 4.
+COMPANY_CODE_MAX = 16
 
 
 def _mod(name):
@@ -183,8 +184,15 @@ def _screen_segments(sort, f, limit):
     return m.concentration(min_share=float(f.get("min_share", 0) or 0))
 
 
+def _screen_sec(sort, f, limit):
+    return _eq("sec_api").screen(metric=sort, fy=str(f.get("fy", "") or ""),
+                                 order=str(f.get("order", "desc") or "desc"),
+                                 unit=str(f.get("unit", "USD") or "USD"), limit=limit)
+
+
 def _screen_fns():
     return {
+        "sec-financials": _screen_sec,
         "segments": _screen_segments,
         "cross-shareholdings": _screen_cross_shareholdings,
         "shareholder-register": _screen_register,
@@ -240,6 +248,8 @@ def _cite_for(m, **params):
     path = m["cite"]
     for k, v in params.items():
         path = path.replace("{%s}" % k, str(v))
+        if k == "sec_code":                 # the US shelf keys on a CIK
+            path = path.replace("{cik}", str(v).split(":")[-1])
     return _cite(path)
 
 

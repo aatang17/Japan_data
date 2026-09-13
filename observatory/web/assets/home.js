@@ -161,7 +161,9 @@ const SECTION_OF = {   // dataset slug -> entry point; anything else is Macro
   "jnto-visitors": "tourism", "accommodation-jp": "tourism",
   "rice-prices-jp": "agri", "rice-inventory-jp": "agri", "agri-prices": "agri",
   "ja-statistics": "agri", "rice-cost-jp": "agri",
-  "trade-semis": "trade", "trade-inputs": "trade",
+  "trade-semis": "trade", "trade-inputs": "trade", "trade-autos": "trade",
+  "trade-energy": "trade", "trade-machinery": "trade", "trade-pharma": "trade",
+  "trade-food": "trade",
   "population-jp": "demo", "population-jp-history": "demo", "population-jp-municipal": "demo",
 };
 

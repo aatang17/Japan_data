@@ -33,7 +33,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from . import asof, registry
 
-router = APIRouter(prefix="/api/v1/company")
+router = APIRouter(prefix="/api/v1/company", tags=["Company"])
 
 # Rows per table in a block. A company page shows a table's head and links to
 # the dataset's own endpoint for the rest; without a cap, one filer with 400
@@ -250,7 +250,7 @@ def _check(code, as_of):
     return code, asof.parse(as_of)
 
 
-@router.get("/{code}")
+@router.get("/{code}", openapi_extra={"x-example": "/api/v1/company/7203"})
 def company(code: str,
             datasets: str = Query("", description="comma-separated dataset ids"),
             sections: str = Query("", description="comma-separated section ids"),
@@ -271,7 +271,7 @@ def company(code: str,
                    compact=bool(compact), limit=limit, as_of=ceiling)
 
 
-@router.get("/{code}/coverage")
+@router.get("/{code}/coverage", openapi_extra={"x-example": "/api/v1/company/7203/coverage"})
 def coverage(code: str,
              as_of: str = Query("", description="YYYY-MM-DD: coverage as it "
                                                  "stood on that date")):

@@ -82,6 +82,34 @@ function fillCpi() {
     setAsOf("a-cpi", fmtPeriodLong(d.release.latest_period), d.stale);
   }).catch(() => rowFailed("r-cpi", "a-cpi"));
 }
+function fillTokyo() {
+  return getJSON("/api/v1/cpi-tokyo/overview").then(d => {
+    const t = d.tiles.find(x => x.key === "headline_yoy");
+    setReading("r-tokyo", fmtRate(t.value, 1), "headline YoY, calculated");
+    setAsOf("a-tokyo", fmtPeriodLong(d.release.latest_period), d.stale);
+  }).catch(() => rowFailed("r-tokyo", "a-tokyo"));
+}
+function fillGoodsServices() {
+  return getJSON("/api/v1/cpi-jp-goods-services/overview").then(d => {
+    const t = d.tiles.find(x => x.key === "headline_yoy");
+    setReading("r-gs", fmtRate(t.value, 1), "headline YoY, calculated");
+    setAsOf("a-gs", fmtPeriodLong(d.release.latest_period), d.stale);
+  }).catch(() => rowFailed("r-gs", "a-gs"));
+}
+function fillCpiSa() {
+  return getJSON("/api/v1/cpi-jp-sa/overview").then(d => {
+    const t = d.tiles.find(x => x.key === "headline_yoy");
+    setReading("r-sa", fmtRate(t.value, 1), "headline YoY, calculated");
+    setAsOf("a-sa", fmtPeriodLong(d.release.latest_period), d.stale);
+  }).catch(() => rowFailed("r-sa", "a-sa"));
+}
+function fillCpiLong() {
+  return getJSON("/api/v1/cpi-jp-long/overview").then(d => {
+    const t = d.tiles.find(x => x.key === "headline_yoy");
+    setReading("r-long", fmtRate(t.value, 1), "headline YoY, calculated");
+    setAsOf("a-long", fmtPeriodLong(d.release.latest_period), d.stale);
+  }).catch(() => rowFailed("r-long", "a-long"));
+}
 
 function fillBanks() {
   return getJSON("/api/v1/fsa-npl/overview").then(d => {
@@ -133,6 +161,78 @@ function fillSemis() {
                "integrated circuits exported");
     setAsOf("a-semis", fmtPeriodLong(d.periods[last]), d.stale);
   }).catch(() => rowFailed("r-semis", "a-semis"));
+}
+
+function fillAutos() {
+  // What the page leads with: passenger cars shipped last month, world total.
+  return getJSON("/api/v1/trade-autos/trade").then(d => {
+    const totals = d.world["exp.70503010"];
+    let last = -1;
+    for (let i = totals.length - 1; i >= 0; i--) {
+      if (totals[i] !== null && totals[i] !== undefined) { last = i; break; }
+    }
+    if (last < 0) throw new Error("no value");
+    setReading("r-autos", "\u00a5" + fmtNum(totals[last] / 1e6, 0) + "bn",
+               "passenger cars exported");
+    setAsOf("a-autos", fmtPeriodLong(d.periods[last]), d.stale);
+  }).catch(() => rowFailed("r-autos", "a-autos"));
+}
+
+function fillEnergy() {
+  // The fuel bill's largest line: crude oil landed last month, world total.
+  return getJSON("/api/v1/trade-energy/trade").then(d => {
+    const totals = d.world["imp.30301000"];
+    let last = -1;
+    for (let i = totals.length - 1; i >= 0; i--) {
+      if (totals[i] !== null && totals[i] !== undefined) { last = i; break; }
+    }
+    if (last < 0) throw new Error("no value");
+    setReading("r-energy", "\u00a5" + fmtNum(totals[last] / 1e6, 0) + "bn",
+               "crude oil imported");
+    setAsOf("a-energy", fmtPeriodLong(d.periods[last]), d.stale);
+  }).catch(() => rowFailed("r-energy", "a-energy"));
+}
+
+function fillMachinery() {
+  // The group total: every machinery line the Ministry publishes, last month.
+  return getJSON("/api/v1/trade-machinery/trade").then(d => {
+    const totals = d.world["exp.70100000"];
+    let last = -1;
+    for (let i = totals.length - 1; i >= 0; i--) {
+      if (totals[i] !== null && totals[i] !== undefined) { last = i; break; }
+    }
+    if (last < 0) throw new Error("no value");
+    setReading("r-machinery", "\u00a5" + fmtNum(totals[last] / 1e6, 0) + "bn", "general machinery exported");
+    setAsOf("a-machinery", fmtPeriodLong(d.periods[last]), d.stale);
+  }).catch(() => rowFailed("r-machinery", "a-machinery"));
+}
+
+function fillPharma() {
+  // The import bill for medical products, last month.
+  return getJSON("/api/v1/trade-pharma/trade").then(d => {
+    const totals = d.world["imp.50700000"];
+    let last = -1;
+    for (let i = totals.length - 1; i >= 0; i--) {
+      if (totals[i] !== null && totals[i] !== undefined) { last = i; break; }
+    }
+    if (last < 0) throw new Error("no value");
+    setReading("r-pharma", "\u00a5" + fmtNum(totals[last] / 1e6, 0) + "bn", "medical products imported");
+    setAsOf("a-pharma", fmtPeriodLong(d.periods[last]), d.stale);
+  }).catch(() => rowFailed("r-pharma", "a-pharma"));
+}
+
+function fillFood() {
+  // The food import bill, last month, from the section total.
+  return getJSON("/api/v1/trade-food/trade").then(d => {
+    const totals = d.world["imp.00000000"];
+    let last = -1;
+    for (let i = totals.length - 1; i >= 0; i--) {
+      if (totals[i] !== null && totals[i] !== undefined) { last = i; break; }
+    }
+    if (last < 0) throw new Error("no value");
+    setReading("r-food", "\u00a5" + fmtNum(totals[last] / 1e6, 0) + "bn", "food imported");
+    setAsOf("a-food", fmtPeriodLong(d.periods[last]), d.stale);
+  }).catch(() => rowFailed("r-food", "a-food"));
 }
 
 function fillInbound() {
@@ -254,12 +354,21 @@ function wireCopy(btnId, textId) {
 }
 
 fillCpi();
+fillTokyo();
+fillGoodsServices();
+fillCpiSa();
+fillCpiLong();
 fillBoj();
 fillBanks();
 fillRates();
 fillInbound();
 fillAccommodation();
 fillSemis();
+fillAutos();
+fillEnergy();
+fillMachinery();
+fillPharma();
+fillFood();
 fillPop();
 fillRice();
 fillRiceStock();

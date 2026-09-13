@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quarterly GDP · Japan Data Observatory</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/app.css">
+<style>
+  /* Page-local layout only; every colour comes from tokens.css. */
+  .gdp-select { font: inherit; font-size: 12.5px; padding: 4px 8px; color: var(--obs-ink);
+    background: var(--obs-surface); border: 1px solid var(--obs-border); border-radius: 3px; }
+  @media (max-width: 900px) {
+    .controls .seg { flex-wrap: wrap; overflow: visible; border: 0; gap: 6px; }
+    .controls .seg button { border: 1px solid var(--obs-border); border-radius: 3px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="site-header" data-section="macro" data-page="gdp"></header>
+<script src="assets/nav.js"></script>
+
+<main class="container">
+  <div id="stale-banner"></div>
+
+  <div class="metric-card">
+    <div class="metric-card-head">
+      <h1>Quarterly GDP</h1>
+      <span class="metric-asof" id="page-asof"></span>
+      <p class="metric-sub" id="page-sub"><span class="skeleton" style="display:inline-block;width:420px;height:14px"></span></p>
+    </div>
+    <div class="strip">
+      <div class="strip-grid cols-4" id="tiles">
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+      </div>
+    </div>
+    <p class="strip-foot" id="strip-foot"></p>
+    <details class="calc" id="strip-calc" style="display:none"></details>
+  </div>
+
+  <section aria-labelledby="h-growth">
+    <h2 id="h-growth">Real GDP Growth <span class="h2-note" id="growth-note"></span></h2>
+    <p class="section-sub" id="growth-sub">Each quarter's change in real GDP, seasonally
+    adjusted, from the published levels. The annualized rate is what the quarter would add up
+    to over a year at the same pace; it is the number in the headlines, and it is four times
+    as volatile as the plain quarterly change it is built from.</p>
+    <div class="chart-panel">
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Measure" id="measure-seg">
+        <button type="button" data-measure="ann" aria-pressed="true">Annualized</button>
+        <button type="button" data-measure="qoq">Quarter on Quarter</button>
+        <button type="button" data-measure="yoy">Year on Year</button>
+        <button type="button" data-measure="level">Level</button>
+      </div>
+      <div class="seg" role="group" aria-label="Date range" id="range-seg">
+        <button type="button" data-range="5">5Y</button>
+        <button type="button" data-range="10" aria-pressed="true">10Y</button>
+        <button type="button" data-range="20">20Y</button>
+        <button type="button" data-range="max">Max</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="growth-png">Download PNG</button>
+      <button type="button" class="btn" id="growth-csv">Download CSV</button>
+    </div>
+    <div class="chart" id="growth-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="growth-source"></p>
+    <details class="calc" id="growth-calc"></details>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-contrib">
+    <h2 id="h-contrib">Contributions to Growth <span class="h2-note" id="contrib-note"></span></h2>
+    <p class="section-sub">How much of each quarter's real GDP change came from households,
+    from business investment, from stock-building, from government and from trade. Each bar
+    is a demand component's change divided by the previous quarter's GDP, so the bars add up
+    to the quarter's growth — apart from a small residual, which is the chain-linking gap the
+    Cabinet Office publishes plus rounding, shown rather than hidden.</p>
+    <div class="chart-panel">
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Contribution basis" id="cbasis-seg">
+        <button type="button" data-cbasis="qoq" aria-pressed="true">Quarter on Quarter</button>
+        <button type="button" data-cbasis="yoy">Year on Year</button>
+      </div>
+      <div class="seg" role="group" aria-label="Date range" id="crange-seg">
+        <button type="button" data-range="3">3Y</button>
+        <button type="button" data-range="5" aria-pressed="true">5Y</button>
+        <button type="button" data-range="10">10Y</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="contrib-png">Download PNG</button>
+      <button type="button" class="btn" id="contrib-csv">Download CSV</button>
+    </div>
+    <div class="chart" id="contrib-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="contrib-source"></p>
+    <details class="calc" id="contrib-calc"></details>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-series">
+    <h2 id="h-series">Component Detail <span class="h2-note" id="series-note"></span></h2>
+    <p class="section-sub">Every line of the expenditure account on the newest quarter, on all
+    three bases. Levels are the Cabinet Office's own, in ¥ trillion; the growth rates are
+    calculated from them. Reference lines — domestic demand, national income and the like —
+    are published alongside the components and are listed beneath them.</p>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Basis shown" id="basis-seg">
+        <button type="button" data-basis="real_sa" aria-pressed="true">Real</button>
+        <button type="button" data-basis="nominal_sa">Nominal</button>
+        <button type="button" data-basis="deflator_sa">Deflator</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="series-csv">Download CSV</button>
+    </div>
+    <div class="table-wrap" id="series-table"><div class="skeleton" style="width:100%;height:320px"></div></div>
+    <p class="table-foot" id="series-foot"></p>
+    <details class="calc" id="series-calc"></details>
+  </section>
+
+  <section aria-label="Data source and provenance" class="prov">
+    <div id="prov-card"></div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="inner">
+    <span id="credit-line">Source: Cabinet Office, Japan.</span>
+    Levels are official statistics exactly as published; growth rates and contributions are
+    calculated from them and carry their formula.
+    <a href="methodology.html">Methodology</a>
+  </div>
+</footer>
+
+<script src="assets/echarts.min.js"></script>
+<script src="assets/format.js"></script>
+<script src="assets/charts.js"></script>
+<script src="assets/sortable.js"></script>
+<script src="assets/gdp.js"></script>
+</body>
+</html>

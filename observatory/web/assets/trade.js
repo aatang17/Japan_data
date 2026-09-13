@@ -1,12 +1,19 @@
-/* Semiconductor trade page. The question this screen answers:
-   "Is Japan still shipping chips and chipmaking equipment to China, and
-   where else is that trade going?" — the tiles lead with the two export
-   lines and the balance, and the mix chart is where a shift in destination
-   actually shows up.
+/* The trade page: one script, one dataset per HTML page. The question every
+   one of these screens answers is "where is this trade going, and how is
+   that changing?" — the tiles lead with the headline lines, and the mix
+   chart is where a shift in partner actually shows up.
+
+   The page declares its dataset on <main data-dataset="…">, and everything
+   the script cannot know on its own — the subtitle, which partners keep a
+   fixed colour, which are selected on first load, the four tiles — arrives
+   in the /trade payload's `page` block, written by the dataset's adapter.
+   A new trade dataset is therefore an adapter plus a copy of the HTML; this
+   file does not change. The supply-chain section is the one exception: it
+   renders only on a page that carries its markup (semiconductors).
 
    One /trade payload carries every partner × every month for the commodity
-   and direction being read, plus world totals for all eleven commodity-flows
-   so the tiles and the commodity chart need no second request. Switching
+   and direction being read, plus world totals for every commodity-flow so
+   the tiles and the commodity chart need no second request. Switching
    commodity or direction fetches a new payload and caches it.
 
    Two properties of the source shape this page and must not be smoothed over.
@@ -24,7 +31,9 @@
    every export. */
 "use strict";
 
-const DATASET = "trade-semis";
+const MAIN = document.querySelector("main[data-dataset]");
+const DATASET = MAIN.getAttribute("data-dataset");
+const DEFAULT_FLOW = MAIN.getAttribute("data-default-flow") === "imp" ? "imp" : "exp";
 const API = "/api/v1/" + DATASET;
 
 const THOUSAND_YEN_PER_BILLION = 1e6;   // ¥1,000 units in one ¥bn
@@ -32,6 +41,7 @@ const THOUSAND_YEN_PER_BILLION = 1e6;   // ¥1,000 units in one ¥bn
 let TR = null;              // the /trade payload for the current slice
 let PERIODS = [], PIDX = {}, LAST = 0;
 let PARTNER = {};           // code -> partner record
+let PAGE = {};              // the payload's page block: tiles, slots, subtitle
 const CACHE = {};           // "flow|commodity" -> payload
 let partnerChart = null, mixChart = null, commodityChart = null, chainChart = null;
 let HS = null;                // /api/v1/trade-inputs/trade payload (wafers), exports
@@ -41,15 +51,10 @@ let SEMI_EXP = {};            // trade-semis export payloads by commodity, for t
    and always means the aggregate — the world total on the partner chart, the
    bundled residual on the mix chart — and the two never share a chart. The
    named partners keep their slot everywhere, so China is the same colour
-   whether you are reading levels, shares or the mix. */
+   whether you are reading levels, shares or the mix. Which partners are
+   named is the dataset's call (page.partner_slots). */
 const AGGREGATE_SLOT = 1;
-const PARTNER_SLOTS = {
-  "50105": 2,   // China
-  "50106": 3,   // Taiwan
-  "50103": 4,   // Korea
-  "50108": 5,   // Hong Kong
-  "50304": 6,   // United States
-};
+let PARTNER_SLOTS = {};
 const ROTATING_SLOTS = [2, 3, 4, 5, 6];
 const WORLD = "world";
 const MAX_SERIES = 6;       // more than six lines on one chart is unreadable
@@ -82,11 +87,9 @@ const CALCS = {
     "of yen and quantity in the commodity's own published unit, so this is an " +
     "average realised price across a year of shipments, not a price index and " +
     "not comparable between commodities.",
-  balance: "balance[t] = exports[semiconductors & electronic components, t] − " +
-    "imports[semiconductors & electronic components, t], on 12-month totals. " +
-    "The two directions are published under separate commodity codes that " +
-    "carry the same name and are treated by the Ministry as counterparts; " +
-    "they are not two readings of one series.",
+  // The balance names two commodities, so its sentence is the adapter's
+  // (page.balance_calc) and is the same text the dataset card carries.
+  balance: "",
 };
 
 /* ---- lookups ---- */
@@ -173,7 +176,7 @@ function partnerName(code) {
 function urlState() {
   const p = new URLSearchParams(location.search);
   return {
-    flow: p.get("flow") === "imp" ? "imp" : "exp",
+    flow: p.get("flow") === "imp" || p.get("flow") === "exp" ? p.get("flow") : DEFAULT_FLOW,
     commodity: p.get("commodity") || "",
     view: ["value", "ttm", "share", "unit"].indexOf(p.get("view")) !== -1
       ? p.get("view") : "value",
@@ -193,7 +196,7 @@ function urlState() {
 function setUrlState(next) {
   const s = Object.assign(urlState(), next);
   const p = new URLSearchParams();
-  if (s.flow !== "exp") p.set("flow", s.flow);
+  if (s.flow !== DEFAULT_FLOW) p.set("flow", s.flow);
   if (s.commodity) p.set("commodity", s.commodity);
   if (s.view !== "value") p.set("view", s.view);
   if (s.range !== "10") p.set("range", s.range);
@@ -212,7 +215,8 @@ function setUrlState(next) {
 
 function selectedPartners() {
   const raw = urlState().partners;
-  const chosen = raw ? raw.split(",").filter(Boolean) : [WORLD, "50105", "50106"];
+  const chosen = raw ? raw.split(",").filter(Boolean)
+                     : [WORLD].concat(PAGE.default_partners || []);
   return chosen.filter(c => c === WORLD || PARTNER[c]).slice(0, MAX_SERIES);
 }
 
@@ -256,8 +260,8 @@ function renderHeader() {
   document.getElementById("page-asof").textContent =
     "Ingested " + fmtStamp(rel.ingested_at);
   document.getElementById("page-sub").textContent =
-    "Monthly trade in semiconductors, components and chipmaking equipment by " +
-    "partner country, " + fmtPeriodLong(rel.coverage_start).replace(/^\w+ /, "") +
+    (PAGE.subtitle || "Monthly trade by partner country") + ", " +
+    fmtPeriodLong(rel.coverage_start).replace(/^\w+ /, "") +
     "–present · value in ¥ and quantity in the commodity's published unit · " +
     "Ministry of Finance, Trade Statistics of Japan";
   if (TR.credit_line) {
@@ -354,48 +358,64 @@ function renderTiles() {
   const i = LAST, back = yearBack(i);
   const month = fmtPeriodLong(PERIODS[i]);
   const prior = back >= 0 ? fmtPeriodLong(PERIODS[back]) : MISSING;
+  const window12 = "12 months to " + month + " vs 12 months to " + prior;
 
+  // A single month's world total, with its change on the same month a year
+  // earlier; or a twelve-month sum; or the difference of two twelve-month
+  // sums. Which four, and in what order, is the dataset's call.
   function monthly(flow, commodity) {
     const c = worldCol(flow, commodity);
     return { value: bn(at(c, i)),
              delta: back < 0 ? null : pctChange(at(c, i), at(c, back)) };
   }
+  function twelve(flow, commodity) {
+    const c = worldCol(flow, commodity);
+    return { value: bn(ttm(c, i)),
+             delta: back < 0 ? null : pctChange(ttm(c, i), ttm(c, back)) };
+  }
+  function balance(expCode, impCode) {
+    const e = worldCol("exp", expCode), m = worldCol("imp", impCode);
+    const now = ttm(e, i) === null || ttm(m, i) === null ? null : ttm(e, i) - ttm(m, i);
+    const then = back < 0 || ttm(e, back) === null || ttm(m, back) === null
+      ? null : ttm(e, back) - ttm(m, back);
+    // A balance can be negative, and now/then − 1 on two negatives reads a
+    // widening deficit as growth. The change is taken against the size of
+    // last year's balance, so a deficit that widens is a fall.
+    const delta = now === null || then === null || !then ? null
+      : ((now - then) / Math.abs(then)) * 100;
+    return { value: bn(now), delta: delta };
+  }
 
-  const icExp = monthly("exp", "70323050");
-  const equip = monthly("exp", "70131000");
-  const icImp = monthly("imp", "70311030");
-
-  // Net position in the whole component group, on twelve-month sums: a single
-  // month's balance is dominated by shipment timing.
-  const expGroup = worldCol("exp", "70323000");
-  const impGroup = worldCol("imp", "70311000");
-  const balNow = ttm(expGroup, i) === null || ttm(impGroup, i) === null ? null
-    : ttm(expGroup, i) - ttm(impGroup, i);
-  const balThen = back < 0 || ttm(expGroup, back) === null || ttm(impGroup, back) === null
-    ? null : ttm(expGroup, back) - ttm(impGroup, back);
-
-  document.getElementById("tiles").innerHTML =
-    tile("Integrated Circuit Exports", icExp.value, icExp.delta, "vs " + prior,
-         "World total of Japan's integrated-circuit exports in " + month) +
-    tile("Chipmaking Equipment Exports", equip.value, equip.delta, "vs " + prior,
-         "World total of Japan's semiconductor machinery and equipment exports in " + month) +
-    tile("Integrated Circuit Imports", icImp.value, icImp.delta, "vs " + prior,
-         "World total of Japan's integrated-circuit imports in " + month) +
-    tile("Components: Exports − Imports", bn(balNow),
-         pctChange(balNow, balThen),
-         "12 months to " + month + " vs 12 months to " + prior,
-         "Semiconductors and electronic components, exports less imports, " +
-         "over the twelve months to " + month);
+  let anyBalance = false, anyTtm = false;
+  const html = (PAGE.tiles || []).map(t => {
+    if (t.kind === "balance") {
+      anyBalance = true;
+      const b = balance(t.exp, t.imp);
+      return tile(t.label, b.value, b.delta, window12,
+                  t.title + ", over the twelve months to " + month);
+    }
+    if (t.kind === "ttm") {
+      anyTtm = true;
+      const v = twelve(t.flow, t.commodity);
+      return tile(t.label, v.value, v.delta, window12,
+                  t.title + ", over the twelve months to " + month);
+    }
+    const v = monthly(t.flow, t.commodity);
+    return tile(t.label, v.value, v.delta, "vs " + prior, t.title + " in " + month);
+  }).join("");
+  document.getElementById("tiles").innerHTML = html;
 
   document.getElementById("strip-foot").textContent =
     "World totals for " + month + ", summed from every partner the Ministry " +
-    "publishes. The first three tiles are single months and move with shipment " +
-    "timing; the balance is a twelve-month sum.";
+    "publishes. " + (PAGE.strip_foot || "");
   const calc = document.getElementById("strip-calc");
   calc.style.display = "";
+  const lines = [CALCS.world, CALCS.yoy];
+  if (anyBalance || anyTtm) lines.push(CALCS.ttm);
+  if (anyBalance) lines.push(CALCS.balance);
+  lines.push(CALCS.units);
   calc.innerHTML = "<summary>Show calculation</summary><div class='calc-body'>" +
-    [CALCS.world, CALCS.yoy, CALCS.ttm, CALCS.balance, CALCS.units]
-      .map(l => "<p>" + escapeHtml(l) + "</p>").join("") + "</div>";
+    lines.map(l => "<p>" + escapeHtml(l) + "</p>").join("") + "</div>";
 }
 
 /* ---- partner chart ---- */
@@ -607,10 +627,10 @@ function renderCommodityChart() {
     "the items shown."];
   calcBlock("commodity-calc", formulas);
 
-  const name = "japan-" + TR.flow + "-semiconductor-commodities";
+  const name = "japan-" + TR.flow + "-" + (PAGE.file_tag || DATASET) + "-commodities";
   wire("commodity-png", () => commodityChart.exportPNG(name + ".png"));
   wire("commodity-csv", () => commodityChart.exportCSV(name + ".csv",
-    csvHeader("Semiconductor commodities, world totals", formulas)));
+    csvHeader((PAGE.name || "Trade") + " commodities, world totals", formulas)));
 }
 
 /* ---- the supply chain by destination ---- */
@@ -770,7 +790,7 @@ function renderPartnersTable() {
   calcBlock("partners-calc", [CALCS.units, CALCS.world, CALCS.yoy, CALCS.ttm, CALCS.share]);
 
   wire("partners-csv", () => {
-    const lines = csvHeader("Semiconductor trade by partner",
+    const lines = csvHeader((PAGE.name || "Trade") + " by partner",
       [CALCS.world, CALCS.yoy, CALCS.ttm, CALCS.share]).map(l => "# " + l);
     lines.push("partner_code,partner,region,is_country,month,value_bn_yen," +
                "yoy_pct,ttm_bn_yen,share_pct");
@@ -924,10 +944,13 @@ function renderAll() {
   renderCommodityChart();
   renderPartnersTable();
   renderProvenance();
-  pressGroup("dest-seg", "data-dest", urlState().dest);
-  pressGroup("chain-view-seg", "data-cview", urlState().cview);
-  pressGroup("chrange-seg", "data-chrange", urlState().chrange);
-  if (HS) renderChain(); else loadChain();
+  // The supply-chain section exists only on the semiconductor page.
+  if (document.getElementById("chain-chart")) {
+    pressGroup("dest-seg", "data-dest", urlState().dest);
+    pressGroup("chain-view-seg", "data-cview", urlState().cview);
+    pressGroup("chrange-seg", "data-chrange", urlState().chrange);
+    if (HS) renderChain(); else loadChain();
+  }
 }
 
 function load(flow, commodity) {
@@ -940,6 +963,9 @@ function load(flow, commodity) {
     LAST = PERIODS.length - 1;
     PARTNER = {};
     payload.partners.forEach(p => { PARTNER[p.code] = p; });
+    PAGE = payload.page || {};
+    PARTNER_SLOTS = PAGE.partner_slots || {};
+    CALCS.balance = PAGE.balance_calc || "";
     setUrlState({ flow: payload.flow, commodity: payload.commodity.code });
     renderAll();
   };

@@ -1,26 +1,47 @@
-/* Overview page. The question this screen answers:
-   "What is Japanese inflation right now?" — the headline YoY tile leads. */
+/* The CPI page: one script, one dataset per HTML page. The question every
+   one of these screens answers is "what is inflation doing right now, on this
+   cut of the index?" — the headline YoY tile leads.
+
+   The page declares its dataset and its options on <main data-…>:
+     data-dataset          the CPI-shaped dataset the page reads
+     data-items-dataset    a detailed-item table for the breadth panel (optional)
+     data-compare-dataset  a second dataset drawn beside the main series (optional)
+     data-subtitle, data-strip-note, data-default-measure, data-default-range
+   A section whose markup is absent from the page is simply not rendered, so
+   a table published without weights (seasonally adjusted, the 1946 series)
+   carries no contribution or group panel. The base year is read from the
+   release — the Bureau rebases every five years — never assumed. */
 "use strict";
 
-const DATASET = "cpi-jp";
+const MAIN = document.querySelector("main[data-dataset]");
+const DATASET = MAIN.getAttribute("data-dataset");
 const API = "/api/v1/" + DATASET;
 
-const ITEMS_DATASET = "cpi-jp-items";   // breadth reads the detailed-item table
+const ITEMS_DATASET = MAIN.getAttribute("data-items-dataset") || "";
+const COMPARE_DATASET = MAIN.getAttribute("data-compare-dataset") || "";
+const COMPARE_LABEL = MAIN.getAttribute("data-compare-label") || COMPARE_DATASET;
+const OWN_LABEL = MAIN.getAttribute("data-own-label") || "";
+const SUBTITLE = MAIN.getAttribute("data-subtitle") || "";
+const DEFAULT_MEASURE = MAIN.getAttribute("data-default-measure") || "yoy";
+const DEFAULT_RANGE = MAIN.getAttribute("data-default-range") || "5";
+const FILE_TAG = MAIN.getAttribute("data-file-tag") || DATASET;
 
 let OV = null;          // /overview payload
 let CONTRIB = null;     // /contributions payload
-let BREADTH = null;     // /breadth payload (cpi-jp-items)
+let BREADTH = null;     // /breadth payload (the items dataset)
+let COMPARE = null;     // the compare dataset's /overview payload
 let mainChart = null;
 let groupsChart = null;
 let contribChart = null;
 let breadthChart = null;
-let obsCache = {};      // measure -> observations payload
+let compareChart = null;
+let obsCache = {};      // "dataset|measure" -> observations payload
 
 function urlState() {
   const p = new URLSearchParams(location.search);
   return {
-    measure: p.get("measure") || "yoy",
-    range: p.get("range") || "5",
+    measure: p.get("measure") || DEFAULT_MEASURE,
+    range: p.get("range") || DEFAULT_RANGE,
     crange: p.get("crange") || "3",
     groups: p.get("groups") || "yoy",
     brange: p.get("brange") || "10",
@@ -30,8 +51,8 @@ function urlState() {
 function setUrlState(next) {
   const state = Object.assign(urlState(), next);
   const p = new URLSearchParams();
-  if (state.measure !== "yoy") p.set("measure", state.measure);
-  if (state.range !== "5") p.set("range", state.range);
+  if (state.measure !== DEFAULT_MEASURE) p.set("measure", state.measure);
+  if (state.range !== DEFAULT_RANGE) p.set("range", state.range);
   if (state.crange !== "3") p.set("crange", state.crange);
   if (state.groups !== "yoy") p.set("groups", state.groups);
   if (state.brange !== "10") p.set("brange", state.brange);
@@ -39,10 +60,16 @@ function setUrlState(next) {
   history.replaceState(null, "", qs ? "?" + qs : location.pathname);
 }
 
+/* "2025 = 100", read off the release: the Bureau rebases every five years
+   and the page must never assert a base the data does not carry. */
+function baseLabel(rel) {
+  return (rel && rel.base ? rel.base : "").replace("=", " = ");
+}
+
 function sourceLine(rel, trust) {
   const label = TRUST_LABELS[trust];
   return "Source: Statistics Bureau of Japan · " + rel.source_id +
-    " · 2020 = 100 · Data through " + fmtPeriod(rel.latest_period) +
+    " · " + baseLabel(rel) + " · Data through " + fmtPeriod(rel.latest_period) +
     " · Retrieved " + fmtStamp(rel.retrieved_at) +
     (label ? " · " + label : "");
 }
@@ -51,6 +78,12 @@ function sourceLine(rel, trust) {
    A strip cell is one line, so the parenthetical moves to the footnote and the
    "CPI" that every cell repeats is dropped. Full label stays on the tooltip. */
 function shortLabel(label) {
+  // One-series pages (the 1946 history) would repeat the series name on
+  // every cell; the sub-line already says what it is, so the cell keeps
+  // only the measure.
+  if (OV && OV.main_series.length === 1 && label.indexOf(OV.main_series[0].label + " · ") === 0) {
+    label = "Inflation · " + label.slice(OV.main_series[0].label.length + 3);
+  }
   return label
     .replace(/\s*\([^)]*\)/g, "")
     .replace(/\bCPI\b/g, "")
@@ -60,10 +93,10 @@ function shortLabel(label) {
     .trim();
 }
 
-/* What the cell labels drop when they abbreviate. Fixed copy for this dataset,
+/* What the cell labels drop when they abbreviate. Fixed copy per page,
    like the sub-line in renderHeader — the API sends the definitions inside the
    labels, not as prose. */
-const STRIP_NOTE = "Core excludes fresh food; core-core also excludes energy";
+const STRIP_NOTE = MAIN.getAttribute("data-strip-note") || "";
 
 function renderTiles() {
   const tiles = OV.tiles;
@@ -117,7 +150,7 @@ function renderTiles() {
 
   document.getElementById("strip-foot").textContent =
     "Change " + (sharedComparison || "vs the prior month") +
-    ", in percentage points · " + STRIP_NOTE;
+    ", in percentage points" + (STRIP_NOTE ? " · " + STRIP_NOTE : "");
 }
 
 function renderStale() {
@@ -138,21 +171,29 @@ function renderHeader() {
     "Data through " + fmtPeriod(rel.latest_period);
   document.getElementById("page-asof").textContent = "Ingested " + fmtStamp(rel.ingested_at);
   document.getElementById("page-sub").textContent =
-    "National, middle-class indices · 2020 = 100 · Statistics Bureau of Japan";
+    (SUBTITLE ? SUBTITLE + " · " : "") + baseLabel(rel) + " · Statistics Bureau of Japan";
+  const indexOption = document.querySelector('#measure-select option[value="index"]');
+  if (indexOption) indexOption.textContent = "Index Level (" + baseLabel(rel) + ")";
 }
 
 function measureUnitName(measure) {
-  return measure === "index" ? "Index (2020 = 100)" : "%";
+  return measure === "index" ? "Index (" + baseLabel(OV.release) + ")" : "%";
 }
 
-async function loadObservations(measure) {
-  if (obsCache[measure]) return obsCache[measure];
-  const codes = OV.main_series.map(s => s.code).join(",");
-  const r = await fetch(API + "/observations?series=" + codes + "&measure=" + measure);
+async function loadObservations(measure, dataset, codes) {
+  dataset = dataset || DATASET;
+  const key = dataset + "|" + measure + "|" + codes;
+  if (obsCache[key]) return obsCache[key];
+  const r = await fetch("/api/v1/" + dataset + "/observations?series=" + codes +
+                        "&measure=" + measure);
   if (!r.ok) throw new Error("observations " + r.status);
   const data = await r.json();
-  obsCache[measure] = data;
+  obsCache[key] = data;
   return data;
+}
+
+function mainCodes(ov) {
+  return ov.main_series.map(s => s.code).join(",");
 }
 
 function rangeStart(range, latestIso) {
@@ -163,7 +204,7 @@ function rangeStart(range, latestIso) {
 
 async function renderMain() {
   const state = urlState();
-  const data = await loadObservations(state.measure);
+  const data = await loadObservations(state.measure, DATASET, mainCodes(OV));
   const start = rangeStart(state.range, OV.release.latest_period);
 
   const bySlot = {};
@@ -206,18 +247,78 @@ async function renderMain() {
   }
 
   document.getElementById("main-png").onclick = () =>
-    mainChart.exportPNG("japan-cpi-" + state.measure + ".png");
+    mainChart.exportPNG("japan-" + FILE_TAG + "-" + state.measure + ".png");
   document.getElementById("main-csv").onclick = () =>
-    mainChart.exportCSV("japan-cpi-" + state.measure + ".csv", [
-      "Japan CPI — " + MEASURE_LABELS[state.measure],
+    mainChart.exportCSV("japan-" + FILE_TAG + "-" + state.measure + ".csv", [
+      "Japan CPI (" + DATASET + ") — " + MEASURE_LABELS[state.measure],
       TRUST_LABELS[data.trust] ? "Trust: " + TRUST_LABELS[data.trust]
         : "Trust: calculated from official index values (formula below)",
       "Calculation: " + data.calc,
       "Source: Statistics Bureau of Japan via e-Stat, " + OV.release.source_id,
-      "Release: " + OV.release.label + " (2020 = 100)",
+      "Release: " + OV.release.label + " (" + baseLabel(OV.release) + ")",
       "Retrieved: " + fmtStamp(OV.release.retrieved_at),
       "Permalink: " + location.href,
     ]);
+  if (document.getElementById("compare-chart")) await renderCompare();
+}
+
+/* ---- this cut against another (Tokyo advance against the national index) ---- */
+
+async function renderCompare() {
+  if (!COMPARE) return;
+  const state = urlState();
+  const measure = state.measure;
+  // Headline and the first core of each dataset — four lines, two colours a
+  // side, so the reader sees "Tokyo runs ahead of the country" and not a
+  // tangle of six.
+  const own = OV.main_series.slice(0, 2), other = COMPARE.main_series.slice(0, 2);
+  const [a, b] = await Promise.all([
+    loadObservations(measure, DATASET, own.map(s => s.code).join(",")),
+    loadObservations(measure, COMPARE_DATASET, other.map(s => s.code).join(",")),
+  ]);
+  const start = rangeStart(state.range, OV.release.latest_period);
+  const cut = pts => pts.filter(p => !start || p[0] >= start);
+  const pick = (data, code) => (data.series.find(s => s.code === code) || { points: [] }).points;
+  const series = [];
+  own.forEach((m, i) => series.push({
+    name: (OWN_LABEL ? OWN_LABEL + " " : "") + m.label, slot: i + 1,
+    points: cut(pick(a, m.code)) }));
+  other.forEach((m, i) => series.push({
+    name: COMPARE_LABEL + " " + m.label, slot: i + 3,
+    points: cut(pick(b, m.code)) }));
+  const cfg = {
+    series: series, unit: a.unit, yAxisName: measureUnitName(measure),
+    trust: a.trust, legendFloor: 1100,
+    sourceLine: sourceLine(OV.release, a.trust).replace(
+      " · " + OV.release.source_id, " · " + OV.release.source_id + " + " + COMPARE.release.source_id),
+  };
+  const el = document.getElementById("compare-chart");
+  el.innerHTML = "";
+  if (compareChart) compareChart.dispose();
+  compareChart = obsChart(el, "line", cfg);
+  document.getElementById("compare-source").textContent = cfg.sourceLine;
+  document.getElementById("compare-note").textContent =
+    MEASURE_LABELS[measure] + " · " + (OWN_LABEL || DATASET) + " through " +
+    fmtPeriod(OV.release.latest_period) + ", " + COMPARE_LABEL + " through " +
+    fmtPeriod(COMPARE.release.latest_period);
+  const calcEl = document.getElementById("compare-calc");
+  if (calcEl) {
+    calcEl.innerHTML = "<summary>Show calculation</summary>" +
+      '<div class="calc-body">' + MEASURE_LABELS[measure] + ": <code>" + escapeHtml(a.calc) +
+      "</code><br>Both datasets are official index values on their own published base and " +
+      "weights; the rates are calculated here, separately for each, and are compared, never " +
+      "combined.</div>";
+  }
+  const name = "japan-" + FILE_TAG + "-vs-" + COMPARE_DATASET + "-" + measure;
+  document.getElementById("compare-png").onclick = () => compareChart.exportPNG(name + ".png");
+  document.getElementById("compare-csv").onclick = () => compareChart.exportCSV(name + ".csv", [
+    "Japan CPI — " + (OWN_LABEL || DATASET) + " against " + COMPARE_LABEL + ", " + MEASURE_LABELS[measure],
+    "Trust: calculated from official index values (formula below)",
+    "Calculation: " + a.calc,
+    "Sources: Statistics Bureau of Japan via e-Stat, " + OV.release.source_id + " and " + COMPARE.release.source_id,
+    "Releases: " + OV.release.label + " (" + baseLabel(OV.release) + "); " + COMPARE.release.label + " (" + baseLabel(COMPARE.release) + ")",
+    "Permalink: " + location.href,
+  ]);
 }
 
 function latestValue(points) {
@@ -228,6 +329,7 @@ function latestValue(points) {
 }
 
 function renderGroups() {
+  if (!document.getElementById("groups-chart") || !OV.groups.length) return;
   const view = urlState().groups;
   if (view === "contrib" && !CONTRIB) return;   // re-rendered once contributions arrive
   const contribByCode = {};
@@ -313,14 +415,14 @@ function renderContrib() {
     "“Other &amp; residual”, so the bars always sum to headline YoY.</div>";
 
   document.getElementById("contrib-png").onclick = () =>
-    contribChart.exportPNG("japan-cpi-contributions.png");
+    contribChart.exportPNG("japan-" + FILE_TAG + "-contributions.png");
   document.getElementById("contrib-csv").onclick = () =>
-    contribChart.exportCSV("japan-cpi-contributions.csv", [
+    contribChart.exportCSV("japan-" + FILE_TAG + "-contributions.csv", [
       "Japan CPI — contribution to headline YoY by major group (pp)",
       "Trust: calculated from official index values and weights (formula below)",
       "Calculation: " + CONTRIB.calc,
       "Source: Statistics Bureau of Japan via e-Stat, " + CONTRIB.release.source_id,
-      "Release: " + CONTRIB.release.label + " (2020 = 100)",
+      "Release: " + CONTRIB.release.label + " (" + baseLabel(CONTRIB.release) + ")",
       "Retrieved: " + fmtStamp(CONTRIB.release.retrieved_at),
       "Permalink: " + location.href,
     ]);
@@ -363,14 +465,14 @@ function renderBreadth() {
     "out of that month's denominator. Threshold: " + BREADTH.threshold + "%.</div>";
 
   document.getElementById("breadth-png").onclick = () =>
-    breadthChart.exportPNG("japan-cpi-breadth.png");
+    breadthChart.exportPNG("japan-" + FILE_TAG + "-breadth.png");
   document.getElementById("breadth-csv").onclick = () =>
-    breadthChart.exportCSV("japan-cpi-breadth.csv", [
+    breadthChart.exportCSV("japan-" + FILE_TAG + "-breadth.csv", [
       "Japan CPI — inflation breadth over detailed items (% of items)",
       "Trust: calculated from official index values (definition below)",
       "Calculation: " + BREADTH.calc,
       "Source: Statistics Bureau of Japan via e-Stat, " + BREADTH.release.source_id,
-      "Release: " + BREADTH.release.label + " (2020 = 100)",
+      "Release: " + BREADTH.release.label + " (" + baseLabel(BREADTH.release) + ")",
       "Retrieved: " + fmtStamp(BREADTH.release.retrieved_at),
       "Permalink: " + location.href,
     ]);
@@ -417,6 +519,7 @@ function renderProvenance() {
 
 function wireSeg(segId, stateKey, current, onChange) {
   const seg = document.getElementById(segId);
+  if (!seg) return;           // a panel this page does not carry
   seg.querySelectorAll("button").forEach(b => {
     const key = b.dataset.range || b.dataset.view;
     b.setAttribute("aria-pressed", String(key === current));
@@ -462,7 +565,7 @@ function sectionError(chartId, what, err) {
 
 async function init() {
   initThemeToggle(() => {
-    if (mainChart) renderMain().catch(showError);
+    if (mainChart) renderMain().catch(showError);   // renderMain redraws the comparison too
     if (groupsChart) renderGroups();
     if (contribChart) renderContrib();
     if (breadthChart) renderBreadth();
@@ -482,15 +585,29 @@ async function init() {
   renderProvenance();
   wireControls();
 
-  // analysis panels load independently — one failing must not blank the page
-  fetch(API + "/contributions")
-    .then(r => { if (!r.ok) throw new Error("contributions " + r.status); return r.json(); })
-    .then(d => { CONTRIB = d; renderContrib(); renderGroups(); })
-    .catch(err => sectionError("contrib-chart", "The contribution breakdown", err));
-  fetch("/api/v1/" + ITEMS_DATASET + "/breadth")
-    .then(r => { if (!r.ok) throw new Error("breadth " + r.status); return r.json(); })
-    .then(d => { BREADTH = d; renderBreadth(); })
-    .catch(err => sectionError("breadth-chart", "The breadth panel", err));
+  // analysis panels load independently — one failing must not blank the
+  // page — and only the panels this page carries are fetched at all.
+  if (document.getElementById("contrib-chart")) {
+    fetch(API + "/contributions")
+      .then(r => { if (!r.ok) throw new Error("contributions " + r.status); return r.json(); })
+      .then(d => { CONTRIB = d; renderContrib(); renderGroups(); })
+      .catch(err => sectionError("contrib-chart", "The contribution breakdown", err));
+  }
+  if (ITEMS_DATASET && document.getElementById("breadth-chart")) {
+    fetch("/api/v1/" + ITEMS_DATASET + "/breadth")
+      .then(r => { if (!r.ok) throw new Error("breadth " + r.status); return r.json(); })
+      .then(d => { BREADTH = d; renderBreadth(); })
+      .catch(err => sectionError("breadth-chart", "The breadth panel", err));
+  }
+  if (COMPARE_DATASET && document.getElementById("compare-chart")) {
+    try {
+      const r = await fetch("/api/v1/" + COMPARE_DATASET + "/overview");
+      if (!r.ok) throw new Error("compare overview " + r.status);
+      COMPARE = await r.json();
+    } catch (err) {
+      sectionError("compare-chart", "The comparison", err);
+    }
+  }
 
   await renderMain().catch(showError);
 }
