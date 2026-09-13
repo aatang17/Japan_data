@@ -18,13 +18,13 @@ import contextvars
 import datetime
 import inspect
 import json
-import os
 
 from urllib.parse import urlencode
 
 from . import api
 from . import basis as basis_mod
 from . import equity_api, financials_api, governance_api
+from . import seo
 
 # Tool results are the bulk of an LLM caller's input tokens. These bound how
 # much a single lookup can pull into context.
@@ -32,11 +32,11 @@ DEFAULT_MONTHS = 36
 POINT_BUDGET = 1500
 MAX_SEARCH_ROWS = 100
 
-# Absolute base for `cite` URLs. Defaults to the production site so that links
-# handed to an external AI client resolve for its readers even when the server
-# itself runs elsewhere (local dev, a preview deploy).
-SITE_BASE_URL = os.environ.get(
-    "SITE_BASE_URL", "https://web-production-c9178.up.railway.app").rstrip("/")
+# Absolute base for `cite` URLs, shared with robots.txt and sitemap.xml so a
+# link handed to an external AI client names the same host search engines were
+# told is canonical. Absolute because the reader of a cite is somewhere else
+# entirely, even when this server runs locally.
+SITE_BASE_URL = seo.SITE_BASE_URL
 
 
 def _cite(path, **params):

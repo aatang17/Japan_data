@@ -42,6 +42,7 @@ import urllib.request
 from starlette.concurrency import run_in_threadpool
 
 from . import heartbeat
+from . import seo
 
 # The loop wakes every minute rather than sleeping until the target: a long
 # sleep survives neither a suspended laptop nor a clock correction, and a
@@ -193,7 +194,7 @@ def alert(found, now=None):
     if not fresh:
         return []
     if url:
-        site = os.environ.get("SITE_BASE_URL", "").rstrip("/")
+        site = seo.SITE_BASE_URL
         text = "Japan Data Observatory — %d problem(s):\n%s" % (
             len(fresh), "\n".join("• " + message for _, message in fresh))
         if site:

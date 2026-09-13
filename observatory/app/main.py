@@ -35,6 +35,7 @@ from . import registry  # noqa: E402
 from .ownership_api import router as ownership_router  # noqa: E402
 from . import refresh  # noqa: E402
 from .mcp import router as mcp_router  # noqa: E402
+from .seo import router as seo_router  # noqa: E402
 
 WEB_DIR = pathlib.Path(__file__).resolve().parent.parent / "web"
 
@@ -124,4 +125,8 @@ app.include_router(mcp_router)
 # /admin/api also sits outside /api/v1: authenticated responses must never be
 # served from (or into) the shared response cache.
 app.include_router(admin_router)
+# robots.txt and sitemap.xml are generated from the pages in web/, so they
+# have to be registered ahead of the static mount that serves those pages —
+# the mount answers every remaining path and would 404 both.
+app.include_router(seo_router)
 app.mount("/", RevalidatedStatic(directory=str(WEB_DIR), html=True), name="web")
