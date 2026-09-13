@@ -101,6 +101,10 @@ function lineOptions(cfg, pal, narrow) {
       // rate, a policy target) is invisible unless the axis is told to reach
       // it: a markLine does not extend the scale. Opt-in only.
       max: cfg.yMax !== undefined ? cfg.yMax : null,
+      // Whole-number series (counts of things) opt in with 1: without it a
+      // range as narrow as 3 to 5 is split into half steps, and fixed-zero
+      // tick labels then print "5, 5, 4, 4, 3". Unset for every other caller.
+      minInterval: cfg.yAxisMinInterval,
       name: cfg.yAxisName || "",
       nameTextStyle: { color: pal.muted, fontSize: 11, align: "left" },
       axisLine: { show: false },

@@ -78,6 +78,9 @@ async def warm(app, paths):
             "root_path": "",
             "headers": [(b"host", b"localhost"), (b"accept-encoding", b"gzip")],
             "client": ("127.0.0.1", 0), "server": ("localhost", 80),
+            # Not a reader: app/visits.py skips these, or every boot would
+            # write hundreds of synthetic hits into the visit log.
+            "obs_synthetic": True,
         }
         try:
             await app(scope, receive, send)

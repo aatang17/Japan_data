@@ -15,6 +15,7 @@ var ADMIN_NAV = [
   { group: "Operations", pages: [
     { id: "health", label: "Ingest Health", hash: "#health" },
     { id: "vintages", label: "Release History", hash: "#vintages" },
+    { id: "traffic", label: "Traffic", hash: "#traffic" },
   ]},
   { group: "Classification", pages: [
     { id: "queue", label: "Classification Queue", hash: "#queue" },
@@ -181,7 +182,9 @@ function renderShell() {
     '<main class="admin-main"><div class="admin-container" id="admin-view"></div></main>' +
     "</div>";
 
-  initThemeToggle();
+  // The traffic chart reads its colours from tokens at build time, so a theme
+  // switch has to redraw it.
+  initThemeToggle(function () { if (trafficChart) trafficChart.render(); });
   document.getElementById("sign-out").addEventListener("click", function () {
     post("/logout").then(function () { renderLogin("Signed out."); })
       .catch(function () { renderLogin(""); });
@@ -209,7 +212,9 @@ function route() {
   if (side) side.removeAttribute("data-menu-open");
   var target = document.getElementById("admin-view");
   if (!target) return;
+  disposeTrafficChart();  // the view about to be replaced may own it
   if (view === "vintages") viewVintages(target, arg);
+  else if (view === "traffic") viewTraffic(target, arg);
   else if (view === "audit") viewAudit(target);
   else if (view === "queue") viewQueue(target);
   else if (view === "parties") {
@@ -489,6 +494,209 @@ function renderChanges(c) {
       gone.count.toLocaleString("en-US") + "</div>" + changeTable(gone.rows, true) + "</div>");
   }
   return parts.join("");
+}
+
+/* ---------- traffic ---------- */
+
+var TRAFFIC_WINDOWS = [7, 30, 90];
+
+/* The console's only chart. Held at module scope so a theme switch can redraw
+   it and a move to another page can dispose it. */
+var trafficChart = null;
+
+/* "2026-09-12" -> "12 Sep 2026" */
+function fmtDay(iso) {
+  if (!iso) return MISSING;
+  var month = (MONTHS[Number(String(iso).slice(5, 7)) - 1] || "").slice(0, 3);
+  return Number(String(iso).slice(8, 10)) + " " + month + " " + String(iso).slice(0, 4);
+}
+
+function fmtCount(v) {
+  if (v === null || v === undefined) return MISSING;
+  return v.toLocaleString("en-US");
+}
+
+function disposeTrafficChart() {
+  if (trafficChart) {
+    trafficChart.dispose();
+    trafficChart = null;
+  }
+}
+
+/* Counting stops silently if the log cannot be written, so a quiet day and a
+   broken counter look identical until the age of the last request is stated. */
+var TRAFFIC_SILENT_HOURS = 36;
+
+function viewTraffic(target, arg) {
+  var days = TRAFFIC_WINDOWS.indexOf(Number(arg)) === -1 ? 30 : Number(arg);
+  target.innerHTML = '<div class="admin-loading">Loading traffic…</div>';
+  api("/visits?days=" + days).then(function (d) {
+    target.innerHTML = trafficMarkup(d, days);
+    wireTraffic(target, d, days);
+  }).catch(function (err) {
+    target.innerHTML = loadFailed("the traffic summary", err);
+  });
+}
+
+function trafficMarkup(d, days) {
+  var seg = '<div class="seg" role="group" aria-label="Window" id="traffic-seg">' +
+    TRAFFIC_WINDOWS.map(function (w) {
+      return '<button type="button" data-days="' + w + '"' +
+        (w === days ? ' aria-pressed="true"' : "") + ">" + w + "D</button>";
+    }).join("") + "</div>";
+
+  var head =
+    '<div class="admin-page-head"><h1>Traffic</h1><span class="spacer"></span>' + seg +
+    '<button type="button" class="btn" id="traffic-refresh">Refresh</button>' +
+    '<p class="admin-page-sub">Readership counted by the server itself, so readers on ' +
+    "networks that block analytics scripts are counted too — no cookies are set and no " +
+    "addresses are stored. " + escapeHtml(fmtDay(d.from)) + " to " + escapeHtml(fmtDay(d.to)) +
+    (d.last_event ? " · last request " + escapeHtml(fmtStamp(d.last_event)) : "") +
+    ".</p></div>";
+
+  var hoursSilent = d.last_event
+    ? (Date.now() - Date.parse(d.last_event)) / 3600000 : null;
+  var banner = "";
+  if (hoursSilent !== null && hoursSilent > TRAFFIC_SILENT_HOURS) {
+    banner = '<div class="admin-alert"><span class="head">Counting may have stopped:</span> ' +
+      "the last request recorded was " + escapeHtml(fmtAgo(hoursSilent)) +
+      ". Either nothing reached the site, or the visit log on the data volume cannot be " +
+      "written — the server log reports the write failure if that is the cause.</div>";
+  }
+
+  // "Visits", never "unique visitors": the identifier rotates daily, so this
+  // is the sum of each day's visitors, not a headcount of people.
+  var kpis =
+    kpi(fmtCount(d.visitors), "Visits", "") +
+    kpi(fmtCount(d.pageviews), "Page Views", "") +
+    kpi(fmtCount(d.api_calls + d.mcp_calls), "API Requests", "") +
+    kpi(fmtCount(d.bot_hits), "Automated Hits", "");
+
+  var chart = d.counting_since
+    ? '<div class="chart-panel">' +
+      '<div class="controls"><span class="spacer"></span>' +
+      '<button type="button" class="btn" id="traffic-png">Download PNG</button>' +
+      '<button type="button" class="btn" id="traffic-csv">Download CSV</button></div>' +
+      '<div class="chart" id="traffic-chart"></div>' +
+      '<p class="source-line">Counted by the Japan Data Observatory server from its own ' +
+      "request log. Days before counting began on this deployment are shown as gaps, " +
+      "not as zero.</p>" + trafficCalc(d) + "</div>"
+    : '<p class="table-empty">No requests recorded yet. Counting begins the moment this ' +
+      "build is deployed, and the window fills in from that day forward.</p>" + trafficCalc(d);
+
+  return head + '<div class="kpi-row">' + kpis + "</div>" + banner +
+    '<div class="admin-section">Daily Readership <span class="note">unique visitors and ' +
+    "page views per day</span></div>" + chart +
+    '<div class="admin-section">Most-Read Pages <span class="note">page views in this ' +
+    "window</span></div>" +
+    trafficTable(d.top_pages, "Page", true, "No page views recorded in this window.") +
+    '<div class="admin-section">Referring Sites <span class="note">only the sending site ' +
+    "is recorded, never the page a reader came from</span></div>" +
+    trafficTable(d.top_referrers, "Site", false, "No referring sites recorded in this " +
+      "window. A reader who typed the address or followed a link from an email arrives " +
+      "with no referrer.");
+}
+
+function trafficTable(rows, label, linkKeys, emptyNote) {
+  if (!rows || !rows.length) return '<p class="table-empty">' + escapeHtml(emptyNote) + "</p>";
+  var body = rows.map(function (r) {
+    // A referring host is attacker-supplied text: shown, never linked.
+    var name = linkKeys
+      ? '<a href="' + escapeHtml(r.key) + '" target="_blank" rel="noopener">' +
+        escapeHtml(r.key) + "</a>"
+      : escapeHtml(r.key);
+    return '<tr><td class="mono">' + name + "</td>" +
+      '<td class="num">' + fmtCount(r.views) + "</td>" +
+      '<td class="num">' + fmtCount(r.visitors) + "</td></tr>";
+  }).join("");
+  return '<div class="table-wrap"><table class="data">' +
+    "<thead><tr><th>" + escapeHtml(label) + '</th><th class="num">Page Views</th>' +
+    '<th class="num">Visits</th></tr></thead><tbody>' + body + "</tbody></table></div>";
+}
+
+function trafficCalc(d) {
+  return '<details class="calc"><summary>Show calculation</summary><div class="calc-body">' +
+    "<p>A <strong>visitor</strong> is one address-and-browser combination on one UTC day, " +
+    "identified by a salted one-way hash. The salt stays on the data volume, so a day’s " +
+    "visitors can be counted without being identified and cannot be matched across days.</p>" +
+    "<p>Because that identifier deliberately changes every day, a <strong>visit</strong> is " +
+    "one visitor on one day, and the figure for a window is the sum of its days — not a " +
+    "count of people. Someone who reads on ten days is ten visits. Following a reader " +
+    "across days would need a durable identifier, which this design refuses to keep.</p>" +
+    "<p>A <strong>page view</strong> is a successful page request. Styles, scripts, images, " +
+    "the admin console itself and the internal cache warm-up are not counted; a page request " +
+    "that returned an error is recorded but is not counted as a page view. " +
+    "<strong>API requests</strong> covers both the public API and connector traffic.</p>" +
+    "<p><strong>Automated hits</strong> — crawlers, uptime monitors, the platform " +
+    "healthcheck and anything sending no browser identification — are counted separately " +
+    "and excluded from every other figure here.</p>" +
+    "<p>These are estimates, not exact headcounts. A whole office behind one address on the " +
+    "same browser version counts as one visitor, while one person reading on a laptop and a " +
+    "phone counts as two.</p>" +
+    '<p class="muted">Visit log: ' + escapeHtml(String(d.log_files)) + " file" +
+    (d.log_files === 1 ? "" : "s") + ", " + escapeHtml(fmtBytes(d.log_bytes)) +
+    " on the data volume · " + escapeHtml(fmtCount(d.lines_read)) + " records read" +
+    (d.counting_since ? " · counting since " + escapeHtml(fmtDay(d.counting_since)) : "") +
+    (d.unreadable_lines
+      ? " · " + escapeHtml(fmtCount(d.unreadable_lines)) + " unreadable records skipped" : "") +
+    (d.truncated ? " · capped at the most recent records" : "") + "</p></div></details>";
+}
+
+function trafficChartCfg(d) {
+  // With only a day or two recorded, every reading is an isolated point: a
+  // line between neighbours that do not exist draws nothing at all.
+  var known = d.daily.filter(function (r) { return r.visitors !== null; }).length;
+  return {
+    series: [
+      { name: "Visitors", slot: 1,
+        points: d.daily.map(function (r) { return [r.date, r.visitors]; }) },
+      { name: "Page Views", slot: 2,
+        points: d.daily.map(function (r) { return [r.date, r.pageviews]; }) },
+    ],
+    dp: 0,
+    yAxisDp: 0,
+    yAxisMinInterval: 1,  // requests are whole things; no half-visitor gridlines
+    showPoints: known <= 14,
+    yAxisName: "Per Day",
+    isoPeriods: true,
+    trust: "derived",
+    sourceLine: "Japan Data Observatory — counted by the server from its own request log, " +
+      d.from + " to " + d.to + ". Not an official statistic.",
+  };
+}
+
+function wireTraffic(target, d, days) {
+  document.getElementById("traffic-refresh").addEventListener("click", function () {
+    viewTraffic(target, days);
+  });
+  var seg = document.getElementById("traffic-seg");
+  var btns = seg ? seg.querySelectorAll("button") : [];
+  for (var i = 0; i < btns.length; i++) {
+    btns[i].addEventListener("click", function () {
+      location.hash = "#traffic/" + this.getAttribute("data-days");
+    });
+  }
+
+  var box = document.getElementById("traffic-chart");
+  if (!box) return;
+  disposeTrafficChart();
+  trafficChart = obsChart(box, "line", trafficChartCfg(d));
+  var stem = "observatory-traffic-" + d.from + "-to-" + d.to;
+  document.getElementById("traffic-png").addEventListener("click", function () {
+    trafficChart.exportPNG(stem + ".png");
+  });
+  document.getElementById("traffic-csv").addEventListener("click", function () {
+    trafficChart.exportCSV(stem + ".csv", [
+      "Japan Data Observatory — internal traffic",
+      "Counted by the server from its own request log. Not an official statistic.",
+      "Window: " + d.from + " to " + d.to,
+      "Visitors = distinct address-and-browser hashes on that UTC day",
+      "The hash rotates daily by design, so days cannot be summed into people",
+      "Page views = successful page requests; assets and the admin console excluded",
+      "Automated hits (crawlers, monitors, healthchecks) excluded from both series",
+      "An empty cell is a day before counting began, which is not the same as zero",
+    ]);
+  });
 }
 
 /* ---------- audit log ---------- */

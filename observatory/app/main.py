@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.gzip import GZipMiddleware
 
-from . import cache, db, env
+from . import cache, db, env, visits
 
 # Before .api, which resolves the /ask provider from the environment.
 env.load()
@@ -89,6 +89,9 @@ app = FastAPI(title="Observatory", docs_url="/api/docs", openapi_url="/api/opena
 app.add_middleware(cache.ResponseCache,
                    version=lambda: (db.file_version(), equity_api.file_version()))
 app.add_middleware(GZipMiddleware, minimum_size=1024, compresslevel=5)
+# Outermost, so a reader served from the response cache is still counted: a
+# cache hit never reaches the routers. See app/visits.py.
+app.add_middleware(visits.VisitCounter)
 
 # Equity first: its literal /api/v1/equity/ paths must win over the core
 # router's /api/v1/{dataset}/ catch-alls. Governance and buyback ahead of

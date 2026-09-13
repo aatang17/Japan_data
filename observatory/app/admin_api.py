@@ -27,7 +27,7 @@ import duckdb
 from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel
 
-from . import db, filer_labels, parties
+from . import db, filer_labels, parties, visits
 from .api import ADAPTERS, health
 from .equity_api import DB_PATH as EQUITY_DB_PATH
 
@@ -319,6 +319,16 @@ def release_changes(dataset, release_id: int, request: Request):
 def audit_log(request: Request, limit: int = 200):
     _require_admin(request)
     return {"entries": _read_audit(max(1, min(limit, 1000)))}
+
+
+# --- traffic ------------------------------------------------------------------
+
+@router.get("/visits")
+def visit_summary(request: Request, days: int = 30):
+    """Readership counted by the server itself, from the append-only visit log
+    on the volume. See app/visits.py for what a "visitor" means here."""
+    _require_admin(request)
+    return visits.summary(days)
 
 
 # --- equity reads for the classification queue --------------------------------
