@@ -53,6 +53,10 @@ var NAV_SECTIONS = [
       // activity datasets: what the economy produced, and what companies
       // earned and invested doing it. They sit before the balance sheets.
       { id: "gdp", label: "GDP", href: "gdp.html" },
+      // Public finance sits beside the national accounts: the general
+      // account is one legal account of one tier of government, and the
+      // GFS view on the same page is the whole of it.
+      { id: "fiscal", label: "Public Finance", href: "fiscal.html" },
       { id: "corporate", label: "Corporate Finance", href: "corporate.html" },
       { id: "boj", label: "Bank of Japan", href: "boj.html" },
       // Banks sit beside the central bank: the FSA's bad-loan and earnings

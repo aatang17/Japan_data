@@ -415,6 +415,76 @@
     </div>
   </details>
 
+  <details class="ds" id="calc-fiscal-jp">
+    <summary><span>Public finances</span><span class="ds-note">MOF, Cabinet Office and MIC, fiscal-year and quarterly</span></summary>
+    <div class="ds-body">
+    <ul>
+      <li><b>Eight datasets, one page.</b> <code>fiscal-jp</code> is the central government's
+      general account from 1875; <code>fiscal-jp-revenue</code> its revenue heads from 1982;
+      <code>fiscal-jp-expenditure</code> its spending by the Ministry's major-expense
+      classification from 1967; <code>fiscal-jp-ministry</code> the same account by the body that
+      spends it, from 1877; <code>tax-receipts-jp</code> every national tax against budget from
+      2022; <code>govt-debt-jp</code> the quarterly debt stock; <code>govt-accounts-jp</code> the
+      whole of government on the IMF GFS basis from 1994; and <code>local-finance-jp</code> the
+      47 prefectures from 2002.</li>
+      <li><b>Budget and settlement are different measures and never share a series.</b> 予算額 is
+      what the Diet voted — the initial budget plus every supplementary passed during the year —
+      and 決算額 is what was finally collected and spent. Japan under-spends its budget in most
+      years. The settlement runs about two fiscal years behind the budget because a year's
+      accounts close roughly twenty months after it starts, so a settlement series ending earlier
+      than a budget series is the calendar, not a gap in the data.</li>
+      <li><b>Bond issuance is revenue.</b> 公債金 is a revenue head of Japan's general account, so
+      the published revenue total includes borrowing. Tax and borrowing are separate series and
+      are never merged.</li>
+      <li><b>A fiscal year is dated to the 1 April it begins on.</b> Before 明治19年度 (1886) the
+      Japanese fiscal year began in October and then in July, so that dating is a convention for
+      those years rather than a fact. The eight pre-1875 accounting periods (明治第1期 to 第8期)
+      run from four to fifteen months and are not fiscal years; they are in the Ministry's file
+      and deliberately not in the dataset.</li>
+      <li><b>Units.</b> The Ministry's fiscal tables are stored in ¥ million; Table 1 is published
+      in 円 to 1946 and 千円 from 1947 and is normalised on ingestion so the series does not
+      change unit mid-run, with the multiplier read from each sheet's own 単位 cell. The debt
+      statement is stored in ¥100mn, the national accounts in ¥ billion and the prefecture
+      accounts in ¥ thousand, each as published. Conversions to ¥tn or ¥bn on a page are exact
+      divisions and are stated wherever they appear.</li>
+      <li><b>Two revenue heads exist only in a footnote, and are ingested from it.</b> The
+      Ministry's 合計 includes bonds with no column of their own — the 1991 Gulf War 臨時特別公債,
+      the 減税特例公債, the 2011 復興債 and the 年金特例公債 — and Table 4 also carries receipts
+      from the 決算調整資金 in five years. They are parsed out of the note text and published as
+      their own series, which is why the printed heads reconcile to the printed total in every
+      year.</li>
+      <li><b>Where the source does not add up, the figures are published as printed.</b> Three
+      places in about 460 year-and-measure pairs do not reconcile in the Ministry's own files: the
+      fiscal 1973 予算現額 for 国債費 (an ¥11bn typo its own 差引額 column contradicts), the fiscal
+      1977 budget and fiscal 1978 settlement by ministry (¥8mn and ¥91mn on ¥29tn and ¥34tn), and
+      the fiscal 2026 revenue budget (¥732.5bn, unexplained). Nothing is silently corrected;
+      each is pinned so every other year stays checked to the yen.</li>
+      <li><b>Ministries are published under the name they had.</b> The 2001 reorganisation split
+      and merged ministries rather than renaming them, so 大蔵省 and 財務省 are two series, as are
+      厚生省, 労働省 and 厚生労働省. A body that appears in one year and not the next has ceased to
+      exist, not moved.</li>
+      <li><b>The general account is not "the government".</b> It is one legal account of the
+      central government. <code>govt-accounts-jp</code> consolidates central government, local
+      government and the social security funds and nets out the transfers between them; the
+      consolidation (部門間調整) is published as its own series so that central + local + social
+      security + consolidation = general government is visible and checked on every line of every
+      year. Net lending and the operating balances are the Cabinet Office's own balancing items,
+      taken from the source rather than derived by subtracting one series from another.</li>
+      <li><b>Rolling windows are stitched, not truncated.</b> The debt statement publishes only
+      the last five years in one file, one quarter arriving and the oldest leaving. Every edition
+      is archived and read together, newest edition winning where two cover the same quarter, so
+      the history grows rather than shrinking.</li>
+      <li><b>Not ingested.</b> Table 19(1) (fiscal 1949–1984) uses the older 重要経費 vocabulary
+      and needs its own mapping; the line items beneath each major-expense heading are re-cut by
+      the Ministry every few years and only the headings are comparable across the run; the GFS
+      revaluation, other-volume-change and closing balance-sheet blocks are stocks rather than
+      operations; municipalities have their own MIC survey and are not in the prefecture dataset;
+      and tax receipts before fiscal 2022 sit in the National Diet Library's WARP archive, which
+      refuses our requests.</li>
+    </ul>
+    </div>
+  </details>
+
   <details class="ds" id="calc-jgb">
     <summary><span>JGB yield curve</span><span class="ds-note">MOF constant-maturity par yields</span></summary>
     <div class="ds-body">

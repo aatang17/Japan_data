@@ -205,6 +205,10 @@ DESCRIPTIONS = {
     "gdp.html":
         "Japan's quarterly GDP and its expenditure components, from Cabinet Office national "
         "accounts.",
+    "fiscal.html":
+        "Japan's public finances — the general account budget and settlement since 1875, tax "
+        "receipts against budget, spending by policy purpose and ministry, government debt, the "
+        "whole of government on the IMF GFS basis, and all 47 prefectures.",
     "semis.html":
         "Japan's semiconductor trade — exports and imports by partner country and product, "
         "monthly, from Ministry of Finance customs data.",

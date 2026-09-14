@@ -65,6 +65,7 @@ SECTIONS = [
     {"id": "tourism", "label": "Tourism"},
     {"id": "demography", "label": "Demography"},
     {"id": "national-accounts", "label": "National accounts"},
+    {"id": "fiscal", "label": "Public finance"},
     {"id": "corporate", "label": "Corporate"},
     {"id": "trade", "label": "Trade"},
     {"id": "ownership", "label": "Ownership"},

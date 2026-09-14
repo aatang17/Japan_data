@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Public Finance · Japan Data Observatory</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+
+<header class="site-header" data-section="macro" data-page="fiscal"></header>
+<script src="assets/nav.js"></script>
+
+<main class="container">
+  <div id="stale-banner"></div>
+
+  <div class="metric-card">
+    <div class="metric-card-head">
+      <h1>Japan's Public Finances — What the Government Takes In, Spends and Owes</h1>
+      <span class="metric-asof" id="page-asof"></span>
+      <p class="metric-sub" id="page-sub"><span class="skeleton" style="display:inline-block;width:420px;height:14px"></span></p>
+    </div>
+    <div class="strip">
+      <div class="strip-grid cols-4" id="tiles">
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+      </div>
+    </div>
+    <p class="strip-foot" id="strip-foot"></p>
+    <details class="calc" id="strip-calc"></details>
+  </div>
+
+  <section aria-labelledby="h-account">
+    <h2 id="h-account">General Account — Budget and Settlement <span class="h2-note" id="account-note"></span></h2>
+    <p class="section-sub">The central government's main account by fiscal year. 予算額 is what the
+    Diet voted, initial budget plus every supplementary; 決算額 is what was collected and spent.
+    Japan under-spends its budget in most years, so the two are carried separately and never
+    netted. The settlement runs about two years behind the budget: a year's accounts close roughly
+    twenty months after it starts.</p>
+    <div class="chart-panel">
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Date range" id="account-range">
+        <button type="button" data-range="post" aria-pressed="true">Since 1946</button>
+        <button type="button" data-range="max">Since 1875</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="account-png">Download PNG</button>
+      <button type="button" class="btn" id="account-csv">Download CSV</button>
+    </div>
+    <div class="chart" id="account-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="account-source"></p>
+    <details class="calc" id="account-calc"></details>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-revenue">
+    <h2 id="h-revenue">Revenue by Head <span class="h2-note" id="revenue-note"></span></h2>
+    <p class="section-sub">Where the general account's money comes from. Bond issuance (公債金) is
+    booked as revenue in Japan's general account, which is why headline "revenue" and the tax take
+    differ by tens of trillions of yen. Borrowing is its own line here and is never merged with
+    tax.</p>
+    <div class="chart-panel">
+    <div class="controls">
+      <label for="revenue-measure">Measure</label>
+      <select id="revenue-measure" aria-label="Measure"></select>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="revenue-png">Download PNG</button>
+      <button type="button" class="btn" id="revenue-csv">Download CSV</button>
+    </div>
+    <div class="chart" id="revenue-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="revenue-source"></p>
+    <details class="calc" id="revenue-calc"></details>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-tax">
+    <h2 id="h-tax">National Tax Receipts — Budget vs Outturn <span class="h2-note" id="tax-note"></span></h2>
+    <p class="section-sub">Every national tax, what the supplementary budget assumed and what was
+    actually collected. The outturn has beaten the budget in every year published. The general
+    account's taxes are listed first; the reference block below them is collected nationally but
+    funds local government or a special account, and the two blocks are never summed except by the
+    Ministry's own 総計.</p>
+    <div class="controls">
+      <label for="tax-year">Fiscal year</label>
+      <select id="tax-year" aria-label="Fiscal year"></select>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="tax-csv">Download CSV</button>
+    </div>
+    <div class="table-wrap" id="tax-table"><div class="skeleton" style="width:100%;height:300px"></div></div>
+    <p class="table-foot" id="tax-foot"></p>
+    <details class="calc" id="tax-calc"></details>
+  </section>
+
+  <section aria-labelledby="h-spend">
+    <h2 id="h-spend">Spending by Policy Purpose <span class="h2-note" id="spend-note"></span></h2>
+    <p class="section-sub">The Ministry's own major-expense classification. Social security, debt
+    service and the local allocation tax grant together take about three-quarters of the account
+    before anything discretionary is paid. The five measures are different numbers and are never
+    merged: what was voted in March, what the supplementaries changed, what was finally available
+    after carry-overs, and what was actually spent.</p>
+    <div class="chart-panel">
+    <div class="controls">
+      <label for="spend-measure">Measure</label>
+      <select id="spend-measure" aria-label="Measure"></select>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="spend-png">Download PNG</button>
+      <button type="button" class="btn" id="spend-csv">Download CSV</button>
+    </div>
+    <div class="chart" id="spend-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="spend-source"></p>
+    <details class="calc" id="spend-calc"></details>
+    </div>
+
+    <h3 id="h-ministry">Spending by Ministry</h3>
+    <p class="section-sub">The same account split by the body that spends it. Every ministry is
+    published under the name it had, so the 2001 reorganisation reads as series ending and series
+    beginning — 大蔵省 and 財務省 are two bodies, not one renamed.</p>
+    <div class="controls">
+      <label for="ministry-year">Fiscal year</label>
+      <select id="ministry-year" aria-label="Fiscal year"></select>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="ministry-csv">Download CSV</button>
+    </div>
+    <div class="table-wrap" id="ministry-table"><div class="skeleton" style="width:100%;height:260px"></div></div>
+    <p class="table-foot" id="ministry-foot"></p>
+    <details class="calc" id="ministry-calc"></details>
+  </section>
+
+  <section aria-labelledby="h-debt">
+    <h2 id="h-debt">Central Government Debt Outstanding <span class="h2-note" id="debt-note"></span></h2>
+    <p class="section-sub">Everything the central government owes at the end of each quarter:
+    government bonds split into general bonds and the FILP bonds, borrowings, and the financing
+    bills that cover day-to-day cash. Stocks at quarter end, dated to the first day of the closing
+    month.</p>
+    <div class="chart-panel">
+    <div class="controls">
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="debt-png">Download PNG</button>
+      <button type="button" class="btn" id="debt-csv">Download CSV</button>
+    </div>
+    <div class="chart" id="debt-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="debt-source"></p>
+    <details class="calc" id="debt-calc"></details>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-gg">
+    <h2 id="h-gg">General Government — GFS Basis <span class="h2-note" id="gg-note"></span></h2>
+    <p class="section-sub">The whole of government on the IMF's Government Finance Statistics
+    classification — central government, local government and the social security funds, with the
+    transfers between them netted out. This is the basis international comparisons use, and the
+    only one on which Japan's deficit means anything: the general account above is one legal
+    account of one tier of government.</p>
+    <div class="chart-panel">
+    <div class="controls">
+      <label for="gg-sector">Sector</label>
+      <select id="gg-sector" aria-label="Sector"></select>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="gg-png">Download PNG</button>
+      <button type="button" class="btn" id="gg-csv">Download CSV</button>
+    </div>
+    <div class="chart" id="gg-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="gg-source"></p>
+    <details class="calc" id="gg-calc"></details>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-pref">
+    <h2 id="h-pref">Prefecture Finances <span class="h2-note" id="pref-note"></span></h2>
+    <p class="section-sub">The settled accounts of all 47 prefectures. 実質収支 (the real balance)
+    takes out the money already committed to next year's carried-over projects, and it is the
+    figure the fiscal-health rules key off — not the raw difference between revenue and
+    expenditure.</p>
+    <div class="controls">
+      <label for="pref-year">Fiscal year</label>
+      <select id="pref-year" aria-label="Fiscal year"></select>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="pref-csv">Download CSV</button>
+    </div>
+    <div class="table-wrap" id="pref-table"><div class="skeleton" style="width:100%;height:360px"></div></div>
+    <p class="table-foot" id="pref-foot"></p>
+    <details class="calc" id="pref-calc"></details>
+  </section>
+
+  <section aria-label="Data sources and provenance" class="prov">
+    <div id="prov-cards"></div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="inner">
+    <span id="credit-line">Source: Ministry of Finance (財政統計; 租税及び印紙収入決算額調; 国債及び借入金並びに政府保証債務現在高), Cabinet Office (国民経済計算) and Ministry of Internal Affairs and Communications (都道府県決算状況調).</span>
+    Amounts are official figures as published; shares and changes are calculated from them.
+    <a href="methodology.html#calc-fiscal-jp">Methodology</a>
+  </div>
+</footer>
+
+<script src="assets/echarts.min.js"></script>
+<script src="assets/format.js"></script>
+<script src="assets/charts.js"></script>
+<script src="assets/sortable.js"></script>
+<script src="assets/fiscal.js"></script>
+</body>
+</html>
