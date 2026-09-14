@@ -901,7 +901,16 @@ def series_list(dataset, q: str = Query("", max_length=200,
     matching `q`. Use it to find the codes that /observations takes."""
     adapter = _dataset_or_404(dataset)
     main = (adapter.PRESENTATION.get("main_series") or [{}])[0]
-    if "name_ja" not in main and adapter.PRESENTATION.get("kinds"):
+    if "name_ja" not in main:
+        # Every levels-and-flows dataset serves this listing. It used to be
+        # gated on the dataset also declaring PRESENTATION["kinds"], which is
+        # only a per-series label for the front end: thirteen datasets —
+        # every trade slice, the yield curve, arrivals, the three population
+        # datasets, the bank statements — answered 404 here purely for not
+        # having filled that dict in, while the same series were findable
+        # through the MCP search tool, which reads the table directly. The
+        # kind is optional and comes back null where it is not declared.
+        #
         # A dataset of tens of thousands of series (every bank's every
         # statement line) declares series_requires_query: the listing is a
         # search, not a dump, and the unqualified form is refused rather

@@ -69,14 +69,18 @@ class ProtocolTest(Base):
             os.environ["MCP_TOOLSET"] = ts
             _, body = rpc(self.client, "tools/list")
             counts[ts] = [t["name"] for t in body["result"]["tools"]]
-        # Six generic tools over the registry, plus the two cohort tools —
-        # which are not per-dataset and so could never be one of the six.
-        self.assertEqual(len(counts["v2"]), 8)
+        # v2 advertises exactly what it implements — the generic tools over
+        # the registry plus the cohort pair, which are not per-dataset.
         self.assertEqual(sorted(counts["v2"]), sorted(tools_v2.IMPLS))
         self.assertNotIn("get_series", counts["v1"])
-        # `both` is the union of the two surfaces, not their concatenation.
+        # `both` is v2 plus only the v1 tools v2 cannot answer. The rest are
+        # still DISPATCHED (see test_superseded_v1_names_still_answer) but
+        # not advertised: a catalogue with a dozen spellings of the same
+        # question costs the assistant accuracy on every call.
         self.assertEqual(set(counts["both"]),
-                         set(counts["v1"]) | set(counts["v2"]))
+                         set(counts["v2"]) | (set(counts["v1"]) - mcp.SUPERSEDED_BY_V2))
+        self.assertTrue(set(counts["both"]) < set(counts["v1"]) | set(counts["v2"]))
+        self.assertIn("check_claim", counts["both"])   # the one with no v2 equivalent
         # A name the surfaces share is advertised once. Duplicates in
         # tools/list make a client shadow or reject an entry, and the two
         # descriptors differ, so the wrong one can win.
@@ -85,9 +89,25 @@ class ProtocolTest(Base):
                              "duplicate tool name advertised under %s" % ts)
         self.assertIn("list_datasets", set(counts["v1"]) & set(counts["v2"]))
 
+    def test_superseded_v1_names_still_answer(self):
+        """Dropped from the catalogue, kept on the wire.
+
+        A connector that cached the old tool list must not break because the
+        listing got shorter, so every superseded name still dispatches under
+        `both` — it is only no longer advertised.
+        """
+        os.environ["MCP_TOOLSET"] = "both"
+        advertised = set(t["name"] for t in mcp._tools_for("both"))
+        for name in ("get_yield_curve", "get_boj_balance_sheet"):
+            self.assertNotIn(name, advertised)
+            data, is_err = call(self.client, name)
+            self.assertFalse(is_err, data)
+
     def test_v1_tools_refused_under_v2_and_vice_versa(self):
         os.environ["MCP_TOOLSET"] = "v2"
-        err, _ = call(self.client, "get_overview")
+        # A v1-only name — get_overview is a v2 tool now, generic over every
+        # series dataset rather than cpi-jp alone.
+        err, _ = call(self.client, "get_boj_balance_sheet")
         self.assertEqual(err["code"], -32602)
         os.environ["MCP_TOOLSET"] = "v1"
         data, is_err = call(self.client, "list_datasets")  # a v1 name too — routes to v1
@@ -113,9 +133,18 @@ class ProtocolTest(Base):
         self.assertEqual(body["error"]["code"], -32002)
 
     def test_descriptor_enums_are_the_live_ids(self):
+        # Generated from the registry, never hardcoded — and narrowed to the
+        # datasets this deployment can actually answer for. A registered
+        # manifest with no data here (the US shelf without the SEC quarter
+        # files) used to sit in every enum and reply "not published yet".
         d = dict((t["name"], t) for t in tools_v2.descriptors())
+        live = [i for i in registry.ids() if registry.available(i)]
         self.assertEqual(d["describe_dataset"]["inputSchema"]["properties"]["dataset"]["enum"],
-                         registry.ids())
+                         live)
+        for t in d.values():
+            enum = t["inputSchema"]["properties"].get("dataset", {}).get("enum")
+            if enum:
+                self.assertTrue(set(enum) <= set(live))
         for t in d.values():
             self.assertTrue(t["annotations"]["readOnlyHint"])
 
@@ -181,9 +210,64 @@ class ToolTest(Base):
         self.assertEqual(data["series"][0]["dataset"], "cpi-jp")
 
     def test_screen_rejects_unknown_sort_with_the_valid_list(self):
-        data, err = call(self.client, "screen", dataset="cpi-jp")
+        # A company dataset answers with its own screen ids.
+        data, err = call(self.client, "screen", dataset="cross-shareholdings",
+                         sort="not-a-screen")
         self.assertTrue(err)
-        self.assertIn("no screens", data["error"])
+        self.assertIn("Unknown sort", data["error"])
+        # A series dataset is ranked on the columns its listing publishes,
+        # and an unknown one answers with those.
+        data, err = call(self.client, "screen", dataset="cpi-jp", sort="not-a-column")
+        self.assertTrue(err)
+        self.assertIn("Unknown sort", data["error"])
+
+    def test_screen_ranks_a_series_dataset(self):
+        data, err = call(self.client, "screen", dataset="cpi-jp", limit=5)
+        self.assertFalse(err, data)
+        self.assertIn(data["data"]["sort"], data["data"]["ranked_on"])
+        self.assertLessEqual(len(data["data"]["rows"]), 5)
+        values = [r[data["data"]["sort"]] for r in data["data"]["rows"]]
+        self.assertEqual(values, sorted(values, reverse=True))
+
+    def test_get_overview_is_generic_over_series_datasets(self):
+        data, err = call(self.client, "get_overview", dataset="cpi-jp")
+        self.assertFalse(err, data)
+        self.assertEqual(data["tool"], "get_overview")
+        self.assertTrue(data["data"])
+        # Not an index dataset, and still served — this is the gap the v1
+        # cpi-only tool left.
+        data, err = call(self.client, "get_overview", dataset="boj-assets")
+        self.assertFalse(err, data)
+
+    def test_get_vintages_lists_releases_and_revisions(self):
+        data, err = call(self.client, "get_vintages", dataset="cpi-jp")
+        self.assertFalse(err, data)
+        self.assertEqual(data["data"]["mode"], "releases")
+        self.assertTrue(data["data"]["releases"])
+        data, err = call(self.client, "get_vintages", dataset="cpi-jp", series="0001")
+        self.assertFalse(err, data)
+        self.assertEqual(data["data"]["mode"], "revisions")
+
+    def test_get_breakdown_lists_its_cuts_then_serves_one(self):
+        data, err = call(self.client, "get_breakdown", dataset="cpi-jp")
+        self.assertFalse(err, data)
+        cuts = [c["cut"] for c in data["cuts"]]
+        self.assertIn("contributions", cuts)
+        data, err = call(self.client, "get_breakdown", dataset="cpi-jp",
+                         cut="contributions")
+        self.assertFalse(err, data)
+        self.assertEqual(data["data"]["cut"], "contributions")
+        # An argument the cut does not take is refused by name, never dropped.
+        data, err = call(self.client, "get_breakdown", dataset="cpi-jp",
+                         cut="contributions", area="13")
+        self.assertTrue(err)
+        self.assertIn("area", data["error"])
+
+    def test_get_series_cites_the_dataset_page_not_the_cpi_explorer(self):
+        data, err = call(self.client, "get_series", dataset="jgb-yields", series="10Y")
+        self.assertFalse(err, data)
+        self.assertNotIn("/explorer.html", data["cite"])
+        self.assertIn(registry.get("jgb-yields")["page"].lstrip("/"), data["cite"])
 
 
 @unittest.skipUnless(EQUITY, "equity database not present")

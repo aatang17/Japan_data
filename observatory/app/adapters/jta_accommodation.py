@@ -1588,11 +1588,12 @@ MANIFEST = {
     ],
     "endpoints": {
         "series": "/api/v1/%s/observations" % DATASET["slug"],
+        "search": "/api/v1/%s/series" % DATASET["slug"],
         "accommodation": "/api/v1/%s/accommodation" % DATASET["slug"],
         "releases": "/api/v1/%s/releases" % DATASET["slug"],
         "revisions": "/api/v1/%s/revisions" % DATASET["slug"],
     },
-    "capabilities": ["series"],
+    "capabilities": ["series", "search"],
     "cite": "/accommodation.html",
     "page": "/accommodation.html",
     "notes": [

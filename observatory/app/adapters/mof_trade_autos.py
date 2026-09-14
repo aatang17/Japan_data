@@ -185,7 +185,7 @@ MANIFEST = {
          "unit": "JPY_thousand", "trust": "derived", "calc": BALANCE_CALC},
     ],
     "endpoints": mof_trade.endpoints(DATASET["slug"]),
-    "capabilities": ["series"],
+    "capabilities": ["series", "search"],
     "cite": "/autos.html",
     "page": "/autos.html",
     "notes": [

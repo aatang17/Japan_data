@@ -198,6 +198,46 @@ def _toolset():
     return v if v in ("v1", "v2", "both") else "both"
 
 
+# v1 tools the v2 surface now answers in full. They are still DISPATCHED —
+# a connector that cached the old catalogue keeps working — but they are no
+# longer advertised, because a list of thirty-odd tools where a dozen are
+# other spellings of each other costs an assistant context and accuracy on
+# every call.
+#
+#   search_series, search_companies        -> search
+#   get_series_values                      -> get_series
+#   get_overview                           -> get_overview (generic, all datasets)
+#   get_contributions, get_breadth,
+#   get_arrivals, get_arrivals_ranking,
+#   get_yield_curve                        -> get_breakdown
+#   get_boj_balance_sheet                  -> get_overview / get_series
+#   get_holdings_summary, get_company_holdings,
+#   get_unwind_ranking                     -> get_company / screen (cross-shareholdings)
+#   get_governance_summary, get_company_board,
+#   get_board_history, get_governance_screen,
+#   get_top_paid_officers                  -> get_company / screen (boards-and-pay)
+#   get_financials, get_financial_statement,
+#   get_financials_screen, get_financial_metrics,
+#   screen_financial_metrics               -> get_company / screen / compare_cohort
+#
+# check_claim is deliberately absent: it is the one v1 tool with no v2
+# equivalent, so it stays on the advertised list.
+SUPERSEDED_BY_V2 = frozenset((
+    "search_series", "search_companies", "get_series_values", "get_overview",
+    "get_contributions", "get_breadth", "get_arrivals", "get_arrivals_ranking",
+    "get_yield_curve", "get_boj_balance_sheet",
+    "get_holdings_summary", "get_company_holdings", "get_unwind_ranking",
+    "get_governance_summary", "get_company_board", "get_board_history",
+    "get_governance_screen", "get_top_paid_officers",
+    "get_financials", "get_financial_statement", "get_financials_screen",
+    "get_financial_metrics", "screen_financial_metrics",
+    # The US shelf, the same way: search / get_company / screen reach it
+    # through dataset="sec-financials" whenever this deployment has it.
+    "search_us_companies", "get_us_financials", "get_us_financial_statement",
+    "get_us_facts", "screen_us_financials",
+))
+
+
 def _tools_for(toolset):
     """The advertised tool list, with each name appearing exactly once.
 
@@ -206,6 +246,12 @@ def _tools_for(toolset):
     shadow one entry, or reject the list outright. First wins, and v2 is
     listed first, so the descriptor advertised is the implementation
     tools/call would actually run for that name.
+
+    Under `both` the v1 tools that v2 has replaced are also dropped from the
+    listing — not from dispatch. Advertising and answering are separate
+    questions: an old connector calling `get_yield_curve` still gets its
+    answer, while a new one is not asked to choose between five tools that
+    do the same thing.
     """
     out, seen = [], set()
     groups = []
@@ -213,9 +259,12 @@ def _tools_for(toolset):
         groups.append(tools_v2.descriptors())
     if toolset in ("v1", "both"):
         groups.append(_current_tools())
-    for group in groups:
+    for index, group in enumerate(groups):
+        v1_group = toolset == "both" and index == len(groups) - 1
         for tool in group:
             if tool["name"] in seen:
+                continue
+            if v1_group and tool["name"] in SUPERSEDED_BY_V2:
                 continue
             seen.add(tool["name"])
             out.append(tool)

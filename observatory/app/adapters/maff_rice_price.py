@@ -617,10 +617,11 @@ MANIFEST = {
     ],
     "endpoints": {
         "series": "/api/v1/%s/observations" % DATASET["slug"],
+        "search": "/api/v1/%s/series" % DATASET["slug"],
         "releases": "/api/v1/%s/releases" % DATASET["slug"],
         "revisions": "/api/v1/%s/revisions" % DATASET["slug"],
     },
-    "capabilities": ["series"],
+    "capabilities": ["series", "search"],
     "cite": "/rice.html?dataset=rice-prices-jp",
     "page": "/rice.html",
     "notes": [

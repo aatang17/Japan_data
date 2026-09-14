@@ -706,6 +706,13 @@ def validate(series, observations):
 
 
 PRESENTATION = {
+    # Every municipality x every age band x every sex: 584,781 series. An
+    # unqualified listing is a 198MB response and forty-seven seconds of
+    # work, so it is refused and the caller passes ?q= — the same rule the
+    # bank statements use. Until the /series surface was opened to every
+    # levels dataset this was hidden behind an unrelated gate, and the boot
+    # cache warm-up walked straight into it.
+    "series_requires_query": True,
     "credit_line": ("Source: Ministry of Internal Affairs and Communications, "
                     "Japan — Basic Resident Register."),
     "stale_after_days": 600,
@@ -781,11 +788,12 @@ MANIFEST = {
     ],
     "endpoints": {
         "series": "/api/v1/%s/observations" % DATASET["slug"],
+        "search": "/api/v1/%s/series" % DATASET["slug"],
         "prefectures": "/api/v1/%s/prefectures" % DATASET["slug"],
         "releases": "/api/v1/%s/releases" % DATASET["slug"],
         "revisions": "/api/v1/%s/revisions" % DATASET["slug"],
     },
-    "capabilities": ["series"],
+    "capabilities": ["series", "search"],
     "cite": "/population.html",
     "page": "/population.html",
     "notes": [

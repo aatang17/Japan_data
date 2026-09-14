@@ -581,8 +581,10 @@ def get_series(dataset, series, measure="index", start="", end="", as_of="",
         {"measure": measure, "unit": raw["unit"], "trust": trust,
          "from": from_month, "to": end or rel["latest_period"], "series": out},
         calc={measure: raw["calc"]}, vintage=vintage,
-        cite=_cite("/explorer.html", dataset=dataset, series=codes, measure=measure,
-                   **{"from": from_month, "to": end, "as_of": as_of}),
+        # The dataset's own page, from its manifest — /explorer.html was
+        # hardcoded here and only ever knew the CPI item tables, so every
+        # other series dataset cited a page that cannot render it.
+        cite=_cite_for(m, dataset=dataset) if m.get("cite") else _cite("/"),
         coverage={"from": rel.get("coverage_start"), "to": rel["latest_period"]},
         truncated={"points": "trimmed to the most recent %d" % POINT_BUDGET} if cut else None))
 
@@ -596,6 +598,12 @@ def screen(dataset, sort="", filters=None, limit=ROW_BUDGET, as_of=""):
     m, err = _manifest_or_fail(dataset)
     if err:
         return err
+    # A series dataset has no hand-written screens; it is ranked on the
+    # numeric columns its own series listing publishes.
+    if m["shape"] == "series":
+        if not registry.available(dataset):
+            return _unavailable(m)
+        return _screen_series(m, dataset, sort, filters, limit)
     screens = m.get("screens", [])
     if "screen" not in m["capabilities"] or not screens:
         return _fail("%s has no screens; datasets with screens: %s"
@@ -686,6 +694,259 @@ def compare_cohort(cohort, metric="roe_pct", highlight="", order="desc",
 # Registry of tools, and their MCP descriptors
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Vintages, the headline reading, and the cuts a dataset serves beyond series
+# ---------------------------------------------------------------------------
+
+# PRESENTATION key that gates the surface -> (api function name, selector
+# argument, one line saying what the cut answers). These are the endpoints
+# under /api/v1/{dataset}/ that are not /observations: each is one dataset
+# family's own extra cut of the same release, and each had no tool at all
+# before — an assistant could read a trade dataset's series one code at a
+# time but could not ask for a commodity's partner breakdown, which is the
+# question the dataset exists to answer.
+BREAKDOWNS = {
+    "groups_ja": ("contributions", None,
+                  "each major group's contribution, in percentage points, to the "
+                  "headline year-on-year rate"),
+    "breadth": ("breadth", None,
+                "how widely prices are rising: the share of individually priced "
+                "items above and below a year-on-year threshold"),
+    "curve": ("curve", None,
+              "the whole published yield curve — every date by every maturity"),
+    "arrivals": ("arrivals", None,
+                 "arrivals by market with the hierarchy that relates them"),
+    "trade": ("trade", "commodity",
+              "one commodity's trade with every partner country, plus world "
+              "totals for every commodity"),
+    "accommodation": ("accommodation", "area",
+                      "one area's guest nights and occupancy in full, with the "
+                      "backbone for all 58 areas"),
+    "prefectures": ("prefectures", "prefecture",
+                    "every prefecture by every measure and period, with the "
+                    "geography a map needs"),
+}
+# Arguments a caller may pass through to a cut, by the api function that takes
+# them. Anything else is refused by name rather than silently dropped.
+_BREAKDOWN_ARGS = {
+    "contributions": ("start", "end"),
+    "breadth": ("threshold",),
+    "curve": (),
+    "arrivals": (),
+    "trade": ("flow", "commodity"),
+    "accommodation": ("area",),
+    "prefectures": ("prefecture",),
+}
+
+
+def _breakdowns_for(dataset):
+    """[(cut id, api function, what it answers)] the dataset actually serves."""
+    adapter = api.ADAPTERS.get(dataset)
+    if adapter is None:
+        return []
+    pres = adapter.PRESENTATION
+    out = []
+    for key, (fn, _sel, what) in BREAKDOWNS.items():
+        if not pres.get(key):
+            continue
+        # Contributions need the headline as well as the groups.
+        if fn == "contributions" and not pres.get("main_series"):
+            continue
+        out.append((fn, fn, what))
+    return out
+
+
+def get_vintages(dataset, series="", period=""):
+    """The release history of a dataset, or how one series has been revised.
+
+    The point-in-time store is the platform's reason to exist and it was the
+    one thing the tool surface could not reach: `as_of` on get_series reads
+    the data as it stood, but nothing could say which vintages exist or what
+    changed between them — while every dataset card advertised /releases and
+    /revisions as endpoints.
+    """
+    args = {"dataset": dataset, "series": series or None, "period": period or None}
+    _record("get_vintages", args)
+    m, err = _manifest_or_fail(dataset)
+    if err:
+        return err
+    if not registry.available(dataset):
+        return _unavailable(m)
+    try:
+        if series:
+            raw = call_api(api.revisions, dataset=dataset, series=series.strip(),
+                           period=period or None)
+            data = {"mode": "revisions", "series": series.strip(),
+                    "period": period or None, "revisions": raw}
+            calc = raw.get("calc") if isinstance(raw, dict) else None
+        else:
+            raw = call_api(api.releases, dataset=dataset)
+            rows = raw["releases"] if isinstance(raw, dict) and "releases" in raw else raw
+            cut = _budget(rows, ROW_BUDGET)
+            data = {"mode": "releases", "count": len(rows), "releases": rows}
+            calc = None
+    except Exception as exc:  # noqa: BLE001
+        _record("get_vintages", args, note="failed")
+        return _fail(_detail(exc))
+    return _dumps(_envelope(
+        "get_vintages", m, data,
+        calc=calc if calc else {"releases": "Accepted releases as recorded at ingest, "
+                                            "newest first. Not computed."},
+        cite=_cite_for(m, dataset=dataset) if m.get("cite") else None))
+
+
+def get_overview(dataset):
+    """A dataset's headline reading — the tiles its own page leads with.
+
+    The v1 tool of this name served cpi-jp alone; every other series dataset
+    had no way to ask 'what is the current reading' short of pulling raw
+    series and doing the arithmetic. This dispatches to the same function
+    that serves /api/v1/{dataset}/overview, so it covers whichever shape the
+    dataset is — index tiles or published levels.
+    """
+    args = {"dataset": dataset}
+    _record("get_overview", args)
+    m, err = _manifest_or_fail(dataset)
+    if err:
+        return err
+    if m["shape"] != "series":
+        return _fail("%s is a %s dataset; get_overview is for series datasets. "
+                     "Use get_company or screen." % (dataset, m["shape"]))
+    if not registry.available(dataset):
+        return _unavailable(m)
+    try:
+        raw = call_api(api.overview, dataset=dataset)
+    except Exception as exc:  # noqa: BLE001
+        _record("get_overview", args, note="failed")
+        return _fail(_detail(exc))
+    rel = raw.get("release") or {}
+    _record("get_overview", args, rel)
+    data = dict((k, v) for k, v in raw.items() if k not in ("release", "dataset"))
+    return _dumps(_envelope(
+        "get_overview", m, data,
+        calc=raw.get("calc") or _calc(m),
+        vintage={"unit": "release", "basis": "release-in-force", "as_of": None,
+                 "release_id": rel.get("release_id"), "label": rel.get("label"),
+                 "latest_period": rel.get("latest_period"),
+                 "published_at": rel.get("ingested_at"),
+                 "source_sha256": rel.get("sha256")},
+        cite=_cite_for(m, dataset=dataset) if m.get("cite") else None,
+        coverage={"from": rel.get("coverage_start"), "to": rel.get("latest_period")}))
+
+
+def get_breakdown(dataset, cut="", **params):
+    """One of the dataset's own cuts: contributions, breadth, the curve,
+    arrivals, a commodity's partners, an area's guest nights, the prefectures.
+
+    With no `cut`, answers with the ones this dataset serves rather than
+    failing, so a caller can correct itself in one step.
+    """
+    args = dict({"dataset": dataset, "cut": cut or None}, **params)
+    _record("get_breakdown", args)
+    m, err = _manifest_or_fail(dataset)
+    if err:
+        return err
+    available = _breakdowns_for(dataset)
+    if not available:
+        return _fail("%s serves no breakdown beyond its series; use get_series." % dataset)
+    names = [c for c, _fn, _w in available]
+    if not cut:
+        return _dumps({"tool": "get_breakdown", "dataset": dataset,
+                       "cuts": [{"cut": c, "answers": w} for c, _fn, w in available],
+                       "note": "Pass one of these as `cut`."})
+    if cut not in names:
+        return _fail("%s has no %r breakdown; it serves: %s"
+                     % (dataset, cut, ", ".join(names)))
+    if not registry.available(dataset):
+        return _unavailable(m)
+    allowed = _BREAKDOWN_ARGS.get(cut, ())
+    extra = [k for k in params if k not in allowed]
+    if extra:
+        return _fail("%r takes %s; got %s"
+                     % (cut, ", ".join(allowed) or "no arguments", ", ".join(sorted(extra))))
+    kwargs = dict((k, v) for k, v in params.items() if v not in ("", None))
+    try:
+        raw = call_api(getattr(api, cut), dataset=dataset, **kwargs)
+    except Exception as exc:  # noqa: BLE001
+        _record("get_breakdown", args, note="failed")
+        return _fail(_detail(exc))
+    rel = raw.get("release") if isinstance(raw, dict) else None
+    data = dict((k, v) for k, v in raw.items()
+                if k not in ("release", "dataset")) if isinstance(raw, dict) else raw
+    _record("get_breakdown", args, rel or {})
+    return _dumps(_envelope(
+        "get_breakdown", m, dict(data, cut=cut) if isinstance(data, dict) else data,
+        calc=(raw.get("calc") if isinstance(raw, dict) else None) or _calc(m),
+        vintage={"unit": "release", "basis": "release-in-force", "as_of": None,
+                 "release_id": (rel or {}).get("release_id"),
+                 "label": (rel or {}).get("label"),
+                 "latest_period": (rel or {}).get("latest_period"),
+                 "published_at": (rel or {}).get("ingested_at"),
+                 "source_sha256": (rel or {}).get("sha256")} if rel else None,
+        cite=_cite_for(m, dataset=dataset) if m.get("cite") else None))
+
+
+# Numeric columns a series listing carries, and so the sorts a series-shaped
+# dataset can be ranked on. Which exist depends on the dataset's shape; the
+# tool reports the ones actually present rather than guessing.
+SERIES_SORTS = ("latest", "delta_1m", "delta_12m", "avg_12m", "sum_12m",
+                "yoy", "mom", "ann3m", "weight")
+
+
+def _screen_series(m, dataset, sort, filters, limit):
+    """Rank every series in a series dataset by one of its own columns.
+
+    `screen` covered the ten company and events datasets only, so 'which
+    prefecture has the worst real balance' or 'which item is rising fastest'
+    had no tool — the caller had to pull series one batch at a time and sort
+    them itself, which is both slow and a place to get the arithmetic wrong.
+    This ranks the same listing /api/v1/{dataset}/series publishes.
+    """
+    q = str((filters or {}).get("q") or "")
+    order = str((filters or {}).get("order") or "desc").lower()
+    if order not in ("desc", "asc"):
+        return _fail("order must be desc or asc.")
+    try:
+        raw = call_api(api.series_list, dataset=dataset, q=q)
+    except Exception as exc:  # noqa: BLE001
+        return _fail(_detail(exc))
+    rows = raw.get("series", [])
+    present = [c for c in SERIES_SORTS
+               if any(isinstance(r.get(c), (int, float)) for r in rows)]
+    if not present:
+        return _fail("%s publishes no numeric column to rank on." % dataset)
+    sort = (sort or present[0]).strip()
+    if sort not in present:
+        return _fail("Unknown sort %r for %s; one of %s"
+                     % (sort, dataset, ", ".join(present)))
+    ranked = [r for r in rows if isinstance(r.get(sort), (int, float))]
+    skipped = len(rows) - len(ranked)
+    ranked.sort(key=lambda r: r[sort], reverse=(order == "desc"))
+    limit = max(1, min(int(limit or ROW_BUDGET), MAX_LIMIT))
+    out = ranked[:limit]
+    keep = ("code", "name_en", "name_ja", "unit", "kind", "as_of", "discontinued")
+    data = {"sort": sort, "order": order, "ranked_on": present,
+            "count": len(ranked),
+            "not_ranked": skipped or None,
+            "rows": [dict([(k, r.get(k)) for k in keep if r.get(k) is not None],
+                          **{sort: r[sort]}) for r in out]}
+    rel = raw.get("release") or {}
+    _record("screen", {"dataset": dataset, "sort": sort, "limit": limit}, rel)
+    return _dumps(_envelope(
+        "screen", m, data,
+        calc=raw.get("calc") or _calc(m),
+        vintage={"unit": "release", "basis": "release-in-force", "as_of": None,
+                 "release_id": rel.get("release_id"), "label": rel.get("label"),
+                 "latest_period": rel.get("latest_period"),
+                 "published_at": rel.get("ingested_at"),
+                 "source_sha256": rel.get("sha256")},
+        cite=_cite_for(m, dataset=dataset) if m.get("cite") else None,
+        truncated={"rows": "showing %d of %d" % (len(out), len(ranked))}
+        if len(ranked) > len(out) else None,
+        missing={"not_ranked": "%d series publish no %s and are excluded, never "
+                               "counted as zero" % (skipped, sort)} if skipped else None))
+
+
 IMPLS = {
     "list_cohorts": list_cohorts,
     "compare_cohort": compare_cohort,
@@ -694,6 +955,9 @@ IMPLS = {
     "search": search,
     "get_company": get_company,
     "get_series": get_series,
+    "get_overview": get_overview,
+    "get_breakdown": get_breakdown,
+    "get_vintages": get_vintages,
     "screen": screen,
 }
 
@@ -732,10 +996,23 @@ def _str(desc, **extra):
 def descriptors():
     """MCP tool descriptors, with enums drawn from the live registry so the
     assistant sees the real dataset ids."""
-    ids = registry.ids()
+    # Only what this deployment can actually serve. A dataset whose manifest
+    # is registered but which has no data here (the US shelf, when the SEC
+    # quarter files are not on the volume) used to sit in every enum and
+    # answer "not published on this server yet" — advertising a capability
+    # the server does not have is worse than not advertising it.
+    ids = [i for i in registry.ids() if registry.available(i)]
     series_ids = [i for i in ids if registry.get(i)["shape"] == "series"]
     company_ids = [i for i in ids if "company" in registry.get(i)["capabilities"]]
-    screen_ids = [i for i in ids if registry.get(i).get("screens")]
+    screen_ids = [i for i in ids
+                  if registry.get(i).get("screens")
+                  or registry.get(i)["shape"] == "series"]
+    overview_ids = [i for i in series_ids
+                    if (api.ADAPTERS.get(i) and
+                        (api.ADAPTERS[i].PRESENTATION.get("overview_tiles")
+                         or api.ADAPTERS[i].PRESENTATION.get("main_series")))]
+    breakdown_ids = [i for i in series_ids if _breakdowns_for(i)]
+    all_cuts = sorted(set(c for i in breakdown_ids for c, _f, _w in _breakdowns_for(i)))
     ro = {"readOnlyHint": True, "openWorldHint": False}
     return [
         {"name": "list_datasets", "title": "List datasets",
@@ -802,13 +1079,20 @@ def descriptors():
         {"name": "screen", "title": "Ranked screen",
          "description": ("A ranked cross-section from a dataset's own screens — e.g. "
                          "oldest boards, largest unspent buybacks, cheapest land per m², "
-                         "lowest director approval, highest ROE. Sorts are the ids in "
+                         "lowest director approval, highest ROE. For a SERIES dataset "
+                         "it ranks every series on one of its own columns instead — "
+                         "which prefecture settled the worst balance, which item is "
+                         "rising fastest — with filters.q to narrow the list and "
+                         "filters.order for direction. Sorts are the ids in "
                          "describe_dataset's `screens`; an unknown sort answers with the "
                          "valid ones. `filters` are the dataset's own query fields "
                          "(year, listed, order, industry, lifecycle, min_shareholders…)."),
          "inputSchema": {"type": "object", "properties": {
-             "dataset": _str("Dataset id with screens.", enum=screen_ids),
-             "sort": _str("Screen id from describe_dataset; default the first."),
+             "dataset": _str("Dataset id with screens, or any series dataset.",
+                             enum=screen_ids),
+             "sort": _str("Screen id from describe_dataset, or for a series "
+                          "dataset a column: latest, delta_12m, yoy, sum_12m…; "
+                          "default the first."),
              "filters": {"type": "object", "description": "Field → value filters."},
              "limit": {"type": "integer", "description": "Rows (default 50, max 100)."},
              "as_of": _str("YYYY-MM-DD: the filings that existed on EDINET by that date.")},
@@ -843,6 +1127,51 @@ def descriptors():
              "limit": {"type": "integer", "description": "Rows (default 50, max 100)."},
              "as_of": _str("YYYY-MM-DD: the classification as it stood then.")},
              "required": ["cohort"]},
+         "annotations": ro},
+        {"name": "get_overview", "title": "Headline reading",
+         "description": ("A series dataset's headline reading — the stat tiles its own "
+                         "page leads with, each with its latest value, the change and "
+                         "the trust label. The quickest answer to 'where is this now'; "
+                         "use get_series for the history behind a tile."),
+         "inputSchema": {"type": "object", "properties": {
+             "dataset": _str("Series dataset id.", enum=overview_ids)},
+             "required": ["dataset"]},
+         "annotations": ro},
+        {"name": "get_breakdown", "title": "A dataset's own cut",
+         "description": ("The cut a dataset exists to serve, beyond its raw series: "
+                         "contributions to headline inflation, the breadth of price "
+                         "rises, the whole yield curve, arrivals by market, one "
+                         "commodity's trade with every partner, one area's guest nights, "
+                         "every prefecture's counts. Call with no `cut` to see which "
+                         "this dataset serves."),
+         "inputSchema": {"type": "object", "properties": {
+             "dataset": _str("Dataset id.", enum=breakdown_ids),
+             "cut": _str("Which cut; omit to list the ones this dataset serves.",
+                         enum=all_cuts),
+             "commodity": _str("trade: the published commodity code."),
+             "flow": _str("trade: exp or imp.", enum=["exp", "imp"]),
+             "area": _str("accommodation: two-digit JIS prefecture or region code."),
+             "prefecture": _str("prefectures: two-digit JIS code, e.g. 13 for Tokyo."),
+             "threshold": {"type": "number",
+                           "description": "breadth: the YoY percent above which an item counts as rising."},
+             "start": _str("contributions: first period, YYYY-MM."),
+             "end": _str("contributions: last period, YYYY-MM.")},
+             "required": ["dataset"]},
+         "annotations": ro},
+        {"name": "get_vintages", "title": "Releases and revisions",
+         "description": ("The point-in-time record. With no `series`, every accepted "
+                         "release of the dataset newest first — label, the period it "
+                         "reached, when it was known, and the SHA-256 of the archived "
+                         "source file. With a `series`, how that series has been revised "
+                         "release by release, and by how much. Pair with get_series's "
+                         "`as_of` to read the data as it stood on a date."),
+         "inputSchema": {"type": "object", "properties": {
+             "dataset": _str("Dataset id.", enum=ids),
+             "series": _str("One series code — its revision history instead of the "
+                            "release list."),
+             "period": _str("With `series`: one period, YYYY-MM; omit for every "
+                            "revised period.")},
+             "required": ["dataset"]},
          "annotations": ro},
     ]
 

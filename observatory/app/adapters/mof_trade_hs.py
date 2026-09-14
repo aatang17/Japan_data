@@ -328,11 +328,12 @@ MANIFEST = {
     "measures": [m for m in mof_trade.MANIFEST["measures"] if m["id"] != "balance"],
     "endpoints": {
         "series": "/api/v1/%s/observations" % DATASET["slug"],
+        "search": "/api/v1/%s/series" % DATASET["slug"],
         "trade": "/api/v1/%s/trade" % DATASET["slug"],
         "releases": "/api/v1/%s/releases" % DATASET["slug"],
         "revisions": "/api/v1/%s/revisions" % DATASET["slug"],
     },
-    "capabilities": ["series"],
+    "capabilities": ["series", "search"],
     "cite": "/semis.html?dataset=trade-inputs",
     "page": "/semis.html",
     "notes": [

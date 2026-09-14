@@ -965,6 +965,7 @@ NOTES = [
 def endpoints(slug):
     return {
         "series": "/api/v1/%s/observations" % slug,
+        "search": "/api/v1/%s/series" % slug,
         "trade": "/api/v1/%s/trade" % slug,
         "releases": "/api/v1/%s/releases" % slug,
         "revisions": "/api/v1/%s/revisions" % slug,
@@ -1002,7 +1003,7 @@ MANIFEST = {
          "unit": "JPY_thousand", "trust": "derived", "calc": BALANCE_CALC},
     ],
     "endpoints": endpoints(DATASET["slug"]),
-    "capabilities": ["series"],
+    "capabilities": ["series", "search"],
     "cite": "/semis.html",
     "page": "/semis.html",
     "notes": NOTES,

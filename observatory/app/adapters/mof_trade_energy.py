@@ -187,7 +187,7 @@ MANIFEST = {
     },
     "measures": list(mof_trade.MEASURES),
     "endpoints": mof_trade.endpoints(DATASET["slug"]),
-    "capabilities": ["series"],
+    "capabilities": ["series", "search"],
     "cite": "/energy.html?flow=imp",
     "page": "/energy.html",
     "notes": [
