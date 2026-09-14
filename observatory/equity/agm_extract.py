@@ -115,6 +115,11 @@ CATEGORIES = [
     (u"買収への対応方針|大規模買付|買収防衛", "takeover_defence"),
     (u"解任",                              "dismissal"),
     (u"剰余金の?処分|配当",                 "dividend"),
+    # 取締役(監査等委員である取締役を除く。)6名選任の件 is an ORDINARY director
+    # election that merely names the audit-committee seats to exclude them.
+    # Matching on the phrase alone put 3,631 of those into the audit-committee
+    # bucket — nearly half of it — and moved that category's median with them.
+    (u"監査等委員.{0,14}?(?:を除く|でない|以外|除き).*選任", "director_election"),
     (u"監査等委員である取締役.*選任",        "audit_committee_election"),
     (u"監査役.*選任",                       "statutory_auditor_election"),
     (u"取締役.*選任",                       "director_election"),

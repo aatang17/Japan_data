@@ -48,7 +48,8 @@ from fastapi import APIRouter, HTTPException, Query
 
 from . import asof
 
-from .equity_api import NAMES_NOTE, PROVENANCE, _cur, _rows
+from .agm_labels import label_en
+from .equity_api import NAME_CTES, NAMES_NOTE, PROVENANCE, _cur, _rows
 
 router = APIRouter(prefix="/api/v1/equity/agm", tags=["AGM votes"])
 
@@ -113,6 +114,43 @@ COVERAGE_NOTE = (
     "archive. Coverage begins in April 2024 — earlier filings had already left "
     "EDINET's public inspection window before capture began.")
 
+LABEL_NOTE = (
+    "A resolution's title is filed in Japanese only. `label_en` re-renders it "
+    "from a fixed table of the statutory wording — it is a lookup, not a "
+    "translation engine — and is null whenever any part of the title is "
+    "unrecognised, which is why the filed Japanese is always returned beside "
+    "it and is what every export and citation carries. About one title in "
+    "eight is a non-standard wording and stays Japanese.")
+
+DIRECTOR_NAME_NOTE = (
+    "A candidate's name is filed in Japanese only. `candidate_name_en` is the "
+    "romanisation the SAME COMPANY publishes for that person in its own annual "
+    "report (the XBRL member label behind the board table), matched on the "
+    "Japanese name within that issuer. It is null for a candidate who has "
+    "never appeared on a filed board — a first-time nominee, or anyone put up "
+    "by a shareholder — and never guessed.")
+
+# A candidate's English name, from the issuer's OWN annual report: EDINET tags
+# each board member with a romanised context label, which board_extract stores
+# as name_en. Matching is on the Japanese name inside one issuer, with spaces
+# removed because the AGM filing writes 佐々木康行 where the annual report
+# writes 佐々木 康行. Across issuers it would not be evidence of the same
+# person, and it is not used that way.
+BOARD_EN_CTE = u""",
+    board_en AS (
+        SELECT f.sec_code,
+               replace(replace(b.name_ja, ' ', ''), '\u3000', '') AS name_key,
+               max_by(b.name_en, f.period_end) AS name_en
+        FROM eq_board b JOIN eq_filings f USING (doc_id)
+        WHERE b.name_ja IS NOT NULL AND b.name_en IS NOT NULL
+              AND f.sec_code IS NOT NULL
+        GROUP BY 1, 2)
+"""
+
+# The same key on both sides of the join: no space of either width.
+NAME_KEY = "replace(replace(%s, ' ', ''), '\u3000', '')"
+
+
 COUNTED = "(for_votes + coalesce(against_votes,0) + coalesce(abstain_votes,0))"
 PCT_OF_COUNTED = ("CASE WHEN %s > 0 THEN round(100.0 * for_votes / %s, 2) END"
                   % (COUNTED, COUNTED))
@@ -124,6 +162,8 @@ def _notes(head):
     head["election_note"] = ELECTION_NOTE
     head["unit_note"] = UNIT_NOTE
     head["names_note"] = NAMES_NOTE
+    head["label_note"] = LABEL_NOTE
+    head["director_name_note"] = DIRECTOR_NAME_NOTE
     head["calc"] = CALC
     head["provenance"] = PROVENANCE
     return head
@@ -225,10 +265,13 @@ def directors(limit: int = Query(50, ge=1, le=500),
         params.append(year)
     params.append(limit)
     direction = "ASC" if order == "lowest" else "DESC"
-    rows = _rows(cur, """
-        SELECT m.issuer_sec_code AS sec_code, m.issuer_name, m.meeting_date,
+    rows = _rows(cur, """WITH x AS (SELECT 1)""" + NAME_CTES + BOARD_EN_CTE + """
+        SELECT m.issuer_sec_code AS sec_code, m.issuer_name,
+               coalesce(en_e.name_en, en_s.name_en) AS issuer_name_en,
+               m.meeting_date,
                p.label AS proposal, p.category, p.shareholder_proposal,
-               v.candidate_name, v.for_votes, v.against_votes, v.abstain_votes,
+               v.candidate_name, be.name_en AS candidate_name_en,
+               v.for_votes, v.against_votes, v.abstain_votes,
                v.approval_pct_filed AS approval_pct,
                %s AS approval_pct_of_counted,
                v.result, v.pct_consistent, m.partial_tally, m.doc_id
@@ -236,13 +279,20 @@ def directors(limit: int = Query(50, ge=1, le=500),
         JOIN eq_agm_meetings m USING (doc_id)
         LEFT JOIN eq_agm_proposals p
                ON p.doc_id = v.doc_id AND p.seq = v.proposal_seq
+        LEFT JOIN en_ecode en_e ON en_e.edinet_code = m.issuer_edinet_code
+        LEFT JOIN en_scode en_s ON en_s.sec_code = m.issuer_sec_code
+        LEFT JOIN board_en be ON be.sec_code = m.issuer_sec_code
+               AND be.name_key = %s
         WHERE %s AND %s
         ORDER BY v.approval_pct_filed %s, v.for_votes DESC
         LIMIT ?""" % (PCT_OF_COUNTED.replace("for_votes", "v.for_votes")
                                     .replace("against_votes", "v.against_votes")
                                     .replace("abstain_votes", "v.abstain_votes"),
+                      NAME_KEY % "v.candidate_name",
                       " AND ".join(where), CLEAN.replace("status", "m.status"),
                       direction), params)
+    for r in rows:
+        r["proposal_en"] = label_en(r.get("proposal"))
     return _notes({"order": order, "kind": kind, "kind_note": KIND_NOTE[kind],
                    "rows": rows,
                    "cite": "/agm.html?order=%s&kind=%s&limit=%d" % (order, kind, limit)})
@@ -266,8 +316,10 @@ def proposals(category: str = Query("", description="e.g. takeover_defence"),
     if include_unverified.lower() not in ("1", "true", "yes"):
         where.append("(p.pct_consistent OR p.approval_pct_filed IS NULL)")
     params.append(limit)
-    rows = _rows(cur, """
-        SELECT m.issuer_sec_code AS sec_code, m.issuer_name, m.meeting_date,
+    rows = _rows(cur, """WITH x AS (SELECT 1)""" + NAME_CTES + """
+        SELECT m.issuer_sec_code AS sec_code, m.issuer_name,
+               coalesce(en_e.name_en, en_s.name_en) AS issuer_name_en,
+               m.meeting_date,
                p.proposal_no, p.label, p.category, p.shareholder_proposal,
                p.for_votes, p.against_votes, p.abstain_votes,
                p.approval_pct_filed AS approval_pct,
@@ -275,6 +327,8 @@ def proposals(category: str = Query("", description="e.g. takeover_defence"),
                p.result, p.candidates, p.pct_consistent, m.partial_tally, m.doc_id
         FROM eq_agm_proposals p
         JOIN eq_agm_meetings m USING (doc_id)
+        LEFT JOIN en_ecode en_e ON en_e.edinet_code = m.issuer_edinet_code
+        LEFT JOIN en_scode en_s ON en_s.sec_code = m.issuer_sec_code
         WHERE %s AND %s
         ORDER BY m.meeting_date DESC, p.seq
         LIMIT ?""" % (PCT_OF_COUNTED.replace("for_votes", "p.for_votes")
@@ -282,8 +336,39 @@ def proposals(category: str = Query("", description="e.g. takeover_defence"),
                                     .replace("abstain_votes", "p.abstain_votes"),
                       " AND ".join(where), CLEAN.replace("status", "m.status")),
         params)
+    for r in rows:
+        r["label_en"] = label_en(r.get("label"))
     return _notes({"category": category or None, "rows": rows,
                    "cite": "/agm.html?category=%s" % category})
+
+
+@router.get("/companies")
+def companies(q: str = Query("", description="name in English or Japanese, or securities code")):
+    u"""Issuers with a meeting on file, searchable by either language.
+
+    Scoped to this dataset on purpose. A company can file annual reports for
+    years and still have no 臨時報告書 in the window, and pointing a reader at a
+    company page with no meetings would read as missing data rather than as
+    the coverage gap it is.
+    """
+    cur = _require()
+    like = "%" + q.strip() + "%"
+    rows = _rows(cur, """WITH x AS (SELECT 1)""" + NAME_CTES + """
+        SELECT m.issuer_sec_code AS sec_code,
+               any_value(m.issuer_name) AS name,
+               any_value(coalesce(en_e.name_en, en_s.name_en)) AS name_en,
+               count(*) AS meetings,
+               max(m.meeting_date) AS latest_meeting,
+               sum(m.candidates) AS director_results
+        FROM eq_agm_meetings m
+        LEFT JOIN en_ecode en_e ON en_e.edinet_code = m.issuer_edinet_code
+        LEFT JOIN en_scode en_s ON en_s.sec_code = m.issuer_sec_code
+        WHERE %s AND m.issuer_sec_code IS NOT NULL
+          AND (m.issuer_sec_code LIKE ? OR m.issuer_name LIKE ?
+               OR lower(coalesce(en_e.name_en, en_s.name_en, '')) LIKE lower(?))
+        GROUP BY 1 ORDER BY 5 DESC NULLS LAST LIMIT 25"""
+        % CLEAN.replace("status", "m.status"), [like, like, like])
+    return {"companies": rows, "names_note": NAMES_NOTE}
 
 
 @router.get("/company/{sec_code}")
@@ -291,13 +376,17 @@ def company(sec_code: str):
     u"""Every meeting we hold for one issuer, with its proposals and directors."""
     cur = _require()
     code = sec_code[:4]
-    meetings = _rows(cur, """
-        SELECT doc_id, filed_date, meeting_date, meeting_type, issuer_name,
-               issuer_sec_code, proposals, candidates, partial_tally,
-               partial_tally_reason, status
-        FROM eq_agm_meetings
-        WHERE issuer_sec_code = ? AND %s""" % CLEAN + asof.clause("filed_date") + """
-        ORDER BY meeting_date DESC""", [code])
+    meetings = _rows(cur, """WITH x AS (SELECT 1)""" + NAME_CTES + """
+        SELECT m.doc_id, m.filed_date, m.meeting_date, m.meeting_type,
+               m.issuer_name, coalesce(en_e.name_en, en_s.name_en) AS issuer_name_en,
+               m.issuer_sec_code, m.proposals, m.candidates, m.partial_tally,
+               m.partial_tally_reason, m.status
+        FROM eq_agm_meetings m
+        LEFT JOIN en_ecode en_e ON en_e.edinet_code = m.issuer_edinet_code
+        LEFT JOIN en_scode en_s ON en_s.sec_code = m.issuer_sec_code
+        WHERE m.issuer_sec_code = ? AND %s""" % CLEAN.replace("status", "m.status")
+        + asof.clause("m.filed_date") + """
+        ORDER BY m.meeting_date DESC""", [code])
     if not meetings:
         raise HTTPException(404, "no AGM voting results for %s" % code)
     ids = [m["doc_id"] for m in meetings]
@@ -307,12 +396,18 @@ def company(sec_code: str):
                for_votes, against_votes, abstain_votes,
                approval_pct_filed AS approval_pct, result, candidates
         FROM eq_agm_proposals WHERE doc_id IN (%s) ORDER BY doc_id, seq""" % ph, ids)
-    votes = _rows(cur, """
-        SELECT doc_id, proposal_seq, candidate_name, for_votes, against_votes,
-               abstain_votes, approval_pct_filed AS approval_pct, result
-        FROM eq_agm_votes WHERE doc_id IN (%s) ORDER BY doc_id, seq""" % ph, ids)
+    votes = _rows(cur, """WITH x AS (SELECT 1)""" + BOARD_EN_CTE + """
+        SELECT v.doc_id, v.proposal_seq, v.candidate_name,
+               be.name_en AS candidate_name_en,
+               v.for_votes, v.against_votes, v.abstain_votes,
+               v.approval_pct_filed AS approval_pct, v.result
+        FROM eq_agm_votes v
+        LEFT JOIN board_en be ON be.sec_code = ? AND be.name_key = %s
+        WHERE v.doc_id IN (%s) ORDER BY v.doc_id, v.seq"""
+        % (NAME_KEY % "v.candidate_name", ph), [code] + ids)
     by_doc = {}
     for p in props:
+        p["label_en"] = label_en(p.get("label"))
         by_doc.setdefault(p["doc_id"], []).append(dict(p, directors=[]))
     for v in votes:
         for p in by_doc.get(v["doc_id"], []):
@@ -322,6 +417,7 @@ def company(sec_code: str):
     for m in meetings:
         m["proposal_rows"] = by_doc.get(m["doc_id"], [])
     return _notes({"sec_code": code, "name": meetings[0]["issuer_name"],
+                   "name_en": meetings[0]["issuer_name_en"],
                    "meetings": meetings,
                    "cite": "/agm.html?company=%s" % code})
 
@@ -376,9 +472,10 @@ MANIFEST = {
         "company": "/api/v1/equity/agm/company/{sec_code}",
         "summary": "/api/v1/equity/agm/summary",
         "screen": "/api/v1/equity/agm/directors",
+        "search": "/api/v1/equity/agm/companies",
         "proposals": "/api/v1/equity/agm/proposals",
     },
-    "capabilities": ["company", "summary", "screen"],
+    "capabilities": ["company", "search", "summary", "screen"],
     "screens": [
         {"id": "lowest", "title": "Directors elected on the lowest approval"},
         {"id": "highest", "title": "Directors elected on the highest approval"},

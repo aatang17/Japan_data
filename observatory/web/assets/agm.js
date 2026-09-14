@@ -4,7 +4,15 @@
    OFFICIAL, exactly as filed — this page never recomputes an approval
    percentage, because issuers stop counting attending votes once the outcome
    is settled and do not publish the base they used. Counts are voting rights
-   (個), never shares. Missing renders as —, never 0. */
+   (個), never shares. Missing renders as —, never 0.
+
+   Names and resolution titles are filed in Japanese. Every one of them is
+   shown in English where an English form EXISTS AS FILED — the issuer's own
+   English name from its annual report cover, the issuer's own romanisation of
+   a director, the statutory wording of a resolution rendered from a fixed
+   table — with the filed Japanese kept underneath. Where no English form
+   exists the Japanese stands alone, untranslated and unhidden: this page
+   never invents an English name for a filing that does not carry one. */
 (function () {
   "use strict";
 
@@ -36,6 +44,27 @@
     other: "Other",
   };
   function catLabel(v) { return CATEGORY[v] || (v ? esc(v) : MISSING); }
+
+  // Meeting types, as EDINET records them. A fixed lookup, never a translation.
+  var MEETING_TYPE = {
+    "定時株主総会": "Annual general meeting",
+    "臨時株主総会": "Extraordinary general meeting",
+  };
+  function meetingType(v) {
+    if (!v) return "General meeting";
+    return MEETING_TYPE[v] || esc(v);
+  }
+
+  /* English on top, the filed Japanese underneath. When only the Japanese
+     exists it stands on its own line — never a blank, never a guess. */
+  function bilingual(en, ja, cls) {
+    var main = en || ja || MISSING;
+    // A non-Japanese director is filed under the same Latin name in both
+    // fields. Printing it twice would look like a rendering fault.
+    var same = en && ja && en.replace(/\s+/g, "") === ja.replace(/\s+/g, "");
+    return "<span class='" + (cls || "") + "'>" + esc(main) + "</span>" +
+      (en && ja && !same ? "<span class='sub ja'>" + esc(ja) + "</span>" : "");
+  }
 
   var RESULT = { "可決": "Carried", "否決": "Rejected" };
   function resultLabel(v) {
@@ -74,12 +103,14 @@
   }
 
   function companyCell(r) {
-    var name = r.issuer_name || MISSING;
+    var en = r.issuer_name_en || r.name_en, ja = r.issuer_name || r.name;
+    var name = en || ja || MISSING;
     var code = r.sec_code;
     var inner = code ? "<a href='agm.html?company=" + esc(code) + "'>" + esc(name) + "</a>"
                      : esc(name);
+    var sub = [code ? esc(code) : "", (en && ja) ? esc(ja) : ""].filter(Boolean).join(" · ");
     return "<div class='cell-item'>" + inner +
-      (code ? "<span class='sub'>" + esc(code) + "</span>" : "") + "</div>";
+      (sub ? "<span class='sub'>" + sub + "</span>" : "") + "</div>";
   }
 
   // A filing that stopped short of a full tally is marked, because it is why
@@ -192,7 +223,7 @@
       return "<tr>" +
         "<td>" + companyCell(r) + "</td>" +
         "<td class='nowrap'>" + day(r.meeting_date) + "</td>" +
-        "<td class='who'>" + esc(r.candidate_name || "") +
+        "<td>" + bilingual(r.candidate_name_en, r.candidate_name, "who") +
           (r.shareholder_proposal ? " <span class='badge badge-warn' title='Nominated " +
             "by a shareholder, not by the board. These are routinely opposed by the " +
             "board and routinely fail, so a low figure here is the proposal losing — " +
@@ -227,11 +258,14 @@
         "Vote counts are voting rights (kobetsu, " + "個" + "), not shares.",
         (d.tally_note || ""),
         "Filter: approval <= " + dirState.max + "%",
-      ], ["sec_code", "issuer_name", "meeting_date", "candidate_name", "category",
-          "for_votes", "against_votes", "abstain_votes", "approval_pct_filed",
-          "result", "partial_tally", "doc_id"],
+        (d.director_name_note || ""),
+      ], ["sec_code", "issuer_name", "issuer_name_en", "meeting_date",
+          "candidate_name", "candidate_name_en", "proposal", "proposal_en",
+          "category", "for_votes", "against_votes", "abstain_votes",
+          "approval_pct_filed", "result", "partial_tally", "doc_id"],
         rows.map(function (r) {
-          return [r.sec_code, r.issuer_name, r.meeting_date, r.candidate_name,
+          return [r.sec_code, r.issuer_name, r.issuer_name_en, r.meeting_date,
+                  r.candidate_name, r.candidate_name_en, r.proposal, r.proposal_en,
                   r.category, r.for_votes, r.against_votes, r.abstain_votes,
                   r.approval_pct, r.result, r.partial_tally, r.doc_id];
         }));
@@ -250,10 +284,15 @@
   function renderProposals(d) {
     var rows = d.rows || [];
     $("prop-count").textContent = fmtNum(rows.length, 0) + " resolutions";
+    var shown = rows.length, englished = rows.filter(function (r) {
+      return r.label_en; }).length;
     $("prop-meta").innerHTML =
       "Resolutions of the kind that get argued about. A board election shows no " +
       "single figure — the filing publishes one per candidate — so those rows read " +
-      "— and the detail is above. " +
+      "— and the detail is above. Resolution titles are filed in Japanese; the " +
+      "standard statutory wording is shown in English above the filed title" +
+      (shown ? " (" + fmtNum(englished, 0) + " of " + fmtNum(shown, 0) + " here)" : "") +
+      ", and a non-standard title stands as filed. " +
       "<span class='badge badge-official'>Official statistic</span>";
     var head = "<thead><tr>" +
       "<th>Company</th><th>Meeting</th><th>Resolution</th><th>Type</th>" +
@@ -264,9 +303,10 @@
       return "<tr>" +
         "<td>" + companyCell(r) + "</td>" +
         "<td class='nowrap'>" + day(r.meeting_date) + "</td>" +
-        "<td class='cell-item'>" + esc(r.label || "") +
+        "<td class='cell-item'>" + bilingual(r.label_en, r.label) +
           (r.candidates ? "<span class='sub'>" + fmtNum(r.candidates, 0) +
-            " candidates voted individually</span>" : "") + "</td>" +
+            (r.candidates === 1 ? " candidate" : " candidates") +
+            " voted individually</span>" : "") + "</td>" +
         "<td class='cell-item'>" + catLabel(r.category) + tallyBadge(r.partial_tally) + "</td>" +
         "<td class='r'>" + count(r.for_votes) + "</td>" +
         "<td class='r'>" + count(r.against_votes) + "</td>" +
@@ -283,12 +323,15 @@
         "Source: " + (d.provenance ? d.provenance.note : ""),
         "approval_pct is as filed, not recomputed.",
         (d.election_note || ""),
-      ], ["sec_code", "issuer_name", "meeting_date", "proposal_no", "label",
-          "category", "shareholder_proposal", "for_votes", "against_votes",
-          "abstain_votes", "approval_pct_filed", "result", "doc_id"],
+        (d.label_note || ""),
+      ], ["sec_code", "issuer_name", "issuer_name_en", "meeting_date",
+          "proposal_no", "label", "label_en", "category", "shareholder_proposal",
+          "for_votes", "against_votes", "abstain_votes", "approval_pct_filed",
+          "result", "doc_id"],
         rows.map(function (r) {
-          return [r.sec_code, r.issuer_name, r.meeting_date, r.proposal_no, r.label,
-                  r.category, r.shareholder_proposal, r.for_votes, r.against_votes,
+          return [r.sec_code, r.issuer_name, r.issuer_name_en, r.meeting_date,
+                  r.proposal_no, r.label, r.label_en, r.category,
+                  r.shareholder_proposal, r.for_votes, r.against_votes,
                   r.abstain_votes, r.approval_pct, r.result, r.doc_id];
         }));
     };
@@ -319,15 +362,18 @@
     $("market-view").hidden = true;
     $("company-view").hidden = false;
     var ms = d.meetings || [];
-    $("co-name").textContent = d.name || d.sec_code;
-    $("co-code").textContent = d.sec_code;
+    $("co-name").textContent = d.name_en || d.name || d.sec_code;
+    $("co-code").textContent = d.sec_code +
+      (d.name_en && d.name ? " · " + d.name : "");
+    document.title = (d.name_en || d.name || d.sec_code) +
+      " — AGM Votes · Japan Data Observatory";
     $("co-meta").innerHTML = fmtNum(ms.length, 0) + " meeting" +
       (ms.length === 1 ? "" : "s") + " on file · " +
       "<span class='badge badge-official'>Official statistic</span>";
     $("co-meetings").innerHTML = ms.map(function (m) {
       var rows = (m.proposal_rows || []).map(function (p) {
         var main = "<tr>" +
-          "<td class='cell-item'>" + esc(p.label || "") + "</td>" +
+          "<td class='cell-item'>" + bilingual(p.label_en, p.label) + "</td>" +
           "<td class='cell-item'>" + catLabel(p.category) + "</td>" +
           "<td class='r'>" + count(p.for_votes) + "</td>" +
           "<td class='r'>" + count(p.against_votes) + "</td>" +
@@ -337,7 +383,7 @@
         var kids = (p.directors || []).map(function (v) {
           return "<tr>" +
             "<td class='cell-item' style='padding-left:26px'>" +
-              "<span class='who'>" + esc(v.candidate_name || "") + "</span></td>" +
+              bilingual(v.candidate_name_en, v.candidate_name, "who") + "</td>" +
             "<td class='cell-item'>Candidate</td>" +
             "<td class='r'>" + count(v.for_votes) + "</td>" +
             "<td class='r'>" + count(v.against_votes) + "</td>" +
@@ -348,7 +394,11 @@
         return main + kids;
       }).join("");
       return "<div class='meeting'>" +
-        "<h3>" + day(m.meeting_date) + " · " + esc(m.meeting_type || "General meeting") + "</h3>" +
+        "<h3>" + (m.meeting_date ? day(m.meeting_date)
+                                 : "Filed " + day(m.filed_date)) +
+          " · " + meetingType(m.meeting_type) + "</h3>" +
+        (m.meeting_date ? "" : "<p class='mt-meta'>The filing does not state " +
+          "the meeting date; the date shown is when it was filed.</p>") +
         "<p class='mt-meta'>" + fmtNum(m.proposals, 0) + " resolutions · " +
           fmtNum(m.candidates, 0) + " director results" + tallyBadge(m.partial_tally) + "</p>" +
         "<div class='table-wrap'><table class='tbl-agm'><thead><tr>" +
@@ -356,6 +406,37 @@
         "<th class='r'>Abstain</th><th class='r'>Approval (%)</th><th>Result</th>" +
         "</tr></thead><tbody>" + rows + "</tbody></table></div></div>";
     }).join("");
+  }
+
+  // ---- search --------------------------------------------------------------
+  /* The box takes either language, because the reader may have the name from a
+     filing (Japanese) or from a broker screen (English). It searches only
+     issuers that have a meeting on file: a hit that led to an empty page would
+     read as broken data rather than as the coverage gap it is. */
+  function renderSearch(d) {
+    var rows = d.companies || [];
+    if (!rows.length) {
+      $("search-results").innerHTML = "<p class='sec-note'>No issuer with a " +
+        "meeting on file matches that. Coverage begins in April 2024.</p>";
+      return;
+    }
+    $("search-results").innerHTML =
+      "<div class='table-wrap'><table class='tbl-agm'><thead><tr>" +
+      "<th>Company</th><th class='r'>Meetings</th><th class='r'>Director results</th>" +
+      "<th>Latest meeting</th></tr></thead><tbody>" +
+      rows.map(function (r) {
+        return "<tr><td>" + companyCell(r) + "</td>" +
+          "<td class='r'>" + count(r.meetings) + "</td>" +
+          "<td class='r'>" + count(r.director_results) + "</td>" +
+          "<td class='nowrap'>" + day(r.latest_meeting) + "</td></tr>";
+      }).join("") + "</tbody></table></div>";
+  }
+
+  function runSearch(q) {
+    q = (q || "").trim();
+    if (q.length < 1) { $("search-results").innerHTML = ""; return; }
+    getJSON("/api/v1/equity/agm/companies?q=" + encodeURIComponent(q))
+      .then(renderSearch).catch(function (e) { errorInto("search-results", e); });
   }
 
   // ---- boot ----------------------------------------------------------------
@@ -397,6 +478,15 @@
 
     loadDirectors();
     loadProposals();
+
+    var box = $("q"), timer = null;
+    if (box) {
+      box.addEventListener("input", function () {
+        clearTimeout(timer);
+        var v = box.value;
+        timer = setTimeout(function () { runSearch(v); }, 180);
+      });
+    }
 
     seg("kind-seg", function (b) {
       dirState.kind = b.getAttribute("data-kind") || "election";

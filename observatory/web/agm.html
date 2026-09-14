@@ -28,6 +28,11 @@
 .tbl-agm .nowrap { white-space: nowrap; }
 /* the name of a person is the row's subject: it must not wrap mid-name */
 .tbl-agm .who { white-space: nowrap; font-weight: 600; }
+/* The filed Japanese under its English form. Japanese glyphs carry more ink
+   than Latin at the same size, so the sub-line is set a touch larger than a
+   Latin sub-line would be — it is evidence a reader may need to check against
+   the filing, not decoration. */
+.tbl-agm .sub.ja { font-size: 11.5px; line-height: 1.5; white-space: normal; }
 /* the approval figure is what the row is for — one column, one precision */
 .tbl-agm .pct { font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
 
