@@ -32,27 +32,48 @@
   </div>
 
   <h2 id="setup">Set up in your client</h2>
+  <p>Cursor and VS Code add the server in one click. Claude Code and Codex take one command,
+  which the button copies. Claude on the web or the desktop takes one paste.</p>
 
-  <h3>claude.ai (web)</h3>
-  <ol>
-    <li>Open <b>Settings → Connectors</b>.</li>
-    <li>Choose <b>Add custom connector</b>.</li>
-    <li>Name it <code>Japan Data Observatory</code>, paste the URL above, and add it.</li>
-    <li>In a new chat, enable the connector, then ask a question from the list below.</li>
-  </ol>
-
-  <h3>Claude Desktop</h3>
-  <ol>
-    <li>Open <b>Settings → Connectors</b>.</li>
-    <li>Choose <b>Add custom connector</b>, paste the URL above, and add it.</li>
-  </ol>
-
-  <h3>Claude Code</h3>
-  <p>One command in a terminal:</p>
-  <div class="connect-url">
-    <code id="cc-cmd">claude mcp add --transport http japan-data-observatory https://ploveranalytics.com/mcp</code>
-    <button type="button" class="btn" id="copy-cmd">Copy</button>
+  <!-- Only Cursor and VS Code register a URL scheme for installing an MCP server, so only
+       those two rows are a real one-click install. The others say what they actually do. -->
+  <div class="connect-clients">
+    <div class="connect-client">
+      <span class="connect-client-name"><span class="mark" data-mark="claude"></span>Claude web and desktop</span>
+      <span class="connect-client-how">Settings → Connectors → Add custom connector, then paste the URL above.</span>
+      <a class="btn" href="https://claude.ai/settings/connectors">Open Settings</a>
+    </div>
+    <div class="connect-client">
+      <span class="connect-client-name"><span class="mark" data-mark="claudecode"></span>Claude Code</span>
+      <span class="connect-client-how">Run the command once in a terminal; every session after that has the tools.</span>
+      <button type="button" class="btn" id="copy-cmd">Copy Command</button>
+    </div>
+    <div class="connect-client">
+      <span class="connect-client-name"><span class="mark" data-mark="cursor"></span>Cursor</span>
+      <span class="connect-client-how">Opens Cursor and adds the server. Confirm the prompt.</span>
+      <a class="btn" href="cursor://anysphere.cursor-deeplink/mcp/install?name=japan-data-observatory&amp;config=eyJ1cmwiOiJodHRwczovL3Bsb3ZlcmFuYWx5dGljcy5jb20vbWNwIn0=">Add to Cursor</a>
+    </div>
+    <div class="connect-client">
+      <span class="connect-client-name"><span class="mark" data-mark="vscode"></span>VS Code</span>
+      <span class="connect-client-how">Opens VS Code and adds the server. Confirm the prompt.</span>
+      <a class="btn" href="https://vscode.dev/redirect/mcp/install?name=japan-data-observatory&amp;config=%7B%22type%22%3A%22http%22%2C%22url%22%3A%22https%3A%2F%2Fploveranalytics.com%2Fmcp%22%7D">Add to VS Code</a>
+    </div>
+    <div class="connect-client">
+      <span class="connect-client-name"><span class="mark" data-mark="openai"></span>Codex</span>
+      <span class="connect-client-how">Run the command once in a terminal.</span>
+      <button type="button" class="btn" id="copy-codex">Copy Command</button>
+    </div>
   </div>
+
+  <h3>The commands in full</h3>
+  <div class="connect-url is-wrap">
+    <code id="cc-cmd">claude mcp add --transport http japan-data-observatory https://ploveranalytics.com/mcp</code>
+  </div>
+  <div class="connect-url is-wrap">
+    <code id="cx-cmd">codex mcp add japan-data-observatory --url https://ploveranalytics.com/mcp</code>
+  </div>
+  <p>Run either once. <code>claude mcp list</code> and <code>codex mcp list</code> should then
+  show the server as connected.</p>
 
   <h3>Other clients</h3>
   <p>Any client that supports remote MCP servers over Streamable HTTP can use the same URL.
@@ -167,15 +188,19 @@
 </footer>
 
 <script src="assets/format.js"></script>
+<script src="assets/brandmarks.js"></script>
 <script>
 initThemeToggle();
+paintBrandMarks();
 function wireCopy(btnId, textId) {
   var btn = document.getElementById(btnId);
   var text = document.getElementById(textId).textContent;
   btn.addEventListener("click", function () {
     function done() {
+      var was = btn.getAttribute("data-label") || btn.textContent;
+      btn.setAttribute("data-label", was);
       btn.textContent = "Copied";
-      setTimeout(function () { btn.textContent = "Copy"; }, 1500);
+      setTimeout(function () { btn.textContent = was; }, 1500);
     }
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(done);
@@ -193,6 +218,7 @@ function wireCopy(btnId, textId) {
 }
 wireCopy("copy-url", "mcp-url");
 wireCopy("copy-cmd", "cc-cmd");
+wireCopy("copy-codex", "cx-cmd");
 </script>
 </body>
 </html>

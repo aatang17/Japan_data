@@ -503,11 +503,51 @@ function fillLetter() {
   }).catch(() => { document.querySelector(".home-featured").hidden = true; });
 }
 
+/* ---------- connect: copy the Claude Code command ---------- */
+
+/* Cursor and VS Code are plain links — their clients register a URL scheme.
+   Claude Code has no such handler, so this copies the command verbatim. */
+function wireConnectCopy() {
+  const btn = $("home-copy-cc");
+  if (!btn) return;
+  const CMD = "claude mcp add --transport http japan-data-observatory https://ploveranalytics.com/mcp";
+  const was = btn.textContent;
+  btn.addEventListener("click", () => {
+    const done = () => {
+      btn.textContent = "Copied";
+      setTimeout(() => { btn.textContent = was; }, 1500);
+    };
+    // The clipboard API rejects when the document is not focused, so the
+    // textarea route is a fallback for failure, not only for absence.
+    const viaSelection = () => {
+      const ta = document.createElement("textarea");
+      ta.value = CMD;
+      document.body.appendChild(ta);
+      ta.select();
+      let ok = false;
+      try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+      ta.remove();
+      if (ok) done();
+      else {
+        btn.textContent = "Copy failed";
+        setTimeout(() => { btn.textContent = was; }, 1500);
+      }
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(CMD).then(done, viaSelection);
+    } else {
+      viaSelection();
+    }
+  });
+}
+
 /* ---------- go ---------- */
 
 fillTicker();
 fillHeroTrace();
 fillHeroStatus().then(fillNumbers);
 fillAssistant();
+paintBrandMarks();
+wireConnectCopy();
 fillApiSample();
 fillLetter();

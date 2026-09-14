@@ -50,12 +50,23 @@
     conversation.</li>
   </ol>
   <h3>Claude Code (terminal)</h3>
-  <div class="connect-url">
+  <div class="connect-url is-wrap">
     <code id="cc-cmd">claude mcp add --transport http japan-data-observatory https://ploveranalytics.com/mcp</code>
     <button type="button" class="btn" id="copy-cmd">Copy</button>
   </div>
   <p>Run it once; every new session then has the tools. <code>claude mcp list</code> should
   show the server as connected.</p>
+  <h3>Codex (terminal)</h3>
+  <div class="connect-url is-wrap">
+    <code id="cx-cmd">codex mcp add japan-data-observatory --url https://ploveranalytics.com/mcp</code>
+    <button type="button" class="btn" id="copy-codex">Copy</button>
+  </div>
+  <h3>Cursor and VS Code</h3>
+  <p>Both register a URL scheme for installing an MCP server, so a link does the whole job —
+  the editor opens and asks you to confirm:
+  <a href="cursor://anysphere.cursor-deeplink/mcp/install?name=japan-data-observatory&amp;config=eyJ1cmwiOiJodHRwczovL3Bsb3ZlcmFuYWx5dGljcy5jb20vbWNwIn0=" class="has-mark"><span class="mark" data-mark="cursor"></span>Add to Cursor</a> ·
+  <a href="https://vscode.dev/redirect/mcp/install?name=japan-data-observatory&amp;config=%7B%22type%22%3A%22http%22%2C%22url%22%3A%22https%3A%2F%2Fploveranalytics.com%2Fmcp%22%7D" class="has-mark"><span class="mark" data-mark="vscode"></span>Add to VS Code</a>.
+  The link carries nothing but the name and the URL above.</p>
   <h3>Everything else</h3>
   <p>Any client that supports remote MCP servers (Streamable HTTP transport) takes the same
   URL. The server is stateless, needs no key, and identifies itself as
@@ -257,8 +268,10 @@
 </footer>
 
 <script src="assets/format.js"></script>
+<script src="assets/brandmarks.js"></script>
 <script>
 initThemeToggle();
+paintBrandMarks();
 function wireCopy(btnId, textId) {
   var btn = document.getElementById(btnId);
   var text = document.getElementById(textId).textContent;
@@ -283,6 +296,7 @@ function wireCopy(btnId, textId) {
 }
 wireCopy("copy-url", "mcp-url");
 wireCopy("copy-cmd", "cc-cmd");
+wireCopy("copy-codex", "cx-cmd");
 </script>
 </body>
 </html>

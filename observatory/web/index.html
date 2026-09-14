@@ -92,6 +92,18 @@
          MCP server's real ones. -->
     <h2 id="assistant">Your Investment Assistant <span class="h2-note">Ask in plain language. The answer is drawn from the same API, and charted or tabulated beside it.</span></h2>
     <div class="asst" id="asst"></div>
+    <!-- Run the demo yourself. Cursor and VS Code register a URL scheme and add the
+         server in one click; Claude Code takes the command the button copies. -->
+    <div class="home-connect">
+      <div class="home-connect-text">The same lookups in your own assistant, over one URL and no key:
+        <code>https://ploveranalytics.com/mcp</code></div>
+      <div class="home-connect-actions">
+        <a class="btn has-mark" href="cursor://anysphere.cursor-deeplink/mcp/install?name=japan-data-observatory&amp;config=eyJ1cmwiOiJodHRwczovL3Bsb3ZlcmFuYWx5dGljcy5jb20vbWNwIn0="><span class="mark" data-mark="cursor"></span>Add to Cursor</a>
+        <a class="btn has-mark" href="https://vscode.dev/redirect/mcp/install?name=japan-data-observatory&amp;config=%7B%22type%22%3A%22http%22%2C%22url%22%3A%22https%3A%2F%2Fploveranalytics.com%2Fmcp%22%7D"><span class="mark" data-mark="vscode"></span>Add to VS Code</a>
+        <button type="button" class="btn has-mark" id="home-copy-cc"><span class="mark" data-mark="claudecode"></span>Copy Claude Code Command</button>
+        <a class="btn" href="connect.html">Other Clients</a>
+      </div>
+    </div>
     </div>
   </section>
 
@@ -177,6 +189,7 @@
 <script src="assets/echarts.min.js"></script>
 <script src="assets/format.js"></script>
 <script src="assets/charts.js"></script>
+<script src="assets/brandmarks.js"></script>
 <script src="assets/home.js"></script>
 </body>
 </html>

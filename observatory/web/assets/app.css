@@ -1322,9 +1322,52 @@ table.data.tbl-bands td.trend-decel { color: var(--obs-trust-official); }
   font-size: 13.5px;
 }
 .connect-url .btn { flex: none; }
+.connect-url.is-wrap code { white-space: pre-wrap; overflow-wrap: anywhere; }
 
 @media (max-width: 480px) {
   .connect-url { flex-wrap: wrap; }
+}
+
+/* ---------- brand marks ---------- */
+
+/* The client's own mark, monochrome, inheriting the text colour around it so
+   one file serves both themes and both surfaces (row and button). Sized in px,
+   not em: these sit beside 12.5-15px labels and must not grow with them. */
+.mark { display: inline-block; width: 15px; height: 15px; flex: none; line-height: 0; }
+.mark svg { display: block; width: 100%; height: 100%; }
+.btn .mark { width: 14px; height: 14px; }
+.btn.has-mark, a.has-mark { display: inline-flex; align-items: center; gap: 7px; }
+
+/* ---------- connect: one row per client ---------- */
+
+/* Cursor and VS Code register a URL scheme, so their row really is a one-click
+   install. Claude and Codex have no such handler, so those rows copy the exact
+   command instead — and the button says so. A row that promised "install" and
+   only put text on the clipboard would be a small lie in the one place the
+   product cannot afford one. */
+.connect-clients {
+  border: 1px solid var(--obs-border);
+  border-radius: 3px;
+  margin: 12px 0 4px;
+  max-width: 74ch;
+}
+.connect-client {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  border-top: 1px solid var(--obs-border);
+}
+.connect-client:first-child { border-top: 0; }
+.connect-client-name { display: flex; align-items: center; gap: 9px; flex: none; width: 21ch; font-weight: 600; }
+.connect-client-name .mark { color: var(--obs-text-muted); }
+.connect-client-how { flex: 1; min-width: 0; font-size: 12.5px; color: var(--obs-text-muted); }
+.connect-client .btn { flex: none; min-width: 14ch; text-align: center; }
+
+@media (max-width: 560px) {
+  .connect-client { flex-wrap: wrap; }
+  .connect-client-name { flex: 1; width: auto; }
+  .connect-client-how { flex: 0 0 100%; order: 3; }
 }
 
 /* ---------- second-tier navigation ---------- */
@@ -1945,3 +1988,19 @@ pre.code {
 @media (max-width: 600px) {
   .ep-params { min-width: 720px; }
 }
+
+/* The assistant demo ends with the way to run it yourself. Same two one-click
+   installs as the connect page, plus the command for Claude Code. */
+.home-connect {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--obs-border);
+}
+.home-connect-text { flex: 1 1 340px; font-size: 13px; color: var(--obs-text-muted); }
+.home-connect-text code { font-size: 12.5px; }
+.home-connect-actions { display: flex; flex-wrap: wrap; gap: 8px; }
