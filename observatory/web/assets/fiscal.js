@@ -159,23 +159,44 @@ function batchCodes(codes) {
   return batches;
 }
 
+/* How many of a dataset's batches are in flight at once.
+
+   The prefecture table alone needs 48 areas x 3 measures, which is 18 batches
+   at the endpoint's eight-code ceiling. Awaited one after another against the
+   production host that was eighteen round trips deep — the page sat on its
+   skeletons for about six seconds, which on a public page is indistinguishable
+   from broken. Six at a time keeps the wall clock near one round trip without
+   opening a connection per batch. */
+const MAX_PARALLEL = 6;
+
 /* A code the release does not carry 404s the whole batch, so a failed batch is
    retried one code at a time and an absent series is stored empty — it renders
    "—", never a zero. */
 async function loadSeries(api, codes) {
   const want = codes.filter(c => !((api + "|" + c) in D.series));
-  for (const chunk of batchCodes(want)) {
-    try {
-      const payload = await getJSON(api + "/observations?series=" + encodeURIComponent(chunk.join(",")));
-      payload.series.forEach(s => {
-        D.series[api + "|" + s.code] = s.points;
-        D.names[api + "|" + s.code] = s.name_en || s.code;
-      });
-    } catch (err) {
-      if (chunk.length === 1) { D.series[api + "|" + chunk[0]] = []; continue; }
-      for (const one of chunk) await loadSeries(api, [one]);
+  const chunks = batchCodes(want);
+  let next = 0;
+
+  async function worker() {
+    while (next < chunks.length) {
+      const chunk = chunks[next++];
+      try {
+        const payload = await getJSON(api + "/observations?series=" + encodeURIComponent(chunk.join(",")));
+        payload.series.forEach(s => {
+          D.series[api + "|" + s.code] = s.points;
+          D.names[api + "|" + s.code] = s.name_en || s.code;
+        });
+      } catch (err) {
+        if (chunk.length === 1) { D.series[api + "|" + chunk[0]] = []; continue; }
+        for (const one of chunk) await loadSeries(api, [one]);
+      }
     }
   }
+
+  const workers = [];
+  for (let i = 0; i < Math.min(MAX_PARALLEL, chunks.length); i++) workers.push(worker());
+  await Promise.all(workers);
+
   codes.forEach(c => { if (!((api + "|" + c) in D.series)) D.series[api + "|" + c] = []; });
 }
 
