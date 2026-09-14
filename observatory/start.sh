@@ -56,6 +56,82 @@ on_term() {
 }
 trap on_term TERM INT
 
+# What to refresh, and in what order. The curated order leads — headline CPI
+# before the long tail, so the most-read pages settle first — and everything
+# else registered in app/ingest.py follows it, whether or not this script
+# names it. Reading the registry rather than duplicating it is the point: the
+# golden rule already makes ADAPTERS the one place a dataset is declared, and
+# a dataset that has to be copied into a shell script to keep refreshing is a
+# dataset that will one day stop refreshing quietly (Ingest Guardrail 6).
+#
+# Falls back to the curated list alone if the registry cannot be imported —
+# in which case the ingests are broken anyway, and the site still serves.
+CURATED="cpi-jp cpi-jp-items cpi-jp-goods-services cpi-jp-sa cpi-jp-long
+         cpi-tokyo cpi-tokyo-items boj-assets jgb-yields jnto-visitors
+         accommodation-jp population-jp population-jp-history population-jp-municipal
+         trade-semis trade-inputs trade-autos trade-energy
+         trade-machinery trade-pharma trade-food
+         rice-prices-jp rice-inventory-jp agri-prices rice-production-cost
+         ja-statistics gdp-jp corporate-finance-jp
+         fsa-npl fsa-bank-results jba-banks"
+
+ALL_DATASETS=$(CURATED="$CURATED" python - <<'PY' 2>/dev/null
+import os
+curated = os.environ["CURATED"].split()
+try:
+    from app.ingest import ADAPTERS
+except Exception:
+    registered = None
+else:
+    registered = set(ADAPTERS)
+order = curated + sorted(registered - set(curated)) if registered else curated
+if registered is not None:
+    order = [d for d in order if d in registered]
+print(" ".join(order))
+PY
+)
+if [ -z "$ALL_DATASETS" ]; then
+    echo "ATTENTION could not read the dataset registry; refreshing the curated list only"
+    ALL_DATASETS="$CURATED"
+fi
+
+
+# Is there anything to serve right now? This is the whole question a boot has
+# to answer. With a volume mounted the platform stops the old container before
+# it starts the new one, so every second spent here is the site being down —
+# 2026-09-13 spent over half an hour of it re-ingesting data the volume
+# already held. A volume carrying a published release needs no ingest before
+# the port opens; it needs the port open and a refresh running behind it.
+#
+# Fails closed on purpose: no file, no releases table, an unreadable file or
+# no duckdb at all all mean "nothing to serve", which builds before serving
+# exactly as a fresh container always has.
+has_published_data() {
+    python - <<'PY' 2>/dev/null
+import sys
+try:
+    import duckdb
+    from app import db
+except Exception:
+    sys.exit(1)
+path = db.DATA_DIR / "observatory.duckdb"
+if not path.exists():
+    sys.exit(1)
+try:
+    con = duckdb.connect(str(path), read_only=True)
+except Exception:
+    sys.exit(1)
+try:
+    n = con.execute(
+        "SELECT count(*) FROM releases WHERE status = 'published'").fetchone()[0]
+except Exception:
+    n = 0
+finally:
+    con.close()
+sys.exit(0 if n else 1)
+PY
+}
+
 # A server that dies immediately must not turn into an ingest storm against
 # e-Stat, the BOJ and the MoF. After a fast exit the next pass serves straight
 # away without re-fetching, and backs off further each time.
@@ -67,7 +143,20 @@ while true; do
 
     if [ -n "$skip_ingest" ]; then
         echo "REFRESH restarting without an ingest after $fast_exits fast exit(s)"
+    elif has_published_data; then
+        # SERVE FIRST, REFRESH SECOND — the normal path, and the reason a
+        # deploy no longer takes the site down for as long as the ingests run.
+        # Nothing happens between here and the port being bound: the data on
+        # the volume is already good, and app/backfill.py refreshes all of it
+        # behind the open port, on a copy that is swapped in when it is done.
+        echo "SERVE-FIRST the volume holds published data; binding the port now" \
+             "and refreshing behind it"
     else
+        # COLD START ONLY — a volume with nothing to serve. There is no data
+        # to protect and nothing to keep up, so building before the port is
+        # the right trade: the site is not "down", it does not exist yet.
+        echo "COLD START nothing published on the volume; building before the port opens"
+
         # The boot ingest list. Overridable because this loop runs BEFORE the
         # port is bound — a dataset that takes longer to publish than the
         # platform's healthcheck window will take the whole site down with it,
@@ -76,14 +165,7 @@ while true; do
         # lifted out of the boot path and ingested out of band, without a
         # deploy. The default stays complete, so a laptop and a fresh container
         # still build everything.
-        for dataset in ${INGEST_DATASETS:-cpi-jp cpi-jp-items cpi-jp-goods-services cpi-jp-sa cpi-jp-long \
-                       cpi-tokyo cpi-tokyo-items boj-assets jgb-yields jnto-visitors \
-                       accommodation-jp population-jp population-jp-history population-jp-municipal \
-                       trade-semis trade-inputs trade-autos trade-energy \
-                       trade-machinery trade-pharma trade-food \
-                       rice-prices-jp rice-inventory-jp agri-prices rice-production-cost \
-                       ja-statistics gdp-jp corporate-finance-jp \
-                       fsa-npl fsa-bank-results jba-banks}; do
+        for dataset in ${INGEST_DATASETS:-$ALL_DATASETS}; do
             python -m app.ingest "$dataset" \
                 || echo "ingest $dataset did not publish; serving last published release"
         done
@@ -172,8 +254,16 @@ EOF
     # when it is done — the server keeps reading throughout. It is stopped
     # before the nightly ingests below ever touch a served file, and not
     # started on a fast-restart cycle. BACKFILL_ENABLED=0 turns it off.
+    #
+    # BACKFILL_DATASETS is set here rather than read from the environment on
+    # purpose. It began life as a workaround — a way to lift one heavy dataset
+    # out of a boot path that could not afford it — and a workaround that
+    # names a subset is exactly how a dataset stops refreshing without anyone
+    # noticing. On the serve-first path this process IS the refresh, so it
+    # gets the whole list. The lever that remains is INGEST_DATASETS, which
+    # only shapes the cold build above, where nothing is being served anyway.
     if [ -z "$skip_ingest" ] && [ "${BACKFILL_ENABLED:-1}" != "0" ]; then
-        python -m app.backfill &
+        BACKFILL_DATASETS="$ALL_DATASETS" python -m app.backfill &
         backfill=$!
     fi
 

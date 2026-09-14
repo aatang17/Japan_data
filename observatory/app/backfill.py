@@ -335,6 +335,44 @@ def backfill_sec(max_quarters, per_slice=2):
         log("US shelf slice %d landed (%.0fs): %s" % (n, took, ", ".join(sorted(after - before))))
 
 
+def stamp_cycle():
+    """Mark the end of a refresh cycle, and say what it left behind.
+
+    start.sh used to do both, in the window before it bound the port. On the
+    serve-first path there is no such window: the port opens on the data the
+    volume already holds and this process is the refresh, so the stamp and the
+    health report belong here, at the end of it.
+
+    Only on a completed run. The stamp is the one signal that says the refresh
+    machinery is alive — /catalog/health reports its age and answers strict
+    callers with a 503 once it passes REFRESH_MAX_AGE_HOURS — so a run cut
+    short by a redeploy must not claim to be one. The heartbeat is a plain
+    file on the volume, never a row: the served database has a single writer
+    and it is not this process.
+    """
+    try:
+        from . import heartbeat
+        log("refresh heartbeat: %s" % heartbeat.write()["at"])
+    except Exception as exc:  # noqa: BLE001 — a missed stamp must not fail the run
+        log("ingest heartbeat was not written: %s" % exc)
+    try:
+        from . import api
+        report = api.health()
+        for d in report["datasets"]:
+            if d["status"] == "attention":
+                log("ATTENTION %s: stale=%s unpublished_artifact=%s latest=%s"
+                    % (d["dataset"], d.get("stale"), d.get("unpublished_artifact"),
+                       d.get("latest_period", "none")))
+        for d in report.get("equity_extractors", []):
+            if d["status"] == "attention":
+                log("ATTENTION equity/%s: archive read only through %s (%s days behind)"
+                    % (d["dataset"], d.get("archive_read_through"), d.get("days_behind")))
+        log("ingest health: %s (last ingest %s)"
+            % (report["status"], report.get("last_ingest_at")))
+    except Exception as exc:  # noqa: BLE001
+        log("health check did not run: %s" % exc)
+
+
 def main():
     signal.signal(signal.SIGTERM, _on_term)
     signal.signal(signal.SIGINT, _on_term)
@@ -350,6 +388,12 @@ def main():
         % (" ".join(datasets) or "-", days, "yes" if gdp_vintages else "no"))
     if datasets:
         backfill_macro(datasets)
+    # Stamp here, not at the end. What follows walks history backwards and can
+    # run for hours; the daily cycle stops it long before it is "done", and a
+    # heartbeat that waited for that would report the refresh as dead every
+    # day. The current data is what the stamp is about, and it is current now.
+    if not _stopping:
+        stamp_cycle()
     if gdp_vintages and not _stopping:
         backfill_gdp_vintages()
     if days > 0 and not _stopping:
