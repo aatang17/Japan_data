@@ -167,35 +167,41 @@ const SECTION_OF = {   // dataset slug -> entry point; anything else is Macro
   "population-jp": "demo", "population-jp-history": "demo", "population-jp-municipal": "demo",
 };
 
-function fillNumbers(health) {
+function fillNumbers() {
   const n = v => fmtNum(v, 0);
+  const tile = (id, value, why) => {
+    if (value === null || value === undefined) return;   // missing stays "—"
+    const el = $(id);
+    if (why) el.parentNode.title = why;
+    countUp(el, value, n);
+  };
   const jobs = [
-    Promise.resolve(health && health.datasets ? health.datasets.length : null),
-    getJSON(API + "/equity/governance/summary?listed=true").then(d => d.companies),
-    getJSON(API + "/equity/stakes/summary").then(d => d.filings),
+    // One endpoint, four numbers, each computed next to its own definition.
+    // They were assembled here from whichever endpoint was nearest, which is
+    // how "filings parsed" came to report the 5% tape alone.
+    getJSON(API + "/catalog/coverage").then(c => {
+      const d = c.definitions || {};
+      tile("n-datasets", c.datasets, d.datasets);
+      tile("n-companies", c.companies, d.companies);
+      tile("n-filings", c.filings, d.filings);
+      tile("n-sources", c.sources, d.sources);
+      if (c.companies) $("e-equities").textContent = n(c.companies) + " companies · as filed";
+    }),
     getJSON(API + "/catalog/datasets").then(d => {
       const list = Array.isArray(d) ? d : (d.datasets || []);
-      const agencies = new Set(list.map(x => x.agency));
       const by = { macro: 0, tourism: 0, agri: 0, trade: 0, demo: 0 };
       list.forEach(x => { by[SECTION_OF[x.slug] || "macro"]++; });
       // A count of zero means this server has none of the section yet; the
       // entry keeps its span line rather than advertising an empty section.
-      const label = (n, since) => (n ? n + " datasets · " : "") + since;
+      const label = (k, since) => (k ? k + " datasets · " : "") + since;
       $("e-macro").textContent = label(by.macro, "from 1970");
       $("e-tourism").textContent = label(by.tourism, "from 2003");
       $("e-agri").textContent = label(by.agri, "from 1957");
       $("e-trade").textContent = label(by.trade, "from 2001");
       $("e-demo").textContent = label(by.demo, "from 1975");
-      return agencies.size + 1;   // plus company filings via EDINET
     }),
   ];
-  return Promise.allSettled(jobs).then(rs => {
-    const ids = ["n-datasets", "n-companies", "n-filings", "n-sources"];
-    rs.forEach((r, i) => {
-      if (r.status === "fulfilled" && r.value !== null) countUp($(ids[i]), r.value, n);
-      if (i === 1 && r.status === "fulfilled") $("e-equities").textContent = n(r.value) + " companies · as filed";
-    });
-  });
+  return Promise.allSettled(jobs);
 }
 
 /* ---------- the assistant ---------- */
@@ -545,7 +551,8 @@ function wireConnectCopy() {
 
 fillTicker();
 fillHeroTrace();
-fillHeroStatus().then(fillNumbers);
+fillHeroStatus();
+fillNumbers();
 fillAssistant();
 paintBrandMarks();
 wireConnectCopy();
