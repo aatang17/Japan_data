@@ -22,6 +22,7 @@ omitted for the simpler reason that Google states it ignores both.
 import os
 import pathlib
 import re
+import threading
 from urllib.parse import parse_qsl, urlencode, urlsplit
 from xml.sax.saxutils import escape
 
@@ -83,6 +84,57 @@ def page_urls():
     return [SITE_BASE_URL + "/" + name for name in ordered]
 
 
+# ---------------------------------------------------------------------------
+# the long tail
+# ---------------------------------------------------------------------------
+#
+# The 46 files in web/ are the site's furniture, not its contents. The
+# contents are the four thousand companies behind company.html, and a crawler
+# has no way to reach them: nothing on the site links to a company page
+# except a search box that only runs once JavaScript has, so the pages exist
+# and are reachable only by someone who already knows the code. Listing them
+# here is the one mechanism that does not depend on a script running.
+#
+# Listed from the filings table rather than the entity registry, because a
+# page is worth indexing when there is a filing behind it to render — the
+# registry knows of companies we hold nothing for, and those pages would be
+# the thin duplicates that make a search engine trust the rest of them less.
+
+_COMPANY_SQL = """
+SELECT DISTINCT sec_code FROM eq_filings
+WHERE sec_code IS NOT NULL AND sec_code <> '' ORDER BY sec_code
+"""
+
+_company_lock = threading.Lock()
+_company_cache = {"version": object(), "urls": []}
+
+
+def company_urls():
+    """Absolute URLs of every company page with a filing behind it.
+
+    Empty whenever the equity database cannot be read — mid-swap, or on a
+    macro-only deploy. An incomplete sitemap costs a crawl; a failed one
+    costs the whole file, so this never raises.
+    """
+    from . import equity_api
+    try:
+        version = equity_api.file_version()
+    except Exception:  # noqa: BLE001 — a sitemap is never worth an error page
+        return []
+    with _company_lock:
+        if _company_cache["version"] == version:
+            return _company_cache["urls"]
+    try:
+        rows = equity_api._cur().execute(_COMPANY_SQL).fetchall()
+    except Exception:  # noqa: BLE001
+        return []
+    urls = [SITE_BASE_URL + "/company.html?code=" + row[0] for row in rows]
+    with _company_lock:
+        _company_cache["version"] = version
+        _company_cache["urls"] = urls
+    return urls
+
+
 router = APIRouter()
 
 
@@ -94,15 +146,46 @@ def robots():
     return PlainTextResponse("\n".join(lines))
 
 
-@router.get("/sitemap.xml", include_in_schema=False)
-def sitemap():
+def _urlset(urls):
     body = ["<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
             "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">"]
-    for url in page_urls():
+    for url in urls:
         body.append("  <url><loc>%s</loc></url>" % escape(url))
     body.append("</urlset>")
     body.append("")
     return Response("\n".join(body), media_type="application/xml")
+
+
+@router.get("/sitemap.xml", include_in_schema=False)
+def sitemap():
+    """An index of the two sitemaps, not a list of pages.
+
+    Split so that Search Console reports the two halves separately: the 46
+    built pages and the four thousand company pages are indexed at very
+    different rates, and one combined number would hide which. The companies
+    half is omitted rather than served empty when the equity database is
+    unreadable, so a crawler is never told the answer is "none".
+    """
+    parts = [SITE_BASE_URL + "/sitemap-pages.xml"]
+    if company_urls():
+        parts.append(SITE_BASE_URL + "/sitemap-companies.xml")
+    body = ["<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
+            "<sitemapindex xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">"]
+    for url in parts:
+        body.append("  <sitemap><loc>%s</loc></sitemap>" % escape(url))
+    body.append("</sitemapindex>")
+    body.append("")
+    return Response("\n".join(body), media_type="application/xml")
+
+
+@router.get("/sitemap-pages.xml", include_in_schema=False)
+def sitemap_pages():
+    return _urlset(page_urls())
+
+
+@router.get("/sitemap-companies.xml", include_in_schema=False)
+def sitemap_companies():
+    return _urlset(company_urls())
 
 
 # ---------------------------------------------------------------------------

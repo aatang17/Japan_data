@@ -84,11 +84,11 @@ class RevalidatedStatic(StaticFiles):
                 original = handle.read()
         except OSError:
             return response
+        query_string = scope.get("query_string", b"").decode("latin-1")
         body = prerender.inject(
             original, os.path.basename(str(source_path)),
-            canonical=seo.canonical_url(
-                scope.get("path", "/"),
-                scope.get("query_string", b"").decode("latin-1")))
+            canonical=seo.canonical_url(scope.get("path", "/"), query_string),
+            query_string=query_string)
         if body == original:
             return response
 

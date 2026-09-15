@@ -37,6 +37,7 @@ is perfectly annotated.
 import datetime
 import re
 import threading
+from urllib.parse import parse_qsl
 
 WEB_DIR = None  # set by main, so this module imports without touching the disk
 
@@ -309,18 +310,186 @@ DESCRIPTIONS = {
 
 
 # ---------------------------------------------------------------------------
+# entity pages
+# ---------------------------------------------------------------------------
+#
+# company.html is 4,232 pages wearing one page's clothes. Every securities
+# code served the same <title>, the same description and an <h1> reading
+# "Company Profile", because all three live in the file and only the query
+# string says which company was asked for. To a crawler that is one page
+# repeated, and a search engine that decides it has seen a page before does
+# not index the other 4,231.
+#
+# So a company page states, before any script runs, which company it is:
+# the name in the title and the h1, and the filed facts a person would have
+# searched for in the description and a <noscript> line. Everything here is
+# as-filed — names, the report behind them, counts of rows in it — so no
+# figure needs a badge it cannot carry, and the page script overwrites the
+# h1 with the same name it already holds.
+
+_TITLE_TAG = re.compile(r'(?is)<title>.*?</title>')
+_CO_NAME_H1 = re.compile(r'(?is)(<h1[^>]*\sid=["\']co-name["\'][^>]*>)(.*?)(</h1>)')
+# Every sec_code in the file is four characters; anything else is a typed URL
+# and gets the plain shell rather than a database lookup.
+_SEC_CODE = re.compile(r'^[0-9A-Za-z]{4}$')
+_SPACE = re.compile(r'[\s\u3000]+')
+
+_company_cache = {}
+
+# One trip for the identity and the three counts a reader searches by. The
+# counts come off the latest annual report's doc_id, which is the filing the
+# page itself renders, so the sentence and the tables cannot disagree.
+_COMPANY_SQL = """
+WITH latest AS (
+  SELECT doc_id, sec_code, filer_name, filer_name_en, period_end, filed_date
+  FROM eq_filings WHERE sec_code = ?
+  ORDER BY period_end DESC NULLS LAST, filed_date DESC NULLS LAST LIMIT 1)
+SELECT l.filer_name, l.filer_name_en, l.period_end, l.filed_date, l.doc_id,
+       e.name_en, e.name_ja, e.industry,
+       (SELECT count(*) FROM eq_holdings h WHERE h.doc_id = l.doc_id),
+       (SELECT count(*) FROM eq_board b WHERE b.doc_id = l.doc_id),
+       (SELECT count(*) FROM eq_major_shareholders m WHERE m.doc_id = l.doc_id)
+FROM latest l
+LEFT JOIN (SELECT sec_code, any_value(name_en) AS name_en,
+                  any_value(name_ja) AS name_ja, any_value(industry) AS industry
+           FROM eq_entities WHERE sec_code IS NOT NULL GROUP BY sec_code) e
+  ON e.sec_code = l.sec_code
+"""
+
+
+def _clean(text):
+    """Filed names carry ideographic spaces and doubled ones. Titles do not."""
+    return _SPACE.sub(" ", (text or "").strip())
+
+
+def company_meta(code):
+    """Title, description, h1 and a noscript line for one company, or None.
+
+    None whenever the code is not one we hold a filing for, which is the
+    honest answer for a typed URL and leaves the page exactly as it shipped.
+    """
+    if not code or not _SEC_CODE.match(code):
+        return None
+    from . import equity_api
+    try:
+        version = equity_api.file_version()
+    except Exception:  # noqa: BLE001 — never worth an error page
+        version = None
+    key = (code, version)
+    with _lock:
+        if key in _company_cache:
+            return _company_cache[key]
+    meta = None
+    try:
+        meta = _company_meta(code)
+    except Exception:  # noqa: BLE001 — see module docstring: best-effort only
+        meta = None
+    with _lock:
+        # The whole universe is about four thousand entries of a few hundred
+        # bytes; the cap is a guard against a flood of invalid codes, not a
+        # working limit, so it is cleared rather than evicted one at a time.
+        if len(_company_cache) > 6000:
+            _company_cache.clear()
+        _company_cache[key] = meta
+    return meta
+
+
+def _company_meta(code):
+    from . import equity_api
+    row = equity_api._cur().execute(_COMPANY_SQL, [code]).fetchone()
+    if not row:
+        return None
+    (filer_name, filer_name_en, period_end, filed_date, doc_id,
+     name_en, name_ja, industry, holdings, board, shareholders) = row
+
+    english = _clean(name_en or filer_name_en)
+    japanese = _clean(name_ja or filer_name)
+    name = english or japanese or code
+    if not name:
+        return None
+    industry_en = ""
+    try:
+        industry_en = equity_api.INDUSTRY_EN.get(industry) or ""
+    except Exception:  # noqa: BLE001
+        industry_en = ""
+
+    # "the year to March 2026" — the fiscal year a reader would name, not the
+    # ISO date the table stores.
+    period = period_end.strftime("%B %Y") if period_end else ""
+
+    # Identity first, because that is what was searched for; then the counts
+    # that make this page different from the next company's.
+    ident = "%s (%s)" % (name, code)
+    if japanese and japanese != name:
+        ident = "%s (%s, %s)" % (name, japanese, code)
+
+    counts = []
+    # Only counts that are actually there. A zero here cannot tell "this
+    # company holds no cross-shareholdings" apart from "that table was not
+    # extracted", and the site does not print a number it cannot stand behind.
+    if holdings:
+        counts.append("%d cross-shareholding%s" % (holdings, "" if holdings == 1 else "s"))
+    if board:
+        counts.append("a board of %d" % board)
+    if shareholders:
+        counts.append("%d largest shareholders" % shareholders)
+
+    sentence = ident + ("%s." % (", " + industry_en) if industry_en else ".")
+    if counts and period:
+        sentence += " %s, as filed on EDINET for the year to %s." % (
+            _join(counts).capitalize(), period)
+    elif period:
+        sentence += " Annual securities report for the year to %s." % period
+
+    title = "%s (%s) \u2014 Ownership, Board & Financials \u00b7 Plover Analytics" % (name, code)
+
+    noscript = sentence
+    if doc_id and filed_date:
+        noscript += " EDINET filing %s, filed %s. Source: company filings on EDINET " \
+                    "(Financial Services Agency of Japan)." % (doc_id, filed_date)
+
+    return {"title": title, "description": sentence, "h1": name,
+            "noscript": noscript}
+
+
+def _join(parts):
+    """"a, b and c" — the way a sentence lists things."""
+    if len(parts) == 1:
+        return parts[0]
+    return ", ".join(parts[:-1]) + " and " + parts[-1]
+
+
+# Which query parameter names the entity, per page. Only pages that genuinely
+# serve one entity per address belong here: a page whose query only filters a
+# table is still one page and must keep one title.
+ENTITY_PARAM = {"company.html": "code"}
+
+
+def entity_meta(page_name, query_string):
+    """Per-entity head and heading for this exact address, or None."""
+    param = ENTITY_PARAM.get(page_name)
+    if not param or not query_string:
+        return None
+    values = dict(parse_qsl(query_string, keep_blank_values=True))
+    value = (values.get(param) or "").strip()
+    if not value:
+        return None
+    return company_meta(value)
+
+
+# ---------------------------------------------------------------------------
 # injection
 # ---------------------------------------------------------------------------
 
-def inject(html, page_name, canonical=None):
+def inject(html, page_name, canonical=None, query_string=""):
     """Serve-time additions for one HTML page. Never raises."""
     try:
-        return _inject(html, page_name, canonical)
+        return _inject(html, page_name, canonical, query_string)
     except Exception:  # noqa: BLE001 — a page that renders beats an annotated one
         return html
 
 
-def _inject(html, page_name, canonical=None):
+def _inject(html, page_name, canonical=None, query_string=""):
     # The address this page is to be indexed under, whatever hostname it was
     # fetched from. Written here rather than into the 46 files because only
     # the server knows which host answered and which view was asked for; a
@@ -329,7 +498,17 @@ def _inject(html, page_name, canonical=None):
         tag = '<link rel="canonical" href="%s">\n' % _escape(canonical)
         html = _HEAD_END.sub(tag + "</head>", html, count=1)
 
-    description = DESCRIPTIONS.get(page_name)
+    # What this address is, when the address names one company rather than
+    # the page's whole subject. Falls back to the page's own description the
+    # moment the code is unknown, so a typo serves the shell, not an error.
+    entity = entity_meta(page_name, query_string)
+    if entity:
+        html = _TITLE_TAG.sub(
+            lambda m: "<title>%s</title>" % _escape(entity["title"]), html, count=1)
+        html = _CO_NAME_H1.sub(
+            lambda m: m.group(1) + _escape(entity["h1"]) + m.group(3), html, count=1)
+
+    description = (entity or {}).get("description") or DESCRIPTIONS.get(page_name)
     if description and not _HAS_DESC.search(html):
         tag = '<meta name="description" content="%s">\n' % _escape(description)
         html = _HEAD_END.sub(tag + "</head>", html, count=1)
@@ -339,10 +518,14 @@ def _inject(html, page_name, canonical=None):
         html = _HEADER_SHELL.sub(
             lambda m: m.group(1) + links + m.group(3), html, count=1)
 
-    found = _DATASET.search(html)
-    if found:
-        text = summary_text(found.group(1))
-        if text:
-            block = "<noscript><p>%s</p></noscript>" % _escape(text)
-            html = _MAIN_OPEN.sub(lambda m: m.group(1) + block, html, count=1)
+    text = ""
+    if entity:
+        text = entity["noscript"]
+    else:
+        found = _DATASET.search(html)
+        if found:
+            text = summary_text(found.group(1))
+    if text:
+        block = "<noscript><p>%s</p></noscript>" % _escape(text)
+        html = _MAIN_OPEN.sub(lambda m: m.group(1) + block, html, count=1)
     return html
