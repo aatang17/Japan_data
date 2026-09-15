@@ -200,7 +200,8 @@ var NAV_SECTIONS = [
   // --obs-header-ink and is correct in both themes for free. It is also the
   // simplified line-art mark, not the full-colour disc: at 20px the detailed
   // version is an indistinct blob, and the header is the one place the mark is
-  // always small. The full-colour disc is the favicon (assets/logo.svg).
+  // always small. assets/favicon.svg is the same reasoning applied to the tab
+  // icon; assets/logo.svg keeps the full-colour disc for large uses.
   var brand = '<a class="brand" href="index.html">' + BRAND_MARK + esc(NAV_BRAND) +
     (section ? ' <span class="ds">/ ' + esc(section.suffix) + "</span>" : "") +
     "</a>";

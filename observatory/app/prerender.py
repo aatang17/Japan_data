@@ -35,6 +35,7 @@ than failing the request. A page that renders is worth more than a page that
 is perfectly annotated.
 """
 import datetime
+import json
 import re
 import threading
 from urllib.parse import parse_qsl
@@ -449,7 +450,7 @@ def _company_meta(code):
                     "(Financial Services Agency of Japan)." % (doc_id, filed_date)
 
     return {"title": title, "description": sentence, "h1": name,
-            "noscript": noscript}
+            "noscript": noscript, "code": code, "name_ja": japanese}
 
 
 def _join(parts):
@@ -475,6 +476,166 @@ def entity_meta(page_name, query_string):
     if not value:
         return None
     return company_meta(value)
+
+
+# ---------------------------------------------------------------------------
+# what a machine is told
+# ---------------------------------------------------------------------------
+#
+# Two additions aimed past the browser.
+#
+# The icons, because every page needs the same four <link> tags and they were
+# copied into all 46 heads by hand: the 47th page would have been the one that
+# forgot them. Written here, adding a page cannot get them wrong. Root-absolute
+# rather than relative, so they survive a page served from a deeper path later.
+#
+# And the data, because the page is a shell. An assistant that fetches
+# /company.html?code=7203 gets the nav, a sentence and nothing else — the
+# holdings arrive from /api afterwards, from a fetch the assistant does not
+# run. rel="alternate" names the JSON behind the page, and the JSON-LD block
+# says what the page is in the vocabulary search engines already parse.
+# Neither invents anything: every field comes from the dataset's MANIFEST or
+# from the company row, and a page with no dataset and no company gets neither.
+
+ICON_LINKS = (
+    '<link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48">'
+    '<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">'
+    '<link rel="icon" href="/assets/favicon-48.png" type="image/png" sizes="48x48">'
+    '<link rel="apple-touch-icon" href="/apple-touch-icon.png">'
+)
+_HAS_ICON = re.compile(r'(?is)<link[^>]+rel=["\']icon["\']')
+
+# Where a page's own numbers can be read as JSON. A dataset page is answered
+# by its manifest's summary endpoint; an entity page by the endpoint that
+# serves that one entity.
+ENTITY_API = {"company.html": "/api/v1/company/%s"}
+
+SITE = "Plover Analytics"
+
+
+def _json_string(text):
+    """JSON-LD sits inside a <script>, where the danger is not the quote but
+    the closing tag: a name containing "</script>" would end the block early."""
+    out = json.dumps(text, ensure_ascii=False)
+    return out.replace("<", "\\u003c").replace(">", "\\u003e")
+
+
+def _jsonld(fields):
+    """A @graph-free Dataset node, rendered small and deterministic."""
+    parts = []
+    for key, value in fields:
+        if value in (None, "", [], {}):
+            continue
+        if isinstance(value, str):
+            parts.append('%s:%s' % (_json_string(key), _json_string(value)))
+        else:
+            parts.append('%s:%s' % (_json_string(key), json.dumps(
+                value, ensure_ascii=False).replace("<", "\\u003c").replace(">", "\\u003e")))
+    return '<script type="application/ld+json">{%s}</script>' % ",".join(parts)
+
+
+def _download(url, fmt):
+    return {"@type": "DataDownload", "contentUrl": url, "encodingFormat": fmt}
+
+
+def dataset_jsonld(dataset, canonical):
+    """schema.org/Dataset for a statistical page, straight from its MANIFEST.
+
+    The manifest is the same object the catalog and the API reference are
+    built from, so a claim here cannot drift from what the dataset says about
+    itself. license is deliberately absent: the platform has no single one —
+    each source carries its own terms, which travel as usageInfo text.
+    """
+    from . import registry
+    manifest = registry.get(dataset)
+    if not manifest:
+        return ""
+    source = manifest.get("source") or {}
+    endpoints = manifest.get("endpoints") or {}
+    base = SITE_BASE_URL_FOR_JSONLD()
+    distribution = []
+    for key in ("summary", "series"):
+        path = endpoints.get(key)
+        if path:
+            distribution.append(_download(base + path, "application/json"))
+    name = (manifest.get("name") or {}).get("en") or dataset
+    return _jsonld([
+        ("@context", "https://schema.org"),
+        ("@type", "Dataset"),
+        ("name", name),
+        ("description", manifest.get("summary")),
+        ("url", canonical),
+        ("identifier", dataset),
+        ("isAccessibleForFree", True),
+        ("creator", {"@type": "Organization", "name": SITE, "url": base + "/"}),
+        ("sourceOrganization", {"@type": "Organization",
+                                "name": source.get("publisher")}
+         if source.get("publisher") else None),
+        ("creditText", source.get("credit")),
+        ("usageInfo", source.get("license_note")),
+        ("isBasedOn", source.get("url")),
+        ("distribution", distribution),
+    ])
+
+
+def company_jsonld(entity, canonical, api_url):
+    """schema.org/Dataset whose subject is the company, so the filings and the
+    company are both stated rather than one standing in for the other."""
+    base = SITE_BASE_URL_FOR_JSONLD()
+    about = {"@type": "Organization", "name": entity["h1"]}
+    if entity.get("name_ja") and entity["name_ja"] != entity["h1"]:
+        about["alternateName"] = entity["name_ja"]
+    if entity.get("code"):
+        about["tickerSymbol"] = entity["code"]
+    return _jsonld([
+        ("@context", "https://schema.org"),
+        ("@type", "Dataset"),
+        ("name", entity["title"].split(" \u00b7 ")[0]),
+        ("description", entity["description"]),
+        ("url", canonical),
+        ("isAccessibleForFree", True),
+        ("about", about),
+        ("creator", {"@type": "Organization", "name": SITE, "url": base + "/"}),
+        ("creditText", "Source: company filings on EDINET "
+                       "(Financial Services Agency of Japan)."),
+        ("distribution", [_download(api_url, "application/json")]),
+    ])
+
+
+_page_map_cache = {"ids": None, "map": {}}
+
+
+def page_datasets(html, page_name):
+    """Which datasets this page is the front of.
+
+    The page's own data-dataset attribute names its principal one and wins.
+    Where there is none — every equity page — the registry is asked instead:
+    each MANIFEST already records the page it belongs to, and holdings.html,
+    the page that ranks today, is one of those. A page may front several
+    datasets (fiscal.html fronts eight), and each is stated separately rather
+    than one being chosen to stand for the rest.
+    """
+    found = _DATASET.search(html)
+    if found:
+        return [found.group(1)]
+    from . import registry
+    ids = tuple(registry.ids())
+    with _lock:
+        if _page_map_cache["ids"] != ids:
+            built = {}
+            for mid in ids:
+                page = (registry.get(mid) or {}).get("page")
+                if page:
+                    built.setdefault(page, []).append(mid)
+            _page_map_cache["ids"] = ids
+            _page_map_cache["map"] = built
+        return _page_map_cache["map"].get("/" + page_name, [])
+
+
+def SITE_BASE_URL_FOR_JSONLD():
+    """The public origin, from the one place that already owns it."""
+    from . import seo
+    return seo.SITE_BASE_URL
 
 
 # ---------------------------------------------------------------------------
@@ -513,6 +674,40 @@ def _inject(html, page_name, canonical=None, query_string=""):
         tag = '<meta name="description" content="%s">\n' % _escape(description)
         html = _HEAD_END.sub(tag + "</head>", html, count=1)
 
+    # The icons every page carries, written once here rather than 46 times.
+    if not _HAS_ICON.search(html):
+        html = _HEAD_END.sub(ICON_LINKS + "\n</head>", html, count=1)
+
+    # Where this page's numbers can be read as data, and what the page is.
+    datasets = [] if entity else page_datasets(html, page_name)
+    alternates = []
+    nodes = []
+    if entity:
+        template = ENTITY_API.get(page_name)
+        if template and entity.get("code"):
+            path = template % entity["code"]
+            alternates.append((path, entity["h1"]))
+            nodes.append(company_jsonld(
+                entity, canonical or "", SITE_BASE_URL_FOR_JSONLD() + path))
+    else:
+        from . import registry
+        for mid in datasets:
+            manifest = registry.get(mid) or {}
+            endpoints = manifest.get("endpoints") or {}
+            path = endpoints.get("summary") or endpoints.get("series")
+            if path:
+                alternates.append(
+                    (path, (manifest.get("name") or {}).get("en") or mid))
+            node = dataset_jsonld(mid, canonical or "")
+            if node:
+                nodes.append(node)
+    for path, label in alternates:
+        html = _HEAD_END.sub(
+            '<link rel="alternate" type="application/json" href="%s" title="%s">\n</head>'
+            % (_escape(path), _escape(label)), html, count=1)
+    for node in nodes:
+        html = _HEAD_END.sub(node + "\n</head>", html, count=1)
+
     links = nav_links_html()
     if links:
         html = _HEADER_SHELL.sub(
@@ -521,10 +716,8 @@ def _inject(html, page_name, canonical=None, query_string=""):
     text = ""
     if entity:
         text = entity["noscript"]
-    else:
-        found = _DATASET.search(html)
-        if found:
-            text = summary_text(found.group(1))
+    elif datasets:
+        text = summary_text(datasets[0])
     if text:
         block = "<noscript><p>%s</p></noscript>" % _escape(text)
         html = _MAIN_OPEN.sub(lambda m: m.group(1) + block, html, count=1)
