@@ -22,10 +22,12 @@ omitted for the simpler reason that Google states it ignores both.
 import os
 import pathlib
 import re
+from urllib.parse import parse_qsl, urlencode, urlsplit
 from xml.sax.saxutils import escape
 
 from fastapi import APIRouter
-from fastapi.responses import PlainTextResponse, Response
+from fastapi.responses import PlainTextResponse, RedirectResponse, Response
+from starlette.datastructures import Headers
 
 WEB_DIR = pathlib.Path(__file__).resolve().parent.parent / "web"
 
@@ -92,3 +94,79 @@ def sitemap():
     body.append("</urlset>")
     body.append("")
     return Response("\n".join(body), media_type="application/xml")
+
+
+# ---------------------------------------------------------------------------
+# one address per page
+# ---------------------------------------------------------------------------
+#
+# The site answers on more hostnames than it has: the apex and the www
+# spelling both resolve, and the Railway deploy domain answers too. Every one
+# of them serves all 46 pages, so a crawler that meets two of them has two
+# copies of the site and has to guess which is real — it guessed www, while
+# the sitemap above names the apex, and the two halves of that split then
+# compete with each other for the same query.
+#
+# Two things settle it, and SITE_BASE_URL is the single source of truth for
+# both: the www spelling is redirected to the canonical host permanently, and
+# every page states its own canonical address on the way out, which covers
+# the deploy domain and anything else pointed at the app later.
+
+# Parameters that identify where a reader came from, not what they asked to
+# see. A link shared from the newsletter carries them and would otherwise
+# index as a page of its own.
+_TRACKING = ("utm_", "fbclid", "gclid", "mc_cid", "mc_eid", "ref_src")
+
+
+def _is_tracking(key):
+    return key.startswith("utm_") or key in _TRACKING
+
+
+def canonical_url(path, query_string=""):
+    """The one address for a request's path and query.
+
+    View state lives in the query string ("URL encodes the full view"), so it
+    is kept: ``company.html?code=7203`` is a different page from
+    ``company.html``, and collapsing the two would drop every company from
+    the index. Only the tracking parameters are dropped, and ``index.html``
+    resolves to the bare directory URL the sitemap already publishes.
+    """
+    path = path or "/"
+    if path.endswith("/index.html"):
+        path = path[: -len("index.html")]
+    kept = [(k, v) for k, v in parse_qsl(query_string, keep_blank_values=True)
+            if not _is_tracking(k)]
+    query = urlencode(kept)
+    return SITE_BASE_URL + path + ("?" + query if query else "")
+
+
+class CanonicalHost:
+    """Redirects the other spelling of our hostname to the one we publish.
+
+    Deliberately narrow: exactly one host is redirected, the www/apex twin of
+    whatever SITE_BASE_URL names. Every other Host header is passed through
+    untouched — localhost in development, the private domain the Railway
+    healthcheck arrives on, and the deploy domain, none of which may be
+    answered with a redirect to the public site.
+    """
+
+    def __init__(self, app):
+        self.app = app
+        host = (urlsplit(SITE_BASE_URL).hostname or "").lower()
+        if not host:
+            self.other = ""
+        elif host.startswith("www."):
+            self.other = host[4:]
+        else:
+            self.other = "www." + host
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and self.other:
+            requested = Headers(scope=scope).get("host", "")
+            if requested.split(":")[0].lower() == self.other:
+                target = canonical_url(scope.get("path", "/"),
+                                       scope.get("query_string", b"").decode("latin-1"))
+                response = RedirectResponse(target, status_code=301)
+                await response(scope, receive, send)
+                return
+        await self.app(scope, receive, send)

@@ -48,6 +48,7 @@ _HEADER_SHELL = re.compile(r'(<header class="site-header"[^>]*>)(\s*)(</header>)
 _MAIN_OPEN = re.compile(r'(<main\b[^>]*>)')
 _HEAD_END = re.compile(r'</head>', re.IGNORECASE)
 _HAS_DESC = re.compile(r'(?is)<meta[^>]+name=["\']description["\']')
+_HAS_CANONICAL = re.compile(r'(?is)<link[^>]+rel=["\']canonical["\']')
 _DATASET = re.compile(r'<main[^>]*\sdata-dataset="([^"]+)"')
 
 _lock = threading.Lock()
@@ -311,15 +312,23 @@ DESCRIPTIONS = {
 # injection
 # ---------------------------------------------------------------------------
 
-def inject(html, page_name):
+def inject(html, page_name, canonical=None):
     """Serve-time additions for one HTML page. Never raises."""
     try:
-        return _inject(html, page_name)
+        return _inject(html, page_name, canonical)
     except Exception:  # noqa: BLE001 — a page that renders beats an annotated one
         return html
 
 
-def _inject(html, page_name):
+def _inject(html, page_name, canonical=None):
+    # The address this page is to be indexed under, whatever hostname it was
+    # fetched from. Written here rather than into the 46 files because only
+    # the server knows which host answered and which view was asked for; a
+    # literal in each file would say the same thing 46 times and drift.
+    if canonical and not _HAS_CANONICAL.search(html):
+        tag = '<link rel="canonical" href="%s">\n' % _escape(canonical)
+        html = _HEAD_END.sub(tag + "</head>", html, count=1)
+
     description = DESCRIPTIONS.get(page_name)
     if description and not _HAS_DESC.search(html):
         tag = '<meta name="description" content="%s">\n' % _escape(description)

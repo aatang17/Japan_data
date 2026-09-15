@@ -41,6 +41,7 @@ from . import registry  # noqa: E402
 from .ownership_api import router as ownership_router  # noqa: E402
 from . import refresh  # noqa: E402
 from .mcp import router as mcp_router  # noqa: E402
+from . import seo  # noqa: E402
 from .seo import router as seo_router  # noqa: E402
 
 WEB_DIR = pathlib.Path(__file__).resolve().parent.parent / "web"
@@ -83,7 +84,11 @@ class RevalidatedStatic(StaticFiles):
                 original = handle.read()
         except OSError:
             return response
-        body = prerender.inject(original, os.path.basename(str(source_path)))
+        body = prerender.inject(
+            original, os.path.basename(str(source_path)),
+            canonical=seo.canonical_url(
+                scope.get("path", "/"),
+                scope.get("query_string", b"").decode("latin-1")))
         if body == original:
             return response
 
@@ -163,6 +168,10 @@ app.add_middleware(GZipMiddleware, minimum_size=1024, compresslevel=5)
 # Outermost, so a reader served from the response cache is still counted: a
 # cache hit never reaches the routers. See app/visits.py.
 app.add_middleware(visits.VisitCounter)
+# Outside even the counter: a reader arriving on the www spelling is bounced
+# to the canonical host before anything else runs, so the visit is counted
+# once, at the address it lands on. See app/seo.py.
+app.add_middleware(seo.CanonicalHost)
 
 # Equity first: its literal /api/v1/equity/ paths must win over the core
 # router's /api/v1/{dataset}/ catch-alls. Governance and buyback ahead of
