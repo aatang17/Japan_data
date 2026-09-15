@@ -48,9 +48,18 @@ _NOINDEX = re.compile(
     r"<meta[^>]+name=[\"']robots[\"'][^>]*content=[\"'][^\"']*noindex",
     re.IGNORECASE)
 
+# Search Console proves ownership by asking for a file at a name it chooses,
+# carrying one line it chooses. It lands in web/ because that is what the
+# server publishes, but it is a token, not a page: it must be reachable and
+# must not be edited — so it cannot carry the noindex tag every other
+# excluded page uses to opt out, and is named here instead.
+_VERIFICATION = re.compile(r"^google[0-9a-f]{8,}\.html$", re.IGNORECASE)
+
 
 def _listed(page):
     """Does this page belong in the index? Only the page itself can say."""
+    if _VERIFICATION.match(page.name):
+        return False
     try:
         head = page.open("r", encoding="utf-8", errors="replace").read(4096)
     except OSError:
