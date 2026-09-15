@@ -1484,6 +1484,20 @@ def validate(series, observations):
 
 # --- presentation ------------------------------------------------------------
 
+def _romanised(pref, city):
+    u"""The municipality's published English name, or None.
+
+    Imported here rather than at module scope because `place_en` reads this
+    module's own MUNICIPALITIES table for the reverse direction.
+    """
+    from ..place_en import municipality_en_by_name
+    en = municipality_en_by_name(pref, city)
+    if not en:
+        return None
+    # The prefecture is already its own column on every surface that shows this.
+    return en.rsplit(u", ", 1)[0]
+
+
 PRESENTATION = {
     "credit_line": ("Source: Japan Tourism Agency, Accommodation Survey "
                     "(観光庁『宿泊旅行統計調査』)."),
@@ -1502,7 +1516,12 @@ PRESENTATION = {
                           for c, _j, e, era in NATIONALITIES],
         "purposes": [{"code": c, "label": e} for c, _j, e in PURPOSES],
         "residence": [{"code": c, "label": e} for c, _j, e in RESIDENCE],
+        # label is the survey's own Japanese name; label_en is Japan Post's
+        # published romanisation of the same municipality, matched on the name
+        # (app/place_en.py). A municipality with no published romanisation gets
+        # no English label rather than an invented one.
         "municipalities": [{"code": c, "label": city, "prefecture": pref,
+                            "label_en": _romanised(pref, city),
                             "prefecture_label": AREA_NAMES[pref][0]}
                            for c, pref, city in MUNICIPALITIES],
         "baseline_year": 2019,

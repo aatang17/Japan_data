@@ -211,7 +211,7 @@ function rankConfig() {
 function csvHeader(extra) {
   var rel = DATA.release;
   return [
-    "Japan Data Observatory — vote weight, House of Councillors prefectural constituencies",
+    "Plover Analytics — vote weight, House of Councillors prefectural constituencies",
     "Denominator: " + DATA.base.label + " (" + DATA.base.key + ")",
     "Formula: " + DATA.base.formula,
     "Calculation: " + DATA.calc,

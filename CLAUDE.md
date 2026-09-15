@@ -1,4 +1,4 @@
-# Japan Macro Observatory — Project Rules
+# Plover Analytics — Project Rules
 
 > Always-true, cross-cutting rules for this repo. The product lives in `observatory/`;
 > plans live in `docs/plans/`.

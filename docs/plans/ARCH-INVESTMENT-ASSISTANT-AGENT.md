@@ -117,7 +117,7 @@ a `vintage_id`. A number without a source cannot be stored; the action tools rej
 - Same container as today. The runner starts after the API, as `backfill.py` does, and is
   killed first on shutdown. One worker per desk keeps runs serial per user; desks run in
   parallel up to a small cap.
-- Reads the Observatory DuckDB files read-only, through the API functions. Writes only to
+- Reads Plover Analytics DuckDB files read-only, through the API functions. Writes only to
   the workspace SQLite. Guardrail 5 (one DuckDB writer, never the serving process) holds.
 - Egress allowlist for the runner: the model endpoints, Slack, the email provider, and MCP
   servers the firm admin registered. Nothing else.

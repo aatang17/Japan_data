@@ -1201,7 +1201,7 @@ _HOW = (
 
 
 def instructions():
-    parts = ["This server is the Japan Data Observatory: Japanese official statistics and "
+    parts = ["This server is the Plover Analytics: Japanese official statistics and "
              "company disclosures, deep on one market. Datasets by section:"]
     by = dict((s["id"], s) for s in registry.by_section())
     for sec in registry.SECTIONS:

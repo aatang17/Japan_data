@@ -252,7 +252,7 @@
 
     $("dir-csv").onclick = function () {
       csvDownload("agm-lowest-support.csv", [
-        "Japan Data Observatory - AGM voting results, director elections",
+        "Plover Analytics - AGM voting results, director elections",
         "Source: " + (d.provenance ? d.provenance.note : ""),
         "approval_pct: " + (calc.approval_pct || ""),
         "Vote counts are voting rights (kobetsu, " + "個" + "), not shares.",
@@ -319,7 +319,7 @@
     $("prop-table").innerHTML = head + "<tbody>" + body + "</tbody>";
     $("prop-csv").onclick = function () {
       csvDownload("agm-proposals.csv", [
-        "Japan Data Observatory - AGM voting results, resolutions",
+        "Plover Analytics - AGM voting results, resolutions",
         "Source: " + (d.provenance ? d.provenance.note : ""),
         "approval_pct is as filed, not recomputed.",
         (d.election_note || ""),
@@ -366,7 +366,7 @@
     $("co-code").textContent = d.sec_code +
       (d.name_en && d.name ? " · " + d.name : "");
     document.title = (d.name_en || d.name || d.sec_code) +
-      " — AGM Votes · Japan Data Observatory";
+      " — AGM Votes · Plover Analytics";
     $("co-meta").innerHTML = fmtNum(ms.length, 0) + " meeting" +
       (ms.length === 1 ? "" : "s") + " on file · " +
       "<span class='badge badge-official'>Official statistic</span>";

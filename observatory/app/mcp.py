@@ -48,8 +48,8 @@ PROTOCOL_VERSIONS = ("2025-06-18", "2025-03-26", "2024-11-05")
 SERVER_INFO = {
     # Named for the platform, not the macro product alone — future datasets
     # (BOJ, equity holdings) join this same server.
-    "name": "japan-data-observatory",
-    "title": "Japan Data Observatory",
+    "name": "plover-analytics",
+    "title": "Plover Analytics",
     "version": "1.0.0",
 }
 
@@ -70,7 +70,7 @@ by this platform from those indices and each response carries the formula \
 used in its `calc` field — keep official and calculated figures distinct \
 when quoting them. Every response includes a `cite` URL, a permanent page \
 showing the same view; link it when you present the numbers. Source credit: \
-Statistics Bureau of Japan, via the Japan Data Observatory.
+Statistics Bureau of Japan, via the Plover Analytics.
 
 It also publishes three other Japanese macro datasets, each in its own \
 measure and never to be ranked or combined with the price indices or with \
@@ -112,7 +112,7 @@ filing by filing and does not yet cover the whole market — call \
 get_holdings_summary first and state its coverage with any aggregate you \
 quote. Yen book values are levels, a different measure from CPI indices; \
 never rank or combine the two. Source credit: company filings on EDINET \
-(Financial Services Agency), via the Japan Data Observatory.
+(Financial Services Agency), via the Plover Analytics.
 
 From the same annual reports it publishes BOARDS AND PAY: every director with \
 title, role, age and shareholding; officer remuneration by category; and the \

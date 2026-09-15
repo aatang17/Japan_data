@@ -141,7 +141,7 @@ function sourceLine(unitText, trust) {
 function csvHeader(what, formulas) {
   const rel = AC.release;
   return [
-    "Japan Data Observatory — " + what,
+    "Plover Analytics — " + what,
     "Area: " + areaName(),
     "Source: Japan Tourism Agency, Accommodation Survey (観光庁『宿泊旅行統計調査』), " + rel.source_name,
     "Source page: " + rel.source_page,

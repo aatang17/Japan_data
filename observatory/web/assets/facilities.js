@@ -197,7 +197,7 @@
     var opt = mapOption(light);
     opt.backgroundColor = "#ffffff";
     opt.title = {
-      text: "Japan Data Observatory — Facilities & Land",
+      text: "Plover Analytics — Facilities & Land",
       subtext: SOURCE_LINE, left: 12, top: 8,
       textStyle: { color: light.ink, fontSize: 15 },
       subtextStyle: { color: light.muted, fontSize: 10, width: 1100, overflow: "break" },
@@ -596,7 +596,7 @@
     $("company-view").hidden = false;
     getJSON("/api/v1/equity/facilities/company/" + encodeURIComponent(code)).then(function (f) {
       document.title = (f.name_en || f.filer_name || code) +
-        " · Facilities & Land · Japan Data Observatory";
+        " · Facilities & Land · Plover Analytics";
       $("co-name").textContent = f.name_en || f.filer_name || code;
       if (f.name_en && f.filer_name) {
         $("co-name-ja").textContent = f.filer_name;

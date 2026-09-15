@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Methodology · Japan Data Observatory</title>
+<link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+<title>Methodology · Plover Analytics</title>
 <link rel="stylesheet" href="assets/tokens.css">
 <link rel="stylesheet" href="assets/app.css">
 </head>
@@ -21,6 +22,8 @@
       <a href="#trust">Trust labels</a>
       <a href="#calc">Calculations</a>
       <a href="#flags">Footnote flags</a>
+      <a href="#names">Names in English</a>
+      <a href="#plausible">Contradicted figures</a>
       <a href="#source">Sources and pipeline</a>
       <a href="#pit">Point-in-time data</a>
       <a href="#cadence">Update cadence</a>
@@ -129,6 +132,51 @@
   year is not flagged, because no single month dominates it. The month and size behind each
   marker are in its tooltip, in the item's detail panel, and in the <code>flags</code> column of
   the CSV export.</p>
+
+  <h2 id="names">Names in English<span class="h2-note">What is copied, what is derived, what stays Japanese</span></h2>
+  <p>Japanese sources name places, companies, people and accounting line items in Japanese.
+  Nothing on this platform is machine-translated. An English name is either a published one,
+  copied, or it is derived by a stated rule from a published one — and the filed Japanese is
+  always returned beside it, in the API and in every CSV export.</p>
+  <ul>
+    <li><b>Municipalities.</b> The Basic Resident Register and the Accommodation Survey name
+    every area in Japanese only. English comes from Japan Post's romanised address data
+    (KEN_ALL_ROME). A prefecture total, a designated-city total and a 郡 subtotal are not
+    addresses and are in no postal file, so each is <i>derived</i> from its own members: the
+    parent's name is the head its children share, which is how 01101 "Sapporo-shi Chuo-ku"
+    gives 01100 "Sapporo-shi". Eleven areas are in neither — the six Northern Territories
+    villages, which have no postal service, Tokyo's island district, and Hamamatsu's three
+    post-2024 wards — and carry a hand-entered romanisation noted in the source file.</li>
+    <li><b>Companies.</b> The English name is the company's own: EDINET's filer registry where
+    it has one, and otherwise the English name the company prints on the cover of its own
+    annual report. Names typed in full-width Latin are folded to half-width, which changes the
+    character width and nothing else. A company that has published no English name has none
+    here.</li>
+    <li><b>Directors.</b> A director's Latin name exists only inside the XBRL context the filer
+    tagged them with, so word boundaries are the filer's. A name typed entirely in capitals
+    states no boundary at all and is kept as one word; splitting it would invent one.</li>
+    <li><b>Financial statement lines.</b> English labels for the standard taxonomy elements are
+    the FSA's own, from its published element and account lists. A filer's bespoke line item
+    carries the English label that filer supplied for it, or none.</li>
+    <li><b>Officer pay categories.</b> A filer-defined category is a CamelCase English tag;
+    re-spacing it is formatting, not translation, and the response says whether a label was
+    mapped or derived from the tag.</li>
+    <li><b>Free-text answers.</b> The exchange a holding is listed on, the listed/over-the-counter
+    box and the reciprocal-holding box are free text, written hundreds of ways. Each reading is
+    returned beside the filed string and only where it is unambiguous; anything else is a gap.</li>
+  </ul>
+
+  <h2 id="plausible">Figures the filing contradicts<span class="h2-note">Flagged, never corrected</span></h2>
+  <p>Every figure is published exactly as filed. A small number of filings state something their
+  own document cannot support — an average salary of ¥9.5tn, a board of 8,000 officers, a 5%
+  holding larger than the shares in issue printed beside it. Those figures are not changed and
+  not hidden. They carry a <code>flags</code> entry naming the field and the contradiction, and
+  the filing is marked <code>partial</code> when it is next parsed.</p>
+  <p>Each test recomputes something the filing itself publishes, or compares against the range
+  the whole archive has ever contained: the largest real board is 52 people, so more than 100 is
+  not a headcount; the largest pay package ever disclosed in Japan is about ¥13bn for one named
+  person, so a whole category averaging more than ¥3bn is on the wrong scale. A flag says a
+  number cannot be right. It never says what the right number would be.</p>
 
   <h2 id="source">Sources and pipeline</h2>
   <ul>

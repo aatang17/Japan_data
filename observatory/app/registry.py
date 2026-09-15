@@ -134,7 +134,7 @@ _PLACEHOLDER_RE = re.compile(r"\{([a-z_]+)\}")
 GENERIC_MEASURES = ("index", "yoy", "mom", "ann3m")
 
 # Manifest unit → the unit key api.py uses to word the generic formulas.
-_API_UNIT = {"index": "index", "JPY_100mn": "jpy_100mn", "%": "pct",
+_API_UNIT = {"index": "index", "JPY_100mn": "jpy_100mn", "%": "percent",
              "persons": "persons", "person_nights": "person_nights",
              "JPY_thousand": "jpy_1000", "JPY_per_60kg": "jpy_per_60kg",
              "JPY_million": "jpy_million", "JPY_trillion": "jpy_trillion",

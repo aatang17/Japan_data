@@ -29,6 +29,8 @@ import re
 from fastapi import APIRouter, HTTPException, Query
 
 from . import asof
+from . import person_en
+from . import plausibility
 from . import equity_api
 
 from . import aliases
@@ -200,9 +202,23 @@ def _label(category_key, category_en):
         return category_en, "mapped"
     if category_key in EXTRA_LABELS:
         return EXTRA_LABELS[category_key], "mapped"
-    key = re.sub(r"Member$", "", category_key or "")
+    # A filer's tag is already English, in CamelCase; re-spacing it is not a
+    # translation. "Member" repeats where a filer appended the suffix to a name
+    # that ended in it (…CommitteeMemberMember), and a trailing digit is a
+    # filer's own disambiguator (OutsideDirectors2) that needs its own space.
+    key = re.sub(r"(?:Member)+$", "", category_key or "")
     words = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", key)
-    return (words or None), "derived_from_filer_tag"
+    words = re.sub(r"(?<=[A-Z])(?=[A-Z][a-z])", " ", words)   # ESOPDirectors
+    words = re.sub(r"(?<=[A-Za-z])(?=\d)", " ", words).strip()
+    parts = words.split()
+    if not parts:
+        return None, "derived_from_filer_tag"
+    # Sentence case, so a derived label sits beside a curated one without
+    # shouting. An all-capital run is an acronym the filer wrote and is kept.
+    out = [parts[0][:1].upper() + parts[0][1:]]
+    out += [w if (w.isupper() and len(w) > 1) or w.isdigit() else w.lower()
+            for w in parts[1:]]
+    return " ".join(out), "derived_from_filer_tag"
 
 
 def _tables_present():
@@ -330,12 +346,13 @@ def company(sec_code: str,
     f.pop("rn", None)
     f.pop("filer_key", None)
     f["industry_en"] = INDUSTRY_EN.get(f.get("industry"))
+    plausibility.company_year(f)
     doc = f["doc_id"]
 
-    f["board"] = _rows(cur, """
+    f["board"] = person_en.fix_rows(_rows(cur, """
         SELECT seat_no, person_key, name_ja, name_en, title_ja, role,
                is_representative, date_of_birth, age_at_period_end, shares_held
-        FROM eq_board WHERE doc_id = ? ORDER BY seat_no""", [doc])
+        FROM eq_board WHERE doc_id = ? ORDER BY seat_no""", [doc]))
     pay = _rows(cur, """
         SELECT category_key, category_en, is_custom_category, headcount, total_yen,
                per_head_yen, fixed_yen, base_yen, performance_yen, bonus_yen,
@@ -345,11 +362,11 @@ def company(sec_code: str,
     for r in pay:
         r["category_label_en"], r["category_label_source"] = _label(
             r["category_key"], r.pop("category_en"))
-    f["pay_by_category"] = pay
-    f["pay_named"] = _rows(cur, """
+    f["pay_by_category"] = plausibility.pay_rows(pay)
+    f["pay_named"] = person_en.fix_rows(_rows(cur, """
         SELECT person_key, name_en, pay_basis, consolidated_pay_yen,
                voluntary_below_100m, on_board_at_filing
-        FROM eq_pay_named WHERE doc_id = ? ORDER BY consolidated_pay_yen DESC""", [doc])
+        FROM eq_pay_named WHERE doc_id = ? ORDER BY consolidated_pay_yen DESC""", [doc]))
     f["available_years"] = [r["year"] for r in _rows(cur, """
         SELECT CAST(year(period_end) AS VARCHAR) AS year FROM eq_company_year
         WHERE sec_code = ? AND status IN ('clean','partial') ORDER BY period_end DESC""",
@@ -613,6 +630,7 @@ def named(year: str = Query("", description="fiscal year; default latest filing"
         WHERE p.consolidated_pay_yen >= ?
         ORDER BY p.consolidated_pay_yen DESC LIMIT ?""",
         _gov_params(year, listed) + [min_yen, limit])
+    person_en.fix_rows(rows)
     return {"rows": rows, "unit": "yen, as filed",
             "scope": ("fiscal year %s" % year.strip()) if year.strip()
                      else "each company's latest filing",

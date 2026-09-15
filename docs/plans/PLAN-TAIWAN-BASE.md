@@ -58,7 +58,7 @@ plausible for us:
   **plus** CFA / CFP / FRM / CIA;
 - **3 years** of financial-professional experience in a government-promoted sector
   (**fintech, digital economy, asset management** are named) with concrete achievements
-  — the Observatory is squarely fintech/digital-economy evidence.
+  — Plover Analytics is squarely fintech/digital-economy evidence.
 
 Why it may be the better first move: it is a **1–3 year open work permit** granted on
 *your* record rather than the company's; it carries a **5-year tax break** (half of salary

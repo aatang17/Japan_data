@@ -138,7 +138,7 @@ OPENAPI_TAGS = [
     {"name": "Representation", "description": "Seats per elector in the House of Councillors, from the population register."},
 ]
 
-app = FastAPI(title="Japan Data Observatory API", version="1",
+app = FastAPI(title="Plover Analytics API", version="1",
               description="Japanese official statistics and company disclosures, read-only, "
                           "no key. Human reference: /api.html",
               docs_url="/api/swagger", redoc_url=None, openapi_url="/api/openapi.json",

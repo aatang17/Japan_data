@@ -21,7 +21,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 
-from . import db, fiscal, heartbeat, vintages
+from . import db, fiscal, heartbeat, place_en, vintages
 from .adapters import (boj_assets, cpi_jp, cpi_jp_goods_services, cpi_jp_items,
                        cpi_jp_long, cpi_jp_sa, cpi_tokyo, cpi_tokyo_items,
                        jnto_visitors,
@@ -38,6 +38,7 @@ from .adapters import (boj_assets, cpi_jp, cpi_jp_goods_services, cpi_jp_items,
                        mof_trade_food, mof_trade_hs, mof_trade_machinery,
                        mof_trade_pharma,
                        soumu_local_finance, ssds_population,
+                       ust_real_yields, ust_yields,
                        estat_gdp, estat_gfs, mof_hojin,
                        fsa_npl, fsa_bank_results, jba_banks)
 
@@ -70,6 +71,8 @@ ADAPTERS = {"cpi-jp": cpi_jp, "cpi-jp-items": cpi_jp_items, "boj-assets": boj_as
             "govt-accounts-jp": estat_gfs,
             "local-finance-jp": soumu_local_finance,
             "jgb-yields": mof_jgb, "jnto-visitors": jnto_visitors,
+            "ust-yields": ust_yields,
+            "ust-real-yields": ust_real_yields,
             "population-jp": juki_population,
             "population-jp-history": ssds_population,
             "gdp-jp": estat_gdp,
@@ -114,6 +117,9 @@ UNIT = {"index": "index", "yoy": "%", "mom": "%", "ann3m": "%"}
 # published, so its unit is the series' own — an index point for CPI, a yen
 # level for the BOJ balance sheet. Labelling a ¥100mn level "index (2020 = 100)"
 # would be a trust-contract breach, not a cosmetic slip.
+# "pct" is the older spelling of "percent"; both are kept so a series stored
+# before the two were reconciled still renders while its dataset waits for its
+# next ingest.
 UNIT_LABEL = {"index": "index", "jpy_100mn": "¥100mn", "pct": "%",
               "persons": "persons", "jpy_1000": "¥1,000",
               # Bank balance sheets are published in 百万円; the FSA's
@@ -213,9 +219,15 @@ def _series_map(con, dataset):
     rows = con.execute(
         "SELECT series_id, code, name_en, name_ja, weight_per_10000, sort_order, unit "
         "FROM series WHERE dataset=? ORDER BY sort_order", [dataset]).fetchall()
-    return [dict(zip(("series_id", "code", "name_en", "name_ja", "weight", "sort_order",
-                      "unit"), r))
-            for r in rows]
+    out = [dict(zip(("series_id", "code", "name_en", "name_ja", "weight", "sort_order",
+                     "unit"), r))
+           for r in rows]
+    # Two sources name their areas only in Japanese (see app/place_en.py). The
+    # English label is derived here, at the one place every series-shaped
+    # endpoint loads from, so no caller has to know which datasets need it.
+    for s in out:
+        s["name_en"] = place_en.series_name_en(dataset, s["code"], s["name_en"])
+    return out
 
 
 def _values(con, series_id):
@@ -1509,6 +1521,14 @@ def prefectures(dataset, prefecture: str = Query(None, max_length=2,
                     geos = [g for g in geos
                             if g["code"].startswith(prefecture)
                             or g["code"] == cfg.get("national")]
+                # The release stores each area's filed Japanese name. Attach the
+                # published romanization beside it so the picker is navigable in
+                # English; the filed name is never replaced.
+                for g in geos:
+                    if "name_en" not in g:
+                        en = place_en.municipality_en(g.get("code"))
+                        if en:
+                            g["name_en"] = en
                 payload["geographies"] = geos
         return payload
     finally:
@@ -1820,7 +1840,7 @@ def _observations_csv(body, adapter, request):
         or "Source: %s." % adapter.DATASET.get("agency", "")
     lines = []
     w = lines.append
-    w("# Japan Data Observatory — %s (%s)" % (title, body["dataset"]))
+    w("# Plover Analytics — %s (%s)" % (title, body["dataset"]))
     w("# %s" % credit)
     w("# Source document: %s — %s" % (rel["source_name"], rel["source_page"]))
     w("# Source file: %s, retrieved %s, sha256 %s"
@@ -1918,6 +1938,7 @@ def revisions(dataset,
             [dataset, code]).fetchone()
         if row is None:
             raise HTTPException(404, "Unknown series code '%s'" % code)
+        row = (row[0], place_en.series_name_en(dataset, code, row[1]), row[2], row[3])
         rows = vintages.revisions(con, dataset, code, p_period)
         by_period = {}
         for obs_period, value, release_id, label, at, published_at in rows:

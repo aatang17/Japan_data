@@ -35,6 +35,8 @@ WHAT A CONSUMER MUST NOT ASSUME, carried in the data rather than in prose:
 from fastapi import APIRouter, HTTPException, Query
 
 from . import asof
+from . import jp_enums
+from . import plausibility
 
 from . import aliases
 from .equity_api import NAMES_NOTE, NAME_CTES, PROVENANCE, _cur, _rows
@@ -216,6 +218,8 @@ def recent(limit: int = Query(50, ge=1, le=500),
         WHERE """ + " AND ".join(where) + """
         ORDER BY f.filed_date DESC, f.requirement_date DESC, f.doc_id DESC
         LIMIT ?""", params + [limit])
+    plausibility.lvh_rows(rows)
+    jp_enums.annotate_listing(rows)
     return _notes({"filings": rows, "filters": {
         "activist": (activist or "").strip().lower() == "true",
         "min_ratio": min_ratio, "min_change": min_change,
@@ -282,13 +286,13 @@ def company(sec_code: str,
             "groups_at_or_above_5pct": sum(1 for r in current if r.get("is_current")),
             "combined_current_pct": round(sum(r["ratio_pct"] or 0 for r in current
                                               if r.get("is_current")), 2) or None}
-    head["reports"] = _rows(cur, """
+    head["reports"] = jp_enums.annotate_listing(plausibility.lvh_rows(_rows(cur, """
         SELECT """ + FILING_COLS + """
         FROM eq_lvh_filings f
         WHERE (f.issuer_sec_code = ? OR f.issuer_edinet_code = ?)
           AND f.status IN ('clean','partial')""" + asof.clause("filed_date", "f") + """
         ORDER BY coalesce(f.requirement_date, f.filed_date) DESC, f.doc_id DESC
-        LIMIT ?""", [code, code, history])
+        LIMIT ?""", [code, code, history])))
     head["combined_note"] = (
         "combined_current_pct adds the current groups' filed ratios. Groups "
         "file independently and their statutory denominators differ slightly, "

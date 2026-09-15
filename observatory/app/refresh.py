@@ -195,7 +195,7 @@ def alert(found, now=None):
         return []
     if url:
         site = seo.SITE_BASE_URL
-        text = "Japan Data Observatory — %d problem(s):\n%s" % (
+        text = "Plover Analytics — %d problem(s):\n%s" % (
             len(fresh), "\n".join("• " + message for _, message in fresh))
         if site:
             text += "\n%s/api/v1/catalog/health" % site

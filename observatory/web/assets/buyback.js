@@ -182,7 +182,7 @@
     function sourceLine() {
       return "Source: 自己株券買付状況報告書 via EDINET · " + cats.length +
         " reporting months, " + (cats[0] || "") + "–" + (cats[cats.length - 1] || "") +
-        " · Japan Data Observatory";
+        " · Plover Analytics";
     }
 
     $("monthly-png").onclick = function () {
@@ -190,7 +190,7 @@
     };
     $("monthly-csv").onclick = function () {
       csvDownload("japan-buybacks-monthly.csv",
-        ["Japan Data Observatory — buybacks bought and retired, by reporting month",
+        ["Plover Analytics — buybacks bought and retired, by reporting month",
          "Yen bought and yen retired are different acts and are never summed.",
          d.coverage_note,
          "Official statistics as filed in 自己株券買付状況報告書 via EDINET, Financial Services Agency."],
@@ -234,7 +234,7 @@
       d.dates_note;
     $("programs-csv").onclick = function () {
       csvDownload("japan-buybacks-programmes.csv",
-        ["Japan Data Observatory — buyback authorisations, announced versus executed",
+        ["Plover Analytics — buyback authorisations, announced versus executed",
          d.measure_note,
          "Completion and unspent are calculated: " + d.calc.completion_pct + "; " +
            d.calc.unspent_yen + ".",
@@ -277,7 +277,7 @@
     $("retire-formula").textContent = "Share of shares before = " + d.calc.pct_of_pre_shares;
     $("retire-csv").onclick = function () {
       csvDownload("japan-buybacks-retirements.csv",
-        ["Japan Data Observatory — shares retired (消却)",
+        ["Plover Analytics — shares retired (消却)",
          d.retirement_note,
          "Share of shares before is calculated: " + d.calc.pct_of_pre_shares,
          d.coverage_note,
@@ -386,7 +386,7 @@
 
   // ---- company view --------------------------------------------------------
   function renderCompany(d) {
-    document.title = (d.name_en || d.filer_name) + " · Buybacks · Japan Data Observatory";
+    document.title = (d.name_en || d.filer_name) + " · Buybacks · Plover Analytics";
     $("co-name").textContent = d.name_en || d.filer_name;
     $("co-code").textContent = d.sec_code || d.edinet_code;
     if (d.name_en && d.filer_name) {
@@ -436,7 +436,7 @@
       }).join("") + "</tbody>";
     $("co-prog-csv").onclick = function () {
       csvDownload("buyback-programmes-" + (d.sec_code || d.edinet_code) + ".csv",
-        ["Japan Data Observatory — buyback authorisations, " + (d.name_en || d.filer_name),
+        ["Plover Analytics — buyback authorisations, " + (d.name_en || d.filer_name),
          d.measure_note, "Completion = " + d.calc.completion_pct + "; unspent = " +
            d.calc.unspent_yen + ".", d.coverage_note,
          "Official statistics as filed in 自己株券買付状況報告書 via EDINET."],
@@ -468,7 +468,7 @@
       }).join("") + "</tbody>";
     $("co-month-csv").onclick = function () {
       csvDownload("buyback-months-" + (d.sec_code || d.edinet_code) + ".csv",
-        ["Japan Data Observatory — monthly buyback reports, " + (d.name_en || d.filer_name),
+        ["Plover Analytics — monthly buyback reports, " + (d.name_en || d.filer_name),
          "Progress is the filer's own published percentage, official as filed.",
          d.coverage_note,
          "Official statistics as filed in 自己株券買付状況報告書 via EDINET."],
@@ -500,7 +500,7 @@
       }).join("") + "</tbody>";
     $("co-treas-csv").onclick = function () {
       csvDownload("buyback-treasury-" + (d.sec_code || d.edinet_code) + ".csv",
-        ["Japan Data Observatory — treasury shares and retirements, " +
+        ["Plover Analytics — treasury shares and retirements, " +
            (d.name_en || d.filer_name),
          d.retirement_note, d.coverage_note,
          "Official statistics as filed in 自己株券買付状況報告書 via EDINET."],

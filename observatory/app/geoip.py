@@ -152,7 +152,7 @@ def _fetch(kind, url, edition):
         with open(str(path), "rb") as f:
             return f.read()
     request = urllib.request.Request(
-        url % edition, headers={"User-Agent": "japan-data-observatory/1.0"})
+        url % edition, headers={"User-Agent": "plover-analytics/1.0"})
     with urllib.request.urlopen(request, timeout=DOWNLOAD_TIMEOUT) as response:
         raw = response.read()
     GEO_DIR.mkdir(parents=True, exist_ok=True)

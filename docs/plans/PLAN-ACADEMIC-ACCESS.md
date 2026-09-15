@@ -6,7 +6,7 @@
 > Free tier, trivial BibTeX export, low support burden. Treat as marketing."* This plan
 > turns that one line into a concrete path.
 >
-> **One-liner:** Make the Observatory the dataset a Japan-macro paper cites — the way US
+> **One-liner:** Make Plover Analytics the dataset a Japan-macro paper cites — the way US
 > papers cite ALFRED for real-time data — by making it citable (DOIs), bulk-downloadable,
 > and clearly licensed, then climbing the distribution ladder from university librarians
 > toward a WRDS listing.
@@ -61,7 +61,7 @@ packaging around data we already store.
    the standard metadata header block (source, formulas, license, citation). The
    release/vintage machinery already exists; this is an export surface on top of it.
 2. **DOIs via Zenodo.** Zenodo (run by CERN, free, has an API) mints a DOI per deposit
-   and supports versioned records — one concept-DOI for "Japan Data Observatory CPI item
+   and supports versioned records — one concept-DOI for "Plover Analytics CPI item
    indices", one child DOI per monthly vintage. This is the single cheapest credibility
    move available: a DOI is what turns "some guy's website" into a citable dataset.
    Automating deposit as a post-ingest step keeps it zero-touch.

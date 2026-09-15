@@ -108,7 +108,7 @@ function sourceLine(unitText, trust) {
 function csvHeader(what, formulas) {
   const rel = AC.release;
   return [
-    "Japan Data Observatory — " + what,
+    "Plover Analytics — " + what,
     "Source: Japan Tourism Agency, Accommodation Survey (観光庁『宿泊旅行統計調査』), " + rel.source_name,
     "Source page: " + rel.source_page,
     "Release: " + rel.label + " (sha256 " + rel.sha256 + ")",
@@ -515,7 +515,11 @@ function muniRows(i) {
     const nights = muniAt("muni." + m.code + ".nights", i);
     const fx = muniAt("muni." + m.code + ".nightsfx", i);
     return {
-      name: m.label,
+      // The survey names each municipality in Japanese only; label_en is the
+      // published romanisation attached by the API. English leads, the filed
+      // Japanese sits beside it.
+      name: m.label_en || m.label,
+      name_ja: m.label_en ? m.label : null,
       pref: m.prefecture_label,
       nights: nights,
       fx: fx,
@@ -538,7 +542,10 @@ function renderMuniTable() {
 
   const body = rows.map(r =>
     "<tr>" +
-    "<td>" + escapeHtml(r.name) + "</td>" +
+    '<td data-sort="' + escapeHtml(r.name) + '">' +
+      '<span class="name-part">' + escapeHtml(r.name) + "</span>" +
+      (r.name_ja ? ' <span class="muted name-part">' + escapeHtml(r.name_ja) +
+        "</span>" : "") + "</td>" +
     "<td>" + escapeHtml(r.pref) + "</td>" +
     '<td class="num">' + (r.nights === null ? MISSING : fmtNum(r.nights, 0)) + "</td>" +
     '<td class="num">' + (r.fx === null ? MISSING : fmtNum(r.fx, 0)) + "</td>" +
@@ -616,17 +623,20 @@ function exportMuniCSV() {
   const i = periods.length - 1;
   const rows = sortRows(muniRows(i), st.msort, st.mdir);
   const head = csvHeader("Guest nights by municipality, " + fmtPeriod(periods[i]),
-    ["Municipality names are as published, in Japanese; the Agency publishes no romanisation.",
+    ["Municipality names are as published by the Agency, in Japanese. The English " +
+       "column is Japan Post's published romanisation of the same municipality, " +
+       "matched on the name; the Agency itself publishes none.",
      "These rows are responses received, not grossed up to the whole municipality, and are " +
        "therefore not comparable with the prefecture totals.",
      "A municipality absent from a month had fewer than ten responding properties.",
      CALCS.fxshare, CALCS.occ]);
   let csv = head.map(l => "# " + l).join("\n") + "\n";
-  csv += "municipality,prefecture,guest_nights,foreign_guest_nights,foreign_share_pct," +
-         "room_occupancy_pct\n";
+  csv += "municipality,municipality_ja,prefecture,guest_nights,foreign_guest_nights," +
+         "foreign_share_pct,room_occupancy_pct\n";
   rows.forEach(r => {
-    csv += [quote(r.name), quote(r.pref), cell(r.nights), cell(r.fx),
-            r.fxshare === null ? "" : r.fxshare.toFixed(1), cell(r.occ)].join(",") + "\n";
+    csv += [quote(r.name), quote(r.name_ja || ""), quote(r.pref), cell(r.nights),
+            cell(r.fx), r.fxshare === null ? "" : r.fxshare.toFixed(1),
+            cell(r.occ)].join(",") + "\n";
   });
   download("guest-nights-by-municipality-" + fmtPeriod(periods[i]) + ".csv", csv);
 }

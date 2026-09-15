@@ -1,0 +1,313 @@
+<title>Ceres MCP Demo</title>
+<style>
+  :root {
+    --bg: #ffffff; --panel: #ffffff; --subtle: #f6f9fc; --ink: #0f172a; --text: #334155;
+    --muted: #64748b; --faint: #94a3b8; --border: #d8e0ea; --navy: #1a4d8f;
+    --sky: #8fbde8; --rust: #c2410c; --green: #15803d; --deep: #123a6d;
+    --mono: "SF Mono", ui-monospace, "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans: "Helvetica Neue", -apple-system, BlinkMacSystemFont, "Segoe UI", Arial,
+            "Hiragino Sans", "Yu Gothic", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b1220; --panel: #0f172a; --subtle: #1a2436; --ink: #e2e8f0; --text: #cbd5e1;
+      --muted: #94a3b8; --faint: #7c8ba3; --border: #2b3a52; --navy: #5b9bd8;
+      --sky: #7fb3e3; --rust: #e0794a; --green: #55b785; --deep: #16406f;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0b1220; --panel: #0f172a; --subtle: #1a2436; --ink: #e2e8f0; --text: #cbd5e1;
+    --muted: #94a3b8; --faint: #7c8ba3; --border: #2b3a52; --navy: #5b9bd8;
+    --sky: #7fb3e3; --rust: #e0794a; --green: #55b785; --deep: #16406f;
+  }
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans);
+         font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 28px 24px 40px;
+          display: flex; flex-direction: column; gap: 18px; min-height: 100vh; }
+  header { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+  .brand { font-size: 17px; font-weight: 700; color: var(--ink); letter-spacing: -0.2px; }
+  .kicker { font-size: 11px; font-weight: 600; letter-spacing: 0.09em;
+            text-transform: uppercase; color: var(--muted); }
+  .conn { margin-left: auto; display: flex; align-items: center; gap: 8px;
+          font-family: var(--mono); font-size: 12px; color: var(--muted);
+          border: 1px solid var(--border); border-radius: 4px; padding: 5px 10px;
+          background: var(--subtle); }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green);
+         animation: pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
+
+  .stage { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+           gap: 20px; align-items: stretch; }
+  .card { border: 1px solid var(--border); border-radius: 6px; background: var(--panel);
+          padding: 18px 20px; min-width: 0; }
+  .chat { display: flex; flex-direction: column; gap: 14px; }
+  .lbl { font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em;
+         text-transform: uppercase; color: var(--muted); }
+  .qrow { display: flex; justify-content: flex-end; }
+  .q { max-width: 94%; background: var(--navy); color: #fff; border-radius: 6px;
+       padding: 12px 15px; font-size: 16px; line-height: 1.45; }
+  .q .w { opacity: 0; transition: opacity .18s linear;
+          transition-delay: calc(var(--i) * 55ms); }
+  .s1 .q .w { opacity: 1; }
+  .cur { display: inline-block; width: 2px; height: 1em; background: #fff;
+         vertical-align: text-bottom; margin-left: 2px; opacity: 0; }
+  .s1 .cur { opacity: 1; animation: blink .9s steps(1) infinite; }
+  .s2 .cur, .s3 .cur, .s4 .cur { opacity: 0; animation: none; }
+  @keyframes blink { 50% { visibility: hidden } }
+
+  .status { display: flex; align-items: center; gap: 9px; font-size: 13px;
+            color: var(--muted); opacity: 0; transition: opacity .3s ease; }
+  .s2 .status { opacity: 1; } .s4 .status { opacity: 0; }
+  .dots i { display: inline-block; width: 4px; height: 4px; border-radius: 50%;
+            background: var(--muted); margin-right: 3px; animation: bob 1.2s ease-in-out infinite; }
+  .dots i:nth-child(2) { animation-delay: .18s } .dots i:nth-child(3) { animation-delay: .36s }
+  @keyframes bob { 0%,100% { opacity: .25 } 50% { opacity: 1 } }
+
+  .tools { display: flex; flex-direction: column; gap: 7px; }
+  .tool { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 10px;
+          align-items: center; padding: 9px 11px; border: 1px solid var(--border);
+          border-radius: 4px; background: var(--subtle); opacity: 0;
+          transform: translateY(6px); transition: opacity .3s ease, transform .3s ease; }
+  .s3 .tool, .s4 .tool { opacity: 1; transform: none; }
+  .s3 .tool.t2, .s4 .tool.t2 { transition-delay: .16s; }
+  .chk { color: var(--green); opacity: 0; transition: opacity .2s ease .42s; }
+  .s3 .chk, .s4 .chk { opacity: 1; }
+  .tname { font-family: var(--mono); font-size: 13px; color: var(--ink);
+           overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tout { font-size: 12px; color: var(--muted); white-space: nowrap; opacity: 0;
+          transition: opacity .2s ease .42s; }
+  .s3 .tout, .s4 .tout { opacity: 1; }
+
+  .ans { display: flex; flex-direction: column; gap: 9px; opacity: 0;
+         transform: translateY(6px); transition: opacity .4s ease, transform .4s ease; }
+  .s4 .ans { opacity: 1; transform: none; }
+  .ans p { margin: 0; font-size: 15.5px; color: var(--text); line-height: 1.55; }
+  .ans b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .src { display: flex; gap: 9px; align-items: center; flex-wrap: wrap;
+         font-size: 12px; color: var(--muted); }
+  .badge { font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em;
+           text-transform: uppercase; border: 1px solid currentColor; border-radius: 3px;
+           padding: 1px 6px; white-space: nowrap; }
+  .b-official { color: var(--green); } .b-derived { color: var(--muted); }
+  .foot { margin-top: auto; font-size: 12px; color: var(--faint); }
+
+  /* result side */
+  .result { position: relative; display: flex; flex-direction: column; }
+  .ph { position: absolute; inset: 0; display: flex; align-items: center;
+        justify-content: center; color: var(--faint); font-size: 13.5px;
+        background: var(--panel); border-radius: 6px; transition: opacity .45s ease; }
+  .s4 .ph { opacity: 0; pointer-events: none; }
+  .rtitle { font-size: 15px; font-weight: 700; color: var(--ink); }
+  .rsub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .rbody { margin-top: 16px; }
+
+  .bar { display: grid; grid-template-columns: 122px minmax(0, 1fr) 46px;
+         gap: 10px; align-items: center; padding: 7px 0; }
+  .bar .nm { font-size: 13.5px; color: var(--ink); }
+  .bar .track { display: block; height: 20px; background: var(--subtle);
+                border-radius: 2px; overflow: hidden; }
+  .bar .fill { display: block; height: 100%; background: var(--navy); border-radius: 2px;
+               width: 0; transition: width .9s cubic-bezier(.22,.7,.25,1); }
+  .s4 .bar .fill { width: var(--w); }
+  .bar .v { font-size: 13.5px; font-weight: 700; color: var(--ink);
+            font-variant-numeric: tabular-nums; text-align: right; }
+
+  table.t { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  table.t th { text-align: left; font-size: 10.5px; font-weight: 700;
+               letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted);
+               padding: 6px 8px; border-bottom: 1px solid var(--border); }
+  table.t th.n, table.t td.n { text-align: right; font-variant-numeric: tabular-nums; }
+  table.t td { padding: 7px 8px; border-bottom: 1px solid var(--border); color: var(--ink); }
+  table.t tr:last-child td { border-bottom: none; }
+  table.t tr.tot td { font-weight: 700; background: var(--subtle); }
+  table.t tbody tr { opacity: 0; transform: translateY(4px);
+                     transition: opacity .3s ease, transform .3s ease;
+                     transition-delay: calc(.25s + var(--i) * 70ms); }
+  .s4 table.t tbody tr { opacity: 1; transform: none; }
+
+  .verdict { display: flex; align-items: center; gap: 12px; padding: 14px 16px;
+             border: 1px solid var(--rust); border-radius: 5px; }
+  .verdict .vmark { font-size: 22px; font-weight: 700; color: var(--rust); }
+  .verdict .vtext { font-size: 15px; color: var(--ink); font-weight: 600; }
+  .kv { display: grid; grid-template-columns: 1fr auto; gap: 6px 14px;
+        margin-top: 14px; font-size: 13.5px; }
+  .kv dt { color: var(--muted); margin: 0; }
+  .kv dd { margin: 0; color: var(--ink); font-weight: 600;
+           font-variant-numeric: tabular-nums; text-align: right; }
+
+  .scn { display: none; }
+  .scn.on { display: contents; }
+
+  nav { display: flex; align-items: center; gap: 14px; }
+  .pips { display: flex; gap: 8px; }
+  .pip { width: 9px; height: 9px; border-radius: 50%; border: 1px solid var(--border);
+         background: transparent; padding: 0; cursor: pointer; }
+  .pip[aria-current="true"] { background: var(--navy); border-color: var(--navy); }
+  .btn { font: inherit; font-size: 13px; color: var(--navy); background: var(--panel);
+         border: 1px solid var(--border); border-radius: 4px; padding: 5px 13px;
+         cursor: pointer; }
+  .btn:hover { border-color: var(--navy); }
+  .hint { margin-left: auto; font-size: 12px; color: var(--faint); }
+  :focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; }
+
+  @media (max-width: 900px) {
+    .stage { grid-template-columns: 1fr; }
+    .result { min-height: 320px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="brand">Ceres Analytics</span>
+    <span class="kicker">Live over MCP</span>
+    <span class="conn"><span class="dot"></span>claude mcp add ceres https://[host]/mcp</span>
+  </header>
+
+  <div class="stage" id="stage"></div>
+
+  <nav>
+    <button class="btn" id="prev" type="button">Back</button>
+    <div class="pips" id="pips"></div>
+    <button class="btn" id="next" type="button">Next</button>
+    <span class="hint">Plays on its own. Arrow keys to step. Every figure comes from a filed document.</span>
+  </nav>
+</div>
+
+<script>
+const SCN = [
+  {
+    q: "Which of the big financials cut the most cross-shareholdings last year? Chart it.",
+    tools: [["get_unwind_ranking", "4 filers · FY2026"],
+            ["get_company_holdings", "as filed · with sources"]],
+    answer: "Across the big financials, <b>MS&amp;AD</b> cut by far the most: <b>52</b> named " +
+            "positions reduced against 23 added. Mizuho cut <b>15</b>, SMFG <b>13</b> and " +
+            "MUFG <b>9</b>. Carrying value still rose at every one of them, because the " +
+            "shares they kept went up in price.",
+    badge: ["Official · as filed", "b-official"],
+    src: "Annual securities reports, FY2026 · EDINET",
+    rtitle: "Positions reduced, latest fiscal year",
+    rsub: "Named policy shareholdings cut, year on year",
+    render: () => {
+      const d = [["MS&AD", 52], ["Mizuho FG", 15], ["SMFG", 13], ["MUFG", 9]];
+      const mx = 52;
+      return d.map(([n, v]) =>
+        `<div class="bar"><span class="nm">${n}</span>` +
+        `<span class="track"><span class="fill" style="--w:${(v / mx * 100).toFixed(1)}%"></span></span>` +
+        `<span class="v">${v}</span></div>`).join("");
+    }
+  },
+  {
+    q: "How is the Bank of Japan's bond book split by maturity?",
+    tools: [["get_boj_jgb_holdings", "339 issues · 2026-08-31"],
+            ["describe_dataset", "boj-jgb-by-issue"]],
+    answer: "The book is <b>¥517.7tn</b> across <b>339</b> individual issues. Ten-year " +
+            "bonds are the largest block at <b>¥227.0tn</b>, then twenty-year at " +
+            "<b>¥126.4tn</b>. The twenty-year bucket holds the most separate issues, " +
+            "<b>106</b> of them, because the Bank has been buying that part of the curve " +
+            "for longer.",
+    badge: ["Official · as filed", "b-official"],
+    src: "Bank of Japan, mei260831.xlsx · as of 31 August 2026",
+    rtitle: "JGB holdings by maturity",
+    rsub: "Bank of Japan, 31 August 2026",
+    render: () => {
+      const d = [["10-year", 39, "227.0"], ["20-year", 106, "126.4"], ["5-year", 38, "80.8"],
+                 ["30-year", 90, "52.7"], ["2-year", 23, "13.0"], ["40-year", 18, "11.6"],
+                 ["Inflation-indexed", 9, "4.7"], ["Climate transition", 7, "1.6"]];
+      return `<table class="t"><thead><tr><th>Maturity</th><th class="n">Issues</th>` +
+        `<th class="n">Holdings</th></tr></thead><tbody>` +
+        d.map(([n, i, v], k) => `<tr style="--i:${k}"><td>${n}</td><td class="n">${i}</td>` +
+          `<td class="n">¥${v}tn</td></tr>`).join("") +
+        `<tr class="tot" style="--i:${d.length}"><td>Total</td><td class="n">339</td>` +
+        `<td class="n">¥517.7tn</td></tr></tbody></table>`;
+    }
+  },
+  {
+    q: "A broker note says Toyota sold down its KDDI stake. Is that right?",
+    tools: [["check_claim", "“Toyota sold down its KDDI stake”"],
+            ["get_company_holdings", "sec_code 7203 · FY2026"]],
+    answer: "<b>Partly.</b> Toyota's KDDI shareholding went from <b>203.3m</b> to " +
+            "<b>363.4m</b> shares, but that rise is a share split, not buying. The " +
+            "filing's own explanation says part of the position was sold at the same " +
+            "time. So the note is right that Toyota sold, and wrong if it implies the " +
+            "stake got smaller on paper.",
+    badge: ["Official · as filed", "b-official"],
+    src: "Toyota Motor, EDINET S100Y8NY · filed 10 June 2026",
+    rtitle: "Toyota Motor · KDDI holding",
+    rsub: "Annual securities report, year to 31 March 2026",
+    render: () => `
+      <div class="verdict"><span class="vmark">≈</span>
+        <span class="vtext">Partly supported by the filing</span></div>
+      <dl class="kv">
+        <dt>Shares held, prior year</dt><dd>203,294,600</dd>
+        <dt>Shares held, this year</dt><dd>363,365,900</dd>
+        <dt>Reason given for the change</dt><dd>Share split, part sold</dd>
+        <dt>Carrying value</dt><dd>¥989.6bn</dd>
+        <dt>Share of KDDI</dt><dd>9.54%</dd>
+      </dl>`
+  }
+];
+
+const STEPS = [[400, "s1"], [2600, "s2"], [3300, "s3"], [4400, "s4"]];
+const HOLD = 11000;
+const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const stage = document.getElementById("stage");
+const pips = document.getElementById("pips");
+let cur = 0, timers = [], advance = null;
+
+stage.innerHTML = SCN.map((S, k) => `
+  <div class="scn" data-k="${k}">
+    <div class="card chat">
+      <div class="lbl">Their assistant · connected to Ceres</div>
+      <div class="qrow"><div class="q">${S.q.split(" ").map((w, i) =>
+        `<span class="w" style="--i:${i}">${w} </span>`).join("")}<span class="cur"></span></div></div>
+      <div class="status"><span class="dots"><i></i><i></i><i></i></span>Looking it up</div>
+      <div class="tools">${S.tools.map(([n, o], i) =>
+        `<div class="tool t${i + 1}"><span class="chk">✓</span>
+         <span class="tname">${n}</span><span class="tout">${o}</span></div>`).join("")}</div>
+      <div class="ans">
+        <div class="lbl">Assistant</div>
+        <p>${S.answer}</p>
+        <div class="src"><span class="badge ${S.badge[1]}">${S.badge[0]}</span><span>${S.src}</span></div>
+      </div>
+      <div class="foot">Ceres returns the numbers and the source. The assistant writes the answer.</div>
+    </div>
+    <div class="card result">
+      <div class="ph">The answer appears here</div>
+      <div class="rtitle">${S.rtitle}</div>
+      <div class="rsub">${S.rsub}</div>
+      <div class="rbody">${S.render()}</div>
+    </div>
+  </div>`).join("");
+
+pips.innerHTML = SCN.map((_, k) =>
+  `<button class="pip" type="button" data-k="${k}" aria-label="Example ${k + 1}"></button>`).join("");
+
+function show(i) {
+  timers.forEach(clearTimeout); timers = [];
+  clearTimeout(advance);
+  cur = (i + SCN.length) % SCN.length;
+  [...stage.children].forEach((el, k) => {
+    el.className = "scn" + (k === cur ? " on" : "");
+  });
+  [...pips.children].forEach((p, k) => p.setAttribute("aria-current", k === cur));
+  const el = stage.children[cur];
+  if (REDUCED) { STEPS.forEach(st => el.classList.add(st[1])); return; }
+  STEPS.forEach(st => timers.push(setTimeout(() => el.classList.add(st[1]), st[0])));
+  advance = setTimeout(() => show(cur + 1), STEPS[STEPS.length - 1][0] + HOLD);
+}
+
+pips.addEventListener("click", e => {
+  const b = e.target.closest(".pip"); if (b) show(+b.dataset.k);
+});
+document.getElementById("next").addEventListener("click", () => show(cur + 1));
+document.getElementById("prev").addEventListener("click", () => show(cur - 1));
+addEventListener("keydown", e => {
+  if (e.key === "ArrowRight") show(cur + 1);
+  if (e.key === "ArrowLeft") show(cur - 1);
+});
+show(0);
+</script>

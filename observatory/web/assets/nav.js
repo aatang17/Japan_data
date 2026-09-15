@@ -27,7 +27,18 @@
    The placeholder is filled on DOMContentLoaded, since <main> does not exist
    yet when this script runs. A page with no placeholder simply gets no tabs. */
 
-var NAV_BRAND = "Japan Data Observatory";
+var NAV_BRAND = "Plover Analytics";
+// Simplified Plover Analytics mark for the header. Decorative: the adjacent
+// text already names the brand, so it is aria-hidden rather than repeating it
+// to a screen reader.
+var BRAND_MARK =
+  '<svg class="brand-mark" viewBox="0 0 128 128" width="20" height="20" aria-hidden="true" focusable="false">' +
+  '<g fill="none" stroke="currentColor" stroke-width="8" stroke-linejoin="round" stroke-linecap="round">' +
+  '<circle cx="64" cy="64" r="54"/><path d="M22 86 L46 56 L62 70 L86 44 L106 58"/></g>' +
+  '<g fill="currentColor"><circle cx="46" cy="56" r="8"/><circle cx="86" cy="44" r="8"/></g>' +
+  '<g fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" opacity=".55">' +
+  '<path d="M30 100 H62"/><path d="M74 100 H98"/></g></svg>';
+
 
 var NAV_SECTIONS = [
   {
@@ -182,7 +193,15 @@ var NAV_SECTIONS = [
 
   // The brand always returns to the landing page; the suffix names the
   // section so a screenshot of any page says which product it came from.
-  var brand = '<a class="brand" href="index.html">' + esc(NAV_BRAND) +
+  //
+  // The mark is inlined rather than an <img> on purpose: an SVG loaded through
+  // <img> is an isolated document, so `currentColor` resolves to black there
+  // and the ring disappears against the navy header. Inline, it inherits
+  // --obs-header-ink and is correct in both themes for free. It is also the
+  // simplified line-art mark, not the full-colour disc: at 20px the detailed
+  // version is an indistinct blob, and the header is the one place the mark is
+  // always small. The full-colour disc is the favicon (assets/logo.svg).
+  var brand = '<a class="brand" href="index.html">' + BRAND_MARK + esc(NAV_BRAND) +
     (section ? ' <span class="ds">/ ' + esc(section.suffix) + "</span>" : "") +
     "</a>";
 

@@ -165,6 +165,13 @@ def compose(code, datasets=None, sections=None, compact=False,
 
 
 def _compose(code, datasets, sections, compact, limit, coverage_only):
+    # EDINET writes a placeholder security code for a filer that has none, and
+    # one filing was archived under "0000" before the extractors learned to read
+    # that as "no code" (`extract.sec_code_of`). Until those rows are rewritten
+    # by the next extraction, a lookup of a plainly invalid code would answer
+    # with that filing's data. All zeros is not a code here either.
+    if code and not code.strip().strip("0"):
+        code = ""
     wanted = [i for i in registry.ids()
               if "company" in registry.get(i)["capabilities"]]
     if datasets:

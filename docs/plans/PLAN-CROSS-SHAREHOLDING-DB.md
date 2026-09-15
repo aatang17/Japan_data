@@ -4,10 +4,10 @@
 >
 > **One-liner:** Every policy shareholding disclosed by every listed Japanese company —
 > who holds what, at what value, for what stated reason, and how fast it is unwinding —
-> extracted from the primary filings, in English, integrated into the Observatory site.
+> extracted from the primary filings, in English, integrated into Plover Analytics site.
 >
 > **Position:** This is **product #2**. It shares the site, the brand, the trust contract
-> and the customers with the Japan Macro Observatory, but **not** the core schema — it is
+> and the customers with the Plover Analytics, but **not** the core schema — it is
 > documents-and-events data, not time series, and lives in its own schema namespace and
 > its own module. The macro golden rule ("datasets are adapters") explicitly does not
 > apply here; forcing it would deform both products.

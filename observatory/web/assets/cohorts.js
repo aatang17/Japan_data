@@ -440,7 +440,7 @@
       if (!chart || !current) return;
       var d = current;
       chart.exportCSV("peer-group-" + state.metric + ".csv", [
-        "Japan Data Observatory — peer group comparison",
+        "Plover Analytics — peer group comparison",
         "Peer group: " + d.cohort.label + " (" + d.cohort.spec + ")",
         "Classification as of: " + (d.cohort.as_of || "n/a (basket)"),
         "Measure: " + d.metric.label + (d.metric.unit ? " in " + d.metric.unit : ""),

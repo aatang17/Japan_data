@@ -402,7 +402,69 @@ days unread in testing.
 
 Set it to `0` to go back to forward-only.
 
+## Monitoring — the watchdog (`watchdog.py`)
+
+**Why this exists.** Between 12 and 15 September 2026 every capture job failed
+silently. The bucket had hit the Hobby plan's 1TB cap, every `PutObject` raised,
+and because `heartbeat.ping()` sits *after* the capture loop inside the `try`,
+the crash skipped it entirely — no ping, no failure ping, nothing. Three days of
+Japanese filings were missed and the only thing that surfaced it was a human
+asking how the jobs were going. TDnet deletes after ~5 weeks; a longer silence
+would have cost data nobody can rebuild.
+
+The watchdog does not trust the capture jobs. It reads the bucket and asks one
+question per archive: **has anything new landed recently?** That catches the
+failure mode the heartbeat cannot — a job that dies before it can report, or a
+cron that quietly stops firing.
+
+```bash
+railway run --service edinet-capture-job -- ../observatory/.venv/bin/python watchdog.py
+railway run --service edinet-capture-job -- ../observatory/.venv/bin/python watchdog.py --max-age-days 0   # prove the alarm still fires
+```
+
+It checks three things:
+
+1. **Is the bucket writable?** A full bucket still *reads* perfectly, so
+   freshness alone would not notice the first day of an outage — only the
+   second. A tiny probe object is written and deleted.
+2. **Has each archive grown recently?** EDINET, TDnet, EDGAR and the US
+   snapshots within 5 days; BOJ within 40 (it is monthly).
+3. It prints what it found either way, so a healthy run is still evidence.
+
+**How the alert reaches a human.** The process **exits non-zero** when anything
+is wrong. Railway turns a failed run into a `Deployment.crashed` event, and a
+notification rule on the project emails the members. No third-party monitor to
+sign up for, no secret to store. Set `HEARTBEAT_URL` as well and it pings a
+dead-man's-switch service, which additionally catches *the watchdog itself*
+failing to run.
+
+**Service `watchdog`**, cron `0 7 * * *` (after the 06:00 EDGAR job), restart
+NEVER. Two design notes, both deliberate:
+
+- **Limits are generous on purpose.** A long weekend plus a source that
+  publishes yesterday's index after midnight UTC is already three days of
+  legitimate silence. Anything tighter than five pages on a Tuesday for no
+  reason, and an alarm that cries wolf gets muted.
+- **`--max-age-days 0` is the self-test.** It forces every archive to look
+  stale, which is how you confirm the alert path still works without waiting
+  for a real outage. (This exposed a bug on the first cut: `args.max_age_days
+  or max_age` silently swallowed a deliberate `0`, so the override did nothing.)
+
+### Notification rules (set up 2026-09-15)
+
+`notificationRuleCreate` on the Railway API, emailing project members on
+`Deployment.crashed` and `Deployment.failed` at CRITICAL/WARNING.
+
+**The API does not validate event-type strings.** It accepted both
+`DEPLOYMENT_FAILED` and the deliberate nonsense `THIS_IS_NOT_REAL_xyz` without
+complaint — a rule with a wrong name is created, looks fine in the API, and
+silently never fires. The documented format is dotted (`Deployment.crashed`).
+Two junk rules from probing this remain because `notificationRuleDelete` answers
+**Not Authorized** to a CLI token; delete them in the dashboard under
+Settings → Notifications.
+
 ## Monitoring — dead-man's-switch (`heartbeat.py`)
+
 
 The dangerous failure is a job that **stops running**: a cron that quietly
 stops firing produces no error, no log and no alert — the archive just stops

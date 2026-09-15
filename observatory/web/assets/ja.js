@@ -407,7 +407,7 @@ function statementCSV() {
   const prior = String(Number(latest.slice(0, 4)) - 1) + latest.slice(4);
   const seg = SEGMENTS.find(s => s.key === st.segment);
   const header = [
-    "Japan Data Observatory — JA co-operative income statement",
+    "Plover Analytics — JA co-operative income statement",
     "Business: " + (seg ? seg.label : st.segment),
     "Source: " + (D.release.source_name || ""),
     "Release: data through " + fy(latest),
@@ -443,7 +443,7 @@ function statementCSV() {
 
 function exportHeader(extra) {
   return [
-    "Japan Data Observatory — JA co-operative segment income statement",
+    "Plover Analytics — JA co-operative segment income statement",
     "Source: " + (D.release.source_name || ""),
     "Release: data through " + fy(D.release.latest_period),
     "Retrieved: " + fmtStamp(D.release.retrieved_at) + " · SHA-256 " + (D.release.sha256 || ""),

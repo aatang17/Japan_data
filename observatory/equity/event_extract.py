@@ -76,7 +76,8 @@ import duckdb
 from extract import (LocalSource, S3Source, compact, DB_PATH,
                      incremental_window, record_run,
                      select_pending, catch_up_start, CATCH_UP_DAYS,
-                     recorded_floor)
+                     recorded_floor,
+                     sec_code_of)
 from edinet_honbun import (honbun, blocks, tables_in, section, section_text,
                            grid_of, norm, jp_date, to_int, NoHonbun)
 
@@ -624,7 +625,7 @@ def main():
             base.update({"doc_id": doc_id, "doc_type": doc_type, "sha256": sha,
                          "parser_version": PARSER_VERSION,
                          "edinet_code": m.get("edinetCode"),
-                         "sec_code": (m.get("secCode") or "")[:4] or None,
+                         "sec_code": sec_code_of(m),
                          "filer_name": rec.get("filer") or m.get("filerName"),
                          "filed_date": dt.date.fromisoformat(str(d)[:10]) if d else None,
                          "gate_checked": 0, "gate_passed": 0})

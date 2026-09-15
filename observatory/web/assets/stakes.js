@@ -171,7 +171,7 @@
       "the report was filed. " + (d.tape_note || "");
     $("tape-csv").onclick = function () {
       csvDownload("japan-5pct-filings-" + tapeState.filter + ".csv",
-        ["Japan Data Observatory — 5% filings (大量保有報告書)",
+        ["Plover Analytics — 5% filings (大量保有報告書)",
          "View: " + TAPE_META[tapeState.filter].replace(/<[^>]+>/g, ""),
          "Ratios, share counts and the important-proposal answer exactly as filed.",
          "filed_date is EDINET's own submission record; cover_date is the date printed on the filing.",
@@ -252,7 +252,7 @@
     }
     $("filers-csv").onclick = function () {
       csvDownload("japan-5pct-filers.csv",
-        ["Japan Data Observatory — most active 5% filers",
+        ["Plover Analytics — most active 5% filers",
          d.activist_only ? "Filers that have stated an important-proposal act" : "All filers",
          "Counts are calculated over archived reports; ratios are as filed.",
          "filer_type is derived from the filer's own 事業内容; group is a classification map of filing entities to their family.",
@@ -336,7 +336,7 @@
     var nameJa = groups.length && groups[0].issuer_name_raw
       ? groups[0].issuer_name_raw : d.issuer_name;
     var name = d.issuer_name_en || nameJa;
-    document.title = name + " · 5% Filings · Japan Data Observatory";
+    document.title = name + " · 5% Filings · Plover Analytics";
     $("co-name").textContent = name;
     $("co-code").textContent = d.issuer_sec_code || "";
     if (d.issuer_name_en && nameJa) {
@@ -411,7 +411,7 @@
       }).join("") + "</tbody></table>";
     $("rep-csv").onclick = function () {
       csvDownload("5pct-reports-" + (d.issuer_sec_code || "issuer") + ".csv",
-        ["Japan Data Observatory — every archived 5% report on one company",
+        ["Plover Analytics — every archived 5% report on one company",
          name + ", securities code " + (d.issuer_sec_code || ""),
          "Each row is one report as filed at its own trigger date, not a running position.",
          "Source: 大量保有報告書 via EDINET, Financial Services Agency."],
@@ -436,7 +436,7 @@
 
   // ---- holder view ---------------------------------------------------------
   function renderHolder(d) {
-    document.title = (d.name || d.holder_edinet_code) + " · 5% Filings · Japan Data Observatory";
+    document.title = (d.name || d.holder_edinet_code) + " · 5% Filings · Plover Analytics";
     $("ho-name").textContent = d.name_en || d.name || d.holder_edinet_code;
     $("ho-code").textContent = d.holder_edinet_code;
     var prof = [];
@@ -487,7 +487,7 @@
       }).join("") + "</tbody></table>";
     $("ho-csv").onclick = function () {
       csvDownload("5pct-holder-" + d.holder_edinet_code + ".csv",
-        ["Japan Data Observatory — one holder's 5% reports",
+        ["Plover Analytics — one holder's 5% reports",
          "Holder: " + (d.name || "") + " (" + d.holder_edinet_code + ")",
          "Latest report per issuer. Each is a snapshot at its own trigger date.",
          "Source: 大量保有報告書 via EDINET, Financial Services Agency."],

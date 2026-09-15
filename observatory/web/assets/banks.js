@@ -467,7 +467,7 @@ function bankCSV() {
   const latest = marches[marches.length - 1], prior = yearBefore(latest);
   const name = bankLabel(st.bank) + (st.basis === "c" ? " (consolidated)" : "");
   const header = [
-    "Japan Data Observatory — bank financial statement, principal lines",
+    "Plover Analytics — bank financial statement, principal lines",
     "Bank: " + name + " (金融機関コード " + st.bank + ", basis " + (st.basis === "c" ? "consolidated" : "non-consolidated") + ")",
     "Source: " + (D.rel.jba.source_name || ""),
     "Release: statements through " + half(D.rel.jba.latest_period),
@@ -497,7 +497,7 @@ function bankCSV() {
 
 function exportHeader(rel, title, extra) {
   return [
-    "Japan Data Observatory — " + title,
+    "Plover Analytics — " + title,
     "Source: " + (rel.source_name || ""),
     "Release: data through " + half(rel.latest_period),
     "Retrieved: " + fmtStamp(rel.retrieved_at) + " · SHA-256 " + (rel.sha256 || ""),

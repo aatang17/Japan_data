@@ -298,7 +298,70 @@ def clean_english_name(value):
     v = v.strip().strip(u"（(").strip()
     if not v or DASHES_ONLY.match(v):
         return None
+    return latin(v) or v
+
+
+def sec_code_of(meta):
+    u"""EDINET document metadata -> a security code, or None.
+
+    EDINET's `secCode` is a five-digit field whose first four digits are the
+    exchange ticker: Toyota files "72030" and is 7203. A filer with no listed
+    security gets a placeholder rather than an empty field, and "0000" then
+    became a code you could look up -- one unlisted chemical company's facility
+    table was served under it, and a query for the plainly invalid code "0000"
+    came back with data.
+
+    A code that is all zeros is EDINET saying "none", so it reads as None. No
+    other shape is rejected: "130A" is a real ticker under the current numbering
+    and a stricter test would drop it.
+    """
+    code = ((meta or {}).get("secCode") or "").strip()[:4]
+    return code if code and code.strip("0") else None
+
+
+def latin(value):
+    u"""A published English name in half-width letters, or None.
+
+    EDINET's registry and its cover pages both carry English names typed in
+    full-width Latin -- ＤＯＭＹ ＣＯ.,ＬＴＤ. -- because the form is a Japanese one.
+    NFKC maps those to the same letters the company prints on its own English
+    materials. This is a change of character width, not a translation: no name
+    is invented, romanized or looked up. A value that still holds Japanese
+    script after the fold was never an English name and comes back None, with
+    the one exception of the katakana middle dot, which a handful of companies
+    (M・H GROUP, KAPPA・CREATE) genuinely print inside their English name.
+    """
+    if not value:
+        return None
+    v = unicodedata.normalize("NFKC", value).replace(u"　", " ")
+    v = re.sub(r"\s+", " ", v).strip()
+    if not v or DASHES_ONLY.match(v):
+        return None
+    if JAPANESE_RUN.search(v.replace(u"・", "")):
+        return None
     return v
+
+
+def fill_entity_english(con):
+    u"""Give an entity its own filed English name where the registry has none.
+
+    EDINET's code list leaves 提出者名（英字） empty for 7,000 filers, 400 of
+    them listed. But a company that files an annual report prints its English
+    name on the cover of it, and `eq_filings.filer_name_en` already holds what
+    it printed. Preferring the registry and falling back to the cover page
+    keeps the rule intact -- an English name is the company's own published
+    one, or it is absent -- while recovering nearly every listed company.
+
+    Runs after eq_filings is rewritten, so it reads this run's cover pages.
+    """
+    con.execute("""
+        UPDATE eq_entities AS e
+           SET name_en = (SELECT max(f.filer_name_en) FROM eq_filings f
+                           WHERE f.edinet_code = e.edinet_code
+                             AND f.filer_name_en IS NOT NULL
+                             AND trim(f.filer_name_en) <> '')
+         WHERE e.name_en IS NULL OR trim(e.name_en) = ''
+    """)
 
 
 def norm(s):
@@ -1225,7 +1288,7 @@ def main():
     con.executemany(
         "INSERT INTO eq_entities VALUES (?,?,?,?,?,?)",
         [(d["ＥＤＩＮＥＴコード"], (d["証券コード"] or "")[:4] or None, d["提出者名"],
-          d.get("提出者名（英字）") or None, d.get("提出者業種") or None,
+          latin(d.get("提出者名（英字）")), d.get("提出者業種") or None,
           d["上場区分"] == "上場") for d in codelist if d.get("ＥＤＩＮＥＴコード")])
 
     # Which registration of a company actually filed, and over which years.
@@ -1258,7 +1321,7 @@ def main():
                 print("  %d/%d filings" % (done, len(targets)))
                 sys.stdout.flush()
             period_end = m.get("periodEnd") or None
-            base = (doc_id, m.get("edinetCode"), (m.get("secCode") or "")[:4] or None,
+            base = (doc_id, m.get("edinetCode"), sec_code_of(m),
                     rec.get("filer") or m.get("filerName"), period_end, rec["date"],
                     sha or rec.get("sha256"), PARSER_VERSION)
             # DELETE then INSERT rather than INSERT OR REPLACE: a DB written by
@@ -1280,8 +1343,25 @@ def main():
                 if v:
                     sums[h["holder_table"]] += v
             breaches = [v for v in sums if v in totals and sums[v] > totals[v]]
-            status = "partial" if breaches else "clean"
-            detail = ("named sum exceeds tagged total: %s" % breaches) if breaches else None
+            problems = (["named sum exceeds tagged total: %s" % breaches]
+                        if breaches else [])
+
+            # A second gate against the filer's own balance sheet. A company
+            # cannot hold a portfolio of other companies' shares worth more
+            # than everything it owns, so a policy-holdings table that totals
+            # above total assets has a row on the wrong scale — 388 shares
+            # booked at 869bn yen by a filer whose whole balance sheet is 139bn,
+            # for one. Every figure is still stored exactly as filed; this only
+            # says the filing does not add up against itself.
+            portfolio = sum(sums.values())
+            assets = extra["total_assets_yen"]
+            if portfolio and assets and portfolio > assets:
+                problems.append(
+                    "policy holdings total %d yen against %d yen of total assets"
+                    % (portfolio, assets))
+
+            status = "partial" if problems else "clean"
+            detail = "; ".join(problems) or None
             con.execute("DELETE FROM eq_filings WHERE doc_id = ?", [doc_id])
             con.execute(FILINGS_INSERT,
                         base + (status, detail, to_int(so["issued"]),
@@ -1361,6 +1441,8 @@ def main():
                    t["book_value_yen"], t["issue_count"]) for t in extra["totals"]]
             if tt:
                 con.executemany("INSERT INTO eq_filing_totals VALUES (?,?,?,?,?)", tt)
+
+    fill_entity_english(con)
 
     con.close()
     n = con = None

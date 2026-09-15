@@ -674,7 +674,7 @@ function detailCSV() {
     .filter(s => s.code !== ALL_BRANDS)
     .filter(s => st.rows === "all" || !s.discontinued);
   const header = [
-    "Japan Data Observatory — rice contract prices by origin and variety",
+    "Plover Analytics — rice contract prices by origin and variety",
     "Source: MAFF — Rice contract prices (米の相対取引価格)",
     "Release: data through " + fmtPeriodLong(rel.latest_period),
     "Retrieved: " + fmtStamp(rel.retrieved_at) + " · SHA-256 " + (rel.sha256 || ""),
@@ -707,7 +707,7 @@ function detailCSV() {
 function exportHeader(slug, extra) {
   const rel = D.releases[slug];
   return [
-    "Japan Data Observatory — " + DATASET_LABELS[slug],
+    "Plover Analytics — " + DATASET_LABELS[slug],
     "Source: " + (rel.source_name || ""),
     "Release: data through " + fmtPeriodLong(rel.latest_period),
     "Retrieved: " + fmtStamp(rel.retrieved_at) + " · SHA-256 " + (rel.sha256 || ""),

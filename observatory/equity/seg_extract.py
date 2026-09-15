@@ -80,7 +80,8 @@ import duckdb
 from extract import (LocalSource, S3Source, load_codelist, compact, DB_PATH,
                      incremental_window, record_run, seek_key,
                      select_pending, catch_up_start, CATCH_UP_DAYS,
-                     recorded_floor)
+                     recorded_floor,
+                     sec_code_of)
 from facility_extract import grid_of, read_t1
 
 PARSER_VERSION = "seg-1"
@@ -959,7 +960,7 @@ def main():
             if done % 250 == 0:
                 print("  %d/%d filings" % (done, len(targets)))
                 sys.stdout.flush()
-            base = [doc_id, m.get("edinetCode"), (m.get("secCode") or "")[:4] or None,
+            base = [doc_id, m.get("edinetCode"), sec_code_of(m),
                     rec.get("filer") or m.get("filerName"),
                     m.get("periodEnd") or None, rec["date"], sha, PARSER_VERSION]
             for tbl in ("eq_seg_filings", "eq_seg_regions", "eq_seg_customers", "eq_seg_products"):

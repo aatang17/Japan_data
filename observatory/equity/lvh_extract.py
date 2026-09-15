@@ -61,6 +61,7 @@ Gates (each recomputes a number the filing itself publishes):
     G2  holders' ratios sum to the filed group ratio      (rounding-aware)
     G3  the filed group ratio equals held / outstanding   (rounding-aware)
     G4  the ratio is between 0 and 100
+    G7  the holding does not exceed the shares in issue on the same form
 
 One writer at a time: stop the local `uvicorn app.main:app` first.
 
@@ -617,6 +618,17 @@ def build(doc_id, doc_type, facts, form, submitted, resolve_issuer, resolve_hold
                                group["outstanding"], calc))
     if group["ratio"] is not None and not 0 <= group["ratio"] <= 100:        # G4
         problems.append("G4 holding ratio %.2f%% is outside 0-100" % group["ratio"])
+    if group["shares"] and group["outstanding"] \
+            and group["shares"] > group["outstanding"]:                      # G7
+        # One-sided for the same reason G3 is. The statutory denominator
+        # 発行済株式等総数 already ADDS the holder's own potential shares to the
+        # shares in issue, and the numerator is a subset of that same total, so
+        # a position larger than the denominator cannot arise from the statute
+        # -- it means one of the two figures is on the wrong scale or was
+        # copied from a different date. Both stay exactly as filed.
+        problems.append("G7 holding of %d exceeds the %d shares in issue "
+                        "stated on the same form"
+                        % (group["shares"], group["outstanding"]))
     req = jp_date(first(facts, "DateWhenFilingRequirementAroseCoverPage", 0))
     if req and submitted and req > submitted:                                # G5
         # An obligation cannot arise after the report that discloses it. Both

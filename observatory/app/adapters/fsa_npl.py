@@ -91,7 +91,7 @@ MEASURES = {
     "危険債権": ("doubtful", "Doubtful claims", "jpy_100mn", False, 3),
     "要管理債権": ("special-attention", "Special-attention claims", "jpy_100mn", False, 4),
     "正常債権": ("normal", "Normal claims", "jpy_100mn", False, 5),
-    "不良債権比率": ("npl-ratio", "Bad-loan ratio", "pct", False, 6),
+    "不良債権比率": ("npl-ratio", "Bad-loan ratio", "percent", False, 6),
     "不良債権処分損": ("disposal-loss", "Loss on disposal of bad loans", "jpy_trillion", True, 7),
     "実質業務純益": ("core-profit", "Real net business profit", "jpy_trillion", True, 8),
 }

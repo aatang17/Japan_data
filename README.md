@@ -1,4 +1,4 @@
-# Japan Data Observatory
+# Plover Analytics
 
 Institutional-grade Japanese economic and corporate data: CPI price statistics,
 BOJ balance-sheet data, and EDINET corporate filings (cross-shareholdings,

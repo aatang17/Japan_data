@@ -2,7 +2,7 @@
 
    Structure follows the GSA-platform admin (persistent sidebar driven by one
    nav description, KPI summary cards, outline-only status badges, rows that
-   expand into detail) rendered with Observatory tokens and helpers. All data
+   expand into detail) rendered with Plover Analytics tokens and helpers. All data
    comes from /admin/api/*, which requires a signed-in session; the page shell
    itself holds no numbers.
 
@@ -118,7 +118,7 @@ function renderDisabled() {
     '<p class="sub">The admin console is switched off on this deployment: no admin ' +
     "password is configured. Set <code>ADMIN_PASSWORD</code> in the server environment " +
     "(or in <code>.env</code> locally) and restart to enable it.</p>" +
-    '<a class="btn" href="index.html">Back to the Observatory</a>' +
+    '<a class="btn" href="index.html">Back to Plover Analytics</a>' +
     "</div></div>";
 }
 
@@ -126,7 +126,7 @@ function renderLogin(message) {
   ROOT.innerHTML =
     '<div class="admin-login-wrap"><div class="admin-login-card">' +
     "<h1>Admin Console</h1>" +
-    '<p class="sub">Japan Data Observatory — internal operations. Sign in to continue.</p>' +
+    '<p class="sub">Plover Analytics — internal operations. Sign in to continue.</p>' +
     '<div id="login-alert"></div>' +
     '<form id="login-form">' +
     '<label for="login-pw">Password</label>' +
@@ -170,7 +170,7 @@ function renderShell() {
   ROOT.innerHTML =
     '<div class="admin-shell">' +
     '<aside class="admin-sidebar" id="admin-sidebar">' +
-    '<div class="admin-side-head"><span class="brand">Japan Data Observatory ' +
+    '<div class="admin-side-head"><span class="brand">Plover Analytics ' +
     '<span class="ds">/ Admin</span></span></div>' +
     '<button type="button" class="admin-menu-btn" id="admin-menu-btn">Menu</button>' +
     '<nav class="admin-nav" aria-label="Admin">' + nav + "</nav>" +
@@ -579,7 +579,7 @@ function trafficMarkup(d, days) {
       '<button type="button" class="btn" id="traffic-png">Download PNG</button>' +
       '<button type="button" class="btn" id="traffic-csv">Download CSV</button></div>' +
       '<div class="chart" id="traffic-chart"></div>' +
-      '<p class="source-line">Counted by the Japan Data Observatory server from its own ' +
+      '<p class="source-line">Counted by the Plover Analytics server from its own ' +
       "request log. Days before counting began on this deployment are shown as gaps, " +
       "not as zero.</p>" + trafficCalc(d) + "</div>"
     : '<p class="table-empty">No requests recorded yet. Counting begins the moment this ' +
@@ -797,7 +797,7 @@ function trafficChartCfg(d) {
     yAxisName: "Per Day",
     isoPeriods: true,
     trust: "derived",
-    sourceLine: "Japan Data Observatory — counted by the server from its own request log, " +
+    sourceLine: "Plover Analytics — counted by the server from its own request log, " +
       d.from + " to " + d.to + ". Not an official statistic.",
   };
 }
@@ -824,7 +824,7 @@ function wireTraffic(target, d, days) {
   });
   document.getElementById("traffic-csv").addEventListener("click", function () {
     trafficChart.exportCSV(stem + ".csv", [
-      "Japan Data Observatory — internal traffic",
+      "Plover Analytics — internal traffic",
       "Counted by the server from its own request log. Not an official statistic.",
       "Window: " + d.from + " to " + d.to,
       "Visitors = distinct address-and-browser hashes on that UTC day",

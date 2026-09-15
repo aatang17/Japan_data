@@ -1,11 +1,11 @@
 ---
-description: Fix a dashboard/chart/table UI issue with the Observatory's design guardrails enforced
+description: Fix a dashboard/chart/table UI issue with Plover Analytics' design guardrails enforced
 argument-hint: <what's wrong, and where if you know it>
 ---
 
 Fix this UI issue: **$ARGUMENTS**
 
-Follow the Observatory design discipline (invoke the `ui-ux-design` skill):
+Follow Plover Analytics design discipline (invoke the `ui-ux-design` skill):
 
 - First tell me the likely cause. If it might be a cache, hard-refresh, wrong-port, or wrong-env issue, check that before concluding it's a bug.
 - Do NOT change the data fetch, aggregation, calculation, or pipeline logic to fix a visual problem. If the number itself is wrong, stop and tell me — that's a data bug, not a UI bug.

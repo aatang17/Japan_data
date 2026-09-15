@@ -21,6 +21,8 @@ import duckdb
 from fastapi import APIRouter, HTTPException, Query
 
 from . import asof
+from . import jp_enums
+from . import plausibility
 
 from . import aliases
 from . import basis as basis_mod
@@ -726,11 +728,21 @@ def summary(year: str = Query("", description="fiscal year, e.g. 2025; default l
                sum(CASE WHEN h.shares = h.prior_shares THEN 1 ELSE 0 END) AS positions_unchanged,
                sum(CASE WHEN h.shares IS NULL OR h.prior_shares IS NULL
                         THEN 1 ELSE 0 END)                        AS positions_not_comparable,
-               sum(CASE WHEN h.reciprocal LIKE '有%' THEN 1 ELSE 0 END)   AS reciprocal_pairs,
                min(f.period_end)                                 AS earliest_period_end,
                max(f.period_end)                                 AS latest_period_end
         FROM eq_holdings h JOIN current_filings f USING (doc_id)
     """, _year_params(year))[0]
+    # 相互保有の有無 is free text and filers have written it 661 ways, including
+    # one that answers for both years at once ("前事業年度：有 当事業年度：無").
+    # Reading it in SQL and again in Python gave two different counts, so it is
+    # read once, in `jp_enums`, over the distinct spellings -- a few hundred
+    # groups, not 200,000 rows.
+    head["reciprocal_pairs"] = sum(
+        r["n"] for r in _rows(cur, latest_filings() + """
+            SELECT h.reciprocal AS filed, count(*) AS n
+            FROM eq_holdings h JOIN current_filings f USING (doc_id)
+            GROUP BY 1""", _year_params(year))
+        if jp_enums.reciprocal(r["filed"]) is True)
     status = _rows(cur, "SELECT status, count(*) AS n FROM eq_filings GROUP BY 1")
     head["extraction_status"] = {r["status"]: r["n"] for r in status}
     head["filings_total_all_years"] = sum(r["n"] for r in status)
@@ -850,6 +862,7 @@ def company(sec_code: str):
 """ + PCT_JOIN + """
             WHERE h.doc_id = ?
             ORDER BY h.book_value_yen DESC NULLS LAST""", [filing[0]["doc_id"]])
+    jp_enums.annotate_reciprocal(holdings)
     # one row per holder — its latest filing — not one row per holder per year
     holders = _rows(cur, latest_filings() + NAME_CTES + OWNERSHIP_CTE + """
         SELECT f.filer_name AS holder_name,
@@ -865,6 +878,7 @@ def company(sec_code: str):
 """ + PCT_JOIN + """
         WHERE h.held_sec_code = ?
         ORDER BY h.book_value_yen DESC NULLS LAST""", _year_params("") + [sec_code])
+    jp_enums.annotate_reciprocal(holders)
     history = _rows(cur, """
         SELECT CAST(year(f.period_end) AS VARCHAR) AS year, f.period_end,
                count(*) AS named_holdings, sum(h.book_value_yen) AS book_value_yen
@@ -929,6 +943,7 @@ def company(sec_code: str):
                 scale["assets_basis"])
             scale["equity_calc"] = SCALE_EQUITY_CALC
             scale["assets_calc"] = SCALE_ASSETS_CALC
+            plausibility.scale_bases(scale)
             # Disclosure order, not alphabetical: the filer first, then the
             # group holders it names, which is how the filing itself reads.
             scale_entities = _rows(cur, """

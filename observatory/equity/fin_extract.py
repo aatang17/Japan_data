@@ -64,7 +64,10 @@ import duckdb
 from extract import (LocalSource, S3Source, load_codelist, compact, DB_PATH,
                      incremental_window, record_run, seek_key,
                      select_pending, catch_up_start, CATCH_UP_DAYS,
-                     recorded_floor)
+                     recorded_floor,
+                     sec_code_of)
+
+import taxonomy_labels
 
 PARSER_VERSION = "fin-1"
 EXTRACTOR = "financials"
@@ -162,6 +165,32 @@ def element_of(fragment):
     long prefix ('jpcrp030000-asr_E01570-000_Foo' -> '…-000:Foo')."""
     head, _, local = fragment.rpartition("_")
     return head + ":" + local if head else fragment
+
+
+def fill_standard_english(con):
+    u"""English labels for the standard taxonomy elements.
+
+    A filing's lab-en linkbase names only the filer's own extension elements,
+    so every element the taxonomy defines -- which is every element the
+    statements are actually made of -- arrived with no English label at all.
+    The FSA publishes those labels; `taxonomy_labels.py` keeps a copy.
+
+    Fills gaps only. A label a filer supplied for its own extension element is
+    never overwritten, and neither is one already filled by an earlier run.
+    """
+    labels = taxonomy_labels.load()
+    if not labels:
+        print("no taxonomy_en.csv; standard elements keep their Japanese label")
+        return
+    gaps = [r[0] for r in con.execute(
+        "SELECT element FROM eq_fin_elements "
+        "WHERE label_en IS NULL OR trim(label_en) = ''").fetchall()]
+    rows = [(labels[e], e) for e in gaps if e in labels]
+    if rows:
+        con.executemany(
+            "UPDATE eq_fin_elements SET label_en = ? WHERE element = ?", rows)
+    print("standard element labels: %d filled, %d still unlabelled"
+          % (len(rows), len(gaps) - len(rows)))
 
 
 def parse_presentation(blob):
@@ -433,7 +462,7 @@ def main():
                 print("  %d/%d filings, %d facts" % (done, len(targets), n_facts))
                 sys.stdout.flush()
             base = [doc_id, m.get("edinetCode"),
-                    (m.get("secCode") or "")[:4] or None,
+                    sec_code_of(m),
                     rec.get("filer") or m.get("filerName"),
                     m.get("periodEnd") or None, rec["date"], sha, PARSER_VERSION]
             con.execute("DELETE FROM eq_fin_filings WHERE doc_id = ?", [doc_id])
@@ -489,6 +518,7 @@ def main():
         con.executemany("INSERT INTO eq_fin_elements VALUES (?,?,?,?)",
                         [(eid, eid.split(":")[0], label, en)
                          for eid, (label, en) in new_labels.items()])
+    fill_standard_english(con)
     print("\nstatus counts:")
     for k in sorted(stats, key=lambda x: -stats[x]):
         print("  %-10s %d" % (k, stats[k]))

@@ -1,1899 +1,1910 @@
-# English (Hepburn) municipality names for gazetteer_municipalities.csv,
-# from Japan Post's romanized zipcode data (KEN_ALL_ROME, downloaded
-# 2026-08-28, https://www.post.japanpost.jp/zipcode/download.html);
-# Hamamatsu's pre-2024 wards romanized manually. Joined on muni code.
-code,city_en,pref_en
-01101,Sapporo-shi Chuo-ku,Hokkaido
-01102,Sapporo-shi Kita-ku,Hokkaido
-01103,Sapporo-shi Higashi-ku,Hokkaido
-01104,Sapporo-shi Shiroishi-ku,Hokkaido
-01105,Sapporo-shi Toyohira-ku,Hokkaido
-01106,Sapporo-shi Minami-ku,Hokkaido
-01107,Sapporo-shi Nishi-ku,Hokkaido
-01108,Sapporo-shi Atsubetsu-ku,Hokkaido
-01109,Sapporo-shi Teine-ku,Hokkaido
-01110,Sapporo-shi Kiyota-ku,Hokkaido
-01202,Hakodate-shi,Hokkaido
-01203,Otaru-shi,Hokkaido
-01204,Asahikawa-shi,Hokkaido
-01205,Muroran-shi,Hokkaido
-01206,Kushiro-shi,Hokkaido
-01207,Obihiro-shi,Hokkaido
-01208,Kitami-shi,Hokkaido
-01209,Yubari-shi,Hokkaido
-01210,Iwamizawa-shi,Hokkaido
-01211,Abashiri-shi,Hokkaido
-01212,Rumoi-shi,Hokkaido
-01213,Tomakomai-shi,Hokkaido
-01214,Wakkanai-shi,Hokkaido
-01215,Bibai-shi,Hokkaido
-01216,Ashibetsu-shi,Hokkaido
-01217,Ebetsu-shi,Hokkaido
-01218,Akabira-shi,Hokkaido
-01219,Mombetsu-shi,Hokkaido
-01220,Shibetsu-shi,Hokkaido
-01221,Nayoro-shi,Hokkaido
-01222,Mikasa-shi,Hokkaido
-01223,Nemuro-shi,Hokkaido
-01224,Chitose-shi,Hokkaido
-01225,Takikawa-shi,Hokkaido
-01226,Sunagawa-shi,Hokkaido
-01227,Utashinai-shi,Hokkaido
-01228,Fukagawa-shi,Hokkaido
-01229,Furano-shi,Hokkaido
-01230,Noboribetsu-shi,Hokkaido
-01231,Eniwa-shi,Hokkaido
-01233,Date-shi,Hokkaido
-01234,Kitahiroshima-shi,Hokkaido
-01235,Ishikari-shi,Hokkaido
-01236,Hokuto-shi,Hokkaido
-01303,Ishikari-gun Tobetsu-cho,Hokkaido
-01304,Ishikari-gun Shinshinotsu-mura,Hokkaido
-01331,Matsumae-gun Matsumae-cho,Hokkaido
-01332,Matsumae-gun Fukushima-cho,Hokkaido
-01333,Kamiiso-gun Shiriuchi-cho,Hokkaido
-01334,Kamiiso-gun Kikonai-cho,Hokkaido
-01337,Kameda-gun Nanae-cho,Hokkaido
-01343,Kayabe-gun Shikabe-cho,Hokkaido
-01345,Kayabe-gun Mori-machi,Hokkaido
-01346,Futami-gun Yakumo-cho,Hokkaido
-01347,Yamakoshi-gun Oshamambe-cho,Hokkaido
-01361,Hiyama-gun Esashi-cho,Hokkaido
-01362,Hiyama-gun Kaminokuni-cho,Hokkaido
-01363,Hiyama-gun Assabu-cho,Hokkaido
-01364,Nishi-gun Otobe-cho,Hokkaido
-01367,Okushiri-gun Okushiri-cho,Hokkaido
-01370,Setana-gun Imakane-cho,Hokkaido
-01371,Kudo-gun Setana-cho,Hokkaido
-01391,Shimamaki-gun Shimamaki-mura,Hokkaido
-01392,Suttsu-gun Suttsu-cho,Hokkaido
-01393,Suttsu-gun Kuromatsunai-cho,Hokkaido
-01394,Isoya-gun Rankoshi-cho,Hokkaido
-01395,Abuta-gun Niseko-cho,Hokkaido
-01396,Abuta-gun Makkari-mura,Hokkaido
-01397,Abuta-gun Rusutsu-mura,Hokkaido
-01398,Abuta-gun Kimobetsu-cho,Hokkaido
-01399,Abuta-gun Kyogoku-cho,Hokkaido
-01400,Abuta-gun Kutchan-cho,Hokkaido
-01401,Iwanai-gun Kyowa-cho,Hokkaido
-01402,Iwanai-gun Iwanai-cho,Hokkaido
-01403,Furu-gun Tomari-mura,Hokkaido
-01404,Furu-gun Kamoenai-mura,Hokkaido
-01405,Shakotan-gun Shakotan-cho,Hokkaido
-01406,Furubira-gun Furubira-cho,Hokkaido
-01407,Yoichi-gun Niki-cho,Hokkaido
-01408,Yoichi-gun Yoichi-cho,Hokkaido
-01409,Yoichi-gun Akaigawa-mura,Hokkaido
-01423,Sorachi-gun Namporo-cho,Hokkaido
-01424,Sorachi-gun Naie-cho,Hokkaido
-01425,Sorachi-gun Kamisunagawa-cho,Hokkaido
-01427,Yubari-gun Yuni-cho,Hokkaido
-01428,Yubari-gun Naganuma-cho,Hokkaido
-01429,Yubari-gun Kuriyama-cho,Hokkaido
-01430,Kabato-gun Tsukigata-cho,Hokkaido
-01431,Kabato-gun Urausu-cho,Hokkaido
-01432,Kabato-gun Shintotsukawa-cho,Hokkaido
-01433,Uryu-gun Moseushi-cho,Hokkaido
-01434,Uryu-gun Chippubetsu-cho,Hokkaido
-01436,Uryu-gun Uryu-cho,Hokkaido
-01437,Uryu-gun Hokuryu-cho,Hokkaido
-01438,Uryu-gun Numata-cho,Hokkaido
-01452,Kamikawa-gun Takasu-cho,Hokkaido
-01453,Kamikawa-gun Higashikagura-cho,Hokkaido
-01454,Kamikawa-gun Toma-cho,Hokkaido
-01455,Kamikawa-gun Pippu-cho,Hokkaido
-01456,Kamikawa-gun Aibetsu-cho,Hokkaido
-01457,Kamikawa-gun Kamikawa-cho,Hokkaido
-01458,Kamikawa-gun Higashikawa-cho,Hokkaido
-01459,Kamikawa-gun Biei-cho,Hokkaido
-01460,Sorachi-gun Kamifurano-cho,Hokkaido
-01461,Sorachi-gun Nakafurano-cho,Hokkaido
-01462,Sorachi-gun Minamifurano-cho,Hokkaido
-01463,Yufutsu-gun Shimukappu-mura,Hokkaido
-01464,Kamikawa-gun Wassamu-cho,Hokkaido
-01465,Kamikawa-gun Kembuchi-cho,Hokkaido
-01468,Kamikawa-gun Shimokawa-cho,Hokkaido
-01469,Nakagawa-gun Bifuka-cho,Hokkaido
-01470,Nakagawa-gun Otoineppu-mura,Hokkaido
-01471,Nakagawa-gun Nakagawa-cho,Hokkaido
-01472,Uryu-gun Horokanai-cho,Hokkaido
-01481,Mashike-gun Mashike-cho,Hokkaido
-01482,Rumoi-gun Obira-cho,Hokkaido
-01483,Tomamae-gun Tomamae-cho,Hokkaido
-01484,Tomamae-gun Haboro-cho,Hokkaido
-01485,Tomamae-gun Shosambetsu-mura,Hokkaido
-01486,Teshio-gun Embetsu-cho,Hokkaido
-01487,Teshio-gun Teshio-cho,Hokkaido
-01511,Soya-gun Sarufutsu-mura,Hokkaido
-01512,Esashi-gun Hamatombetsu-cho,Hokkaido
-01513,Esashi-gun Nakatombetsu-cho,Hokkaido
-01514,Esashi-gun Esashi-cho,Hokkaido
-01516,Teshio-gun Toyotomi-cho,Hokkaido
-01517,Rebun-gun Rebun-cho,Hokkaido
-01518,Rishiri-gun Rishiri-cho,Hokkaido
-01519,Rishiri-gun Rishirifuji-cho,Hokkaido
-01520,Teshio-gun Horonobe-cho,Hokkaido
-01543,Abashiri-gun Bihoro-cho,Hokkaido
-01544,Abashiri-gun Tsubetsu-cho,Hokkaido
-01545,Shari-gun Shari-cho,Hokkaido
-01546,Shari-gun Kiyosato-cho,Hokkaido
-01547,Shari-gun Koshimizu-cho,Hokkaido
-01549,Tokoro-gun Kunneppu-cho,Hokkaido
-01550,Tokoro-gun Oketo-cho,Hokkaido
-01552,Tokoro-gun Saroma-cho,Hokkaido
-01555,Mombetsu-gun Engaru-cho,Hokkaido
-01559,Mombetsu-gun Yubetsu-cho,Hokkaido
-01560,Mombetsu-gun Takinoe-cho,Hokkaido
-01561,Mombetsu-gun Okoppe-cho,Hokkaido
-01562,Mombetsu-gun Nishiokoppe-mura,Hokkaido
-01563,Mombetsu-gun Omu-cho,Hokkaido
-01564,Abashiri-gun Ozora-cho,Hokkaido
-01571,Abuta-gun Toyora-cho,Hokkaido
-01575,Usu-gun Sobetsu-cho,Hokkaido
-01578,Shiraoi-gun Shiraoi-cho,Hokkaido
-01581,Yufutsu-gun Atsuma-cho,Hokkaido
-01584,Abuta-gun Toyako-cho,Hokkaido
-01585,Yufutsu-gun Abira-cho,Hokkaido
-01586,Yufutsu-gun Mukawa-cho,Hokkaido
-01601,Saru-gun Hidaka-cho,Hokkaido
-01602,Saru-gun Biratori-cho,Hokkaido
-01604,Niikappu-gun Niikappu-cho,Hokkaido
-01607,Urakawa-gun Urakawa-cho,Hokkaido
-01608,Samani-gun Samani-cho,Hokkaido
-01609,Horoizumi-gun Erimo-cho,Hokkaido
-01610,Hidaka-gun Shinhidaka-cho,Hokkaido
-01631,Kato-gun Otofuke-cho,Hokkaido
-01632,Kato-gun Shihoro-cho,Hokkaido
-01633,Kato-gun Kamishihoro-cho,Hokkaido
-01634,Kato-gun Shikaoi-cho,Hokkaido
-01635,Kamikawa-gun Shintoku-cho,Hokkaido
-01636,Kamikawa-gun Shimizu-cho,Hokkaido
-01637,Kasai-gun Memuro-cho,Hokkaido
-01638,Kasai-gun Nakasatsunai-mura,Hokkaido
-01639,Kasai-gun Sarabetsu-mura,Hokkaido
-01641,Hiro-gun Taiki-cho,Hokkaido
-01642,Hiro-gun Hiro-cho,Hokkaido
-01643,Nakagawa-gun Makubetsu-cho,Hokkaido
-01644,Nakagawa-gun Ikeda-cho,Hokkaido
-01645,Nakagawa-gun Toyokoro-cho,Hokkaido
-01646,Nakagawa-gun Hombetsu-cho,Hokkaido
-01647,Ashoro-gun Ashoro-cho,Hokkaido
-01648,Ashoro-gun Rikubetsu-cho,Hokkaido
-01649,Tokachi-gun Urahoro-cho,Hokkaido
-01661,Kushiro-gun Kushiro-cho,Hokkaido
-01662,Akkeshi-gun Akkeshi-cho,Hokkaido
-01663,Akkeshi-gun Hamanaka-cho,Hokkaido
-01664,Kawakami-gun Shibecha-cho,Hokkaido
-01665,Kawakami-gun Teshikaga-cho,Hokkaido
-01667,Akan-gun Tsurui-mura,Hokkaido
-01668,Shiranuka-gun Shiranuka-cho,Hokkaido
-01691,Notsuke-gun Betsukai-cho,Hokkaido
-01692,Shibetsu-gun Nakashibetsu-cho,Hokkaido
-01693,Shibetsu-gun Shibetsu-cho,Hokkaido
-01694,Menashi-gun Rausu-cho,Hokkaido
-02201,Aomori-shi,Aomori
-02202,Hirosaki-shi,Aomori
-02203,Hachinohe-shi,Aomori
-02204,Kuroishi-shi,Aomori
-02205,Goshogawara-shi,Aomori
-02206,Towada-shi,Aomori
-02207,Misawa-shi,Aomori
-02208,Mutsu-shi,Aomori
-02209,Tsugaru-shi,Aomori
-02210,Hirakawa-shi,Aomori
-02301,Higashitsugaru-gun Hiranai-machi,Aomori
-02303,Higashitsugaru-gun Imabetsu-machi,Aomori
-02304,Higashitsugaru-gun Yomogita-mura,Aomori
-02307,Higashitsugaru-gun Sotogahama-machi,Aomori
-02321,Nishitsugaru-gun Ajigasawa-machi,Aomori
-02323,Nishitsugaru-gun Fukaura-machi,Aomori
-02343,Nakatsugaru-gun Nishimeya-mura,Aomori
-02361,Minamitsugaru-gun Fujisaki-machi,Aomori
-02362,Minamitsugaru-gun Owani-machi,Aomori
-02367,Minamitsugaru-gun Inakadate-mura,Aomori
-02381,Kitatsugaru-gun Itayanagi-machi,Aomori
-02384,Kitatsugaru-gun Tsuruta-machi,Aomori
-02387,Kitatsugaru-gun Nakadomari-machi,Aomori
-02401,Kamikita-gun Noheji-machi,Aomori
-02402,Kamikita-gun Shichinohe-machi,Aomori
-02405,Kamikita-gun Rokunohe-machi,Aomori
-02406,Kamikita-gun Yokohama-machi,Aomori
-02408,Kamikita-gun Tohoku-machi,Aomori
-02411,Kamikita-gun Rokkasho-mura,Aomori
-02412,Kamikita-gun Oirase-cho,Aomori
-02423,Shimokita-gun Oma-machi,Aomori
-02424,Shimokita-gun Higashidori-mura,Aomori
-02425,Shimokita-gun Kazamaura-mura,Aomori
-02426,Shimokita-gun Sai-mura,Aomori
-02441,Sannohe-gun Sannohe-machi,Aomori
-02442,Sannohe-gun Gonohe-machi,Aomori
-02443,Sannohe-gun Takko-machi,Aomori
-02445,Sannohe-gun Nambu-cho,Aomori
-02446,Sannohe-gun Hashikami-cho,Aomori
-02450,Sannohe-gun Shingo-mura,Aomori
-03201,Morioka-shi,Iwate
-03202,Miyako-shi,Iwate
-03203,Ofunato-shi,Iwate
-03205,Hanamaki-shi,Iwate
-03206,Kitakami-shi,Iwate
-03207,Kuji-shi,Iwate
-03208,Tono-shi,Iwate
-03209,Ichinoseki-shi,Iwate
-03210,Rikuzentakata-shi,Iwate
-03211,Kamaishi-shi,Iwate
-03213,Ninohe-shi,Iwate
-03214,Hachimantai-shi,Iwate
-03215,Oshu-shi,Iwate
-03216,Takizawa-shi,Iwate
-03301,Iwate-gun Shizukuishi-cho,Iwate
-03302,Iwate-gun Kuzumaki-machi,Iwate
-03303,Iwate-gun Iwate-machi,Iwate
-03321,Shiwa-gun Shiwa-cho,Iwate
-03322,Shiwa-gun Yahaba-cho,Iwate
-03366,Waga-gun Nishiwaga-machi,Iwate
-03381,Isawa-gun Kanegasaki-cho,Iwate
-03402,Nishiiwai-gun Hiraizumi-cho,Iwate
-03441,Kesen-gun Sumita-cho,Iwate
-03461,Kamihei-gun Otsuchi-cho,Iwate
-03482,Shimohei-gun Yamada-machi,Iwate
-03483,Shimohei-gun Iwaizumi-cho,Iwate
-03484,Shimohei-gun Tanohata-mura,Iwate
-03485,Shimohei-gun Fudai-mura,Iwate
-03501,Kunohe-gun Karumai-machi,Iwate
-03503,Kunohe-gun Noda-mura,Iwate
-03506,Kunohe-gun Kunohe-mura,Iwate
-03507,Kunohe-gun Hirono-cho,Iwate
-03524,Ninohe-gun Ichinohe-machi,Iwate
-04101,Sendai-shi Aoba-ku,Miyagi
-04102,Sendai-shi Miyagino-ku,Miyagi
-04103,Sendai-shi Wakabayashi-ku,Miyagi
-04104,Sendai-shi Taihaku-ku,Miyagi
-04105,Sendai-shi Izumi-ku,Miyagi
-04202,Ishinomaki-shi,Miyagi
-04203,Shiogama-shi,Miyagi
-04205,Kesennuma-shi,Miyagi
-04206,Shiroishi-shi,Miyagi
-04207,Natori-shi,Miyagi
-04208,Kakuda-shi,Miyagi
-04209,Tagajo-shi,Miyagi
-04211,Iwanuma-shi,Miyagi
-04212,Tome-shi,Miyagi
-04213,Kurihara-shi,Miyagi
-04214,Higashimatsushima-shi,Miyagi
-04215,Osaki-shi,Miyagi
-04216,Tomiya-shi,Miyagi
-04301,Katta-gun Zao-machi,Miyagi
-04302,Katta-gun Shichikashuku-machi,Miyagi
-04321,Shibata-gun Ogawara-machi,Miyagi
-04322,Shibata-gun Murata-machi,Miyagi
-04323,Shibata-gun Shibata-machi,Miyagi
-04324,Shibata-gun Kawasaki-machi,Miyagi
-04341,Igu-gun Marumori-machi,Miyagi
-04361,Watari-gun Watari-cho,Miyagi
-04362,Watari-gun Yamamoto-cho,Miyagi
-04401,Miyagi-gun Matsushima-machi,Miyagi
-04404,Miyagi-gun Shichigahama-machi,Miyagi
-04406,Miyagi-gun Rifu-cho,Miyagi
-04421,Kurokawa-gun Taiwa-cho,Miyagi
-04422,Kurokawa-gun Osato-cho,Miyagi
-04424,Kurokawa-gun Ohira-mura,Miyagi
-04444,Kami-gun Shikama-cho,Miyagi
-04445,Kami-gun Kami-machi,Miyagi
-04501,Toda-gun Wakuya-cho,Miyagi
-04505,Toda-gun Misato-machi,Miyagi
-04581,Oshika-gun Onagawa-cho,Miyagi
-04606,Motoyoshi-gun Minamisanriku-cho,Miyagi
-05201,Akita-shi,Akita
-05202,Noshiro-shi,Akita
-05203,Yokote-shi,Akita
-05204,Odate-shi,Akita
-05206,Oga-shi,Akita
-05207,Yuzawa-shi,Akita
-05209,Kazuno-shi,Akita
-05210,Yurihonjo-shi,Akita
-05211,Katagami-shi,Akita
-05212,Daisen-shi,Akita
-05213,Kitaakita-shi,Akita
-05214,Nikaho-shi,Akita
-05215,Semboku-shi,Akita
-05303,Kazuno-gun Kosaka-machi,Akita
-05327,Kitaakita-gun Kamikoani-mura,Akita
-05346,Yamamoto-gun Fujisato-machi,Akita
-05348,Yamamoto-gun Mitane-cho,Akita
-05349,Yamamoto-gun Happo-cho,Akita
-05361,Minamiakita-gun Gojome-machi,Akita
-05363,Minamiakita-gun Hachirogata-machi,Akita
-05366,Minamiakita-gun Ikawa-machi,Akita
-05368,Minamiakita-gun Ogata-mura,Akita
-05434,Semboku-gun Misato-cho,Akita
-05463,Ogachi-gun Ugo-machi,Akita
-05464,Ogachi-gun Higashinaruse-mura,Akita
-06201,Yamagata-shi,Yamagata
-06202,Yonezawa-shi,Yamagata
-06203,Tsuruoka-shi,Yamagata
-06204,Sakata-shi,Yamagata
-06205,Shinjo-shi,Yamagata
-06206,Sagae-shi,Yamagata
-06207,Kaminoyama-shi,Yamagata
-06208,Murayama-shi,Yamagata
-06209,Nagai-shi,Yamagata
-06210,Tendo-shi,Yamagata
-06211,Higashine-shi,Yamagata
-06212,Obanazawa-shi,Yamagata
-06213,Nanyo-shi,Yamagata
-06301,Higashimurayama-gun Yamanobe-machi,Yamagata
-06302,Higashimurayama-gun Nakayama-machi,Yamagata
-06321,Nishimurayama-gun Kahoku-cho,Yamagata
-06322,Nishimurayama-gun Nishikawa-machi,Yamagata
-06323,Nishimurayama-gun Asahi-machi,Yamagata
-06324,Nishimurayama-gun Oe-machi,Yamagata
-06341,Kitamurayama-gun Oishida-machi,Yamagata
-06361,Mogami-gun Kaneyama-machi,Yamagata
-06362,Mogami-gun Mogami-machi,Yamagata
-06363,Mogami-gun Funagata-machi,Yamagata
-06364,Mogami-gun Mamurogawa-machi,Yamagata
-06365,Mogami-gun Okura-mura,Yamagata
-06366,Mogami-gun Sakegawa-mura,Yamagata
-06367,Mogami-gun Tozawa-mura,Yamagata
-06381,Higashiokitama-gun Takahata-machi,Yamagata
-06382,Higashiokitama-gun Kawanishi-machi,Yamagata
-06401,Nishiokitama-gun Oguni-machi,Yamagata
-06402,Nishiokitama-gun Shirataka-machi,Yamagata
-06403,Nishiokitama-gun Iide-machi,Yamagata
-06426,Higashitagawa-gun Mikawa-machi,Yamagata
-06428,Higashitagawa-gun Shonai-machi,Yamagata
-06461,Akumi-gun Yuza-machi,Yamagata
-07201,Fukushima-shi,Fukushima
-07202,Aizuwakamatsu-shi,Fukushima
-07203,Koriyama-shi,Fukushima
-07204,Iwaki-shi,Fukushima
-07205,Shirakawa-shi,Fukushima
-07207,Sukagawa-shi,Fukushima
-07208,Kitakata-shi,Fukushima
-07209,Soma-shi,Fukushima
-07210,Nihommatsu-shi,Fukushima
-07211,Tamura-shi,Fukushima
-07212,Minamisoma-shi,Fukushima
-07213,Date-shi,Fukushima
-07214,Motomiya-shi,Fukushima
-07301,Date-gun Kori-machi,Fukushima
-07303,Date-gun Kunimi-machi,Fukushima
-07308,Date-gun Kawamata-machi,Fukushima
-07322,Adachi-gun Otama-mura,Fukushima
-07342,Iwase-gun Kagamiishi-machi,Fukushima
-07344,Iwase-gun Tenei-mura,Fukushima
-07362,Minamiaizu-gun Shimogo-machi,Fukushima
-07364,Minamiaizu-gun Hinoemata-mura,Fukushima
-07367,Minamiaizu-gun Tadami-machi,Fukushima
-07368,Minamiaizu-gun Minamiaizu-machi,Fukushima
-07402,Yama-gun Kitashiobara-mura,Fukushima
-07405,Yama-gun Nishiaizu-machi,Fukushima
-07407,Yama-gun Bandai-machi,Fukushima
-07408,Yama-gun Inawashiro-machi,Fukushima
-07421,Kawanuma-gun Aizubange-machi,Fukushima
-07422,Kawanuma-gun Yugawa-mura,Fukushima
-07423,Kawanuma-gun Yanaizu-machi,Fukushima
-07444,Onuma-gun Mishima-machi,Fukushima
-07445,Onuma-gun Kaneyama-machi,Fukushima
-07446,Onuma-gun Showa-mura,Fukushima
-07447,Onuma-gun Aizumisato-machi,Fukushima
-07461,Nishishirakawa-gun Nishigo-mura,Fukushima
-07464,Nishishirakawa-gun Izumizaki-mura,Fukushima
-07465,Nishishirakawa-gun Nakajima-mura,Fukushima
-07466,Nishishirakawa-gun Yabuki-machi,Fukushima
-07481,Higashishirakawa-gun Tanagura-machi,Fukushima
-07482,Higashishirakawa-gun Yamatsuri Mach,Fukushima
-07483,Higashishirakawa-gun Hanawa-machi,Fukushima
-07484,Higashishirakawa-gun Samegawa-mura,Fukushima
-07501,Ishikawa-gun Ishikawa-machi,Fukushima
-07502,Ishikawa-gun Tamakawa-mura,Fukushima
-07503,Ishikawa-gun Hirata-mura,Fukushima
-07504,Ishikawa-gun Asakawa-machi,Fukushima
-07505,Ishikawa-gun Furudono-machi,Fukushima
-07521,Tamura-gun Miharu-machi,Fukushima
-07522,Tamura-gun Ono-machi,Fukushima
-07541,Futaba-gun Hirono-machi,Fukushima
-07542,Futaba-gun Naraha-machi,Fukushima
-07543,Futaba-gun Tomioka-machi,Fukushima
-07544,Futaba-gun Kawauchi-mura,Fukushima
-07545,Futaba-gun Okuma-machi,Fukushima
-07546,Futaba-gun Futaba-machi,Fukushima
-07547,Futaba-gun Namie-machi,Fukushima
-07548,Futaba-gun Katsurao-mura,Fukushima
-07561,Soma-gun Shinchi-machi,Fukushima
-07564,Soma-gun Iitate-mura,Fukushima
-08201,Mito-shi,Ibaraki
-08202,Hitachi-shi,Ibaraki
-08203,Tsuchiura-shi,Ibaraki
-08204,Koga-shi,Ibaraki
-08205,Ishioka-shi,Ibaraki
-08207,Yuki-shi,Ibaraki
-08208,Ryugasaki-shi,Ibaraki
-08210,Shimotsuma-shi,Ibaraki
-08211,Joso-shi,Ibaraki
-08212,Hitachiota-shi,Ibaraki
-08214,Takahagi-shi,Ibaraki
-08215,Kitaibaraki-shi,Ibaraki
-08216,Kasama-shi,Ibaraki
-08217,Toride-shi,Ibaraki
-08219,Ushiku-shi,Ibaraki
-08220,Tsukuba-shi,Ibaraki
-08221,Hitachinaka-shi,Ibaraki
-08222,Kashima-shi,Ibaraki
-08223,Itako-shi,Ibaraki
-08224,Moriya-shi,Ibaraki
-08225,Hitachiomiya-shi,Ibaraki
-08226,Naka-shi,Ibaraki
-08227,Chikusei-shi,Ibaraki
-08228,Bando-shi,Ibaraki
-08229,Inashiki-shi,Ibaraki
-08230,Kasumigaura-shi,Ibaraki
-08231,Sakuragawa-shi,Ibaraki
-08232,Kamisu-shi,Ibaraki
-08233,Namegata-shi,Ibaraki
-08234,Hokota-shi,Ibaraki
-08235,Tsukubamirai-shi,Ibaraki
-08236,Omitama-shi,Ibaraki
-08302,Higashiibaraki-gun Ibaraki-machi,Ibaraki
-08309,Higashiibaraki-gun Oarai-machi,Ibaraki
-08310,Higashiibaraki-gun Shirosato-machi,Ibaraki
-08341,Naka-gun Tokai-mura,Ibaraki
-08364,Kuji-gun Daigo-machi,Ibaraki
-08442,Inashiki-gun Miho-mura,Ibaraki
-08443,Inashiki-gun Ami-machi,Ibaraki
-08447,Inashiki-gun Kawachi-machi,Ibaraki
-08521,Yuki-gun Yachiyo-machi,Ibaraki
-08542,Sashima-gun Goka-machi,Ibaraki
-08546,Sashima-gun Sakai-machi,Ibaraki
-08564,Kitasoma-gun Tone-machi,Ibaraki
-09201,Utsunomiya-shi,Tochigi
-09202,Ashikaga-shi,Tochigi
-09203,Tochigi-shi,Tochigi
-09204,Sano-shi,Tochigi
-09205,Kanuma-shi,Tochigi
-09206,Nikko-shi,Tochigi
-09208,Oyama-shi,Tochigi
-09209,Moka-shi,Tochigi
-09210,Otawara-shi,Tochigi
-09211,Yaita-shi,Tochigi
-09213,Nasushiobara-shi,Tochigi
-09214,Sakura-shi,Tochigi
-09215,Nasukarasuyama-shi,Tochigi
-09216,Shimotsuke-shi,Tochigi
-09301,Kawachi-gun Kaminokawa-machi,Tochigi
-09342,Haga-gun Mashiko-machi,Tochigi
-09343,Haga-gun Motegi-machi,Tochigi
-09344,Haga-gun Ichikai-machi,Tochigi
-09345,Haga-gun Haga-machi,Tochigi
-09361,Shimotsuga-gun Mibu-machi,Tochigi
-09364,Shimotsuga-gun Nogi-machi,Tochigi
-09384,Shioya-gun Shioya-machi,Tochigi
-09386,Shioya-gun Takanezawa-machi,Tochigi
-09407,Nasu-gun Nasu-machi,Tochigi
-09411,Nasu-gun Nakagawa-machi,Tochigi
-10201,Maebashi-shi,Gumma
-10202,Takasaki-shi,Gumma
-10203,Kiryu-shi,Gumma
-10204,Isesaki-shi,Gumma
-10205,Ota-shi,Gumma
-10206,Numata-shi,Gumma
-10207,Tatebayashi-shi,Gumma
-10208,Shibukawa-shi,Gumma
-10209,Fujioka-shi,Gumma
-10210,Tomioka-shi,Gumma
-10211,Annaka-shi,Gumma
-10212,Midori-shi,Gumma
-10344,Kitagumma-gun Shinto-mura,Gumma
-10345,Kitagumma-gun Yoshioka-machi,Gumma
-10366,Tano-gun Ueno-mura,Gumma
-10367,Tano-gun Kanna-machi,Gumma
-10382,Kanra-gun Shimonita-machi,Gumma
-10383,Kanra-gun Nammoku-mura,Gumma
-10384,Kanra-gun Kanra-machi,Gumma
-10421,Agatsuma-gun Nakanojo-machi,Gumma
-10424,Agatsuma-gun Naganohara-machi,Gumma
-10425,Agatsuma-gun Tsumagoi-mura,Gumma
-10426,Agatsuma-gun Kusatsu-machi,Gumma
-10428,Agatsuma-gun Takayama-mura,Gumma
-10429,Agatsuma-gun Higashiagatsuma-machi,Gumma
-10443,Tone-gun Katashina-mura,Gumma
-10444,Tone-gun Kawaba-mura,Gumma
-10448,Tone-gun Showa-mura,Gumma
-10449,Tone-gun Minakami-machi,Gumma
-10464,Sawa-gun Tamamura-machi,Gumma
-10521,Ora-gun Itakura-machi,Gumma
-10522,Ora-gun Meiwa-machi,Gumma
-10523,Ora-gun Chiyoda-machi,Gumma
-10524,Ora-gun Oizumi-machi,Gumma
-10525,Ora-gun Ora-machi,Gumma
-11101,Saitama-shi Nishi-ku,Saitama
-11102,Saitama-shi Kita-ku,Saitama
-11103,Saitama-shi Omiya-ku,Saitama
-11104,Saitama-shi Minuma-ku,Saitama
-11105,Saitama-shi Chuo-ku,Saitama
-11106,Saitama-shi Sakura-ku,Saitama
-11107,Saitama-shi Urawa-ku,Saitama
-11108,Saitama-shi Minami-ku,Saitama
-11109,Saitama-shi Midori-ku,Saitama
-11110,Saitama-shi Iwatsuki-ku,Saitama
-11201,Kawagoe-shi,Saitama
-11202,Kumagaya-shi,Saitama
-11203,Kawaguchi-shi,Saitama
-11206,Gyoda-shi,Saitama
-11207,Chichibu-shi,Saitama
-11208,Tokorozawa-shi,Saitama
-11209,Hanno-shi,Saitama
-11210,Kazo-shi,Saitama
-11211,Honjo-shi,Saitama
-11212,Higashimatsuyama-shi,Saitama
-11214,Kasukabe-shi,Saitama
-11215,Sayama-shi,Saitama
-11216,Hanyu-shi,Saitama
-11217,Konosu-shi,Saitama
-11218,Fukaya-shi,Saitama
-11219,Ageo-shi,Saitama
-11221,Soka-shi,Saitama
-11222,Koshigaya-shi,Saitama
-11223,Warabi-shi,Saitama
-11224,Toda-shi,Saitama
-11225,Iruma-shi,Saitama
-11227,Asaka-shi,Saitama
-11228,Shiki-shi,Saitama
-11229,Wako-shi,Saitama
-11230,Niiza-shi,Saitama
-11231,Okegawa-shi,Saitama
-11232,Kuki-shi,Saitama
-11233,Kitamoto-shi,Saitama
-11234,Yashio-shi,Saitama
-11235,Fujimi-shi,Saitama
-11237,Misato-shi,Saitama
-11238,Hasuda-shi,Saitama
-11239,Sakado-shi,Saitama
-11240,Satte-shi,Saitama
-11241,Tsurugashima-shi,Saitama
-11242,Hidaka-shi,Saitama
-11243,Yoshikawa-shi,Saitama
-11245,Fujimino-shi,Saitama
-11246,Shiraoka-shi,Saitama
-11301,Kitaadachi-gun Ina-machi,Saitama
-11324,Iruma-gun Miyoshi-machi,Saitama
-11326,Iruma-gun Moroyama-machi,Saitama
-11327,Iruma-gun Ogose-machi,Saitama
-11341,Hiki-gun Namegawa-machi,Saitama
-11342,Hiki-gun Ranzan-machi,Saitama
-11343,Hiki-gun Ogawa-machi,Saitama
-11346,Hiki-gun Kawajima-machi,Saitama
-11347,Hiki-gun Yoshimi-machi,Saitama
-11348,Hiki-gun Hatoyama-machi,Saitama
-11349,Hiki-gun Tokigawa-machi,Saitama
-11361,Chichibu-gun Yokoze-machi,Saitama
-11362,Chichibu-gun Minano-machi,Saitama
-11363,Chichibu-gun Nagatoro-machi,Saitama
-11365,Chichibu-gun Ogano-machi,Saitama
-11369,Chichibu-gun Higashichichibu-mura,Saitama
-11381,Kodama-gun Misato-machi,Saitama
-11383,Kodama-gun Kamikawa-machi,Saitama
-11385,Kodama-gun Kamisato-machi,Saitama
-11408,Osato-gun Yorii-machi,Saitama
-11442,Minamisaitama-gun Miyashiro-machi,Saitama
-11464,Kitakatsushika-gun Sugito-machi,Saitama
-11465,Kitakatsushika-gun Matsubushi-machi,Saitama
-12101,Chiba-shi Chuo-ku,Chiba
-12102,Chiba-shi Hanamigawa-ku,Chiba
-12103,Chiba-shi Inage-ku,Chiba
-12104,Chiba-shi Wakaba-ku,Chiba
-12105,Chiba-shi Midori-ku,Chiba
-12106,Chiba-shi Mihama-ku,Chiba
-12202,Choshi-shi,Chiba
-12203,Ichikawa-shi,Chiba
-12204,Funabashi-shi,Chiba
-12205,Tateyama-shi,Chiba
-12206,Kisarazu-shi,Chiba
-12207,Matsudo-shi,Chiba
-12208,Noda-shi,Chiba
-12210,Mobara-shi,Chiba
-12211,Narita-shi,Chiba
-12212,Sakura-shi,Chiba
-12213,Togane-shi,Chiba
-12215,Asahi-shi,Chiba
-12216,Narashino-shi,Chiba
-12217,Kashiwa-shi,Chiba
-12218,Katsura-shi,Chiba
-12219,Ichihara-shi,Chiba
-12220,Nagareyama-shi,Chiba
-12221,Yachiyo-shi,Chiba
-12222,Abiko-shi,Chiba
-12223,Kamogawa-shi,Chiba
-12224,Kamagaya-shi,Chiba
-12225,Kimitsu-shi,Chiba
-12226,Futtsu-shi,Chiba
-12227,Urayasu-shi,Chiba
-12228,Yotsukaido-shi,Chiba
-12229,Sodegaura-shi,Chiba
-12230,Yachimata-shi,Chiba
-12231,Inzai-shi,Chiba
-12232,Shiroi-shi,Chiba
-12233,Tomisato-shi,Chiba
-12234,Minamiboso-shi,Chiba
-12235,Sosa-shi,Chiba
-12236,Katori-shi,Chiba
-12237,Sammu-shi,Chiba
-12238,Isumi-shi,Chiba
-12239,Oamishirasato-shi,Chiba
-12322,Imba-gun Shisui-machi,Chiba
-12329,Imba-gun Sakae-machi,Chiba
-12342,Katori-gun Kozaki-machi,Chiba
-12347,Katori-gun Tako-machi,Chiba
-12349,Katori-gun Tonosho-machi,Chiba
-12403,Sambu-gun Kujukuri-machi,Chiba
-12409,Sambu-gun Shibayama-machi,Chiba
-12410,Sambu-gun Yokoshibahikari-machi,Chiba
-12421,Chosei-gun Ichinomiya-machi,Chiba
-12422,Chosei-gun Mutsuzawa-machi,Chiba
-12423,Chosei-gun Chosei-mura,Chiba
-12424,Chosei-gun Shirako-machi,Chiba
-12426,Chosei-gun Nagara-machi,Chiba
-12427,Chosei-gun Chonan-machi,Chiba
-12441,Isumi-gun Otaki-machi,Chiba
-12443,Isumi-gun Onjuku-machi,Chiba
-12463,Awa-gun Kyonan-machi,Chiba
-13101,Chiyoda-ku,Tokyo
-13102,Chuo-ku,Tokyo
-13103,Minato-ku,Tokyo
-13104,Shinjuku-ku,Tokyo
-13105,Bunkyo-ku,Tokyo
-13106,Taito-ku,Tokyo
-13107,Sumida-ku,Tokyo
-13108,Koto-ku,Tokyo
-13109,Shinagawa-ku,Tokyo
-13110,Meguro-ku,Tokyo
-13111,Ota-ku,Tokyo
-13112,Setagaya-ku,Tokyo
-13113,Shibuya-ku,Tokyo
-13114,Nakano-ku,Tokyo
-13115,Suginami-ku,Tokyo
-13116,Toshima-ku,Tokyo
-13117,Kita-ku,Tokyo
-13118,Arakawa-ku,Tokyo
-13119,Itabashi-ku,Tokyo
-13120,Nerima-ku,Tokyo
-13121,Adachi-ku,Tokyo
-13122,Katsushika-ku,Tokyo
-13123,Edogawa-ku,Tokyo
-13201,Hachioji-shi,Tokyo
-13202,Tachikawa-shi,Tokyo
-13203,Musashino-shi,Tokyo
-13204,Mitaka-shi,Tokyo
-13205,Ome-shi,Tokyo
-13206,Fuchu-shi,Tokyo
-13207,Akishima-shi,Tokyo
-13208,Chofu-shi,Tokyo
-13209,Machida-shi,Tokyo
-13210,Koganei-shi,Tokyo
-13211,Kodaira-shi,Tokyo
-13212,Hino-shi,Tokyo
-13213,Higashimurayama-shi,Tokyo
-13214,Kokubunji-shi,Tokyo
-13215,Kunitachi-shi,Tokyo
-13218,Fussa-shi,Tokyo
-13219,Komae-shi,Tokyo
-13220,Higashiyamato-shi,Tokyo
-13221,Kiyose-shi,Tokyo
-13222,Higashikurume-shi,Tokyo
-13223,Musashimurayama-shi,Tokyo
-13224,Tama-shi,Tokyo
-13225,Inagi-shi,Tokyo
-13227,Hamura-shi,Tokyo
-13228,Akiruno-shi,Tokyo
-13229,Nishitokyo-shi,Tokyo
-13303,Nishitama-gun Mizuho-machi,Tokyo
-13305,Nishitama-gun Hinode-machi,Tokyo
-13307,Nishitama-gun Hinohara-mura,Tokyo
-13308,Nishitama-gun Okutama-machi,Tokyo
-13361,Oshima-machi,Tokyo
-13363,Niijima-mura,Tokyo
-13364,Kozushima-mura,Tokyo
-13381,Miyakejima Miyake-mura,Tokyo
-13382,Mikurajima-mura,Tokyo
-13401,Hachijojima Hachijo-machi,Tokyo
-13402,Aogashima-mura,Tokyo
-13421,Ogasawara-mura,Tokyo
-14101,Yokohama-shi Tsurumi-ku,Kanagawa
-14102,Yokohama-shi Kanagawa-ku,Kanagawa
-14103,Yokohama-shi Nishi-ku,Kanagawa
-14104,Yokohama-shi Naka-ku,Kanagawa
-14105,Yokohama-shi Minami-ku,Kanagawa
-14106,Yokohama-shi Hodogaya-ku,Kanagawa
-14107,Yokohama-shi Isogo-ku,Kanagawa
-14108,Yokohama-shi Kanazawa-ku,Kanagawa
-14109,Yokohama-shi Kohoku-ku,Kanagawa
-14110,Yokohama-shi Totsuka-ku,Kanagawa
-14111,Yokohama-shi Konan-ku,Kanagawa
-14112,Yokohama-shi Asahi-ku,Kanagawa
-14113,Yokohama-shi Midori-ku,Kanagawa
-14114,Yokohama-shi Seya-ku,Kanagawa
-14115,Yokohama-shi Sakae-ku,Kanagawa
-14116,Yokohama-shi Izumi-ku,Kanagawa
-14117,Yokohama-shi Aoba-ku,Kanagawa
-14118,Yokohama-shi Tsuzuki-ku,Kanagawa
-14131,Kawasaki-shi Kawasaki-ku,Kanagawa
-14132,Kawasaki-shi Saiwai-ku,Kanagawa
-14133,Kawasaki-shi Nakahara-ku,Kanagawa
-14134,Kawasaki-shi Takatsu-ku,Kanagawa
-14135,Kawasaki-shi Tama-ku,Kanagawa
-14136,Kawasaki-shi Miyamae-ku,Kanagawa
-14137,Kawasaki-shi Asao-ku,Kanagawa
-14151,Sagamihara-shi Midori-ku,Kanagawa
-14152,Sagamihara-shi Chuo-ku,Kanagawa
-14153,Sagamihara-shi Minami-ku,Kanagawa
-14201,Yokosuka-shi,Kanagawa
-14203,Hiratsuka-shi,Kanagawa
-14204,Kamakura-shi,Kanagawa
-14205,Fujisawa-shi,Kanagawa
-14206,Odawara-shi,Kanagawa
-14207,Chigasaki-shi,Kanagawa
-14208,Zushi-shi,Kanagawa
-14210,Miura-shi,Kanagawa
-14211,Hadano-shi,Kanagawa
-14212,Atsugi-shi,Kanagawa
-14213,Yamato-shi,Kanagawa
-14214,Isehara-shi,Kanagawa
-14215,Ebina-shi,Kanagawa
-14216,Zama-shi,Kanagawa
-14217,Minamiashigara-shi,Kanagawa
-14218,Ayase-shi,Kanagawa
-14301,Miura-gun Hayama-machi,Kanagawa
-14321,Koza-gun Samukawa-machi,Kanagawa
-14341,Naka-gun Oiso-machi,Kanagawa
-14342,Naka-gun Ninomiya-machi,Kanagawa
-14361,Ashigarakami-gun Nakai-machi,Kanagawa
-14362,Ashigarakami-gun Oi-machi,Kanagawa
-14363,Ashigarakami-gun Matsuda-machi,Kanagawa
-14364,Ashigarakami-gun Yamakita-machi,Kanagawa
-14366,Ashigarakami-gun Kaisei-machi,Kanagawa
-14382,Ashigarashimo-gun Hakone-machi,Kanagawa
-14383,Ashigarashimo-gun Manazuru-machi,Kanagawa
-14384,Ashigarashimo-gun Yugawara-machi,Kanagawa
-14401,Aiko-gun Aikawa-machi,Kanagawa
-14402,Aiko-gun Kiyokawa-mura,Kanagawa
-15101,Niigata-shi Kita-ku,Niigata
-15102,Niigata-shi Higashi-ku,Niigata
-15103,Niigata-shi Chuo-ku,Niigata
-15104,Niigata-shi Konan-ku,Niigata
-15105,Niigata-shi Akiha-ku,Niigata
-15106,Niigata-shi Minami-ku,Niigata
-15107,Niigata-shi Nishi-ku,Niigata
-15108,Niigata-shi Nishikan-ku,Niigata
-15202,Nagaoka-shi,Niigata
-15204,Sanjo-shi,Niigata
-15205,Kashiwazaki-shi,Niigata
-15206,Shibata-shi,Niigata
-15208,Ojiya-shi,Niigata
-15209,Kamo-shi,Niigata
-15210,Tokamachi-shi,Niigata
-15211,Mitsuke-shi,Niigata
-15212,Murakami-shi,Niigata
-15213,Tsubame-shi,Niigata
-15216,Itoigawa-shi,Niigata
-15217,Myoko-shi,Niigata
-15218,Gosen-shi,Niigata
-15222,Joetsu-shi,Niigata
-15223,Agano-shi,Niigata
-15224,Sado-shi,Niigata
-15225,Uonuma-shi,Niigata
-15226,Minamiuonuma-shi,Niigata
-15227,Tainai-shi,Niigata
-15307,Kitakambara-gun Seiro-machi,Niigata
-15342,Nishikambara-gun Yahiko-mura,Niigata
-15361,Minamikambara-gun Tagami-machi,Niigata
-15385,Higashikambara-gun Aga-machi,Niigata
-15405,Santo-gun Izumozaki-machi,Niigata
-15461,Minamiuonuma-gun Yuzawa-machi,Niigata
-15482,Nakauonuma-gun Tsunan-machi,Niigata
-15504,Kariwa-gun Kariwa-mura,Niigata
-15581,Iwafune-gun Sekikawa-mura,Niigata
-15586,Iwafune-gun Awashimaura-mura,Niigata
-16201,Toyama-shi,Toyama
-16202,Takaoka-shi,Toyama
-16204,Uozu-shi,Toyama
-16205,Himi-shi,Toyama
-16206,Namerikawa-shi,Toyama
-16207,Kurobe-shi,Toyama
-16208,Tonami-shi,Toyama
-16209,Oyabe-shi,Toyama
-16210,Nanto-shi,Toyama
-16211,Imizu-shi,Toyama
-16321,Nakaniikawa-gun Funahashi-mura,Toyama
-16322,Nakaniikawa-gun Kamiichi-machi,Toyama
-16323,Nakaniikawa-gun Tateyama-machi,Toyama
-16342,Shimoniikawa-gun Nyuzen-machi,Toyama
-16343,Shimoniikawa-gun Asahi-machi,Toyama
-17201,Kanazawa-shi,Ishikawa
-17202,Nanao-shi,Ishikawa
-17203,Komatsu-shi,Ishikawa
-17204,Wajima-shi,Ishikawa
-17205,Suzu-shi,Ishikawa
-17206,Kaga-shi,Ishikawa
-17207,Hakui-shi,Ishikawa
-17209,Kahoku-shi,Ishikawa
-17210,Hakusan-shi,Ishikawa
-17211,Nomi-shi,Ishikawa
-17212,Nonoichi-shi,Ishikawa
-17324,Nomi-gun Kawakita-machi,Ishikawa
-17361,Kahoku-gun Tsubata-machi,Ishikawa
-17365,Kahoku-gun Uchinada-machi,Ishikawa
-17384,Hakui-gun Shika-machi,Ishikawa
-17386,Hakui-gun Hodatsushimizu-cho,Ishikawa
-17407,Kashima-gun Nakanoto-machi,Ishikawa
-17461,Hosu-gun Anamizu-machi,Ishikawa
-17463,Hosu-gun Noto-cho,Ishikawa
-18201,Fukui-shi,Fukui
-18202,Tsuruga-shi,Fukui
-18204,Obama-shi,Fukui
-18205,Ono-shi,Fukui
-18206,Katsuyama-shi,Fukui
-18207,Sabae-shi,Fukui
-18208,Awara-shi,Fukui
-18209,Echizen-shi,Fukui
-18210,Sakai-shi,Fukui
-18322,Yoshida-gun Eiheiji-cho,Fukui
-18382,Imadate-gun Ikeda-cho,Fukui
-18404,Nanjo-gun Minamiechizen-cho,Fukui
-18423,Nyu-gun Echizen-cho,Fukui
-18442,Mikata-gun Mihama-cho,Fukui
-18481,Oi-gun Takahama-cho,Fukui
-18483,Oi-gun Oi-cho,Fukui
-18501,Mikatakaminaka-gun Wakasa-cho,Fukui
-19201,Kofu-shi,Yamanashi
-19202,Fujiyoshida-shi,Yamanashi
-19204,Tsuru-shi,Yamanashi
-19205,Yamanashi-shi,Yamanashi
-19206,Otsuki-shi,Yamanashi
-19207,Nirasaki-shi,Yamanashi
-19208,Minamiarupusu-shi,Yamanashi
-19209,Hokuto-shi,Yamanashi
-19210,Kai-shi,Yamanashi
-19211,Fuefuki-shi,Yamanashi
-19212,Uenohara-shi,Yamanashi
-19213,Koshu-shi,Yamanashi
-19214,Chuo-shi,Yamanashi
-19346,Nishiyatsushiro-gun Ichikawamisato,Yamanashi
-19364,Minamikoma-gun Hayakawa-cho,Yamanashi
-19365,Minamikoma-gun Minobu-cho,Yamanashi
-19366,Minamikoma-gun Nambu-cho,Yamanashi
-19368,Minamikoma-gun Fujikawa-cho,Yamanashi
-19384,Nakakoma-gun Showa-cho,Yamanashi
-19422,Minamitsuru-gun Doshi-mura,Yamanashi
-19423,Minamitsuru-gun Nishikatsura-cho,Yamanashi
-19424,Minamitsuru-gun Oshino-mura,Yamanashi
-19425,Minamitsuru-gun Yamanakako-mura,Yamanashi
-19429,Minamitsuru-gun Narusawa-mura,Yamanashi
-19430,Minamitsuru-gun Fujikawaguchiko Mac,Yamanashi
-19442,Kitatsuru-gun Kosuge-mura,Yamanashi
-19443,Kitatsuru-gun Tabayama-mura,Yamanashi
-20201,Nagano-shi,Nagano
-20202,Matsumoto-shi,Nagano
-20203,Ueda-shi,Nagano
-20204,Okaya-shi,Nagano
-20205,Iida-shi,Nagano
-20206,Suwa-shi,Nagano
-20207,Suzaka-shi,Nagano
-20208,Komoro-shi,Nagano
-20209,Ina-shi,Nagano
-20210,Komagane-shi,Nagano
-20211,Nakano-shi,Nagano
-20212,Omachi-shi,Nagano
-20213,Iiyama-shi,Nagano
-20214,Chino-shi,Nagano
-20215,Shiojiri-shi,Nagano
-20217,Saku-shi,Nagano
-20218,Chikuma-shi,Nagano
-20219,Tomi-shi,Nagano
-20220,Azumino-shi,Nagano
-20303,Minamisaku-gun Komi-machi,Nagano
-20304,Minamisaku-gun Kawakami-mura,Nagano
-20305,Minamisaku-gun Minamimaki-mura,Nagano
-20306,Minamisaku-gun Minamiaiki-mura,Nagano
-20307,Minamisaku-gun Kitaaiki-mura,Nagano
-20309,Minamisaku-gun Sakuho-machi,Nagano
-20321,Kitasaku-gun Karuizawa-machi,Nagano
-20323,Kitasaku-gun Miyota-machi,Nagano
-20324,Kitasaku-gun Tateshina-machi,Nagano
-20349,Chiisagata-gun Aoki-mura,Nagano
-20350,Chiisagata-gun Nagawa-machi,Nagano
-20361,Suwa-gun Shimosuwa-machi,Nagano
-20362,Suwa-gun Fujimi-machi,Nagano
-20363,Suwa-gun Hara-mura,Nagano
-20382,Kamiina-gun Tatsuno-machi,Nagano
-20383,Kamiina-gun Minowa-machi,Nagano
-20384,Kamiina-gun Iijima-machi,Nagano
-20385,Kamiina-gun Minamiminowa-mura,Nagano
-20386,Kamiina-gun Nakagawa-mura,Nagano
-20388,Kamiina-gun Miyada-mura,Nagano
-20402,Shimoina-gun Matsukawa-machi,Nagano
-20403,Shimoina-gun Takamori-machi,Nagano
-20404,Shimoina-gun Anan-cho,Nagano
-20407,Shimoina-gun Achi-mura,Nagano
-20409,Shimoina-gun Hiraya-mura,Nagano
-20410,Shimoina-gun Neba-mura,Nagano
-20411,Shimoina-gun Shimojo-mura,Nagano
-20412,Shimoina-gun Urugi-mura,Nagano
-20413,Shimoina-gun Tenryu-mura,Nagano
-20414,Shimoina-gun Yasuoka-mura,Nagano
-20415,Shimoina-gun Takagi-mura,Nagano
-20416,Shimoina-gun Toyoka-mura,Nagano
-20417,Shimoina-gun Oshika-mura,Nagano
-20422,Kiso-gun Agematsu-machi,Nagano
-20423,Kiso-gun Nagiso-machi,Nagano
-20425,Kiso-gun Kiso-mura,Nagano
-20429,Kiso-gun Otaki-mura,Nagano
-20430,Kiso-gun Okuwa-mura,Nagano
-20432,Kiso-gun Kiso-machi,Nagano
-20446,Higashichikuma-gun Omi-mura,Nagano
-20448,Higashichikuma-gun Ikusaka-mura,Nagano
-20450,Higashichikuma-gun Yamagata-mura,Nagano
-20451,Higashichikuma-gun Asahi-mura,Nagano
-20452,Higashichikuma-gun Chikuhoku-mura,Nagano
-20481,Kitaazumi-gun Ikeda-machi,Nagano
-20482,Kitaazumi-gun Matsukawa-mura,Nagano
-20485,Kitaazumi-gun Hakuba-mura,Nagano
-20486,Kitaazumi-gun Otari-mura,Nagano
-20521,Hanishina-gun Sakaki-machi,Nagano
-20541,Kamitakai-gun Obuse-machi,Nagano
-20543,Kamitakai-gun Takayama-mura,Nagano
-20561,Shimotakai-gun Yamanochi-machi,Nagano
-20562,Shimotakai-gun Kijimadaira-mura,Nagano
-20563,Shimotakai-gun Nozawaonsen-mura,Nagano
-20583,Kamiminochi-gun Shinano-machi,Nagano
-20588,Kamiminochi-gun Ogawa-mura,Nagano
-20590,Kamiminochi-gun Iizuna-machi,Nagano
-20602,Shimominochi-gun Sakae-mura,Nagano
-21201,Gifu-shi,Gifu
-21202,Ogaki-shi,Gifu
-21203,Takayama-shi,Gifu
-21204,Tajimi-shi,Gifu
-21205,Seki-shi,Gifu
-21206,Nakatsugawa-shi,Gifu
-21207,Mino-shi,Gifu
-21208,Mizunami-shi,Gifu
-21209,Hashima-shi,Gifu
-21210,Ena-shi,Gifu
-21211,Minokamo-shi,Gifu
-21212,Toki-shi,Gifu
-21213,Kakamigahara-shi,Gifu
-21214,Kani-shi,Gifu
-21215,Yamagata-shi,Gifu
-21216,Mizuho-shi,Gifu
-21217,Hida-shi,Gifu
-21218,Motosu-shi,Gifu
-21219,Gujo-shi,Gifu
-21220,Gero-shi,Gifu
-21221,Kaizu-shi,Gifu
-21302,Hashima-gun Ginan-cho,Gifu
-21303,Hashima-gun Kasamatsu-cho,Gifu
-21341,Yoro-gun Yoro-cho,Gifu
-21361,Fuwa-gun Tarui-cho,Gifu
-21362,Fuwa-gun Sekigahara-cho,Gifu
-21381,Ampachi-gun Godo-cho,Gifu
-21382,Ampachi-gun Wanochi-cho,Gifu
-21383,Ampachi-gun Ampachi-cho,Gifu
-21401,Ibi-gun Ibigawa-cho,Gifu
-21403,Ibi-gun Ono-cho,Gifu
-21404,Ibi-gun Ikeda-cho,Gifu
-21421,Motosu-gun Kitagata-cho,Gifu
-21501,Kamo-gun Sakahogi-cho,Gifu
-21502,Kamo-gun Tomika-cho,Gifu
-21503,Kamo-gun Kawabe-cho,Gifu
-21504,Kamo-gun Hichiso-cho,Gifu
-21505,Kamo-gun Yaotsu-cho,Gifu
-21506,Kamo-gun Shirakawa-cho,Gifu
-21507,Kamo-gun Higashishirakawa-mura,Gifu
-21521,Kani-gun Mitake-cho,Gifu
-21604,Ono-gun Shirakawa-mura,Gifu
-22101,Shizuoka-shi Aoi-ku,Shizuoka
-22102,Shizuoka-shi Suruga-ku,Shizuoka
-22103,Shizuoka-shi Shimizu-ku,Shizuoka
-22131,Hamamatsu-shi Naka-ku,Shizuoka
-22132,Hamamatsu-shi Higashi-ku,Shizuoka
-22133,Hamamatsu-shi Nishi-ku,Shizuoka
-22134,Hamamatsu-shi Minami-ku,Shizuoka
-22135,Hamamatsu-shi Kita-ku,Shizuoka
-22136,Hamamatsu-shi Hamakita-ku,Shizuoka
-22137,Hamamatsu-shi Tenryu-ku,Shizuoka
-22203,Numazu-shi,Shizuoka
-22205,Atami-shi,Shizuoka
-22206,Mishima-shi,Shizuoka
-22207,Fujinomiya-shi,Shizuoka
-22208,Ito-shi,Shizuoka
-22209,Shimada-shi,Shizuoka
-22210,Fuji-shi,Shizuoka
-22211,Iwata-shi,Shizuoka
-22212,Yaizu-shi,Shizuoka
-22213,Kakegawa-shi,Shizuoka
-22214,Fujieda-shi,Shizuoka
-22215,Gotemba-shi,Shizuoka
-22216,Fukuroi-shi,Shizuoka
-22219,Shimoda-shi,Shizuoka
-22220,Susono-shi,Shizuoka
-22221,Kosai-shi,Shizuoka
-22222,Izu-shi,Shizuoka
-22223,Omaezaki-shi,Shizuoka
-22224,Kikugawa-shi,Shizuoka
-22225,Izunokuni-shi,Shizuoka
-22226,Makinohara-shi,Shizuoka
-22301,Kamo-gun Higashiizu-cho,Shizuoka
-22302,Kamo-gun Kawazu-cho,Shizuoka
-22304,Kamo-gun Minamiizu-cho,Shizuoka
-22305,Kamo-gun Matsuzaki-cho,Shizuoka
-22306,Kamo-gun Nishiizu-cho,Shizuoka
-22325,Tagata-gun Kannami-cho,Shizuoka
-22341,Sunto-gun Shimizu-cho,Shizuoka
-22342,Sunto-gun Nagaizumi-cho,Shizuoka
-22344,Sunto-gun Oyama-cho,Shizuoka
-22424,Haibara-gun Yoshida-cho,Shizuoka
-22429,Haibara-gun Kawanehon-cho,Shizuoka
-22461,Shuchi-gun Mori-machi,Shizuoka
-23101,Nagoya-shi Chikusa-ku,Aichi
-23102,Nagoya-shi Higashi-ku,Aichi
-23103,Nagoya-shi Kita-ku,Aichi
-23104,Nagoya-shi Nishi-ku,Aichi
-23105,Nagoya-shi Nakamura-ku,Aichi
-23106,Nagoya-shi Naka-ku,Aichi
-23107,Nagoya-shi Showa-ku,Aichi
-23108,Nagoya-shi Mizuho-ku,Aichi
-23109,Nagoya-shi Atsuta-ku,Aichi
-23110,Nagoya-shi Nakagawa-ku,Aichi
-23111,Nagoya-shi Minato-ku,Aichi
-23112,Nagoya-shi Minami-ku,Aichi
-23113,Nagoya-shi Moriyama-ku,Aichi
-23114,Nagoya-shi Midori-ku,Aichi
-23115,Nagoya-shi Meito-ku,Aichi
-23116,Nagoya-shi Tempaku-ku,Aichi
-23201,Toyohashi-shi,Aichi
-23202,Okazaki-shi,Aichi
-23203,Ichinomiya-shi,Aichi
-23204,Seto-shi,Aichi
-23205,Handa-shi,Aichi
-23206,Kasugai-shi,Aichi
-23207,Toyokawa-shi,Aichi
-23208,Tsushima-shi,Aichi
-23209,Hekinan-shi,Aichi
-23210,Kariya-shi,Aichi
-23211,Toyota-shi,Aichi
-23212,Anjo-shi,Aichi
-23213,Nishio-shi,Aichi
-23214,Gamagori-shi,Aichi
-23215,Inuyama-shi,Aichi
-23216,Tokoname-shi,Aichi
-23217,Konan-shi,Aichi
-23219,Komaki-shi,Aichi
-23220,Inazawa-shi,Aichi
-23221,Shinshiro-shi,Aichi
-23222,Tokai-shi,Aichi
-23223,Obu-shi,Aichi
-23224,Chita-shi,Aichi
-23225,Chiryu-shi,Aichi
-23226,Owariasahi-shi,Aichi
-23227,Takahama-shi,Aichi
-23228,Iwakura-shi,Aichi
-23229,Toyoake-shi,Aichi
-23230,Nisshin-shi,Aichi
-23231,Tahara-shi,Aichi
-23232,Aisai-shi,Aichi
-23233,Kiyosu-shi,Aichi
-23234,Kitanagoya-shi,Aichi
-23235,Yatomi-shi,Aichi
-23236,Miyoshi-shi,Aichi
-23237,Ama-shi,Aichi
-23238,Nagakute-shi,Aichi
-23302,Aichi-gun Togo-cho,Aichi
-23342,Nishikasugai-gun Toyoyama-cho,Aichi
-23361,Niwa-gun Oguchi-cho,Aichi
-23362,Niwa-gun Fuso-cho,Aichi
-23424,Ama-gun Oharu-cho,Aichi
-23425,Ama-gun Kanie-cho,Aichi
-23427,Ama-gun Tobishima-mura,Aichi
-23441,Chita-gun Agui-cho,Aichi
-23442,Chita-gun Higashiura-cho,Aichi
-23445,Chita-gun Minamichita-cho,Aichi
-23446,Chita-gun Mihama-cho,Aichi
-23447,Chita-gun Taketoyo-cho,Aichi
-23501,Nukata-gun Kota-cho,Aichi
-23561,Kitashitara-gun Shitara-cho,Aichi
-23562,Kitashitara-gun Toei-cho,Aichi
-23563,Kitashitara-gun Toyone-mura,Aichi
-24201,Tsu-shi,Mie
-24202,Yokkaichi-shi,Mie
-24203,Ise-shi,Mie
-24204,Matsusaka-shi,Mie
-24205,Kuwana-shi,Mie
-24207,Suzuka-shi,Mie
-24208,Nabari-shi,Mie
-24209,Owase-shi,Mie
-24210,Kameyama-shi,Mie
-24211,Toba-shi,Mie
-24212,Kumano-shi,Mie
-24214,Inabe-shi,Mie
-24215,Shima-shi,Mie
-24216,Iga-shi,Mie
-24303,Kuwana-gun Kisosaki-cho,Mie
-24324,Inabe-gun Toin-cho,Mie
-24341,Mie-gun Komono-cho,Mie
-24343,Mie-gun Asahi-cho,Mie
-24344,Mie-gun Kawagoe-cho,Mie
-24441,Taki-gun Taki-cho,Mie
-24442,Taki-gun Meiwa-cho,Mie
-24443,Taki-gun Odai-cho,Mie
-24461,Watarai-gun Tamaki-cho,Mie
-24470,Watarai-gun Watarai-cho,Mie
-24471,Watarai-gun Taiki-cho,Mie
-24472,Watarai-gun Minamiise-cho,Mie
-24543,Kitamuro-gun Kihoku-cho,Mie
-24561,Minamimuro-gun Mihama-cho,Mie
-24562,Minamimuro-gun Kiho-cho,Mie
-25201,Otsu-shi,Shiga
-25202,Hikone-shi,Shiga
-25203,Nagahama-shi,Shiga
-25204,Omihachiman-shi,Shiga
-25206,Kusatsu-shi,Shiga
-25207,Moriyama-shi,Shiga
-25208,Ritto-shi,Shiga
-25209,Koka-shi,Shiga
-25210,Yasu-shi,Shiga
-25211,Konan-shi,Shiga
-25212,Takashima-shi,Shiga
-25213,Higashiomi-shi,Shiga
-25214,Maibara-shi,Shiga
-25383,Gamo-gun Hino-cho,Shiga
-25384,Gamo-gun Ryuo-cho,Shiga
-25425,Echi-gun Aisho-cho,Shiga
-25441,Inukami-gun Toyosato-cho,Shiga
-25442,Inukami-gun Kora-cho,Shiga
-25443,Inukami-gun Taga-cho,Shiga
-26101,Kyoto-shi Kita-ku,Kyoto
-26102,Kyoto-shi Kamigyo-ku,Kyoto
-26103,Kyoto-shi Sakyo-ku,Kyoto
-26104,Kyoto-shi Nakagyo-ku,Kyoto
-26105,Kyoto-shi Higashiyama-ku,Kyoto
-26106,Kyoto-shi Shimogyo-ku,Kyoto
-26107,Kyoto-shi Minami-ku,Kyoto
-26108,Kyoto-shi Ukyo-ku,Kyoto
-26109,Kyoto-shi Fushimi-ku,Kyoto
-26110,Kyoto-shi Yamashina-ku,Kyoto
-26111,Kyoto-shi Nishikyo-ku,Kyoto
-26201,Fukuchiyama-shi,Kyoto
-26202,Maizuru-shi,Kyoto
-26203,Ayabe-shi,Kyoto
-26204,Uji-shi,Kyoto
-26205,Miyazu-shi,Kyoto
-26206,Kameoka-shi,Kyoto
-26207,Joyo-shi,Kyoto
-26208,Muko-shi,Kyoto
-26209,Nagaokakyo-shi,Kyoto
-26210,Yawata-shi,Kyoto
-26211,Kyotanabe-shi,Kyoto
-26212,Kyotango-shi,Kyoto
-26213,Nantan-shi,Kyoto
-26214,Kizugawa-shi,Kyoto
-26303,Otokuni-gun Oyamazaki-cho,Kyoto
-26322,Kuse-gun Kumiyama-cho,Kyoto
-26343,Tsuzuki-gun Ide-cho,Kyoto
-26344,Tsuzuki-gun Ujitawara-cho,Kyoto
-26364,Soraku-gun Kasagi-cho,Kyoto
-26365,Soraku-gun Wazuka-cho,Kyoto
-26366,Soraku-gun Seika-cho,Kyoto
-26367,Soraku-gun Minamiyamashiro-mura,Kyoto
-26407,Funai-gun Kyotamba-cho,Kyoto
-26463,Yosa-gun Ine-cho,Kyoto
-26465,Yosa-gun Yosano-cho,Kyoto
-27102,Osaka-shi Miyakojima-ku,Osaka
-27103,Osaka-shi Fukushima-ku,Osaka
-27104,Osaka-shi Konohana-ku,Osaka
-27106,Osaka-shi Nishi-ku,Osaka
-27107,Osaka-shi Minato-ku,Osaka
-27108,Osaka-shi Taisho-ku,Osaka
-27109,Osaka-shi Tennoji-ku,Osaka
-27111,Osaka-shi Naniwa-ku,Osaka
-27113,Osaka-shi Nishiyodogawa-ku,Osaka
-27114,Osaka-shi Higashiyodogawa-ku,Osaka
-27115,Osaka-shi Higashinari-ku,Osaka
-27116,Osaka-shi Ikuno-ku,Osaka
-27117,Osaka-shi Asahi-ku,Osaka
-27118,Osaka-shi Joto-ku,Osaka
-27119,Osaka-shi Abeno-ku,Osaka
-27120,Osaka-shi Sumiyoshi-ku,Osaka
-27121,Osaka-shi Higashisumiyoshi-ku,Osaka
-27122,Osaka-shi Nishinari-ku,Osaka
-27123,Osaka-shi Yodogawa-ku,Osaka
-27124,Osaka-shi Tsurumi-ku,Osaka
-27125,Osaka-shi Suminoe-ku,Osaka
-27126,Osaka-shi Hirano-ku,Osaka
-27127,Osaka-shi Kita-ku,Osaka
-27128,Osaka-shi Chuo-ku,Osaka
-27141,Sakai-shi Sakai-ku,Osaka
-27142,Sakai-shi Naka-ku,Osaka
-27143,Sakai-shi Higashi-ku,Osaka
-27144,Sakai-shi Nishi-ku,Osaka
-27145,Sakai-shi Minami-ku,Osaka
-27146,Sakai-shi Kita-ku,Osaka
-27147,Sakai-shi Mihara-ku,Osaka
-27202,Kishiwada-shi,Osaka
-27203,Toyonaka-shi,Osaka
-27204,Ikeda-shi,Osaka
-27205,Suita-shi,Osaka
-27206,Izumiotsu-shi,Osaka
-27207,Takatsuki-shi,Osaka
-27208,Kaizuka-shi,Osaka
-27209,Moriguchi-shi,Osaka
-27210,Hirakata-shi,Osaka
-27211,Ibaraki-shi,Osaka
-27212,Yao-shi,Osaka
-27213,Izumisano-shi,Osaka
-27214,Tondabayashi-shi,Osaka
-27215,Neyagawa-shi,Osaka
-27216,Kawachinagano-shi,Osaka
-27217,Matsubara-shi,Osaka
-27218,Daito-shi,Osaka
-27219,Izumi-shi,Osaka
-27220,Mino-shi,Osaka
-27221,Kashiwara-shi,Osaka
-27222,Habikino-shi,Osaka
-27223,Kadoma-shi,Osaka
-27224,Settsu-shi,Osaka
-27225,Takaishi-shi,Osaka
-27226,Fujiidera-shi,Osaka
-27227,Higashiosaka-shi,Osaka
-27228,Sennan-shi,Osaka
-27229,Shijonawate-shi,Osaka
-27230,Katano-shi,Osaka
-27231,Osakasayama-shi,Osaka
-27232,Hannan-shi,Osaka
-27301,Mishima-gun Shimamoto-cho,Osaka
-27321,Toyono-gun Toyono-cho,Osaka
-27322,Toyono-gun Nose-cho,Osaka
-27341,Semboku-gun Tadaoka-cho,Osaka
-27361,Sennan-gun Kumatori-cho,Osaka
-27362,Sennan-gun Tajiri-cho,Osaka
-27366,Sennan-gun Misaki-cho,Osaka
-27381,Minamikawachi-gun Taishi-cho,Osaka
-27382,Minamikawachi-gun Kanan-cho,Osaka
-27383,Minamikawachi-gun Chihayaakasaka Mu,Osaka
-28101,Kobe-shi Higashinada-ku,Hyogo
-28102,Kobe-shi Nada-ku,Hyogo
-28105,Kobe-shi Hyogo-ku,Hyogo
-28106,Kobe-shi Nagata-ku,Hyogo
-28107,Kobe-shi Suma-ku,Hyogo
-28108,Kobe-shi Tarumi-ku,Hyogo
-28109,Kobe-shi Kita-ku,Hyogo
-28110,Kobe-shi Chuo-ku,Hyogo
-28111,Kobe-shi Nishi-ku,Hyogo
-28201,Himeji-shi,Hyogo
-28202,Amagasaki-shi,Hyogo
-28203,Akashi-shi,Hyogo
-28204,Nishinomiya-shi,Hyogo
-28205,Sumoto-shi,Hyogo
-28206,Ashiya-shi,Hyogo
-28207,Itami-shi,Hyogo
-28208,Aioi-shi,Hyogo
-28209,Toyoka-shi,Hyogo
-28210,Kakogawa-shi,Hyogo
-28212,Ako-shi,Hyogo
-28213,Nishiwaki-shi,Hyogo
-28214,Takarazuka-shi,Hyogo
-28215,Miki-shi,Hyogo
-28216,Takasago-shi,Hyogo
-28217,Kawanishi-shi,Hyogo
-28218,Ono-shi,Hyogo
-28219,Sanda-shi,Hyogo
-28220,Kasai-shi,Hyogo
-28221,Tambasasayama-shi,Hyogo
-28222,Yabu-shi,Hyogo
-28223,Tamba-shi,Hyogo
-28224,Minamiawaji-shi,Hyogo
-28225,Asago-shi,Hyogo
-28226,Awaji-shi,Hyogo
-28227,Shiso-shi,Hyogo
-28228,Kato-shi,Hyogo
-28229,Tatsuno-shi,Hyogo
-28301,Kawabe-gun Inagawa-cho,Hyogo
-28365,Taka-gun Taka-cho,Hyogo
-28381,Kako-gun Inami-cho,Hyogo
-28382,Kako-gun Harima-cho,Hyogo
-28442,Kanzaki-gun Ichikawa-cho,Hyogo
-28443,Kanzaki-gun Fukusaki-cho,Hyogo
-28446,Kanzaki-gun Kamikawa-cho,Hyogo
-28464,Ibo-gun Taishi-cho,Hyogo
-28481,Ako-gun Kamigori-cho,Hyogo
-28501,Sayo-gun Sayo-cho,Hyogo
-28585,Mikata-gun Kami-cho,Hyogo
-28586,Mikata-gun Shinonsen-cho,Hyogo
-29201,Nara-shi,Nara
-29202,Yamatotakada-shi,Nara
-29203,Yamatokoriyama-shi,Nara
-29204,Tenri-shi,Nara
-29205,Kashihara-shi,Nara
-29206,Sakurai-shi,Nara
-29207,Gojo-shi,Nara
-29208,Gose-shi,Nara
-29209,Ikoma-shi,Nara
-29210,Kashiba-shi,Nara
-29211,Katsuragi-shi,Nara
-29212,Uda-shi,Nara
-29322,Yamabe-gun Yamazoe-mura,Nara
-29342,Ikoma-gun Heguri-cho,Nara
-29343,Ikoma-gun Sango-cho,Nara
-29344,Ikoma-gun Ikaruga-cho,Nara
-29345,Ikoma-gun Ando-cho,Nara
-29361,Shiki-gun Kawanishi-cho,Nara
-29362,Shiki-gun Miyake-cho,Nara
-29363,Shiki-gun Tawaramoto-cho,Nara
-29385,Uda-gun Soni-mura,Nara
-29386,Uda-gun Mitsue-mura,Nara
-29401,Takaichi-gun Takatori-cho,Nara
-29402,Takaichi-gun Asuka-mura,Nara
-29424,Kitakatsuragi-gun Kammaki-cho,Nara
-29425,Kitakatsuragi-gun Oji-cho,Nara
-29426,Kitakatsuragi-gun Koryo-cho,Nara
-29427,Kitakatsuragi-gun Kawai-cho,Nara
-29441,Yoshino-gun Yoshino-cho,Nara
-29442,Yoshino-gun Oyodo-cho,Nara
-29443,Yoshino-gun Shimoichi-cho,Nara
-29444,Yoshino-gun Kurotaki-mura,Nara
-29446,Yoshino-gun Tenkawa-mura,Nara
-29447,Yoshino-gun Nosegawa-mura,Nara
-29449,Yoshino-gun Totsukawa-mura,Nara
-29450,Yoshino-gun Shimokitayama-mura,Nara
-29451,Yoshino-gun Kamikitayama-mura,Nara
-29452,Yoshino-gun Kawakami-mura,Nara
-29453,Yoshino-gun Higashiyoshino-mura,Nara
-30201,Wakayama-shi,Wakayama
-30202,Kainan-shi,Wakayama
-30203,Hashimoto-shi,Wakayama
-30204,Arida-shi,Wakayama
-30205,Gobo-shi,Wakayama
-30206,Tanabe-shi,Wakayama
-30207,Shingu-shi,Wakayama
-30208,Kinokawa-shi,Wakayama
-30209,Iwade-shi,Wakayama
-30304,Kaiso-gun Kimino-cho,Wakayama
-30341,Ito-gun Katsuragi-cho,Wakayama
-30343,Ito-gun Kudoyama-cho,Wakayama
-30344,Ito-gun Koya-cho,Wakayama
-30361,Arida-gun Yuasa-cho,Wakayama
-30362,Arida-gun Hirogawa-cho,Wakayama
-30366,Arida-gun Aridagawa-cho,Wakayama
-30381,Hidaka-gun Mihama-cho,Wakayama
-30382,Hidaka-gun Hidaka-cho,Wakayama
-30383,Hidaka-gun Yura-cho,Wakayama
-30390,Hidaka-gun Inami-cho,Wakayama
-30391,Hidaka-gun Minabe-cho,Wakayama
-30392,Hidaka-gun Hidakagawa-cho,Wakayama
-30401,Nishimuro-gun Shirahama-cho,Wakayama
-30404,Nishimuro-gun Kamitonda-cho,Wakayama
-30406,Nishimuro-gun Susami-cho,Wakayama
-30421,Higashimuro-gun Nachikatsura-cho,Wakayama
-30422,Higashimuro-gun Taiji-cho,Wakayama
-30424,Higashimuro-gun Kozagawa-cho,Wakayama
-30427,Higashimuro-gun Kitayama-mura,Wakayama
-30428,Higashimuro-gun Kushimoto-cho,Wakayama
-31201,Tottori-shi,Tottori
-31202,Yonago-shi,Tottori
-31203,Kurayoshi-shi,Tottori
-31204,Sakaiminato-shi,Tottori
-31302,Iwami-gun Iwami-cho,Tottori
-31325,Yazu-gun Wakasa-cho,Tottori
-31328,Yazu-gun Chizu-cho,Tottori
-31329,Yazu-gun Yazu-cho,Tottori
-31364,Tohaku-gun Misasa-cho,Tottori
-31370,Tohaku-gun Yurihama-cho,Tottori
-31371,Tohaku-gun Kotora-cho,Tottori
-31372,Tohaku-gun Hokuei-cho,Tottori
-31384,Saihaku-gun Hiezu-son,Tottori
-31386,Saihaku-gun Daisen-cho,Tottori
-31389,Saihaku-gun Nambu-cho,Tottori
-31390,Saihaku-gun Hoki-cho,Tottori
-31401,Hino-gun Nichinan-cho,Tottori
-31402,Hino-gun Hino-cho,Tottori
-31403,Hino-gun Kofu-cho,Tottori
-32201,Matsue-shi,Shimane
-32202,Hamada-shi,Shimane
-32203,Izumo-shi,Shimane
-32204,Masuda-shi,Shimane
-32205,Oda-shi,Shimane
-32206,Yasugi-shi,Shimane
-32207,Gotsu-shi,Shimane
-32209,Unnan-shi,Shimane
-32343,Nita-gun Okuizumo-cho,Shimane
-32386,Iishi-gun Iinan-cho,Shimane
-32441,Ochi-gun Kawamoto-machi,Shimane
-32448,Ochi-gun Misato-cho,Shimane
-32449,Ochi-gun Onan-cho,Shimane
-32501,Kanoashi-gun Tsuwano-cho,Shimane
-32505,Kanoashi-gun Yoshika-cho,Shimane
-32525,Oki-gun Ama-cho,Shimane
-32526,Oki-gun Nishinoshima-cho,Shimane
-32527,Oki-gun Chibu-mura,Shimane
-32528,Oki-gun Okinoshima-cho,Shimane
-33101,Okayama-shi Kita-ku,Okayama
-33102,Okayama-shi Naka-ku,Okayama
-33103,Okayama-shi Higashi-ku,Okayama
-33104,Okayama-shi Minami-ku,Okayama
-33202,Kurashiki-shi,Okayama
-33203,Tsuyama-shi,Okayama
-33204,Tamano-shi,Okayama
-33205,Kasaoka-shi,Okayama
-33207,Ibara-shi,Okayama
-33208,Soja-shi,Okayama
-33209,Takahashi-shi,Okayama
-33210,Niimi-shi,Okayama
-33211,Bizen-shi,Okayama
-33212,Setochi-shi,Okayama
-33213,Akaiwa-shi,Okayama
-33214,Maniwa-shi,Okayama
-33215,Mimasaka-shi,Okayama
-33216,Asakuchi-shi,Okayama
-33346,Wake-gun Wake-cho,Okayama
-33423,Tsukubo-gun Hayashima-cho,Okayama
-33445,Asakuchi-gun Satosho-cho,Okayama
-33461,Oda-gun Yakage-cho,Okayama
-33586,Maniwa-gun Shinjo-son,Okayama
-33606,Tomata-gun Kagamino-cho,Okayama
-33622,Katsuta-gun Shoo-cho,Okayama
-33623,Katsuta-gun Nagi-cho,Okayama
-33643,Aida-gun Nishiawakura-son,Okayama
-33663,Kume-gun Kumenan-cho,Okayama
-33666,Kume-gun Misaki-cho,Okayama
-33681,Kaga-gun Kibichuo-cho,Okayama
-34101,Hiroshima-shi Naka-ku,Hiroshima
-34102,Hiroshima-shi Higashi-ku,Hiroshima
-34103,Hiroshima-shi Minami-ku,Hiroshima
-34104,Hiroshima-shi Nishi-ku,Hiroshima
-34105,Hiroshima-shi Asaminami-ku,Hiroshima
-34106,Hiroshima-shi Asakita-ku,Hiroshima
-34107,Hiroshima-shi Aki-ku,Hiroshima
-34108,Hiroshima-shi Saeki-ku,Hiroshima
-34202,Kure-shi,Hiroshima
-34203,Takehara-shi,Hiroshima
-34204,Mihara-shi,Hiroshima
-34205,Onomichi-shi,Hiroshima
-34207,Fukuyama-shi,Hiroshima
-34208,Fuchu-shi,Hiroshima
-34209,Miyoshi-shi,Hiroshima
-34210,Shobara-shi,Hiroshima
-34211,Otake-shi,Hiroshima
-34212,Higashihiroshima-shi,Hiroshima
-34213,Hatsukaichi-shi,Hiroshima
-34214,Akitakata-shi,Hiroshima
-34215,Etajima-shi,Hiroshima
-34302,Aki-gun Fuchu-cho,Hiroshima
-34304,Aki-gun Kaita-cho,Hiroshima
-34307,Aki-gun Kumano-cho,Hiroshima
-34309,Aki-gun Saka-cho,Hiroshima
-34368,Yamagata-gun Akiota-cho,Hiroshima
-34369,Yamagata-gun Kitahiroshima-cho,Hiroshima
-34431,Toyota-gun Osakikamijima-cho,Hiroshima
-34462,Sera-gun Sera-cho,Hiroshima
-34545,Jinseki-gun Jinsekikogen-cho,Hiroshima
-35201,Shimonoseki-shi,Yamaguchi
-35202,Ube-shi,Yamaguchi
-35203,Yamaguchi-shi,Yamaguchi
-35204,Hagi-shi,Yamaguchi
-35206,Hofu-shi,Yamaguchi
-35207,Kudamatsu-shi,Yamaguchi
-35208,Iwakuni-shi,Yamaguchi
-35210,Hikari-shi,Yamaguchi
-35211,Nagato-shi,Yamaguchi
-35212,Yanai-shi,Yamaguchi
-35213,Mine-shi,Yamaguchi
-35215,Shunan-shi,Yamaguchi
-35216,Sanyoonoda-shi,Yamaguchi
-35305,Oshima-gun Suooshima-cho,Yamaguchi
-35321,Kuga-gun Waki-cho,Yamaguchi
-35341,Kumage-gun Kaminoseki-cho,Yamaguchi
-35343,Kumage-gun Tabuse-cho,Yamaguchi
-35344,Kumage-gun Hirao-cho,Yamaguchi
-35502,Abu-gun Abu-cho,Yamaguchi
-36201,Tokushima-shi,Tokushima
-36202,Naruto-shi,Tokushima
-36203,Komatsushima-shi,Tokushima
-36204,Anan-shi,Tokushima
-36205,Yoshinogawa-shi,Tokushima
-36206,Awa-shi,Tokushima
-36207,Mima-shi,Tokushima
-36208,Miyoshi-shi,Tokushima
-36301,Katsura-gun Katsura-cho,Tokushima
-36302,Katsura-gun Kamikatsu-cho,Tokushima
-36321,Myodo-gun Sanagochi-son,Tokushima
-36341,Myozai-gun Ishii-cho,Tokushima
-36342,Myozai-gun Kamiyama-cho,Tokushima
-36368,Naka-gun Naka-cho,Tokushima
-36383,Kaifu-gun Mugi-cho,Tokushima
-36387,Kaifu-gun Minami-cho,Tokushima
-36388,Kaifu-gun Kaiyo-cho,Tokushima
-36401,Itano-gun Matsushige-cho,Tokushima
-36402,Itano-gun Kitajima-cho,Tokushima
-36403,Itano-gun Aizumi-cho,Tokushima
-36404,Itano-gun Itano-cho,Tokushima
-36405,Itano-gun Kamiita-cho,Tokushima
-36468,Mima-gun Tsurugi-cho,Tokushima
-36489,Miyoshi-gun Higashimiyoshi-cho,Tokushima
-37201,Takamatsu-shi,Kagawa
-37202,Marugame-shi,Kagawa
-37203,Sakaide-shi,Kagawa
-37204,Zentsuji-shi,Kagawa
-37205,Kanonji-shi,Kagawa
-37206,Sanuki-shi,Kagawa
-37207,Higashikagawa-shi,Kagawa
-37208,Mitoyo-shi,Kagawa
-37322,Shozu-gun Tonosho-cho,Kagawa
-37324,Shozu-gun Shodoshima-cho,Kagawa
-37341,Kita-gun Miki-cho,Kagawa
-37364,Kagawa-gun Naoshima-cho,Kagawa
-37386,Ayauta-gun Utazu-cho,Kagawa
-37387,Ayauta-gun Ayagawa-cho,Kagawa
-37403,Nakatado-gun Kotohira-cho,Kagawa
-37404,Nakatado-gun Tadotsu-cho,Kagawa
-37406,Nakatado-gun Manno-cho,Kagawa
-38201,Matsuyama-shi,Ehime
-38202,Imabari-shi,Ehime
-38203,Uwajima-shi,Ehime
-38204,Yawatahama-shi,Ehime
-38205,Niihama-shi,Ehime
-38206,Saijo-shi,Ehime
-38207,Ozu-shi,Ehime
-38210,Iyo-shi,Ehime
-38213,Shikokuchuo-shi,Ehime
-38214,Seiyo-shi,Ehime
-38215,Toon-shi,Ehime
-38356,Ochi-gun Kamijima-cho,Ehime
-38386,Kamiukena-gun Kumakogen-cho,Ehime
-38401,Iyo-gun Masaki-cho,Ehime
-38402,Iyo-gun Tobe-cho,Ehime
-38422,Kita-gun Uchiko-cho,Ehime
-38442,Nishiuwa-gun Ikata-cho,Ehime
-38484,Kitauwa-gun Matsuno-cho,Ehime
-38488,Kitauwa-gun Kihoku-cho,Ehime
-38506,Minamiuwa-gun Ainan-cho,Ehime
-39201,Kochi-shi,Kochi
-39202,Muroto-shi,Kochi
-39203,Aki-shi,Kochi
-39204,Nankoku-shi,Kochi
-39205,Tosa-shi,Kochi
-39206,Susaki-shi,Kochi
-39208,Sukumo-shi,Kochi
-39209,Tosashimizu-shi,Kochi
-39210,Shimanto-shi,Kochi
-39211,Konan-shi,Kochi
-39212,Kami-shi,Kochi
-39301,Aki-gun Toyo-cho,Kochi
-39302,Aki-gun Nahari-cho,Kochi
-39303,Aki-gun Tano-cho,Kochi
-39304,Aki-gun Yasuda-cho,Kochi
-39305,Aki-gun Kitagawa-mura,Kochi
-39306,Aki-gun Umaji-mura,Kochi
-39307,Aki-gun Geisei-mura,Kochi
-39341,Nagaoka-gun Motoyama-cho,Kochi
-39344,Nagaoka-gun Otoyo-cho,Kochi
-39363,Tosa-gun Tosa-cho,Kochi
-39364,Tosa-gun Okawa-mura,Kochi
-39386,Agawa-gun Ino-cho,Kochi
-39387,Agawa-gun Niyodogawa-cho,Kochi
-39401,Takaoka-gun Nakatosa-cho,Kochi
-39402,Takaoka-gun Sakawa-cho,Kochi
-39403,Takaoka-gun Ochi-cho,Kochi
-39405,Takaoka-gun Yusuhara-cho,Kochi
-39410,Takaoka-gun Hidaka-mura,Kochi
-39411,Takaoka-gun Tsuno-cho,Kochi
-39412,Takaoka-gun Shimanto-cho,Kochi
-39424,Hata-gun Otsuki-cho,Kochi
-39427,Hata-gun Mihara-mura,Kochi
-39428,Hata-gun Kuroshio-cho,Kochi
-40101,Kitakyushu-shi Moji-ku,Fukuoka
-40103,Kitakyushu-shi Wakamatsu-ku,Fukuoka
-40105,Kitakyushu-shi Tobata-ku,Fukuoka
-40106,Kitakyushu-shi Kokurakita-ku,Fukuoka
-40107,Kitakyushu-shi Kokuraminami-ku,Fukuoka
-40108,Kitakyushu-shi Yahatahigashi-ku,Fukuoka
-40109,Kitakyushu-shi Yahatanishi-ku,Fukuoka
-40131,Fukuoka-shi Higashi-ku,Fukuoka
-40132,Fukuoka-shi Hakata-ku,Fukuoka
-40133,Fukuoka-shi Chuo-ku,Fukuoka
-40134,Fukuoka-shi Minami-ku,Fukuoka
-40135,Fukuoka-shi Nishi-ku,Fukuoka
-40136,Fukuoka-shi Jonan-ku,Fukuoka
-40137,Fukuoka-shi Sawara-ku,Fukuoka
-40202,Omuta-shi,Fukuoka
-40203,Kurume-shi,Fukuoka
-40204,Nogata-shi,Fukuoka
-40205,Iizuka-shi,Fukuoka
-40206,Tagawa-shi,Fukuoka
-40207,Yanagawa-shi,Fukuoka
-40210,Yame-shi,Fukuoka
-40211,Chikugo-shi,Fukuoka
-40212,Okawa-shi,Fukuoka
-40213,Yukuhashi-shi,Fukuoka
-40214,Buzen-shi,Fukuoka
-40215,Nakama-shi,Fukuoka
-40216,Ogori-shi,Fukuoka
-40217,Chikushino-shi,Fukuoka
-40218,Kasuga-shi,Fukuoka
-40219,Onojo-shi,Fukuoka
-40220,Munakata-shi,Fukuoka
-40221,Dazaifu-shi,Fukuoka
-40223,Koga-shi,Fukuoka
-40224,Fukutsu-shi,Fukuoka
-40225,Ukiha-shi,Fukuoka
-40226,Miyawaka-shi,Fukuoka
-40227,Kama-shi,Fukuoka
-40228,Asakura-shi,Fukuoka
-40229,Miyama-shi,Fukuoka
-40230,Itoshima-shi,Fukuoka
-40231,Nakagawa-shi,Fukuoka
-40341,Kasuya-gun Umi-machi,Fukuoka
-40342,Kasuya-gun Sasaguri-machi,Fukuoka
-40343,Kasuya-gun Shime-machi,Fukuoka
-40344,Kasuya-gun Sue-machi,Fukuoka
-40345,Kasuya-gun Shingu-machi,Fukuoka
-40348,Kasuya-gun Hisayama-machi,Fukuoka
-40349,Kasuya-gun Kasuya-machi,Fukuoka
-40381,Onga-gun Ashiya-machi,Fukuoka
-40382,Onga-gun Mizumaki-machi,Fukuoka
-40383,Onga-gun Okagaki-machi,Fukuoka
-40384,Onga-gun Onga-cho,Fukuoka
-40401,Kurate-gun Kotake-machi,Fukuoka
-40402,Kurate-gun Kurate-machi,Fukuoka
-40421,Kaho-gun Keisen-machi,Fukuoka
-40447,Asakura-gun Chikuzen-machi,Fukuoka
-40448,Asakura-gun Toho-mura,Fukuoka
-40503,Mii-gun Tachiarai-machi,Fukuoka
-40522,Mizuma-gun Oki-machi,Fukuoka
-40544,Yame-gun Hirokawa-machi,Fukuoka
-40601,Tagawa-gun Kawara-machi,Fukuoka
-40602,Tagawa-gun Soeda-machi,Fukuoka
-40604,Tagawa-gun Itoda-machi,Fukuoka
-40605,Tagawa-gun Kawasaki-machi,Fukuoka
-40608,Tagawa-gun Oto-machi,Fukuoka
-40609,Tagawa-gun Aka-mura,Fukuoka
-40610,Tagawa-gun Fukuchi-machi,Fukuoka
-40621,Miyako-gun Kanda-machi,Fukuoka
-40625,Miyako-gun Miyako-machi,Fukuoka
-40642,Chikujo-gun Yoshitomi-machi,Fukuoka
-40646,Chikujo-gun Koge-machi,Fukuoka
-40647,Chikujo-gun Chikujo-machi,Fukuoka
-41201,Saga-shi,Saga
-41202,Karatsu-shi,Saga
-41203,Tosu-shi,Saga
-41204,Taku-shi,Saga
-41205,Imari-shi,Saga
-41206,Takeo-shi,Saga
-41207,Kashima-shi,Saga
-41208,Ogi-shi,Saga
-41209,Ureshino-shi,Saga
-41210,Kanzaki-shi,Saga
-41327,Kanzaki-gun Yoshinogari-cho,Saga
-41341,Miyaki-gun Kiyama-cho,Saga
-41345,Miyaki-gun Kamimine-cho,Saga
-41346,Miyaki-gun Miyaki-cho,Saga
-41387,Higashimatsura-gun Genkai-cho,Saga
-41401,Nishimatsura-gun Arita-cho,Saga
-41423,Kishima-gun Omachi-cho,Saga
-41424,Kishima-gun Kohoku-machi,Saga
-41425,Kishima-gun Shiroishi-cho,Saga
-41441,Fujitsu-gun Tara-cho,Saga
-42201,Nagasaki-shi,Nagasaki
-42202,Sasebo-shi,Nagasaki
-42203,Shimabara-shi,Nagasaki
-42204,Isahaya-shi,Nagasaki
-42205,Omura-shi,Nagasaki
-42207,Hirado-shi,Nagasaki
-42208,Matsura-shi,Nagasaki
-42209,Tsushima-shi,Nagasaki
-42210,Iki-shi,Nagasaki
-42211,Goto-shi,Nagasaki
-42212,Saikai-shi,Nagasaki
-42213,Unzen-shi,Nagasaki
-42214,Minamishimabara-shi,Nagasaki
-42307,Nishisonogi-gun Nagayo-cho,Nagasaki
-42308,Nishisonogi-gun Togitsu-cho,Nagasaki
-42321,Higashisonogi-gun Higashisonogi-cho,Nagasaki
-42322,Higashisonogi-gun Kawatana-cho,Nagasaki
-42323,Higashisonogi-gun Hasami-cho,Nagasaki
-42383,Kitamatsura-gun Ojika-cho,Nagasaki
-42391,Kitamatsura-gun Saza-cho,Nagasaki
-42411,Minamimatsura-gun Shinkamigoto-cho,Nagasaki
-43101,Kumamoto-shi Chuo-ku,Kumamoto
-43102,Kumamoto-shi Higashi-ku,Kumamoto
-43103,Kumamoto-shi Nishi-ku,Kumamoto
-43104,Kumamoto-shi Minami-ku,Kumamoto
-43105,Kumamoto-shi Kita-ku,Kumamoto
-43202,Yatsushiro-shi,Kumamoto
-43203,Hitoyoshi-shi,Kumamoto
-43204,Arao-shi,Kumamoto
-43205,Minamata-shi,Kumamoto
-43206,Tamana-shi,Kumamoto
-43208,Yamaga-shi,Kumamoto
-43210,Kikuchi-shi,Kumamoto
-43211,Uto-shi,Kumamoto
-43212,Kamiamakusa-shi,Kumamoto
-43213,Uki-shi,Kumamoto
-43214,Aso-shi,Kumamoto
-43215,Amakusa-shi,Kumamoto
-43216,Koshi-shi,Kumamoto
-43348,Shimomashiki-gun Misato-machi,Kumamoto
-43364,Tamana-gun Gyokuto-machi,Kumamoto
-43367,Tamana-gun Nankan-machi,Kumamoto
-43368,Tamana-gun Nagasu-machi,Kumamoto
-43369,Tamana-gun Nagomi-machi,Kumamoto
-43403,Kikuchi-gun Ozu-machi,Kumamoto
-43404,Kikuchi-gun Kikuyo-machi,Kumamoto
-43423,Aso-gun Minamioguni-machi,Kumamoto
-43424,Aso-gun Oguni-machi,Kumamoto
-43425,Aso-gun Ubuyama-mura,Kumamoto
-43428,Aso-gun Takamori-machi,Kumamoto
-43432,Aso-gun Nishihara-mura,Kumamoto
-43433,Aso-gun Minamiaso-mura,Kumamoto
-43441,Kamimashiki-gun Mifune-machi,Kumamoto
-43442,Kamimashiki-gun Kashima-machi,Kumamoto
-43443,Kamimashiki-gun Mashiki-machi,Kumamoto
-43444,Kamimashiki-gun Kosa-machi,Kumamoto
-43447,Kamimashiki-gun Yamato-cho,Kumamoto
-43468,Yatsushiro-gun Hikawa-cho,Kumamoto
-43482,Ashikita-gun Ashikita-machi,Kumamoto
-43484,Ashikita-gun Tsunagi-machi,Kumamoto
-43501,Kuma-gun Nishiki-machi,Kumamoto
-43505,Kuma-gun Taragi-machi,Kumamoto
-43507,Kuma-gun Mizukami-mura,Kumamoto
-43510,Kuma-gun Sagara-mura,Kumamoto
-43511,Kuma-gun Itsuki-mura,Kumamoto
-43512,Kuma-gun Yamae-mura,Kumamoto
-43513,Kuma-gun Kuma-mura,Kumamoto
-43514,Kuma-gun Asagiri-cho,Kumamoto
-43531,Amakusa-gun Reihoku-machi,Kumamoto
-44201,Oita-shi,Oita
-44202,Beppu-shi,Oita
-44203,Nakatsu-shi,Oita
-44204,Hita-shi,Oita
-44205,Saiki-shi,Oita
-44206,Usuki-shi,Oita
-44207,Tsukumi-shi,Oita
-44208,Taketa-shi,Oita
-44209,Bungotakada-shi,Oita
-44210,Kitsuki-shi,Oita
-44211,Usa-shi,Oita
-44212,Bungoono-shi,Oita
-44213,Yufu-shi,Oita
-44214,Kunisaki-shi,Oita
-44322,Higashikunisaki-gun Himeshima-mura,Oita
-44341,Hayami-gun Hiji-machi,Oita
-44461,Kusu-gun Kokonoe-machi,Oita
-44462,Kusu-gun Kusu-machi,Oita
-45201,Miyazaki-shi,Miyazaki
-45202,Miyakonojo-shi,Miyazaki
-45203,Nobeoka-shi,Miyazaki
-45204,Nichinan-shi,Miyazaki
-45205,Kobayashi-shi,Miyazaki
-45206,Hyuga-shi,Miyazaki
-45207,Kushima-shi,Miyazaki
-45208,Saito-shi,Miyazaki
-45209,Ebino-shi,Miyazaki
-45341,Kitamorokata-gun Mimata-cho,Miyazaki
-45361,Nishimorokata-gun Takaharu-cho,Miyazaki
-45382,Higashimorokata-gun Kunitomi-cho,Miyazaki
-45383,Higashimorokata-gun Aya-cho,Miyazaki
-45401,Koyu-gun Takanabe-cho,Miyazaki
-45402,Koyu-gun Shintomi-cho,Miyazaki
-45403,Koyu-gun Nishimera-son,Miyazaki
-45404,Koyu-gun Kijo-cho,Miyazaki
-45405,Koyu-gun Kawaminami-cho,Miyazaki
-45406,Koyu-gun Tsuno-cho,Miyazaki
-45421,Higashiusuki-gun Kadogawa-cho,Miyazaki
-45429,Higashiusuki-gun Morotsuka-son,Miyazaki
-45430,Higashiusuki-gun Shiiba-son,Miyazaki
-45431,Higashiusuki-gun Misato-cho,Miyazaki
-45441,Nishiusuki-gun Takachiho-cho,Miyazaki
-45442,Nishiusuki-gun Hinokage-cho,Miyazaki
-45443,Nishiusuki-gun Gokase-cho,Miyazaki
-46201,Kagoshima-shi,Kagoshima
-46203,Kanoya-shi,Kagoshima
-46204,Makurazaki-shi,Kagoshima
-46206,Akune-shi,Kagoshima
-46208,Izumi-shi,Kagoshima
-46210,Ibusuki-shi,Kagoshima
-46213,Nishinomote-shi,Kagoshima
-46214,Tarumizu-shi,Kagoshima
-46215,Satsumasendai-shi,Kagoshima
-46216,Hioki-shi,Kagoshima
-46217,So-shi,Kagoshima
-46218,Kirishima-shi,Kagoshima
-46219,Ichikikushikino-shi,Kagoshima
-46220,Minamisatsuma-shi,Kagoshima
-46221,Shibushi-shi,Kagoshima
-46222,Amami-shi,Kagoshima
-46223,Minamikyushu-shi,Kagoshima
-46224,Isa-shi,Kagoshima
-46225,Aira-shi,Kagoshima
-46303,Kagoshima-gun Mishima-mura,Kagoshima
-46304,Kagoshima-gun Toshima-mura,Kagoshima
-46392,Satsuma-gun Satsuma-cho,Kagoshima
-46404,Izumi-gun Nagashima-cho,Kagoshima
-46452,Aira-gun Yusui-cho,Kagoshima
-46468,So-gun Osaki-cho,Kagoshima
-46482,Kimotsuki-gun Higashikushira-cho,Kagoshima
-46490,Kimotsuki-gun Kinko-cho,Kagoshima
-46491,Kimotsuki-gun Minamiosumi-cho,Kagoshima
-46492,Kimotsuki-gun Kimotsuki-cho,Kagoshima
-46501,Kumage-gun Nakatane-cho,Kagoshima
-46502,Kumage-gun Minamitane-cho,Kagoshima
-46505,Kumage-gun Yakushima-cho,Kagoshima
-46523,Oshima-gun Yamato-son,Kagoshima
-46524,Oshima-gun Uken-son,Kagoshima
-46525,Oshima-gun Setochi-cho,Kagoshima
-46527,Oshima-gun Tatsugo-cho,Kagoshima
-46529,Oshima-gun Kikai-cho,Kagoshima
-46530,Oshima-gun Tokunoshima-cho,Kagoshima
-46531,Oshima-gun Amagi-cho,Kagoshima
-46532,Oshima-gun Isen-cho,Kagoshima
-46533,Oshima-gun Wadomari-cho,Kagoshima
-46534,Oshima-gun China-cho,Kagoshima
-46535,Oshima-gun Yoron-cho,Kagoshima
-47201,Naha-shi,Okinawa
-47205,Ginowan-shi,Okinawa
-47207,Ishigaki-shi,Okinawa
-47208,Urasoe-shi,Okinawa
-47209,Nago-shi,Okinawa
-47210,Itoman-shi,Okinawa
-47211,Okinawa-shi,Okinawa
-47212,Tomigusuku-shi,Okinawa
-47213,Uruma-shi,Okinawa
-47214,Miyakojima-shi,Okinawa
-47215,Nanjo-shi,Okinawa
-47301,Kunigami-gun Kunigami-son,Okinawa
-47302,Kunigami-gun Ogimi-son,Okinawa
-47303,Kunigami-gun Higashi-son,Okinawa
-47306,Kunigami-gun Nakijin-son,Okinawa
-47308,Kunigami-gun Motobu-cho,Okinawa
-47311,Kunigami-gun Onna-son,Okinawa
-47313,Kunigami-gun Ginoza-son,Okinawa
-47314,Kunigami-gun Kin-cho,Okinawa
-47315,Kunigami-gun Ie-son,Okinawa
-47324,Nakagami-gun Yomitan-son,Okinawa
-47325,Nakagami-gun Kadena-cho,Okinawa
-47326,Nakagami-gun Chatan-cho,Okinawa
-47327,Nakagami-gun Kitanakagusuku-son,Okinawa
-47328,Nakagami-gun Nakagusuku-son,Okinawa
-47329,Nakagami-gun Nishihara-cho,Okinawa
-47348,Shimajiri-gun Yonabaru-cho,Okinawa
-47350,Shimajiri-gun Haebaru-cho,Okinawa
-47353,Shimajiri-gun Tokashiki-son,Okinawa
-47354,Shimajiri-gun Zamami-son,Okinawa
-47355,Shimajiri-gun Aguni-son,Okinawa
-47356,Shimajiri-gun Tonaki-son,Okinawa
-47357,Shimajiri-gun Minamidaito-son,Okinawa
-47358,Shimajiri-gun Kitadaito-son,Okinawa
-47359,Shimajiri-gun Iheya-son,Okinawa
-47360,Shimajiri-gun Izena-son,Okinawa
-47361,Shimajiri-gun Kumejima-cho,Okinawa
-47362,Shimajiri-gun Yaese-cho,Okinawa
-47375,Miyako-gun Tarama-son,Okinawa
-47381,Yaeyama-gun Taketomi-cho,Okinawa
-47382,Yaeyama-gun Yonaguni-cho,Okinawa
+# English (Hepburn) municipality names, keyed on the five-digit municipality
+# code (全国地方公共団体コード).
+#
+# city_en / pref_en come from Japan Post's romanized zipcode data (KEN_ALL_ROME,
+# downloaded 2026-08-28, https://www.post.japanpost.jp/zipcode/download.html);
+# Hamamatsu's pre-2024 wards romanized manually.
+#
+# city_ja is the same municipality's Japanese name, joined on the code from
+# equity/gazetteer_municipalities.csv (Geolonia japanese-addresses, CC BY 4.0).
+# It is here so a source that names a municipality in Japanese but gives no
+# code -- the Tourism Agency's accommodation survey, for one -- can still be
+# matched to a published romanization instead of one invented here.
+#
+# Aggregate rows (prefecture totals, designated-city totals, 郡 subtotals) are
+# NOT in this file: they are derived from their members in app/place_en.py.
+code,city_en,pref_en,city_ja
+01101,Sapporo-shi Chuo-ku,Hokkaido,札幌市中央区
+01102,Sapporo-shi Kita-ku,Hokkaido,札幌市北区
+01103,Sapporo-shi Higashi-ku,Hokkaido,札幌市東区
+01104,Sapporo-shi Shiroishi-ku,Hokkaido,札幌市白石区
+01105,Sapporo-shi Toyohira-ku,Hokkaido,札幌市豊平区
+01106,Sapporo-shi Minami-ku,Hokkaido,札幌市南区
+01107,Sapporo-shi Nishi-ku,Hokkaido,札幌市西区
+01108,Sapporo-shi Atsubetsu-ku,Hokkaido,札幌市厚別区
+01109,Sapporo-shi Teine-ku,Hokkaido,札幌市手稲区
+01110,Sapporo-shi Kiyota-ku,Hokkaido,札幌市清田区
+01202,Hakodate-shi,Hokkaido,函館市
+01203,Otaru-shi,Hokkaido,小樽市
+01204,Asahikawa-shi,Hokkaido,旭川市
+01205,Muroran-shi,Hokkaido,室蘭市
+01206,Kushiro-shi,Hokkaido,釧路市
+01207,Obihiro-shi,Hokkaido,帯広市
+01208,Kitami-shi,Hokkaido,北見市
+01209,Yubari-shi,Hokkaido,夕張市
+01210,Iwamizawa-shi,Hokkaido,岩見沢市
+01211,Abashiri-shi,Hokkaido,網走市
+01212,Rumoi-shi,Hokkaido,留萌市
+01213,Tomakomai-shi,Hokkaido,苫小牧市
+01214,Wakkanai-shi,Hokkaido,稚内市
+01215,Bibai-shi,Hokkaido,美唄市
+01216,Ashibetsu-shi,Hokkaido,芦別市
+01217,Ebetsu-shi,Hokkaido,江別市
+01218,Akabira-shi,Hokkaido,赤平市
+01219,Mombetsu-shi,Hokkaido,紋別市
+01220,Shibetsu-shi,Hokkaido,士別市
+01221,Nayoro-shi,Hokkaido,名寄市
+01222,Mikasa-shi,Hokkaido,三笠市
+01223,Nemuro-shi,Hokkaido,根室市
+01224,Chitose-shi,Hokkaido,千歳市
+01225,Takikawa-shi,Hokkaido,滝川市
+01226,Sunagawa-shi,Hokkaido,砂川市
+01227,Utashinai-shi,Hokkaido,歌志内市
+01228,Fukagawa-shi,Hokkaido,深川市
+01229,Furano-shi,Hokkaido,富良野市
+01230,Noboribetsu-shi,Hokkaido,登別市
+01231,Eniwa-shi,Hokkaido,恵庭市
+01233,Date-shi,Hokkaido,伊達市
+01234,Kitahiroshima-shi,Hokkaido,北広島市
+01235,Ishikari-shi,Hokkaido,石狩市
+01236,Hokuto-shi,Hokkaido,北斗市
+01303,Ishikari-gun Tobetsu-cho,Hokkaido,石狩郡当別町
+01304,Ishikari-gun Shinshinotsu-mura,Hokkaido,石狩郡新篠津村
+01331,Matsumae-gun Matsumae-cho,Hokkaido,松前郡松前町
+01332,Matsumae-gun Fukushima-cho,Hokkaido,松前郡福島町
+01333,Kamiiso-gun Shiriuchi-cho,Hokkaido,上磯郡知内町
+01334,Kamiiso-gun Kikonai-cho,Hokkaido,上磯郡木古内町
+01337,Kameda-gun Nanae-cho,Hokkaido,亀田郡七飯町
+01343,Kayabe-gun Shikabe-cho,Hokkaido,茅部郡鹿部町
+01345,Kayabe-gun Mori-machi,Hokkaido,茅部郡森町
+01346,Futami-gun Yakumo-cho,Hokkaido,二海郡八雲町
+01347,Yamakoshi-gun Oshamambe-cho,Hokkaido,山越郡長万部町
+01361,Hiyama-gun Esashi-cho,Hokkaido,檜山郡江差町
+01362,Hiyama-gun Kaminokuni-cho,Hokkaido,檜山郡上ノ国町
+01363,Hiyama-gun Assabu-cho,Hokkaido,檜山郡厚沢部町
+01364,Nishi-gun Otobe-cho,Hokkaido,爾志郡乙部町
+01367,Okushiri-gun Okushiri-cho,Hokkaido,奥尻郡奥尻町
+01370,Setana-gun Imakane-cho,Hokkaido,瀬棚郡今金町
+01371,Kudo-gun Setana-cho,Hokkaido,久遠郡せたな町
+01391,Shimamaki-gun Shimamaki-mura,Hokkaido,島牧郡島牧村
+01392,Suttsu-gun Suttsu-cho,Hokkaido,寿都郡寿都町
+01393,Suttsu-gun Kuromatsunai-cho,Hokkaido,寿都郡黒松内町
+01394,Isoya-gun Rankoshi-cho,Hokkaido,磯谷郡蘭越町
+01395,Abuta-gun Niseko-cho,Hokkaido,虻田郡ニセコ町
+01396,Abuta-gun Makkari-mura,Hokkaido,虻田郡真狩村
+01397,Abuta-gun Rusutsu-mura,Hokkaido,虻田郡留寿都村
+01398,Abuta-gun Kimobetsu-cho,Hokkaido,虻田郡喜茂別町
+01399,Abuta-gun Kyogoku-cho,Hokkaido,虻田郡京極町
+01400,Abuta-gun Kutchan-cho,Hokkaido,虻田郡倶知安町
+01401,Iwanai-gun Kyowa-cho,Hokkaido,岩内郡共和町
+01402,Iwanai-gun Iwanai-cho,Hokkaido,岩内郡岩内町
+01403,Furu-gun Tomari-mura,Hokkaido,古宇郡泊村
+01404,Furu-gun Kamoenai-mura,Hokkaido,古宇郡神恵内村
+01405,Shakotan-gun Shakotan-cho,Hokkaido,積丹郡積丹町
+01406,Furubira-gun Furubira-cho,Hokkaido,古平郡古平町
+01407,Yoichi-gun Niki-cho,Hokkaido,余市郡仁木町
+01408,Yoichi-gun Yoichi-cho,Hokkaido,余市郡余市町
+01409,Yoichi-gun Akaigawa-mura,Hokkaido,余市郡赤井川村
+01423,Sorachi-gun Namporo-cho,Hokkaido,空知郡南幌町
+01424,Sorachi-gun Naie-cho,Hokkaido,空知郡奈井江町
+01425,Sorachi-gun Kamisunagawa-cho,Hokkaido,空知郡上砂川町
+01427,Yubari-gun Yuni-cho,Hokkaido,夕張郡由仁町
+01428,Yubari-gun Naganuma-cho,Hokkaido,夕張郡長沼町
+01429,Yubari-gun Kuriyama-cho,Hokkaido,夕張郡栗山町
+01430,Kabato-gun Tsukigata-cho,Hokkaido,樺戸郡月形町
+01431,Kabato-gun Urausu-cho,Hokkaido,樺戸郡浦臼町
+01432,Kabato-gun Shintotsukawa-cho,Hokkaido,樺戸郡新十津川町
+01433,Uryu-gun Moseushi-cho,Hokkaido,雨竜郡妹背牛町
+01434,Uryu-gun Chippubetsu-cho,Hokkaido,雨竜郡秩父別町
+01436,Uryu-gun Uryu-cho,Hokkaido,雨竜郡雨竜町
+01437,Uryu-gun Hokuryu-cho,Hokkaido,雨竜郡北竜町
+01438,Uryu-gun Numata-cho,Hokkaido,雨竜郡沼田町
+01452,Kamikawa-gun Takasu-cho,Hokkaido,上川郡鷹栖町
+01453,Kamikawa-gun Higashikagura-cho,Hokkaido,上川郡東神楽町
+01454,Kamikawa-gun Toma-cho,Hokkaido,上川郡当麻町
+01455,Kamikawa-gun Pippu-cho,Hokkaido,上川郡比布町
+01456,Kamikawa-gun Aibetsu-cho,Hokkaido,上川郡愛別町
+01457,Kamikawa-gun Kamikawa-cho,Hokkaido,上川郡上川町
+01458,Kamikawa-gun Higashikawa-cho,Hokkaido,上川郡東川町
+01459,Kamikawa-gun Biei-cho,Hokkaido,上川郡美瑛町
+01460,Sorachi-gun Kamifurano-cho,Hokkaido,空知郡上富良野町
+01461,Sorachi-gun Nakafurano-cho,Hokkaido,空知郡中富良野町
+01462,Sorachi-gun Minamifurano-cho,Hokkaido,空知郡南富良野町
+01463,Yufutsu-gun Shimukappu-mura,Hokkaido,勇払郡占冠村
+01464,Kamikawa-gun Wassamu-cho,Hokkaido,上川郡和寒町
+01465,Kamikawa-gun Kembuchi-cho,Hokkaido,上川郡剣淵町
+01468,Kamikawa-gun Shimokawa-cho,Hokkaido,上川郡下川町
+01469,Nakagawa-gun Bifuka-cho,Hokkaido,中川郡美深町
+01470,Nakagawa-gun Otoineppu-mura,Hokkaido,中川郡音威子府村
+01471,Nakagawa-gun Nakagawa-cho,Hokkaido,中川郡中川町
+01472,Uryu-gun Horokanai-cho,Hokkaido,雨竜郡幌加内町
+01481,Mashike-gun Mashike-cho,Hokkaido,増毛郡増毛町
+01482,Rumoi-gun Obira-cho,Hokkaido,留萌郡小平町
+01483,Tomamae-gun Tomamae-cho,Hokkaido,苫前郡苫前町
+01484,Tomamae-gun Haboro-cho,Hokkaido,苫前郡羽幌町
+01485,Tomamae-gun Shosambetsu-mura,Hokkaido,苫前郡初山別村
+01486,Teshio-gun Embetsu-cho,Hokkaido,天塩郡遠別町
+01487,Teshio-gun Teshio-cho,Hokkaido,天塩郡天塩町
+01511,Soya-gun Sarufutsu-mura,Hokkaido,宗谷郡猿払村
+01512,Esashi-gun Hamatombetsu-cho,Hokkaido,枝幸郡浜頓別町
+01513,Esashi-gun Nakatombetsu-cho,Hokkaido,枝幸郡中頓別町
+01514,Esashi-gun Esashi-cho,Hokkaido,枝幸郡枝幸町
+01516,Teshio-gun Toyotomi-cho,Hokkaido,天塩郡豊富町
+01517,Rebun-gun Rebun-cho,Hokkaido,礼文郡礼文町
+01518,Rishiri-gun Rishiri-cho,Hokkaido,利尻郡利尻町
+01519,Rishiri-gun Rishirifuji-cho,Hokkaido,利尻郡利尻富士町
+01520,Teshio-gun Horonobe-cho,Hokkaido,天塩郡幌延町
+01543,Abashiri-gun Bihoro-cho,Hokkaido,網走郡美幌町
+01544,Abashiri-gun Tsubetsu-cho,Hokkaido,網走郡津別町
+01545,Shari-gun Shari-cho,Hokkaido,斜里郡斜里町
+01546,Shari-gun Kiyosato-cho,Hokkaido,斜里郡清里町
+01547,Shari-gun Koshimizu-cho,Hokkaido,斜里郡小清水町
+01549,Tokoro-gun Kunneppu-cho,Hokkaido,常呂郡訓子府町
+01550,Tokoro-gun Oketo-cho,Hokkaido,常呂郡置戸町
+01552,Tokoro-gun Saroma-cho,Hokkaido,常呂郡佐呂間町
+01555,Mombetsu-gun Engaru-cho,Hokkaido,紋別郡遠軽町
+01559,Mombetsu-gun Yubetsu-cho,Hokkaido,紋別郡湧別町
+01560,Mombetsu-gun Takinoe-cho,Hokkaido,紋別郡滝上町
+01561,Mombetsu-gun Okoppe-cho,Hokkaido,紋別郡興部町
+01562,Mombetsu-gun Nishiokoppe-mura,Hokkaido,紋別郡西興部村
+01563,Mombetsu-gun Omu-cho,Hokkaido,紋別郡雄武町
+01564,Abashiri-gun Ozora-cho,Hokkaido,網走郡大空町
+01571,Abuta-gun Toyora-cho,Hokkaido,虻田郡豊浦町
+01575,Usu-gun Sobetsu-cho,Hokkaido,有珠郡壮瞥町
+01578,Shiraoi-gun Shiraoi-cho,Hokkaido,白老郡白老町
+01581,Yufutsu-gun Atsuma-cho,Hokkaido,勇払郡厚真町
+01584,Abuta-gun Toyako-cho,Hokkaido,虻田郡洞爺湖町
+01585,Yufutsu-gun Abira-cho,Hokkaido,勇払郡安平町
+01586,Yufutsu-gun Mukawa-cho,Hokkaido,勇払郡むかわ町
+01601,Saru-gun Hidaka-cho,Hokkaido,沙流郡日高町
+01602,Saru-gun Biratori-cho,Hokkaido,沙流郡平取町
+01604,Niikappu-gun Niikappu-cho,Hokkaido,新冠郡新冠町
+01607,Urakawa-gun Urakawa-cho,Hokkaido,浦河郡浦河町
+01608,Samani-gun Samani-cho,Hokkaido,様似郡様似町
+01609,Horoizumi-gun Erimo-cho,Hokkaido,幌泉郡えりも町
+01610,Hidaka-gun Shinhidaka-cho,Hokkaido,日高郡新ひだか町
+01631,Kato-gun Otofuke-cho,Hokkaido,河東郡音更町
+01632,Kato-gun Shihoro-cho,Hokkaido,河東郡士幌町
+01633,Kato-gun Kamishihoro-cho,Hokkaido,河東郡上士幌町
+01634,Kato-gun Shikaoi-cho,Hokkaido,河東郡鹿追町
+01635,Kamikawa-gun Shintoku-cho,Hokkaido,上川郡新得町
+01636,Kamikawa-gun Shimizu-cho,Hokkaido,上川郡清水町
+01637,Kasai-gun Memuro-cho,Hokkaido,河西郡芽室町
+01638,Kasai-gun Nakasatsunai-mura,Hokkaido,河西郡中札内村
+01639,Kasai-gun Sarabetsu-mura,Hokkaido,河西郡更別村
+01641,Hiro-gun Taiki-cho,Hokkaido,広尾郡大樹町
+01642,Hiro-gun Hiro-cho,Hokkaido,広尾郡広尾町
+01643,Nakagawa-gun Makubetsu-cho,Hokkaido,中川郡幕別町
+01644,Nakagawa-gun Ikeda-cho,Hokkaido,中川郡池田町
+01645,Nakagawa-gun Toyokoro-cho,Hokkaido,中川郡豊頃町
+01646,Nakagawa-gun Hombetsu-cho,Hokkaido,中川郡本別町
+01647,Ashoro-gun Ashoro-cho,Hokkaido,足寄郡足寄町
+01648,Ashoro-gun Rikubetsu-cho,Hokkaido,足寄郡陸別町
+01649,Tokachi-gun Urahoro-cho,Hokkaido,十勝郡浦幌町
+01661,Kushiro-gun Kushiro-cho,Hokkaido,釧路郡釧路町
+01662,Akkeshi-gun Akkeshi-cho,Hokkaido,厚岸郡厚岸町
+01663,Akkeshi-gun Hamanaka-cho,Hokkaido,厚岸郡浜中町
+01664,Kawakami-gun Shibecha-cho,Hokkaido,川上郡標茶町
+01665,Kawakami-gun Teshikaga-cho,Hokkaido,川上郡弟子屈町
+01667,Akan-gun Tsurui-mura,Hokkaido,阿寒郡鶴居村
+01668,Shiranuka-gun Shiranuka-cho,Hokkaido,白糠郡白糠町
+01691,Notsuke-gun Betsukai-cho,Hokkaido,野付郡別海町
+01692,Shibetsu-gun Nakashibetsu-cho,Hokkaido,標津郡中標津町
+01693,Shibetsu-gun Shibetsu-cho,Hokkaido,標津郡標津町
+01694,Menashi-gun Rausu-cho,Hokkaido,目梨郡羅臼町
+02201,Aomori-shi,Aomori,青森市
+02202,Hirosaki-shi,Aomori,弘前市
+02203,Hachinohe-shi,Aomori,八戸市
+02204,Kuroishi-shi,Aomori,黒石市
+02205,Goshogawara-shi,Aomori,五所川原市
+02206,Towada-shi,Aomori,十和田市
+02207,Misawa-shi,Aomori,三沢市
+02208,Mutsu-shi,Aomori,むつ市
+02209,Tsugaru-shi,Aomori,つがる市
+02210,Hirakawa-shi,Aomori,平川市
+02301,Higashitsugaru-gun Hiranai-machi,Aomori,東津軽郡平内町
+02303,Higashitsugaru-gun Imabetsu-machi,Aomori,東津軽郡今別町
+02304,Higashitsugaru-gun Yomogita-mura,Aomori,東津軽郡蓬田村
+02307,Higashitsugaru-gun Sotogahama-machi,Aomori,東津軽郡外ケ浜町
+02321,Nishitsugaru-gun Ajigasawa-machi,Aomori,西津軽郡鰺ヶ沢町
+02323,Nishitsugaru-gun Fukaura-machi,Aomori,西津軽郡深浦町
+02343,Nakatsugaru-gun Nishimeya-mura,Aomori,中津軽郡西目屋村
+02361,Minamitsugaru-gun Fujisaki-machi,Aomori,南津軽郡藤崎町
+02362,Minamitsugaru-gun Owani-machi,Aomori,南津軽郡大鰐町
+02367,Minamitsugaru-gun Inakadate-mura,Aomori,南津軽郡田舎館村
+02381,Kitatsugaru-gun Itayanagi-machi,Aomori,北津軽郡板柳町
+02384,Kitatsugaru-gun Tsuruta-machi,Aomori,北津軽郡鶴田町
+02387,Kitatsugaru-gun Nakadomari-machi,Aomori,北津軽郡中泊町
+02401,Kamikita-gun Noheji-machi,Aomori,上北郡野辺地町
+02402,Kamikita-gun Shichinohe-machi,Aomori,上北郡七戸町
+02405,Kamikita-gun Rokunohe-machi,Aomori,上北郡六戸町
+02406,Kamikita-gun Yokohama-machi,Aomori,上北郡横浜町
+02408,Kamikita-gun Tohoku-machi,Aomori,上北郡東北町
+02411,Kamikita-gun Rokkasho-mura,Aomori,上北郡六ヶ所村
+02412,Kamikita-gun Oirase-cho,Aomori,上北郡おいらせ町
+02423,Shimokita-gun Oma-machi,Aomori,下北郡大間町
+02424,Shimokita-gun Higashidori-mura,Aomori,下北郡東通村
+02425,Shimokita-gun Kazamaura-mura,Aomori,下北郡風間浦村
+02426,Shimokita-gun Sai-mura,Aomori,下北郡佐井村
+02441,Sannohe-gun Sannohe-machi,Aomori,三戸郡三戸町
+02442,Sannohe-gun Gonohe-machi,Aomori,三戸郡五戸町
+02443,Sannohe-gun Takko-machi,Aomori,三戸郡田子町
+02445,Sannohe-gun Nambu-cho,Aomori,三戸郡南部町
+02446,Sannohe-gun Hashikami-cho,Aomori,三戸郡階上町
+02450,Sannohe-gun Shingo-mura,Aomori,三戸郡新郷村
+03201,Morioka-shi,Iwate,盛岡市
+03202,Miyako-shi,Iwate,宮古市
+03203,Ofunato-shi,Iwate,大船渡市
+03205,Hanamaki-shi,Iwate,花巻市
+03206,Kitakami-shi,Iwate,北上市
+03207,Kuji-shi,Iwate,久慈市
+03208,Tono-shi,Iwate,遠野市
+03209,Ichinoseki-shi,Iwate,一関市
+03210,Rikuzentakata-shi,Iwate,陸前高田市
+03211,Kamaishi-shi,Iwate,釜石市
+03213,Ninohe-shi,Iwate,二戸市
+03214,Hachimantai-shi,Iwate,八幡平市
+03215,Oshu-shi,Iwate,奥州市
+03216,Takizawa-shi,Iwate,滝沢市
+03301,Iwate-gun Shizukuishi-cho,Iwate,岩手郡雫石町
+03302,Iwate-gun Kuzumaki-machi,Iwate,岩手郡葛巻町
+03303,Iwate-gun Iwate-machi,Iwate,岩手郡岩手町
+03321,Shiwa-gun Shiwa-cho,Iwate,紫波郡紫波町
+03322,Shiwa-gun Yahaba-cho,Iwate,紫波郡矢巾町
+03366,Waga-gun Nishiwaga-machi,Iwate,和賀郡西和賀町
+03381,Isawa-gun Kanegasaki-cho,Iwate,胆沢郡金ケ崎町
+03402,Nishiiwai-gun Hiraizumi-cho,Iwate,西磐井郡平泉町
+03441,Kesen-gun Sumita-cho,Iwate,気仙郡住田町
+03461,Kamihei-gun Otsuchi-cho,Iwate,上閉伊郡大槌町
+03482,Shimohei-gun Yamada-machi,Iwate,下閉伊郡山田町
+03483,Shimohei-gun Iwaizumi-cho,Iwate,下閉伊郡岩泉町
+03484,Shimohei-gun Tanohata-mura,Iwate,下閉伊郡田野畑村
+03485,Shimohei-gun Fudai-mura,Iwate,下閉伊郡普代村
+03501,Kunohe-gun Karumai-machi,Iwate,九戸郡軽米町
+03503,Kunohe-gun Noda-mura,Iwate,九戸郡野田村
+03506,Kunohe-gun Kunohe-mura,Iwate,九戸郡九戸村
+03507,Kunohe-gun Hirono-cho,Iwate,九戸郡洋野町
+03524,Ninohe-gun Ichinohe-machi,Iwate,二戸郡一戸町
+04101,Sendai-shi Aoba-ku,Miyagi,仙台市青葉区
+04102,Sendai-shi Miyagino-ku,Miyagi,仙台市宮城野区
+04103,Sendai-shi Wakabayashi-ku,Miyagi,仙台市若林区
+04104,Sendai-shi Taihaku-ku,Miyagi,仙台市太白区
+04105,Sendai-shi Izumi-ku,Miyagi,仙台市泉区
+04202,Ishinomaki-shi,Miyagi,石巻市
+04203,Shiogama-shi,Miyagi,塩竈市
+04205,Kesennuma-shi,Miyagi,気仙沼市
+04206,Shiroishi-shi,Miyagi,白石市
+04207,Natori-shi,Miyagi,名取市
+04208,Kakuda-shi,Miyagi,角田市
+04209,Tagajo-shi,Miyagi,多賀城市
+04211,Iwanuma-shi,Miyagi,岩沼市
+04212,Tome-shi,Miyagi,登米市
+04213,Kurihara-shi,Miyagi,栗原市
+04214,Higashimatsushima-shi,Miyagi,東松島市
+04215,Osaki-shi,Miyagi,大崎市
+04216,Tomiya-shi,Miyagi,富谷市
+04301,Katta-gun Zao-machi,Miyagi,刈田郡蔵王町
+04302,Katta-gun Shichikashuku-machi,Miyagi,刈田郡七ヶ宿町
+04321,Shibata-gun Ogawara-machi,Miyagi,柴田郡大河原町
+04322,Shibata-gun Murata-machi,Miyagi,柴田郡村田町
+04323,Shibata-gun Shibata-machi,Miyagi,柴田郡柴田町
+04324,Shibata-gun Kawasaki-machi,Miyagi,柴田郡川崎町
+04341,Igu-gun Marumori-machi,Miyagi,伊具郡丸森町
+04361,Watari-gun Watari-cho,Miyagi,亘理郡亘理町
+04362,Watari-gun Yamamoto-cho,Miyagi,亘理郡山元町
+04401,Miyagi-gun Matsushima-machi,Miyagi,宮城郡松島町
+04404,Miyagi-gun Shichigahama-machi,Miyagi,宮城郡七ヶ浜町
+04406,Miyagi-gun Rifu-cho,Miyagi,宮城郡利府町
+04421,Kurokawa-gun Taiwa-cho,Miyagi,黒川郡大和町
+04422,Kurokawa-gun Osato-cho,Miyagi,黒川郡大郷町
+04424,Kurokawa-gun Ohira-mura,Miyagi,黒川郡大衡村
+04444,Kami-gun Shikama-cho,Miyagi,加美郡色麻町
+04445,Kami-gun Kami-machi,Miyagi,加美郡加美町
+04501,Toda-gun Wakuya-cho,Miyagi,遠田郡涌谷町
+04505,Toda-gun Misato-machi,Miyagi,遠田郡美里町
+04581,Oshika-gun Onagawa-cho,Miyagi,牡鹿郡女川町
+04606,Motoyoshi-gun Minamisanriku-cho,Miyagi,本吉郡南三陸町
+05201,Akita-shi,Akita,秋田市
+05202,Noshiro-shi,Akita,能代市
+05203,Yokote-shi,Akita,横手市
+05204,Odate-shi,Akita,大館市
+05206,Oga-shi,Akita,男鹿市
+05207,Yuzawa-shi,Akita,湯沢市
+05209,Kazuno-shi,Akita,鹿角市
+05210,Yurihonjo-shi,Akita,由利本荘市
+05211,Katagami-shi,Akita,潟上市
+05212,Daisen-shi,Akita,大仙市
+05213,Kitaakita-shi,Akita,北秋田市
+05214,Nikaho-shi,Akita,にかほ市
+05215,Semboku-shi,Akita,仙北市
+05303,Kazuno-gun Kosaka-machi,Akita,鹿角郡小坂町
+05327,Kitaakita-gun Kamikoani-mura,Akita,北秋田郡上小阿仁村
+05346,Yamamoto-gun Fujisato-machi,Akita,山本郡藤里町
+05348,Yamamoto-gun Mitane-cho,Akita,山本郡三種町
+05349,Yamamoto-gun Happo-cho,Akita,山本郡八峰町
+05361,Minamiakita-gun Gojome-machi,Akita,南秋田郡五城目町
+05363,Minamiakita-gun Hachirogata-machi,Akita,南秋田郡八郎潟町
+05366,Minamiakita-gun Ikawa-machi,Akita,南秋田郡井川町
+05368,Minamiakita-gun Ogata-mura,Akita,南秋田郡大潟村
+05434,Semboku-gun Misato-cho,Akita,仙北郡美郷町
+05463,Ogachi-gun Ugo-machi,Akita,雄勝郡羽後町
+05464,Ogachi-gun Higashinaruse-mura,Akita,雄勝郡東成瀬村
+06201,Yamagata-shi,Yamagata,山形市
+06202,Yonezawa-shi,Yamagata,米沢市
+06203,Tsuruoka-shi,Yamagata,鶴岡市
+06204,Sakata-shi,Yamagata,酒田市
+06205,Shinjo-shi,Yamagata,新庄市
+06206,Sagae-shi,Yamagata,寒河江市
+06207,Kaminoyama-shi,Yamagata,上山市
+06208,Murayama-shi,Yamagata,村山市
+06209,Nagai-shi,Yamagata,長井市
+06210,Tendo-shi,Yamagata,天童市
+06211,Higashine-shi,Yamagata,東根市
+06212,Obanazawa-shi,Yamagata,尾花沢市
+06213,Nanyo-shi,Yamagata,南陽市
+06301,Higashimurayama-gun Yamanobe-machi,Yamagata,東村山郡山辺町
+06302,Higashimurayama-gun Nakayama-machi,Yamagata,東村山郡中山町
+06321,Nishimurayama-gun Kahoku-cho,Yamagata,西村山郡河北町
+06322,Nishimurayama-gun Nishikawa-machi,Yamagata,西村山郡西川町
+06323,Nishimurayama-gun Asahi-machi,Yamagata,西村山郡朝日町
+06324,Nishimurayama-gun Oe-machi,Yamagata,西村山郡大江町
+06341,Kitamurayama-gun Oishida-machi,Yamagata,北村山郡大石田町
+06361,Mogami-gun Kaneyama-machi,Yamagata,最上郡金山町
+06362,Mogami-gun Mogami-machi,Yamagata,最上郡最上町
+06363,Mogami-gun Funagata-machi,Yamagata,最上郡舟形町
+06364,Mogami-gun Mamurogawa-machi,Yamagata,最上郡真室川町
+06365,Mogami-gun Okura-mura,Yamagata,最上郡大蔵村
+06366,Mogami-gun Sakegawa-mura,Yamagata,最上郡鮭川村
+06367,Mogami-gun Tozawa-mura,Yamagata,最上郡戸沢村
+06381,Higashiokitama-gun Takahata-machi,Yamagata,東置賜郡高畠町
+06382,Higashiokitama-gun Kawanishi-machi,Yamagata,東置賜郡川西町
+06401,Nishiokitama-gun Oguni-machi,Yamagata,西置賜郡小国町
+06402,Nishiokitama-gun Shirataka-machi,Yamagata,西置賜郡白鷹町
+06403,Nishiokitama-gun Iide-machi,Yamagata,西置賜郡飯豊町
+06426,Higashitagawa-gun Mikawa-machi,Yamagata,東田川郡三川町
+06428,Higashitagawa-gun Shonai-machi,Yamagata,東田川郡庄内町
+06461,Akumi-gun Yuza-machi,Yamagata,飽海郡遊佐町
+07201,Fukushima-shi,Fukushima,福島市
+07202,Aizuwakamatsu-shi,Fukushima,会津若松市
+07203,Koriyama-shi,Fukushima,郡山市
+07204,Iwaki-shi,Fukushima,いわき市
+07205,Shirakawa-shi,Fukushima,白河市
+07207,Sukagawa-shi,Fukushima,須賀川市
+07208,Kitakata-shi,Fukushima,喜多方市
+07209,Soma-shi,Fukushima,相馬市
+07210,Nihommatsu-shi,Fukushima,二本松市
+07211,Tamura-shi,Fukushima,田村市
+07212,Minamisoma-shi,Fukushima,南相馬市
+07213,Date-shi,Fukushima,伊達市
+07214,Motomiya-shi,Fukushima,本宮市
+07301,Date-gun Kori-machi,Fukushima,伊達郡桑折町
+07303,Date-gun Kunimi-machi,Fukushima,伊達郡国見町
+07308,Date-gun Kawamata-machi,Fukushima,伊達郡川俣町
+07322,Adachi-gun Otama-mura,Fukushima,安達郡大玉村
+07342,Iwase-gun Kagamiishi-machi,Fukushima,岩瀬郡鏡石町
+07344,Iwase-gun Tenei-mura,Fukushima,岩瀬郡天栄村
+07362,Minamiaizu-gun Shimogo-machi,Fukushima,南会津郡下郷町
+07364,Minamiaizu-gun Hinoemata-mura,Fukushima,南会津郡檜枝岐村
+07367,Minamiaizu-gun Tadami-machi,Fukushima,南会津郡只見町
+07368,Minamiaizu-gun Minamiaizu-machi,Fukushima,南会津郡南会津町
+07402,Yama-gun Kitashiobara-mura,Fukushima,耶麻郡北塩原村
+07405,Yama-gun Nishiaizu-machi,Fukushima,耶麻郡西会津町
+07407,Yama-gun Bandai-machi,Fukushima,耶麻郡磐梯町
+07408,Yama-gun Inawashiro-machi,Fukushima,耶麻郡猪苗代町
+07421,Kawanuma-gun Aizubange-machi,Fukushima,河沼郡会津坂下町
+07422,Kawanuma-gun Yugawa-mura,Fukushima,河沼郡湯川村
+07423,Kawanuma-gun Yanaizu-machi,Fukushima,河沼郡柳津町
+07444,Onuma-gun Mishima-machi,Fukushima,大沼郡三島町
+07445,Onuma-gun Kaneyama-machi,Fukushima,大沼郡金山町
+07446,Onuma-gun Showa-mura,Fukushima,大沼郡昭和村
+07447,Onuma-gun Aizumisato-machi,Fukushima,大沼郡会津美里町
+07461,Nishishirakawa-gun Nishigo-mura,Fukushima,西白河郡西郷村
+07464,Nishishirakawa-gun Izumizaki-mura,Fukushima,西白河郡泉崎村
+07465,Nishishirakawa-gun Nakajima-mura,Fukushima,西白河郡中島村
+07466,Nishishirakawa-gun Yabuki-machi,Fukushima,西白河郡矢吹町
+07481,Higashishirakawa-gun Tanagura-machi,Fukushima,東白川郡棚倉町
+07482,Higashishirakawa-gun Yamatsuri Mach,Fukushima,東白川郡矢祭町
+07483,Higashishirakawa-gun Hanawa-machi,Fukushima,東白川郡塙町
+07484,Higashishirakawa-gun Samegawa-mura,Fukushima,東白川郡鮫川村
+07501,Ishikawa-gun Ishikawa-machi,Fukushima,石川郡石川町
+07502,Ishikawa-gun Tamakawa-mura,Fukushima,石川郡玉川村
+07503,Ishikawa-gun Hirata-mura,Fukushima,石川郡平田村
+07504,Ishikawa-gun Asakawa-machi,Fukushima,石川郡浅川町
+07505,Ishikawa-gun Furudono-machi,Fukushima,石川郡古殿町
+07521,Tamura-gun Miharu-machi,Fukushima,田村郡三春町
+07522,Tamura-gun Ono-machi,Fukushima,田村郡小野町
+07541,Futaba-gun Hirono-machi,Fukushima,双葉郡広野町
+07542,Futaba-gun Naraha-machi,Fukushima,双葉郡楢葉町
+07543,Futaba-gun Tomioka-machi,Fukushima,双葉郡富岡町
+07544,Futaba-gun Kawauchi-mura,Fukushima,双葉郡川内村
+07545,Futaba-gun Okuma-machi,Fukushima,双葉郡大熊町
+07546,Futaba-gun Futaba-machi,Fukushima,双葉郡双葉町
+07547,Futaba-gun Namie-machi,Fukushima,双葉郡浪江町
+07548,Futaba-gun Katsurao-mura,Fukushima,双葉郡葛尾村
+07561,Soma-gun Shinchi-machi,Fukushima,相馬郡新地町
+07564,Soma-gun Iitate-mura,Fukushima,相馬郡飯舘村
+08201,Mito-shi,Ibaraki,水戸市
+08202,Hitachi-shi,Ibaraki,日立市
+08203,Tsuchiura-shi,Ibaraki,土浦市
+08204,Koga-shi,Ibaraki,古河市
+08205,Ishioka-shi,Ibaraki,石岡市
+08207,Yuki-shi,Ibaraki,結城市
+08208,Ryugasaki-shi,Ibaraki,龍ヶ崎市
+08210,Shimotsuma-shi,Ibaraki,下妻市
+08211,Joso-shi,Ibaraki,常総市
+08212,Hitachiota-shi,Ibaraki,常陸太田市
+08214,Takahagi-shi,Ibaraki,高萩市
+08215,Kitaibaraki-shi,Ibaraki,北茨城市
+08216,Kasama-shi,Ibaraki,笠間市
+08217,Toride-shi,Ibaraki,取手市
+08219,Ushiku-shi,Ibaraki,牛久市
+08220,Tsukuba-shi,Ibaraki,つくば市
+08221,Hitachinaka-shi,Ibaraki,ひたちなか市
+08222,Kashima-shi,Ibaraki,鹿嶋市
+08223,Itako-shi,Ibaraki,潮来市
+08224,Moriya-shi,Ibaraki,守谷市
+08225,Hitachiomiya-shi,Ibaraki,常陸大宮市
+08226,Naka-shi,Ibaraki,那珂市
+08227,Chikusei-shi,Ibaraki,筑西市
+08228,Bando-shi,Ibaraki,坂東市
+08229,Inashiki-shi,Ibaraki,稲敷市
+08230,Kasumigaura-shi,Ibaraki,かすみがうら市
+08231,Sakuragawa-shi,Ibaraki,桜川市
+08232,Kamisu-shi,Ibaraki,神栖市
+08233,Namegata-shi,Ibaraki,行方市
+08234,Hokota-shi,Ibaraki,鉾田市
+08235,Tsukubamirai-shi,Ibaraki,つくばみらい市
+08236,Omitama-shi,Ibaraki,小美玉市
+08302,Higashiibaraki-gun Ibaraki-machi,Ibaraki,東茨城郡茨城町
+08309,Higashiibaraki-gun Oarai-machi,Ibaraki,東茨城郡大洗町
+08310,Higashiibaraki-gun Shirosato-machi,Ibaraki,東茨城郡城里町
+08341,Naka-gun Tokai-mura,Ibaraki,那珂郡東海村
+08364,Kuji-gun Daigo-machi,Ibaraki,久慈郡大子町
+08442,Inashiki-gun Miho-mura,Ibaraki,稲敷郡美浦村
+08443,Inashiki-gun Ami-machi,Ibaraki,稲敷郡阿見町
+08447,Inashiki-gun Kawachi-machi,Ibaraki,稲敷郡河内町
+08521,Yuki-gun Yachiyo-machi,Ibaraki,結城郡八千代町
+08542,Sashima-gun Goka-machi,Ibaraki,猿島郡五霞町
+08546,Sashima-gun Sakai-machi,Ibaraki,猿島郡境町
+08564,Kitasoma-gun Tone-machi,Ibaraki,北相馬郡利根町
+09201,Utsunomiya-shi,Tochigi,宇都宮市
+09202,Ashikaga-shi,Tochigi,足利市
+09203,Tochigi-shi,Tochigi,栃木市
+09204,Sano-shi,Tochigi,佐野市
+09205,Kanuma-shi,Tochigi,鹿沼市
+09206,Nikko-shi,Tochigi,日光市
+09208,Oyama-shi,Tochigi,小山市
+09209,Moka-shi,Tochigi,真岡市
+09210,Otawara-shi,Tochigi,大田原市
+09211,Yaita-shi,Tochigi,矢板市
+09213,Nasushiobara-shi,Tochigi,那須塩原市
+09214,Sakura-shi,Tochigi,さくら市
+09215,Nasukarasuyama-shi,Tochigi,那須烏山市
+09216,Shimotsuke-shi,Tochigi,下野市
+09301,Kawachi-gun Kaminokawa-machi,Tochigi,河内郡上三川町
+09342,Haga-gun Mashiko-machi,Tochigi,芳賀郡益子町
+09343,Haga-gun Motegi-machi,Tochigi,芳賀郡茂木町
+09344,Haga-gun Ichikai-machi,Tochigi,芳賀郡市貝町
+09345,Haga-gun Haga-machi,Tochigi,芳賀郡芳賀町
+09361,Shimotsuga-gun Mibu-machi,Tochigi,下都賀郡壬生町
+09364,Shimotsuga-gun Nogi-machi,Tochigi,下都賀郡野木町
+09384,Shioya-gun Shioya-machi,Tochigi,塩谷郡塩谷町
+09386,Shioya-gun Takanezawa-machi,Tochigi,塩谷郡高根沢町
+09407,Nasu-gun Nasu-machi,Tochigi,那須郡那須町
+09411,Nasu-gun Nakagawa-machi,Tochigi,那須郡那珂川町
+10201,Maebashi-shi,Gumma,前橋市
+10202,Takasaki-shi,Gumma,高崎市
+10203,Kiryu-shi,Gumma,桐生市
+10204,Isesaki-shi,Gumma,伊勢崎市
+10205,Ota-shi,Gumma,太田市
+10206,Numata-shi,Gumma,沼田市
+10207,Tatebayashi-shi,Gumma,館林市
+10208,Shibukawa-shi,Gumma,渋川市
+10209,Fujioka-shi,Gumma,藤岡市
+10210,Tomioka-shi,Gumma,富岡市
+10211,Annaka-shi,Gumma,安中市
+10212,Midori-shi,Gumma,みどり市
+10344,Kitagumma-gun Shinto-mura,Gumma,北群馬郡榛東村
+10345,Kitagumma-gun Yoshioka-machi,Gumma,北群馬郡吉岡町
+10366,Tano-gun Ueno-mura,Gumma,多野郡上野村
+10367,Tano-gun Kanna-machi,Gumma,多野郡神流町
+10382,Kanra-gun Shimonita-machi,Gumma,甘楽郡下仁田町
+10383,Kanra-gun Nammoku-mura,Gumma,甘楽郡南牧村
+10384,Kanra-gun Kanra-machi,Gumma,甘楽郡甘楽町
+10421,Agatsuma-gun Nakanojo-machi,Gumma,吾妻郡中之条町
+10424,Agatsuma-gun Naganohara-machi,Gumma,吾妻郡長野原町
+10425,Agatsuma-gun Tsumagoi-mura,Gumma,吾妻郡嬬恋村
+10426,Agatsuma-gun Kusatsu-machi,Gumma,吾妻郡草津町
+10428,Agatsuma-gun Takayama-mura,Gumma,吾妻郡高山村
+10429,Agatsuma-gun Higashiagatsuma-machi,Gumma,吾妻郡東吾妻町
+10443,Tone-gun Katashina-mura,Gumma,利根郡片品村
+10444,Tone-gun Kawaba-mura,Gumma,利根郡川場村
+10448,Tone-gun Showa-mura,Gumma,利根郡昭和村
+10449,Tone-gun Minakami-machi,Gumma,利根郡みなかみ町
+10464,Sawa-gun Tamamura-machi,Gumma,佐波郡玉村町
+10521,Ora-gun Itakura-machi,Gumma,邑楽郡板倉町
+10522,Ora-gun Meiwa-machi,Gumma,邑楽郡明和町
+10523,Ora-gun Chiyoda-machi,Gumma,邑楽郡千代田町
+10524,Ora-gun Oizumi-machi,Gumma,邑楽郡大泉町
+10525,Ora-gun Ora-machi,Gumma,邑楽郡邑楽町
+11101,Saitama-shi Nishi-ku,Saitama,さいたま市西区
+11102,Saitama-shi Kita-ku,Saitama,さいたま市北区
+11103,Saitama-shi Omiya-ku,Saitama,さいたま市大宮区
+11104,Saitama-shi Minuma-ku,Saitama,さいたま市見沼区
+11105,Saitama-shi Chuo-ku,Saitama,さいたま市中央区
+11106,Saitama-shi Sakura-ku,Saitama,さいたま市桜区
+11107,Saitama-shi Urawa-ku,Saitama,さいたま市浦和区
+11108,Saitama-shi Minami-ku,Saitama,さいたま市南区
+11109,Saitama-shi Midori-ku,Saitama,さいたま市緑区
+11110,Saitama-shi Iwatsuki-ku,Saitama,さいたま市岩槻区
+11201,Kawagoe-shi,Saitama,川越市
+11202,Kumagaya-shi,Saitama,熊谷市
+11203,Kawaguchi-shi,Saitama,川口市
+11206,Gyoda-shi,Saitama,行田市
+11207,Chichibu-shi,Saitama,秩父市
+11208,Tokorozawa-shi,Saitama,所沢市
+11209,Hanno-shi,Saitama,飯能市
+11210,Kazo-shi,Saitama,加須市
+11211,Honjo-shi,Saitama,本庄市
+11212,Higashimatsuyama-shi,Saitama,東松山市
+11214,Kasukabe-shi,Saitama,春日部市
+11215,Sayama-shi,Saitama,狭山市
+11216,Hanyu-shi,Saitama,羽生市
+11217,Konosu-shi,Saitama,鴻巣市
+11218,Fukaya-shi,Saitama,深谷市
+11219,Ageo-shi,Saitama,上尾市
+11221,Soka-shi,Saitama,草加市
+11222,Koshigaya-shi,Saitama,越谷市
+11223,Warabi-shi,Saitama,蕨市
+11224,Toda-shi,Saitama,戸田市
+11225,Iruma-shi,Saitama,入間市
+11227,Asaka-shi,Saitama,朝霞市
+11228,Shiki-shi,Saitama,志木市
+11229,Wako-shi,Saitama,和光市
+11230,Niiza-shi,Saitama,新座市
+11231,Okegawa-shi,Saitama,桶川市
+11232,Kuki-shi,Saitama,久喜市
+11233,Kitamoto-shi,Saitama,北本市
+11234,Yashio-shi,Saitama,八潮市
+11235,Fujimi-shi,Saitama,富士見市
+11237,Misato-shi,Saitama,三郷市
+11238,Hasuda-shi,Saitama,蓮田市
+11239,Sakado-shi,Saitama,坂戸市
+11240,Satte-shi,Saitama,幸手市
+11241,Tsurugashima-shi,Saitama,鶴ヶ島市
+11242,Hidaka-shi,Saitama,日高市
+11243,Yoshikawa-shi,Saitama,吉川市
+11245,Fujimino-shi,Saitama,ふじみ野市
+11246,Shiraoka-shi,Saitama,白岡市
+11301,Kitaadachi-gun Ina-machi,Saitama,北足立郡伊奈町
+11324,Iruma-gun Miyoshi-machi,Saitama,入間郡三芳町
+11326,Iruma-gun Moroyama-machi,Saitama,入間郡毛呂山町
+11327,Iruma-gun Ogose-machi,Saitama,入間郡越生町
+11341,Hiki-gun Namegawa-machi,Saitama,比企郡滑川町
+11342,Hiki-gun Ranzan-machi,Saitama,比企郡嵐山町
+11343,Hiki-gun Ogawa-machi,Saitama,比企郡小川町
+11346,Hiki-gun Kawajima-machi,Saitama,比企郡川島町
+11347,Hiki-gun Yoshimi-machi,Saitama,比企郡吉見町
+11348,Hiki-gun Hatoyama-machi,Saitama,比企郡鳩山町
+11349,Hiki-gun Tokigawa-machi,Saitama,比企郡ときがわ町
+11361,Chichibu-gun Yokoze-machi,Saitama,秩父郡横瀬町
+11362,Chichibu-gun Minano-machi,Saitama,秩父郡皆野町
+11363,Chichibu-gun Nagatoro-machi,Saitama,秩父郡長瀞町
+11365,Chichibu-gun Ogano-machi,Saitama,秩父郡小鹿野町
+11369,Chichibu-gun Higashichichibu-mura,Saitama,秩父郡東秩父村
+11381,Kodama-gun Misato-machi,Saitama,児玉郡美里町
+11383,Kodama-gun Kamikawa-machi,Saitama,児玉郡神川町
+11385,Kodama-gun Kamisato-machi,Saitama,児玉郡上里町
+11408,Osato-gun Yorii-machi,Saitama,大里郡寄居町
+11442,Minamisaitama-gun Miyashiro-machi,Saitama,南埼玉郡宮代町
+11464,Kitakatsushika-gun Sugito-machi,Saitama,北葛飾郡杉戸町
+11465,Kitakatsushika-gun Matsubushi-machi,Saitama,北葛飾郡松伏町
+12101,Chiba-shi Chuo-ku,Chiba,千葉市中央区
+12102,Chiba-shi Hanamigawa-ku,Chiba,千葉市花見川区
+12103,Chiba-shi Inage-ku,Chiba,千葉市稲毛区
+12104,Chiba-shi Wakaba-ku,Chiba,千葉市若葉区
+12105,Chiba-shi Midori-ku,Chiba,千葉市緑区
+12106,Chiba-shi Mihama-ku,Chiba,千葉市美浜区
+12202,Choshi-shi,Chiba,銚子市
+12203,Ichikawa-shi,Chiba,市川市
+12204,Funabashi-shi,Chiba,船橋市
+12205,Tateyama-shi,Chiba,館山市
+12206,Kisarazu-shi,Chiba,木更津市
+12207,Matsudo-shi,Chiba,松戸市
+12208,Noda-shi,Chiba,野田市
+12210,Mobara-shi,Chiba,茂原市
+12211,Narita-shi,Chiba,成田市
+12212,Sakura-shi,Chiba,佐倉市
+12213,Togane-shi,Chiba,東金市
+12215,Asahi-shi,Chiba,旭市
+12216,Narashino-shi,Chiba,習志野市
+12217,Kashiwa-shi,Chiba,柏市
+12218,Katsura-shi,Chiba,勝浦市
+12219,Ichihara-shi,Chiba,市原市
+12220,Nagareyama-shi,Chiba,流山市
+12221,Yachiyo-shi,Chiba,八千代市
+12222,Abiko-shi,Chiba,我孫子市
+12223,Kamogawa-shi,Chiba,鴨川市
+12224,Kamagaya-shi,Chiba,鎌ヶ谷市
+12225,Kimitsu-shi,Chiba,君津市
+12226,Futtsu-shi,Chiba,富津市
+12227,Urayasu-shi,Chiba,浦安市
+12228,Yotsukaido-shi,Chiba,四街道市
+12229,Sodegaura-shi,Chiba,袖ヶ浦市
+12230,Yachimata-shi,Chiba,八街市
+12231,Inzai-shi,Chiba,印西市
+12232,Shiroi-shi,Chiba,白井市
+12233,Tomisato-shi,Chiba,富里市
+12234,Minamiboso-shi,Chiba,南房総市
+12235,Sosa-shi,Chiba,匝瑳市
+12236,Katori-shi,Chiba,香取市
+12237,Sammu-shi,Chiba,山武市
+12238,Isumi-shi,Chiba,いすみ市
+12239,Oamishirasato-shi,Chiba,大網白里市
+12322,Imba-gun Shisui-machi,Chiba,印旛郡酒々井町
+12329,Imba-gun Sakae-machi,Chiba,印旛郡栄町
+12342,Katori-gun Kozaki-machi,Chiba,香取郡神崎町
+12347,Katori-gun Tako-machi,Chiba,香取郡多古町
+12349,Katori-gun Tonosho-machi,Chiba,香取郡東庄町
+12403,Sambu-gun Kujukuri-machi,Chiba,山武郡九十九里町
+12409,Sambu-gun Shibayama-machi,Chiba,山武郡芝山町
+12410,Sambu-gun Yokoshibahikari-machi,Chiba,山武郡横芝光町
+12421,Chosei-gun Ichinomiya-machi,Chiba,長生郡一宮町
+12422,Chosei-gun Mutsuzawa-machi,Chiba,長生郡睦沢町
+12423,Chosei-gun Chosei-mura,Chiba,長生郡長生村
+12424,Chosei-gun Shirako-machi,Chiba,長生郡白子町
+12426,Chosei-gun Nagara-machi,Chiba,長生郡長柄町
+12427,Chosei-gun Chonan-machi,Chiba,長生郡長南町
+12441,Isumi-gun Otaki-machi,Chiba,夷隅郡大多喜町
+12443,Isumi-gun Onjuku-machi,Chiba,夷隅郡御宿町
+12463,Awa-gun Kyonan-machi,Chiba,安房郡鋸南町
+13101,Chiyoda-ku,Tokyo,千代田区
+13102,Chuo-ku,Tokyo,中央区
+13103,Minato-ku,Tokyo,港区
+13104,Shinjuku-ku,Tokyo,新宿区
+13105,Bunkyo-ku,Tokyo,文京区
+13106,Taito-ku,Tokyo,台東区
+13107,Sumida-ku,Tokyo,墨田区
+13108,Koto-ku,Tokyo,江東区
+13109,Shinagawa-ku,Tokyo,品川区
+13110,Meguro-ku,Tokyo,目黒区
+13111,Ota-ku,Tokyo,大田区
+13112,Setagaya-ku,Tokyo,世田谷区
+13113,Shibuya-ku,Tokyo,渋谷区
+13114,Nakano-ku,Tokyo,中野区
+13115,Suginami-ku,Tokyo,杉並区
+13116,Toshima-ku,Tokyo,豊島区
+13117,Kita-ku,Tokyo,北区
+13118,Arakawa-ku,Tokyo,荒川区
+13119,Itabashi-ku,Tokyo,板橋区
+13120,Nerima-ku,Tokyo,練馬区
+13121,Adachi-ku,Tokyo,足立区
+13122,Katsushika-ku,Tokyo,葛飾区
+13123,Edogawa-ku,Tokyo,江戸川区
+13201,Hachioji-shi,Tokyo,八王子市
+13202,Tachikawa-shi,Tokyo,立川市
+13203,Musashino-shi,Tokyo,武蔵野市
+13204,Mitaka-shi,Tokyo,三鷹市
+13205,Ome-shi,Tokyo,青梅市
+13206,Fuchu-shi,Tokyo,府中市
+13207,Akishima-shi,Tokyo,昭島市
+13208,Chofu-shi,Tokyo,調布市
+13209,Machida-shi,Tokyo,町田市
+13210,Koganei-shi,Tokyo,小金井市
+13211,Kodaira-shi,Tokyo,小平市
+13212,Hino-shi,Tokyo,日野市
+13213,Higashimurayama-shi,Tokyo,東村山市
+13214,Kokubunji-shi,Tokyo,国分寺市
+13215,Kunitachi-shi,Tokyo,国立市
+13218,Fussa-shi,Tokyo,福生市
+13219,Komae-shi,Tokyo,狛江市
+13220,Higashiyamato-shi,Tokyo,東大和市
+13221,Kiyose-shi,Tokyo,清瀬市
+13222,Higashikurume-shi,Tokyo,東久留米市
+13223,Musashimurayama-shi,Tokyo,武蔵村山市
+13224,Tama-shi,Tokyo,多摩市
+13225,Inagi-shi,Tokyo,稲城市
+13227,Hamura-shi,Tokyo,羽村市
+13228,Akiruno-shi,Tokyo,あきる野市
+13229,Nishitokyo-shi,Tokyo,西東京市
+13303,Nishitama-gun Mizuho-machi,Tokyo,西多摩郡瑞穂町
+13305,Nishitama-gun Hinode-machi,Tokyo,西多摩郡日の出町
+13307,Nishitama-gun Hinohara-mura,Tokyo,西多摩郡檜原村
+13308,Nishitama-gun Okutama-machi,Tokyo,西多摩郡奥多摩町
+13361,Oshima-machi,Tokyo,大島町
+13363,Niijima-mura,Tokyo,新島村
+13364,Kozushima-mura,Tokyo,神津島村
+13381,Miyakejima Miyake-mura,Tokyo,三宅村
+13382,Mikurajima-mura,Tokyo,御蔵島村
+13401,Hachijojima Hachijo-machi,Tokyo,八丈町
+13402,Aogashima-mura,Tokyo,青ヶ島村
+13421,Ogasawara-mura,Tokyo,小笠原村
+14101,Yokohama-shi Tsurumi-ku,Kanagawa,横浜市鶴見区
+14102,Yokohama-shi Kanagawa-ku,Kanagawa,横浜市神奈川区
+14103,Yokohama-shi Nishi-ku,Kanagawa,横浜市西区
+14104,Yokohama-shi Naka-ku,Kanagawa,横浜市中区
+14105,Yokohama-shi Minami-ku,Kanagawa,横浜市南区
+14106,Yokohama-shi Hodogaya-ku,Kanagawa,横浜市保土ケ谷区
+14107,Yokohama-shi Isogo-ku,Kanagawa,横浜市磯子区
+14108,Yokohama-shi Kanazawa-ku,Kanagawa,横浜市金沢区
+14109,Yokohama-shi Kohoku-ku,Kanagawa,横浜市港北区
+14110,Yokohama-shi Totsuka-ku,Kanagawa,横浜市戸塚区
+14111,Yokohama-shi Konan-ku,Kanagawa,横浜市港南区
+14112,Yokohama-shi Asahi-ku,Kanagawa,横浜市旭区
+14113,Yokohama-shi Midori-ku,Kanagawa,横浜市緑区
+14114,Yokohama-shi Seya-ku,Kanagawa,横浜市瀬谷区
+14115,Yokohama-shi Sakae-ku,Kanagawa,横浜市栄区
+14116,Yokohama-shi Izumi-ku,Kanagawa,横浜市泉区
+14117,Yokohama-shi Aoba-ku,Kanagawa,横浜市青葉区
+14118,Yokohama-shi Tsuzuki-ku,Kanagawa,横浜市都筑区
+14131,Kawasaki-shi Kawasaki-ku,Kanagawa,川崎市川崎区
+14132,Kawasaki-shi Saiwai-ku,Kanagawa,川崎市幸区
+14133,Kawasaki-shi Nakahara-ku,Kanagawa,川崎市中原区
+14134,Kawasaki-shi Takatsu-ku,Kanagawa,川崎市高津区
+14135,Kawasaki-shi Tama-ku,Kanagawa,川崎市多摩区
+14136,Kawasaki-shi Miyamae-ku,Kanagawa,川崎市宮前区
+14137,Kawasaki-shi Asao-ku,Kanagawa,川崎市麻生区
+14151,Sagamihara-shi Midori-ku,Kanagawa,相模原市緑区
+14152,Sagamihara-shi Chuo-ku,Kanagawa,相模原市中央区
+14153,Sagamihara-shi Minami-ku,Kanagawa,相模原市南区
+14201,Yokosuka-shi,Kanagawa,横須賀市
+14203,Hiratsuka-shi,Kanagawa,平塚市
+14204,Kamakura-shi,Kanagawa,鎌倉市
+14205,Fujisawa-shi,Kanagawa,藤沢市
+14206,Odawara-shi,Kanagawa,小田原市
+14207,Chigasaki-shi,Kanagawa,茅ヶ崎市
+14208,Zushi-shi,Kanagawa,逗子市
+14210,Miura-shi,Kanagawa,三浦市
+14211,Hadano-shi,Kanagawa,秦野市
+14212,Atsugi-shi,Kanagawa,厚木市
+14213,Yamato-shi,Kanagawa,大和市
+14214,Isehara-shi,Kanagawa,伊勢原市
+14215,Ebina-shi,Kanagawa,海老名市
+14216,Zama-shi,Kanagawa,座間市
+14217,Minamiashigara-shi,Kanagawa,南足柄市
+14218,Ayase-shi,Kanagawa,綾瀬市
+14301,Miura-gun Hayama-machi,Kanagawa,三浦郡葉山町
+14321,Koza-gun Samukawa-machi,Kanagawa,高座郡寒川町
+14341,Naka-gun Oiso-machi,Kanagawa,中郡大磯町
+14342,Naka-gun Ninomiya-machi,Kanagawa,中郡二宮町
+14361,Ashigarakami-gun Nakai-machi,Kanagawa,足柄上郡中井町
+14362,Ashigarakami-gun Oi-machi,Kanagawa,足柄上郡大井町
+14363,Ashigarakami-gun Matsuda-machi,Kanagawa,足柄上郡松田町
+14364,Ashigarakami-gun Yamakita-machi,Kanagawa,足柄上郡山北町
+14366,Ashigarakami-gun Kaisei-machi,Kanagawa,足柄上郡開成町
+14382,Ashigarashimo-gun Hakone-machi,Kanagawa,足柄下郡箱根町
+14383,Ashigarashimo-gun Manazuru-machi,Kanagawa,足柄下郡真鶴町
+14384,Ashigarashimo-gun Yugawara-machi,Kanagawa,足柄下郡湯河原町
+14401,Aiko-gun Aikawa-machi,Kanagawa,愛甲郡愛川町
+14402,Aiko-gun Kiyokawa-mura,Kanagawa,愛甲郡清川村
+15101,Niigata-shi Kita-ku,Niigata,新潟市北区
+15102,Niigata-shi Higashi-ku,Niigata,新潟市東区
+15103,Niigata-shi Chuo-ku,Niigata,新潟市中央区
+15104,Niigata-shi Konan-ku,Niigata,新潟市江南区
+15105,Niigata-shi Akiha-ku,Niigata,新潟市秋葉区
+15106,Niigata-shi Minami-ku,Niigata,新潟市南区
+15107,Niigata-shi Nishi-ku,Niigata,新潟市西区
+15108,Niigata-shi Nishikan-ku,Niigata,新潟市西蒲区
+15202,Nagaoka-shi,Niigata,長岡市
+15204,Sanjo-shi,Niigata,三条市
+15205,Kashiwazaki-shi,Niigata,柏崎市
+15206,Shibata-shi,Niigata,新発田市
+15208,Ojiya-shi,Niigata,小千谷市
+15209,Kamo-shi,Niigata,加茂市
+15210,Tokamachi-shi,Niigata,十日町市
+15211,Mitsuke-shi,Niigata,見附市
+15212,Murakami-shi,Niigata,村上市
+15213,Tsubame-shi,Niigata,燕市
+15216,Itoigawa-shi,Niigata,糸魚川市
+15217,Myoko-shi,Niigata,妙高市
+15218,Gosen-shi,Niigata,五泉市
+15222,Joetsu-shi,Niigata,上越市
+15223,Agano-shi,Niigata,阿賀野市
+15224,Sado-shi,Niigata,佐渡市
+15225,Uonuma-shi,Niigata,魚沼市
+15226,Minamiuonuma-shi,Niigata,南魚沼市
+15227,Tainai-shi,Niigata,胎内市
+15307,Kitakambara-gun Seiro-machi,Niigata,北蒲原郡聖籠町
+15342,Nishikambara-gun Yahiko-mura,Niigata,西蒲原郡弥彦村
+15361,Minamikambara-gun Tagami-machi,Niigata,南蒲原郡田上町
+15385,Higashikambara-gun Aga-machi,Niigata,東蒲原郡阿賀町
+15405,Santo-gun Izumozaki-machi,Niigata,三島郡出雲崎町
+15461,Minamiuonuma-gun Yuzawa-machi,Niigata,南魚沼郡湯沢町
+15482,Nakauonuma-gun Tsunan-machi,Niigata,中魚沼郡津南町
+15504,Kariwa-gun Kariwa-mura,Niigata,刈羽郡刈羽村
+15581,Iwafune-gun Sekikawa-mura,Niigata,岩船郡関川村
+15586,Iwafune-gun Awashimaura-mura,Niigata,岩船郡粟島浦村
+16201,Toyama-shi,Toyama,富山市
+16202,Takaoka-shi,Toyama,高岡市
+16204,Uozu-shi,Toyama,魚津市
+16205,Himi-shi,Toyama,氷見市
+16206,Namerikawa-shi,Toyama,滑川市
+16207,Kurobe-shi,Toyama,黒部市
+16208,Tonami-shi,Toyama,砺波市
+16209,Oyabe-shi,Toyama,小矢部市
+16210,Nanto-shi,Toyama,南砺市
+16211,Imizu-shi,Toyama,射水市
+16321,Nakaniikawa-gun Funahashi-mura,Toyama,中新川郡舟橋村
+16322,Nakaniikawa-gun Kamiichi-machi,Toyama,中新川郡上市町
+16323,Nakaniikawa-gun Tateyama-machi,Toyama,中新川郡立山町
+16342,Shimoniikawa-gun Nyuzen-machi,Toyama,下新川郡入善町
+16343,Shimoniikawa-gun Asahi-machi,Toyama,下新川郡朝日町
+17201,Kanazawa-shi,Ishikawa,金沢市
+17202,Nanao-shi,Ishikawa,七尾市
+17203,Komatsu-shi,Ishikawa,小松市
+17204,Wajima-shi,Ishikawa,輪島市
+17205,Suzu-shi,Ishikawa,珠洲市
+17206,Kaga-shi,Ishikawa,加賀市
+17207,Hakui-shi,Ishikawa,羽咋市
+17209,Kahoku-shi,Ishikawa,かほく市
+17210,Hakusan-shi,Ishikawa,白山市
+17211,Nomi-shi,Ishikawa,能美市
+17212,Nonoichi-shi,Ishikawa,野々市市
+17324,Nomi-gun Kawakita-machi,Ishikawa,能美郡川北町
+17361,Kahoku-gun Tsubata-machi,Ishikawa,河北郡津幡町
+17365,Kahoku-gun Uchinada-machi,Ishikawa,河北郡内灘町
+17384,Hakui-gun Shika-machi,Ishikawa,羽咋郡志賀町
+17386,Hakui-gun Hodatsushimizu-cho,Ishikawa,羽咋郡宝達志水町
+17407,Kashima-gun Nakanoto-machi,Ishikawa,鹿島郡中能登町
+17461,Hosu-gun Anamizu-machi,Ishikawa,鳳珠郡穴水町
+17463,Hosu-gun Noto-cho,Ishikawa,鳳珠郡能登町
+18201,Fukui-shi,Fukui,福井市
+18202,Tsuruga-shi,Fukui,敦賀市
+18204,Obama-shi,Fukui,小浜市
+18205,Ono-shi,Fukui,大野市
+18206,Katsuyama-shi,Fukui,勝山市
+18207,Sabae-shi,Fukui,鯖江市
+18208,Awara-shi,Fukui,あわら市
+18209,Echizen-shi,Fukui,越前市
+18210,Sakai-shi,Fukui,坂井市
+18322,Yoshida-gun Eiheiji-cho,Fukui,吉田郡永平寺町
+18382,Imadate-gun Ikeda-cho,Fukui,今立郡池田町
+18404,Nanjo-gun Minamiechizen-cho,Fukui,南条郡南越前町
+18423,Nyu-gun Echizen-cho,Fukui,丹生郡越前町
+18442,Mikata-gun Mihama-cho,Fukui,三方郡美浜町
+18481,Oi-gun Takahama-cho,Fukui,大飯郡高浜町
+18483,Oi-gun Oi-cho,Fukui,大飯郡おおい町
+18501,Mikatakaminaka-gun Wakasa-cho,Fukui,三方上中郡若狭町
+19201,Kofu-shi,Yamanashi,甲府市
+19202,Fujiyoshida-shi,Yamanashi,富士吉田市
+19204,Tsuru-shi,Yamanashi,都留市
+19205,Yamanashi-shi,Yamanashi,山梨市
+19206,Otsuki-shi,Yamanashi,大月市
+19207,Nirasaki-shi,Yamanashi,韮崎市
+19208,Minamiarupusu-shi,Yamanashi,南アルプス市
+19209,Hokuto-shi,Yamanashi,北杜市
+19210,Kai-shi,Yamanashi,甲斐市
+19211,Fuefuki-shi,Yamanashi,笛吹市
+19212,Uenohara-shi,Yamanashi,上野原市
+19213,Koshu-shi,Yamanashi,甲州市
+19214,Chuo-shi,Yamanashi,中央市
+19346,Nishiyatsushiro-gun Ichikawamisato,Yamanashi,西八代郡市川三郷町
+19364,Minamikoma-gun Hayakawa-cho,Yamanashi,南巨摩郡早川町
+19365,Minamikoma-gun Minobu-cho,Yamanashi,南巨摩郡身延町
+19366,Minamikoma-gun Nambu-cho,Yamanashi,南巨摩郡南部町
+19368,Minamikoma-gun Fujikawa-cho,Yamanashi,南巨摩郡富士川町
+19384,Nakakoma-gun Showa-cho,Yamanashi,中巨摩郡昭和町
+19422,Minamitsuru-gun Doshi-mura,Yamanashi,南都留郡道志村
+19423,Minamitsuru-gun Nishikatsura-cho,Yamanashi,南都留郡西桂町
+19424,Minamitsuru-gun Oshino-mura,Yamanashi,南都留郡忍野村
+19425,Minamitsuru-gun Yamanakako-mura,Yamanashi,南都留郡山中湖村
+19429,Minamitsuru-gun Narusawa-mura,Yamanashi,南都留郡鳴沢村
+19430,Minamitsuru-gun Fujikawaguchiko Mac,Yamanashi,南都留郡富士河口湖町
+19442,Kitatsuru-gun Kosuge-mura,Yamanashi,北都留郡小菅村
+19443,Kitatsuru-gun Tabayama-mura,Yamanashi,北都留郡丹波山村
+20201,Nagano-shi,Nagano,長野市
+20202,Matsumoto-shi,Nagano,松本市
+20203,Ueda-shi,Nagano,上田市
+20204,Okaya-shi,Nagano,岡谷市
+20205,Iida-shi,Nagano,飯田市
+20206,Suwa-shi,Nagano,諏訪市
+20207,Suzaka-shi,Nagano,須坂市
+20208,Komoro-shi,Nagano,小諸市
+20209,Ina-shi,Nagano,伊那市
+20210,Komagane-shi,Nagano,駒ヶ根市
+20211,Nakano-shi,Nagano,中野市
+20212,Omachi-shi,Nagano,大町市
+20213,Iiyama-shi,Nagano,飯山市
+20214,Chino-shi,Nagano,茅野市
+20215,Shiojiri-shi,Nagano,塩尻市
+20217,Saku-shi,Nagano,佐久市
+20218,Chikuma-shi,Nagano,千曲市
+20219,Tomi-shi,Nagano,東御市
+20220,Azumino-shi,Nagano,安曇野市
+20303,Minamisaku-gun Komi-machi,Nagano,南佐久郡小海町
+20304,Minamisaku-gun Kawakami-mura,Nagano,南佐久郡川上村
+20305,Minamisaku-gun Minamimaki-mura,Nagano,南佐久郡南牧村
+20306,Minamisaku-gun Minamiaiki-mura,Nagano,南佐久郡南相木村
+20307,Minamisaku-gun Kitaaiki-mura,Nagano,南佐久郡北相木村
+20309,Minamisaku-gun Sakuho-machi,Nagano,南佐久郡佐久穂町
+20321,Kitasaku-gun Karuizawa-machi,Nagano,北佐久郡軽井沢町
+20323,Kitasaku-gun Miyota-machi,Nagano,北佐久郡御代田町
+20324,Kitasaku-gun Tateshina-machi,Nagano,北佐久郡立科町
+20349,Chiisagata-gun Aoki-mura,Nagano,小県郡青木村
+20350,Chiisagata-gun Nagawa-machi,Nagano,小県郡長和町
+20361,Suwa-gun Shimosuwa-machi,Nagano,諏訪郡下諏訪町
+20362,Suwa-gun Fujimi-machi,Nagano,諏訪郡富士見町
+20363,Suwa-gun Hara-mura,Nagano,諏訪郡原村
+20382,Kamiina-gun Tatsuno-machi,Nagano,上伊那郡辰野町
+20383,Kamiina-gun Minowa-machi,Nagano,上伊那郡箕輪町
+20384,Kamiina-gun Iijima-machi,Nagano,上伊那郡飯島町
+20385,Kamiina-gun Minamiminowa-mura,Nagano,上伊那郡南箕輪村
+20386,Kamiina-gun Nakagawa-mura,Nagano,上伊那郡中川村
+20388,Kamiina-gun Miyada-mura,Nagano,上伊那郡宮田村
+20402,Shimoina-gun Matsukawa-machi,Nagano,下伊那郡松川町
+20403,Shimoina-gun Takamori-machi,Nagano,下伊那郡高森町
+20404,Shimoina-gun Anan-cho,Nagano,下伊那郡阿南町
+20407,Shimoina-gun Achi-mura,Nagano,下伊那郡阿智村
+20409,Shimoina-gun Hiraya-mura,Nagano,下伊那郡平谷村
+20410,Shimoina-gun Neba-mura,Nagano,下伊那郡根羽村
+20411,Shimoina-gun Shimojo-mura,Nagano,下伊那郡下條村
+20412,Shimoina-gun Urugi-mura,Nagano,下伊那郡売木村
+20413,Shimoina-gun Tenryu-mura,Nagano,下伊那郡天龍村
+20414,Shimoina-gun Yasuoka-mura,Nagano,下伊那郡泰阜村
+20415,Shimoina-gun Takagi-mura,Nagano,下伊那郡喬木村
+20416,Shimoina-gun Toyoka-mura,Nagano,下伊那郡豊丘村
+20417,Shimoina-gun Oshika-mura,Nagano,下伊那郡大鹿村
+20422,Kiso-gun Agematsu-machi,Nagano,木曽郡上松町
+20423,Kiso-gun Nagiso-machi,Nagano,木曽郡南木曽町
+20425,Kiso-gun Kiso-mura,Nagano,木曽郡木祖村
+20429,Kiso-gun Otaki-mura,Nagano,木曽郡王滝村
+20430,Kiso-gun Okuwa-mura,Nagano,木曽郡大桑村
+20432,Kiso-gun Kiso-machi,Nagano,木曽郡木曽町
+20446,Higashichikuma-gun Omi-mura,Nagano,東筑摩郡麻績村
+20448,Higashichikuma-gun Ikusaka-mura,Nagano,東筑摩郡生坂村
+20450,Higashichikuma-gun Yamagata-mura,Nagano,東筑摩郡山形村
+20451,Higashichikuma-gun Asahi-mura,Nagano,東筑摩郡朝日村
+20452,Higashichikuma-gun Chikuhoku-mura,Nagano,東筑摩郡筑北村
+20481,Kitaazumi-gun Ikeda-machi,Nagano,北安曇郡池田町
+20482,Kitaazumi-gun Matsukawa-mura,Nagano,北安曇郡松川村
+20485,Kitaazumi-gun Hakuba-mura,Nagano,北安曇郡白馬村
+20486,Kitaazumi-gun Otari-mura,Nagano,北安曇郡小谷村
+20521,Hanishina-gun Sakaki-machi,Nagano,埴科郡坂城町
+20541,Kamitakai-gun Obuse-machi,Nagano,上高井郡小布施町
+20543,Kamitakai-gun Takayama-mura,Nagano,上高井郡高山村
+20561,Shimotakai-gun Yamanochi-machi,Nagano,下高井郡山ノ内町
+20562,Shimotakai-gun Kijimadaira-mura,Nagano,下高井郡木島平村
+20563,Shimotakai-gun Nozawaonsen-mura,Nagano,下高井郡野沢温泉村
+20583,Kamiminochi-gun Shinano-machi,Nagano,上水内郡信濃町
+20588,Kamiminochi-gun Ogawa-mura,Nagano,上水内郡小川村
+20590,Kamiminochi-gun Iizuna-machi,Nagano,上水内郡飯綱町
+20602,Shimominochi-gun Sakae-mura,Nagano,下水内郡栄村
+21201,Gifu-shi,Gifu,岐阜市
+21202,Ogaki-shi,Gifu,大垣市
+21203,Takayama-shi,Gifu,高山市
+21204,Tajimi-shi,Gifu,多治見市
+21205,Seki-shi,Gifu,関市
+21206,Nakatsugawa-shi,Gifu,中津川市
+21207,Mino-shi,Gifu,美濃市
+21208,Mizunami-shi,Gifu,瑞浪市
+21209,Hashima-shi,Gifu,羽島市
+21210,Ena-shi,Gifu,恵那市
+21211,Minokamo-shi,Gifu,美濃加茂市
+21212,Toki-shi,Gifu,土岐市
+21213,Kakamigahara-shi,Gifu,各務原市
+21214,Kani-shi,Gifu,可児市
+21215,Yamagata-shi,Gifu,山県市
+21216,Mizuho-shi,Gifu,瑞穂市
+21217,Hida-shi,Gifu,飛騨市
+21218,Motosu-shi,Gifu,本巣市
+21219,Gujo-shi,Gifu,郡上市
+21220,Gero-shi,Gifu,下呂市
+21221,Kaizu-shi,Gifu,海津市
+21302,Hashima-gun Ginan-cho,Gifu,羽島郡岐南町
+21303,Hashima-gun Kasamatsu-cho,Gifu,羽島郡笠松町
+21341,Yoro-gun Yoro-cho,Gifu,養老郡養老町
+21361,Fuwa-gun Tarui-cho,Gifu,不破郡垂井町
+21362,Fuwa-gun Sekigahara-cho,Gifu,不破郡関ケ原町
+21381,Ampachi-gun Godo-cho,Gifu,安八郡神戸町
+21382,Ampachi-gun Wanochi-cho,Gifu,安八郡輪之内町
+21383,Ampachi-gun Ampachi-cho,Gifu,安八郡安八町
+21401,Ibi-gun Ibigawa-cho,Gifu,揖斐郡揖斐川町
+21403,Ibi-gun Ono-cho,Gifu,揖斐郡大野町
+21404,Ibi-gun Ikeda-cho,Gifu,揖斐郡池田町
+21421,Motosu-gun Kitagata-cho,Gifu,本巣郡北方町
+21501,Kamo-gun Sakahogi-cho,Gifu,加茂郡坂祝町
+21502,Kamo-gun Tomika-cho,Gifu,加茂郡富加町
+21503,Kamo-gun Kawabe-cho,Gifu,加茂郡川辺町
+21504,Kamo-gun Hichiso-cho,Gifu,加茂郡七宗町
+21505,Kamo-gun Yaotsu-cho,Gifu,加茂郡八百津町
+21506,Kamo-gun Shirakawa-cho,Gifu,加茂郡白川町
+21507,Kamo-gun Higashishirakawa-mura,Gifu,加茂郡東白川村
+21521,Kani-gun Mitake-cho,Gifu,可児郡御嵩町
+21604,Ono-gun Shirakawa-mura,Gifu,大野郡白川村
+22101,Shizuoka-shi Aoi-ku,Shizuoka,静岡市葵区
+22102,Shizuoka-shi Suruga-ku,Shizuoka,静岡市駿河区
+22103,Shizuoka-shi Shimizu-ku,Shizuoka,静岡市清水区
+22131,Hamamatsu-shi Naka-ku,Shizuoka,浜松市中区
+22132,Hamamatsu-shi Higashi-ku,Shizuoka,浜松市東区
+22133,Hamamatsu-shi Nishi-ku,Shizuoka,浜松市西区
+22134,Hamamatsu-shi Minami-ku,Shizuoka,浜松市南区
+22135,Hamamatsu-shi Kita-ku,Shizuoka,浜松市北区
+22136,Hamamatsu-shi Hamakita-ku,Shizuoka,浜松市浜北区
+22137,Hamamatsu-shi Tenryu-ku,Shizuoka,浜松市天竜区
+22203,Numazu-shi,Shizuoka,沼津市
+22205,Atami-shi,Shizuoka,熱海市
+22206,Mishima-shi,Shizuoka,三島市
+22207,Fujinomiya-shi,Shizuoka,富士宮市
+22208,Ito-shi,Shizuoka,伊東市
+22209,Shimada-shi,Shizuoka,島田市
+22210,Fuji-shi,Shizuoka,富士市
+22211,Iwata-shi,Shizuoka,磐田市
+22212,Yaizu-shi,Shizuoka,焼津市
+22213,Kakegawa-shi,Shizuoka,掛川市
+22214,Fujieda-shi,Shizuoka,藤枝市
+22215,Gotemba-shi,Shizuoka,御殿場市
+22216,Fukuroi-shi,Shizuoka,袋井市
+22219,Shimoda-shi,Shizuoka,下田市
+22220,Susono-shi,Shizuoka,裾野市
+22221,Kosai-shi,Shizuoka,湖西市
+22222,Izu-shi,Shizuoka,伊豆市
+22223,Omaezaki-shi,Shizuoka,御前崎市
+22224,Kikugawa-shi,Shizuoka,菊川市
+22225,Izunokuni-shi,Shizuoka,伊豆の国市
+22226,Makinohara-shi,Shizuoka,牧之原市
+22301,Kamo-gun Higashiizu-cho,Shizuoka,賀茂郡東伊豆町
+22302,Kamo-gun Kawazu-cho,Shizuoka,賀茂郡河津町
+22304,Kamo-gun Minamiizu-cho,Shizuoka,賀茂郡南伊豆町
+22305,Kamo-gun Matsuzaki-cho,Shizuoka,賀茂郡松崎町
+22306,Kamo-gun Nishiizu-cho,Shizuoka,賀茂郡西伊豆町
+22325,Tagata-gun Kannami-cho,Shizuoka,田方郡函南町
+22341,Sunto-gun Shimizu-cho,Shizuoka,駿東郡清水町
+22342,Sunto-gun Nagaizumi-cho,Shizuoka,駿東郡長泉町
+22344,Sunto-gun Oyama-cho,Shizuoka,駿東郡小山町
+22424,Haibara-gun Yoshida-cho,Shizuoka,榛原郡吉田町
+22429,Haibara-gun Kawanehon-cho,Shizuoka,榛原郡川根本町
+22461,Shuchi-gun Mori-machi,Shizuoka,周智郡森町
+23101,Nagoya-shi Chikusa-ku,Aichi,名古屋市千種区
+23102,Nagoya-shi Higashi-ku,Aichi,名古屋市東区
+23103,Nagoya-shi Kita-ku,Aichi,名古屋市北区
+23104,Nagoya-shi Nishi-ku,Aichi,名古屋市西区
+23105,Nagoya-shi Nakamura-ku,Aichi,名古屋市中村区
+23106,Nagoya-shi Naka-ku,Aichi,名古屋市中区
+23107,Nagoya-shi Showa-ku,Aichi,名古屋市昭和区
+23108,Nagoya-shi Mizuho-ku,Aichi,名古屋市瑞穂区
+23109,Nagoya-shi Atsuta-ku,Aichi,名古屋市熱田区
+23110,Nagoya-shi Nakagawa-ku,Aichi,名古屋市中川区
+23111,Nagoya-shi Minato-ku,Aichi,名古屋市港区
+23112,Nagoya-shi Minami-ku,Aichi,名古屋市南区
+23113,Nagoya-shi Moriyama-ku,Aichi,名古屋市守山区
+23114,Nagoya-shi Midori-ku,Aichi,名古屋市緑区
+23115,Nagoya-shi Meito-ku,Aichi,名古屋市名東区
+23116,Nagoya-shi Tempaku-ku,Aichi,名古屋市天白区
+23201,Toyohashi-shi,Aichi,豊橋市
+23202,Okazaki-shi,Aichi,岡崎市
+23203,Ichinomiya-shi,Aichi,一宮市
+23204,Seto-shi,Aichi,瀬戸市
+23205,Handa-shi,Aichi,半田市
+23206,Kasugai-shi,Aichi,春日井市
+23207,Toyokawa-shi,Aichi,豊川市
+23208,Tsushima-shi,Aichi,津島市
+23209,Hekinan-shi,Aichi,碧南市
+23210,Kariya-shi,Aichi,刈谷市
+23211,Toyota-shi,Aichi,豊田市
+23212,Anjo-shi,Aichi,安城市
+23213,Nishio-shi,Aichi,西尾市
+23214,Gamagori-shi,Aichi,蒲郡市
+23215,Inuyama-shi,Aichi,犬山市
+23216,Tokoname-shi,Aichi,常滑市
+23217,Konan-shi,Aichi,江南市
+23219,Komaki-shi,Aichi,小牧市
+23220,Inazawa-shi,Aichi,稲沢市
+23221,Shinshiro-shi,Aichi,新城市
+23222,Tokai-shi,Aichi,東海市
+23223,Obu-shi,Aichi,大府市
+23224,Chita-shi,Aichi,知多市
+23225,Chiryu-shi,Aichi,知立市
+23226,Owariasahi-shi,Aichi,尾張旭市
+23227,Takahama-shi,Aichi,高浜市
+23228,Iwakura-shi,Aichi,岩倉市
+23229,Toyoake-shi,Aichi,豊明市
+23230,Nisshin-shi,Aichi,日進市
+23231,Tahara-shi,Aichi,田原市
+23232,Aisai-shi,Aichi,愛西市
+23233,Kiyosu-shi,Aichi,清須市
+23234,Kitanagoya-shi,Aichi,北名古屋市
+23235,Yatomi-shi,Aichi,弥富市
+23236,Miyoshi-shi,Aichi,みよし市
+23237,Ama-shi,Aichi,あま市
+23238,Nagakute-shi,Aichi,長久手市
+23302,Aichi-gun Togo-cho,Aichi,愛知郡東郷町
+23342,Nishikasugai-gun Toyoyama-cho,Aichi,西春日井郡豊山町
+23361,Niwa-gun Oguchi-cho,Aichi,丹羽郡大口町
+23362,Niwa-gun Fuso-cho,Aichi,丹羽郡扶桑町
+23424,Ama-gun Oharu-cho,Aichi,海部郡大治町
+23425,Ama-gun Kanie-cho,Aichi,海部郡蟹江町
+23427,Ama-gun Tobishima-mura,Aichi,海部郡飛島村
+23441,Chita-gun Agui-cho,Aichi,知多郡阿久比町
+23442,Chita-gun Higashiura-cho,Aichi,知多郡東浦町
+23445,Chita-gun Minamichita-cho,Aichi,知多郡南知多町
+23446,Chita-gun Mihama-cho,Aichi,知多郡美浜町
+23447,Chita-gun Taketoyo-cho,Aichi,知多郡武豊町
+23501,Nukata-gun Kota-cho,Aichi,額田郡幸田町
+23561,Kitashitara-gun Shitara-cho,Aichi,北設楽郡設楽町
+23562,Kitashitara-gun Toei-cho,Aichi,北設楽郡東栄町
+23563,Kitashitara-gun Toyone-mura,Aichi,北設楽郡豊根村
+24201,Tsu-shi,Mie,津市
+24202,Yokkaichi-shi,Mie,四日市市
+24203,Ise-shi,Mie,伊勢市
+24204,Matsusaka-shi,Mie,松阪市
+24205,Kuwana-shi,Mie,桑名市
+24207,Suzuka-shi,Mie,鈴鹿市
+24208,Nabari-shi,Mie,名張市
+24209,Owase-shi,Mie,尾鷲市
+24210,Kameyama-shi,Mie,亀山市
+24211,Toba-shi,Mie,鳥羽市
+24212,Kumano-shi,Mie,熊野市
+24214,Inabe-shi,Mie,いなべ市
+24215,Shima-shi,Mie,志摩市
+24216,Iga-shi,Mie,伊賀市
+24303,Kuwana-gun Kisosaki-cho,Mie,桑名郡木曽岬町
+24324,Inabe-gun Toin-cho,Mie,員弁郡東員町
+24341,Mie-gun Komono-cho,Mie,三重郡菰野町
+24343,Mie-gun Asahi-cho,Mie,三重郡朝日町
+24344,Mie-gun Kawagoe-cho,Mie,三重郡川越町
+24441,Taki-gun Taki-cho,Mie,多気郡多気町
+24442,Taki-gun Meiwa-cho,Mie,多気郡明和町
+24443,Taki-gun Odai-cho,Mie,多気郡大台町
+24461,Watarai-gun Tamaki-cho,Mie,度会郡玉城町
+24470,Watarai-gun Watarai-cho,Mie,度会郡度会町
+24471,Watarai-gun Taiki-cho,Mie,度会郡大紀町
+24472,Watarai-gun Minamiise-cho,Mie,度会郡南伊勢町
+24543,Kitamuro-gun Kihoku-cho,Mie,北牟婁郡紀北町
+24561,Minamimuro-gun Mihama-cho,Mie,南牟婁郡御浜町
+24562,Minamimuro-gun Kiho-cho,Mie,南牟婁郡紀宝町
+25201,Otsu-shi,Shiga,大津市
+25202,Hikone-shi,Shiga,彦根市
+25203,Nagahama-shi,Shiga,長浜市
+25204,Omihachiman-shi,Shiga,近江八幡市
+25206,Kusatsu-shi,Shiga,草津市
+25207,Moriyama-shi,Shiga,守山市
+25208,Ritto-shi,Shiga,栗東市
+25209,Koka-shi,Shiga,甲賀市
+25210,Yasu-shi,Shiga,野洲市
+25211,Konan-shi,Shiga,湖南市
+25212,Takashima-shi,Shiga,高島市
+25213,Higashiomi-shi,Shiga,東近江市
+25214,Maibara-shi,Shiga,米原市
+25383,Gamo-gun Hino-cho,Shiga,蒲生郡日野町
+25384,Gamo-gun Ryuo-cho,Shiga,蒲生郡竜王町
+25425,Echi-gun Aisho-cho,Shiga,愛知郡愛荘町
+25441,Inukami-gun Toyosato-cho,Shiga,犬上郡豊郷町
+25442,Inukami-gun Kora-cho,Shiga,犬上郡甲良町
+25443,Inukami-gun Taga-cho,Shiga,犬上郡多賀町
+26101,Kyoto-shi Kita-ku,Kyoto,京都市北区
+26102,Kyoto-shi Kamigyo-ku,Kyoto,京都市上京区
+26103,Kyoto-shi Sakyo-ku,Kyoto,京都市左京区
+26104,Kyoto-shi Nakagyo-ku,Kyoto,京都市中京区
+26105,Kyoto-shi Higashiyama-ku,Kyoto,京都市東山区
+26106,Kyoto-shi Shimogyo-ku,Kyoto,京都市下京区
+26107,Kyoto-shi Minami-ku,Kyoto,京都市南区
+26108,Kyoto-shi Ukyo-ku,Kyoto,京都市右京区
+26109,Kyoto-shi Fushimi-ku,Kyoto,京都市伏見区
+26110,Kyoto-shi Yamashina-ku,Kyoto,京都市山科区
+26111,Kyoto-shi Nishikyo-ku,Kyoto,京都市西京区
+26201,Fukuchiyama-shi,Kyoto,福知山市
+26202,Maizuru-shi,Kyoto,舞鶴市
+26203,Ayabe-shi,Kyoto,綾部市
+26204,Uji-shi,Kyoto,宇治市
+26205,Miyazu-shi,Kyoto,宮津市
+26206,Kameoka-shi,Kyoto,亀岡市
+26207,Joyo-shi,Kyoto,城陽市
+26208,Muko-shi,Kyoto,向日市
+26209,Nagaokakyo-shi,Kyoto,長岡京市
+26210,Yawata-shi,Kyoto,八幡市
+26211,Kyotanabe-shi,Kyoto,京田辺市
+26212,Kyotango-shi,Kyoto,京丹後市
+26213,Nantan-shi,Kyoto,南丹市
+26214,Kizugawa-shi,Kyoto,木津川市
+26303,Otokuni-gun Oyamazaki-cho,Kyoto,乙訓郡大山崎町
+26322,Kuse-gun Kumiyama-cho,Kyoto,久世郡久御山町
+26343,Tsuzuki-gun Ide-cho,Kyoto,綴喜郡井手町
+26344,Tsuzuki-gun Ujitawara-cho,Kyoto,綴喜郡宇治田原町
+26364,Soraku-gun Kasagi-cho,Kyoto,相楽郡笠置町
+26365,Soraku-gun Wazuka-cho,Kyoto,相楽郡和束町
+26366,Soraku-gun Seika-cho,Kyoto,相楽郡精華町
+26367,Soraku-gun Minamiyamashiro-mura,Kyoto,相楽郡南山城村
+26407,Funai-gun Kyotamba-cho,Kyoto,船井郡京丹波町
+26463,Yosa-gun Ine-cho,Kyoto,与謝郡伊根町
+26465,Yosa-gun Yosano-cho,Kyoto,与謝郡与謝野町
+27102,Osaka-shi Miyakojima-ku,Osaka,大阪市都島区
+27103,Osaka-shi Fukushima-ku,Osaka,大阪市福島区
+27104,Osaka-shi Konohana-ku,Osaka,大阪市此花区
+27106,Osaka-shi Nishi-ku,Osaka,大阪市西区
+27107,Osaka-shi Minato-ku,Osaka,大阪市港区
+27108,Osaka-shi Taisho-ku,Osaka,大阪市大正区
+27109,Osaka-shi Tennoji-ku,Osaka,大阪市天王寺区
+27111,Osaka-shi Naniwa-ku,Osaka,大阪市浪速区
+27113,Osaka-shi Nishiyodogawa-ku,Osaka,大阪市西淀川区
+27114,Osaka-shi Higashiyodogawa-ku,Osaka,大阪市東淀川区
+27115,Osaka-shi Higashinari-ku,Osaka,大阪市東成区
+27116,Osaka-shi Ikuno-ku,Osaka,大阪市生野区
+27117,Osaka-shi Asahi-ku,Osaka,大阪市旭区
+27118,Osaka-shi Joto-ku,Osaka,大阪市城東区
+27119,Osaka-shi Abeno-ku,Osaka,大阪市阿倍野区
+27120,Osaka-shi Sumiyoshi-ku,Osaka,大阪市住吉区
+27121,Osaka-shi Higashisumiyoshi-ku,Osaka,大阪市東住吉区
+27122,Osaka-shi Nishinari-ku,Osaka,大阪市西成区
+27123,Osaka-shi Yodogawa-ku,Osaka,大阪市淀川区
+27124,Osaka-shi Tsurumi-ku,Osaka,大阪市鶴見区
+27125,Osaka-shi Suminoe-ku,Osaka,大阪市住之江区
+27126,Osaka-shi Hirano-ku,Osaka,大阪市平野区
+27127,Osaka-shi Kita-ku,Osaka,大阪市北区
+27128,Osaka-shi Chuo-ku,Osaka,大阪市中央区
+27141,Sakai-shi Sakai-ku,Osaka,堺市堺区
+27142,Sakai-shi Naka-ku,Osaka,堺市中区
+27143,Sakai-shi Higashi-ku,Osaka,堺市東区
+27144,Sakai-shi Nishi-ku,Osaka,堺市西区
+27145,Sakai-shi Minami-ku,Osaka,堺市南区
+27146,Sakai-shi Kita-ku,Osaka,堺市北区
+27147,Sakai-shi Mihara-ku,Osaka,堺市美原区
+27202,Kishiwada-shi,Osaka,岸和田市
+27203,Toyonaka-shi,Osaka,豊中市
+27204,Ikeda-shi,Osaka,池田市
+27205,Suita-shi,Osaka,吹田市
+27206,Izumiotsu-shi,Osaka,泉大津市
+27207,Takatsuki-shi,Osaka,高槻市
+27208,Kaizuka-shi,Osaka,貝塚市
+27209,Moriguchi-shi,Osaka,守口市
+27210,Hirakata-shi,Osaka,枚方市
+27211,Ibaraki-shi,Osaka,茨木市
+27212,Yao-shi,Osaka,八尾市
+27213,Izumisano-shi,Osaka,泉佐野市
+27214,Tondabayashi-shi,Osaka,富田林市
+27215,Neyagawa-shi,Osaka,寝屋川市
+27216,Kawachinagano-shi,Osaka,河内長野市
+27217,Matsubara-shi,Osaka,松原市
+27218,Daito-shi,Osaka,大東市
+27219,Izumi-shi,Osaka,和泉市
+27220,Mino-shi,Osaka,箕面市
+27221,Kashiwara-shi,Osaka,柏原市
+27222,Habikino-shi,Osaka,羽曳野市
+27223,Kadoma-shi,Osaka,門真市
+27224,Settsu-shi,Osaka,摂津市
+27225,Takaishi-shi,Osaka,高石市
+27226,Fujiidera-shi,Osaka,藤井寺市
+27227,Higashiosaka-shi,Osaka,東大阪市
+27228,Sennan-shi,Osaka,泉南市
+27229,Shijonawate-shi,Osaka,四條畷市
+27230,Katano-shi,Osaka,交野市
+27231,Osakasayama-shi,Osaka,大阪狭山市
+27232,Hannan-shi,Osaka,阪南市
+27301,Mishima-gun Shimamoto-cho,Osaka,三島郡島本町
+27321,Toyono-gun Toyono-cho,Osaka,豊能郡豊能町
+27322,Toyono-gun Nose-cho,Osaka,豊能郡能勢町
+27341,Semboku-gun Tadaoka-cho,Osaka,泉北郡忠岡町
+27361,Sennan-gun Kumatori-cho,Osaka,泉南郡熊取町
+27362,Sennan-gun Tajiri-cho,Osaka,泉南郡田尻町
+27366,Sennan-gun Misaki-cho,Osaka,泉南郡岬町
+27381,Minamikawachi-gun Taishi-cho,Osaka,南河内郡太子町
+27382,Minamikawachi-gun Kanan-cho,Osaka,南河内郡河南町
+27383,Minamikawachi-gun Chihayaakasaka Mu,Osaka,南河内郡千早赤阪村
+28101,Kobe-shi Higashinada-ku,Hyogo,神戸市東灘区
+28102,Kobe-shi Nada-ku,Hyogo,神戸市灘区
+28105,Kobe-shi Hyogo-ku,Hyogo,神戸市兵庫区
+28106,Kobe-shi Nagata-ku,Hyogo,神戸市長田区
+28107,Kobe-shi Suma-ku,Hyogo,神戸市須磨区
+28108,Kobe-shi Tarumi-ku,Hyogo,神戸市垂水区
+28109,Kobe-shi Kita-ku,Hyogo,神戸市北区
+28110,Kobe-shi Chuo-ku,Hyogo,神戸市中央区
+28111,Kobe-shi Nishi-ku,Hyogo,神戸市西区
+28201,Himeji-shi,Hyogo,姫路市
+28202,Amagasaki-shi,Hyogo,尼崎市
+28203,Akashi-shi,Hyogo,明石市
+28204,Nishinomiya-shi,Hyogo,西宮市
+28205,Sumoto-shi,Hyogo,洲本市
+28206,Ashiya-shi,Hyogo,芦屋市
+28207,Itami-shi,Hyogo,伊丹市
+28208,Aioi-shi,Hyogo,相生市
+28209,Toyoka-shi,Hyogo,豊岡市
+28210,Kakogawa-shi,Hyogo,加古川市
+28212,Ako-shi,Hyogo,赤穂市
+28213,Nishiwaki-shi,Hyogo,西脇市
+28214,Takarazuka-shi,Hyogo,宝塚市
+28215,Miki-shi,Hyogo,三木市
+28216,Takasago-shi,Hyogo,高砂市
+28217,Kawanishi-shi,Hyogo,川西市
+28218,Ono-shi,Hyogo,小野市
+28219,Sanda-shi,Hyogo,三田市
+28220,Kasai-shi,Hyogo,加西市
+28221,Tambasasayama-shi,Hyogo,丹波篠山市
+28222,Yabu-shi,Hyogo,養父市
+28223,Tamba-shi,Hyogo,丹波市
+28224,Minamiawaji-shi,Hyogo,南あわじ市
+28225,Asago-shi,Hyogo,朝来市
+28226,Awaji-shi,Hyogo,淡路市
+28227,Shiso-shi,Hyogo,宍粟市
+28228,Kato-shi,Hyogo,加東市
+28229,Tatsuno-shi,Hyogo,たつの市
+28301,Kawabe-gun Inagawa-cho,Hyogo,川辺郡猪名川町
+28365,Taka-gun Taka-cho,Hyogo,多可郡多可町
+28381,Kako-gun Inami-cho,Hyogo,加古郡稲美町
+28382,Kako-gun Harima-cho,Hyogo,加古郡播磨町
+28442,Kanzaki-gun Ichikawa-cho,Hyogo,神崎郡市川町
+28443,Kanzaki-gun Fukusaki-cho,Hyogo,神崎郡福崎町
+28446,Kanzaki-gun Kamikawa-cho,Hyogo,神崎郡神河町
+28464,Ibo-gun Taishi-cho,Hyogo,揖保郡太子町
+28481,Ako-gun Kamigori-cho,Hyogo,赤穂郡上郡町
+28501,Sayo-gun Sayo-cho,Hyogo,佐用郡佐用町
+28585,Mikata-gun Kami-cho,Hyogo,美方郡香美町
+28586,Mikata-gun Shinonsen-cho,Hyogo,美方郡新温泉町
+29201,Nara-shi,Nara,奈良市
+29202,Yamatotakada-shi,Nara,大和高田市
+29203,Yamatokoriyama-shi,Nara,大和郡山市
+29204,Tenri-shi,Nara,天理市
+29205,Kashihara-shi,Nara,橿原市
+29206,Sakurai-shi,Nara,桜井市
+29207,Gojo-shi,Nara,五條市
+29208,Gose-shi,Nara,御所市
+29209,Ikoma-shi,Nara,生駒市
+29210,Kashiba-shi,Nara,香芝市
+29211,Katsuragi-shi,Nara,葛城市
+29212,Uda-shi,Nara,宇陀市
+29322,Yamabe-gun Yamazoe-mura,Nara,山辺郡山添村
+29342,Ikoma-gun Heguri-cho,Nara,生駒郡平群町
+29343,Ikoma-gun Sango-cho,Nara,生駒郡三郷町
+29344,Ikoma-gun Ikaruga-cho,Nara,生駒郡斑鳩町
+29345,Ikoma-gun Ando-cho,Nara,生駒郡安堵町
+29361,Shiki-gun Kawanishi-cho,Nara,磯城郡川西町
+29362,Shiki-gun Miyake-cho,Nara,磯城郡三宅町
+29363,Shiki-gun Tawaramoto-cho,Nara,磯城郡田原本町
+29385,Uda-gun Soni-mura,Nara,宇陀郡曽爾村
+29386,Uda-gun Mitsue-mura,Nara,宇陀郡御杖村
+29401,Takaichi-gun Takatori-cho,Nara,高市郡高取町
+29402,Takaichi-gun Asuka-mura,Nara,高市郡明日香村
+29424,Kitakatsuragi-gun Kammaki-cho,Nara,北葛城郡上牧町
+29425,Kitakatsuragi-gun Oji-cho,Nara,北葛城郡王寺町
+29426,Kitakatsuragi-gun Koryo-cho,Nara,北葛城郡広陵町
+29427,Kitakatsuragi-gun Kawai-cho,Nara,北葛城郡河合町
+29441,Yoshino-gun Yoshino-cho,Nara,吉野郡吉野町
+29442,Yoshino-gun Oyodo-cho,Nara,吉野郡大淀町
+29443,Yoshino-gun Shimoichi-cho,Nara,吉野郡下市町
+29444,Yoshino-gun Kurotaki-mura,Nara,吉野郡黒滝村
+29446,Yoshino-gun Tenkawa-mura,Nara,吉野郡天川村
+29447,Yoshino-gun Nosegawa-mura,Nara,吉野郡野迫川村
+29449,Yoshino-gun Totsukawa-mura,Nara,吉野郡十津川村
+29450,Yoshino-gun Shimokitayama-mura,Nara,吉野郡下北山村
+29451,Yoshino-gun Kamikitayama-mura,Nara,吉野郡上北山村
+29452,Yoshino-gun Kawakami-mura,Nara,吉野郡川上村
+29453,Yoshino-gun Higashiyoshino-mura,Nara,吉野郡東吉野村
+30201,Wakayama-shi,Wakayama,和歌山市
+30202,Kainan-shi,Wakayama,海南市
+30203,Hashimoto-shi,Wakayama,橋本市
+30204,Arida-shi,Wakayama,有田市
+30205,Gobo-shi,Wakayama,御坊市
+30206,Tanabe-shi,Wakayama,田辺市
+30207,Shingu-shi,Wakayama,新宮市
+30208,Kinokawa-shi,Wakayama,紀の川市
+30209,Iwade-shi,Wakayama,岩出市
+30304,Kaiso-gun Kimino-cho,Wakayama,海草郡紀美野町
+30341,Ito-gun Katsuragi-cho,Wakayama,伊都郡かつらぎ町
+30343,Ito-gun Kudoyama-cho,Wakayama,伊都郡九度山町
+30344,Ito-gun Koya-cho,Wakayama,伊都郡高野町
+30361,Arida-gun Yuasa-cho,Wakayama,有田郡湯浅町
+30362,Arida-gun Hirogawa-cho,Wakayama,有田郡広川町
+30366,Arida-gun Aridagawa-cho,Wakayama,有田郡有田川町
+30381,Hidaka-gun Mihama-cho,Wakayama,日高郡美浜町
+30382,Hidaka-gun Hidaka-cho,Wakayama,日高郡日高町
+30383,Hidaka-gun Yura-cho,Wakayama,日高郡由良町
+30390,Hidaka-gun Inami-cho,Wakayama,日高郡印南町
+30391,Hidaka-gun Minabe-cho,Wakayama,日高郡みなべ町
+30392,Hidaka-gun Hidakagawa-cho,Wakayama,日高郡日高川町
+30401,Nishimuro-gun Shirahama-cho,Wakayama,西牟婁郡白浜町
+30404,Nishimuro-gun Kamitonda-cho,Wakayama,西牟婁郡上富田町
+30406,Nishimuro-gun Susami-cho,Wakayama,西牟婁郡すさみ町
+30421,Higashimuro-gun Nachikatsura-cho,Wakayama,東牟婁郡那智勝浦町
+30422,Higashimuro-gun Taiji-cho,Wakayama,東牟婁郡太地町
+30424,Higashimuro-gun Kozagawa-cho,Wakayama,東牟婁郡古座川町
+30427,Higashimuro-gun Kitayama-mura,Wakayama,東牟婁郡北山村
+30428,Higashimuro-gun Kushimoto-cho,Wakayama,東牟婁郡串本町
+31201,Tottori-shi,Tottori,鳥取市
+31202,Yonago-shi,Tottori,米子市
+31203,Kurayoshi-shi,Tottori,倉吉市
+31204,Sakaiminato-shi,Tottori,境港市
+31302,Iwami-gun Iwami-cho,Tottori,岩美郡岩美町
+31325,Yazu-gun Wakasa-cho,Tottori,八頭郡若桜町
+31328,Yazu-gun Chizu-cho,Tottori,八頭郡智頭町
+31329,Yazu-gun Yazu-cho,Tottori,八頭郡八頭町
+31364,Tohaku-gun Misasa-cho,Tottori,東伯郡三朝町
+31370,Tohaku-gun Yurihama-cho,Tottori,東伯郡湯梨浜町
+31371,Tohaku-gun Kotora-cho,Tottori,東伯郡琴浦町
+31372,Tohaku-gun Hokuei-cho,Tottori,東伯郡北栄町
+31384,Saihaku-gun Hiezu-son,Tottori,西伯郡日吉津村
+31386,Saihaku-gun Daisen-cho,Tottori,西伯郡大山町
+31389,Saihaku-gun Nambu-cho,Tottori,西伯郡南部町
+31390,Saihaku-gun Hoki-cho,Tottori,西伯郡伯耆町
+31401,Hino-gun Nichinan-cho,Tottori,日野郡日南町
+31402,Hino-gun Hino-cho,Tottori,日野郡日野町
+31403,Hino-gun Kofu-cho,Tottori,日野郡江府町
+32201,Matsue-shi,Shimane,松江市
+32202,Hamada-shi,Shimane,浜田市
+32203,Izumo-shi,Shimane,出雲市
+32204,Masuda-shi,Shimane,益田市
+32205,Oda-shi,Shimane,大田市
+32206,Yasugi-shi,Shimane,安来市
+32207,Gotsu-shi,Shimane,江津市
+32209,Unnan-shi,Shimane,雲南市
+32343,Nita-gun Okuizumo-cho,Shimane,仁多郡奥出雲町
+32386,Iishi-gun Iinan-cho,Shimane,飯石郡飯南町
+32441,Ochi-gun Kawamoto-machi,Shimane,邑智郡川本町
+32448,Ochi-gun Misato-cho,Shimane,邑智郡美郷町
+32449,Ochi-gun Onan-cho,Shimane,邑智郡邑南町
+32501,Kanoashi-gun Tsuwano-cho,Shimane,鹿足郡津和野町
+32505,Kanoashi-gun Yoshika-cho,Shimane,鹿足郡吉賀町
+32525,Oki-gun Ama-cho,Shimane,隠岐郡海士町
+32526,Oki-gun Nishinoshima-cho,Shimane,隠岐郡西ノ島町
+32527,Oki-gun Chibu-mura,Shimane,隠岐郡知夫村
+32528,Oki-gun Okinoshima-cho,Shimane,隠岐郡隠岐の島町
+33101,Okayama-shi Kita-ku,Okayama,岡山市北区
+33102,Okayama-shi Naka-ku,Okayama,岡山市中区
+33103,Okayama-shi Higashi-ku,Okayama,岡山市東区
+33104,Okayama-shi Minami-ku,Okayama,岡山市南区
+33202,Kurashiki-shi,Okayama,倉敷市
+33203,Tsuyama-shi,Okayama,津山市
+33204,Tamano-shi,Okayama,玉野市
+33205,Kasaoka-shi,Okayama,笠岡市
+33207,Ibara-shi,Okayama,井原市
+33208,Soja-shi,Okayama,総社市
+33209,Takahashi-shi,Okayama,高梁市
+33210,Niimi-shi,Okayama,新見市
+33211,Bizen-shi,Okayama,備前市
+33212,Setochi-shi,Okayama,瀬戸内市
+33213,Akaiwa-shi,Okayama,赤磐市
+33214,Maniwa-shi,Okayama,真庭市
+33215,Mimasaka-shi,Okayama,美作市
+33216,Asakuchi-shi,Okayama,浅口市
+33346,Wake-gun Wake-cho,Okayama,和気郡和気町
+33423,Tsukubo-gun Hayashima-cho,Okayama,都窪郡早島町
+33445,Asakuchi-gun Satosho-cho,Okayama,浅口郡里庄町
+33461,Oda-gun Yakage-cho,Okayama,小田郡矢掛町
+33586,Maniwa-gun Shinjo-son,Okayama,真庭郡新庄村
+33606,Tomata-gun Kagamino-cho,Okayama,苫田郡鏡野町
+33622,Katsuta-gun Shoo-cho,Okayama,勝田郡勝央町
+33623,Katsuta-gun Nagi-cho,Okayama,勝田郡奈義町
+33643,Aida-gun Nishiawakura-son,Okayama,英田郡西粟倉村
+33663,Kume-gun Kumenan-cho,Okayama,久米郡久米南町
+33666,Kume-gun Misaki-cho,Okayama,久米郡美咲町
+33681,Kaga-gun Kibichuo-cho,Okayama,加賀郡吉備中央町
+34101,Hiroshima-shi Naka-ku,Hiroshima,広島市中区
+34102,Hiroshima-shi Higashi-ku,Hiroshima,広島市東区
+34103,Hiroshima-shi Minami-ku,Hiroshima,広島市南区
+34104,Hiroshima-shi Nishi-ku,Hiroshima,広島市西区
+34105,Hiroshima-shi Asaminami-ku,Hiroshima,広島市安佐南区
+34106,Hiroshima-shi Asakita-ku,Hiroshima,広島市安佐北区
+34107,Hiroshima-shi Aki-ku,Hiroshima,広島市安芸区
+34108,Hiroshima-shi Saeki-ku,Hiroshima,広島市佐伯区
+34202,Kure-shi,Hiroshima,呉市
+34203,Takehara-shi,Hiroshima,竹原市
+34204,Mihara-shi,Hiroshima,三原市
+34205,Onomichi-shi,Hiroshima,尾道市
+34207,Fukuyama-shi,Hiroshima,福山市
+34208,Fuchu-shi,Hiroshima,府中市
+34209,Miyoshi-shi,Hiroshima,三次市
+34210,Shobara-shi,Hiroshima,庄原市
+34211,Otake-shi,Hiroshima,大竹市
+34212,Higashihiroshima-shi,Hiroshima,東広島市
+34213,Hatsukaichi-shi,Hiroshima,廿日市市
+34214,Akitakata-shi,Hiroshima,安芸高田市
+34215,Etajima-shi,Hiroshima,江田島市
+34302,Aki-gun Fuchu-cho,Hiroshima,安芸郡府中町
+34304,Aki-gun Kaita-cho,Hiroshima,安芸郡海田町
+34307,Aki-gun Kumano-cho,Hiroshima,安芸郡熊野町
+34309,Aki-gun Saka-cho,Hiroshima,安芸郡坂町
+34368,Yamagata-gun Akiota-cho,Hiroshima,山県郡安芸太田町
+34369,Yamagata-gun Kitahiroshima-cho,Hiroshima,山県郡北広島町
+34431,Toyota-gun Osakikamijima-cho,Hiroshima,豊田郡大崎上島町
+34462,Sera-gun Sera-cho,Hiroshima,世羅郡世羅町
+34545,Jinseki-gun Jinsekikogen-cho,Hiroshima,神石郡神石高原町
+35201,Shimonoseki-shi,Yamaguchi,下関市
+35202,Ube-shi,Yamaguchi,宇部市
+35203,Yamaguchi-shi,Yamaguchi,山口市
+35204,Hagi-shi,Yamaguchi,萩市
+35206,Hofu-shi,Yamaguchi,防府市
+35207,Kudamatsu-shi,Yamaguchi,下松市
+35208,Iwakuni-shi,Yamaguchi,岩国市
+35210,Hikari-shi,Yamaguchi,光市
+35211,Nagato-shi,Yamaguchi,長門市
+35212,Yanai-shi,Yamaguchi,柳井市
+35213,Mine-shi,Yamaguchi,美祢市
+35215,Shunan-shi,Yamaguchi,周南市
+35216,Sanyoonoda-shi,Yamaguchi,山陽小野田市
+35305,Oshima-gun Suooshima-cho,Yamaguchi,大島郡周防大島町
+35321,Kuga-gun Waki-cho,Yamaguchi,玖珂郡和木町
+35341,Kumage-gun Kaminoseki-cho,Yamaguchi,熊毛郡上関町
+35343,Kumage-gun Tabuse-cho,Yamaguchi,熊毛郡田布施町
+35344,Kumage-gun Hirao-cho,Yamaguchi,熊毛郡平生町
+35502,Abu-gun Abu-cho,Yamaguchi,阿武郡阿武町
+36201,Tokushima-shi,Tokushima,徳島市
+36202,Naruto-shi,Tokushima,鳴門市
+36203,Komatsushima-shi,Tokushima,小松島市
+36204,Anan-shi,Tokushima,阿南市
+36205,Yoshinogawa-shi,Tokushima,吉野川市
+36206,Awa-shi,Tokushima,阿波市
+36207,Mima-shi,Tokushima,美馬市
+36208,Miyoshi-shi,Tokushima,三好市
+36301,Katsura-gun Katsura-cho,Tokushima,勝浦郡勝浦町
+36302,Katsura-gun Kamikatsu-cho,Tokushima,勝浦郡上勝町
+36321,Myodo-gun Sanagochi-son,Tokushima,名東郡佐那河内村
+36341,Myozai-gun Ishii-cho,Tokushima,名西郡石井町
+36342,Myozai-gun Kamiyama-cho,Tokushima,名西郡神山町
+36368,Naka-gun Naka-cho,Tokushima,那賀郡那賀町
+36383,Kaifu-gun Mugi-cho,Tokushima,海部郡牟岐町
+36387,Kaifu-gun Minami-cho,Tokushima,海部郡美波町
+36388,Kaifu-gun Kaiyo-cho,Tokushima,海部郡海陽町
+36401,Itano-gun Matsushige-cho,Tokushima,板野郡松茂町
+36402,Itano-gun Kitajima-cho,Tokushima,板野郡北島町
+36403,Itano-gun Aizumi-cho,Tokushima,板野郡藍住町
+36404,Itano-gun Itano-cho,Tokushima,板野郡板野町
+36405,Itano-gun Kamiita-cho,Tokushima,板野郡上板町
+36468,Mima-gun Tsurugi-cho,Tokushima,美馬郡つるぎ町
+36489,Miyoshi-gun Higashimiyoshi-cho,Tokushima,三好郡東みよし町
+37201,Takamatsu-shi,Kagawa,高松市
+37202,Marugame-shi,Kagawa,丸亀市
+37203,Sakaide-shi,Kagawa,坂出市
+37204,Zentsuji-shi,Kagawa,善通寺市
+37205,Kanonji-shi,Kagawa,観音寺市
+37206,Sanuki-shi,Kagawa,さぬき市
+37207,Higashikagawa-shi,Kagawa,東かがわ市
+37208,Mitoyo-shi,Kagawa,三豊市
+37322,Shozu-gun Tonosho-cho,Kagawa,小豆郡土庄町
+37324,Shozu-gun Shodoshima-cho,Kagawa,小豆郡小豆島町
+37341,Kita-gun Miki-cho,Kagawa,木田郡三木町
+37364,Kagawa-gun Naoshima-cho,Kagawa,香川郡直島町
+37386,Ayauta-gun Utazu-cho,Kagawa,綾歌郡宇多津町
+37387,Ayauta-gun Ayagawa-cho,Kagawa,綾歌郡綾川町
+37403,Nakatado-gun Kotohira-cho,Kagawa,仲多度郡琴平町
+37404,Nakatado-gun Tadotsu-cho,Kagawa,仲多度郡多度津町
+37406,Nakatado-gun Manno-cho,Kagawa,仲多度郡まんのう町
+38201,Matsuyama-shi,Ehime,松山市
+38202,Imabari-shi,Ehime,今治市
+38203,Uwajima-shi,Ehime,宇和島市
+38204,Yawatahama-shi,Ehime,八幡浜市
+38205,Niihama-shi,Ehime,新居浜市
+38206,Saijo-shi,Ehime,西条市
+38207,Ozu-shi,Ehime,大洲市
+38210,Iyo-shi,Ehime,伊予市
+38213,Shikokuchuo-shi,Ehime,四国中央市
+38214,Seiyo-shi,Ehime,西予市
+38215,Toon-shi,Ehime,東温市
+38356,Ochi-gun Kamijima-cho,Ehime,越智郡上島町
+38386,Kamiukena-gun Kumakogen-cho,Ehime,上浮穴郡久万高原町
+38401,Iyo-gun Masaki-cho,Ehime,伊予郡松前町
+38402,Iyo-gun Tobe-cho,Ehime,伊予郡砥部町
+38422,Kita-gun Uchiko-cho,Ehime,喜多郡内子町
+38442,Nishiuwa-gun Ikata-cho,Ehime,西宇和郡伊方町
+38484,Kitauwa-gun Matsuno-cho,Ehime,北宇和郡松野町
+38488,Kitauwa-gun Kihoku-cho,Ehime,北宇和郡鬼北町
+38506,Minamiuwa-gun Ainan-cho,Ehime,南宇和郡愛南町
+39201,Kochi-shi,Kochi,高知市
+39202,Muroto-shi,Kochi,室戸市
+39203,Aki-shi,Kochi,安芸市
+39204,Nankoku-shi,Kochi,南国市
+39205,Tosa-shi,Kochi,土佐市
+39206,Susaki-shi,Kochi,須崎市
+39208,Sukumo-shi,Kochi,宿毛市
+39209,Tosashimizu-shi,Kochi,土佐清水市
+39210,Shimanto-shi,Kochi,四万十市
+39211,Konan-shi,Kochi,香南市
+39212,Kami-shi,Kochi,香美市
+39301,Aki-gun Toyo-cho,Kochi,安芸郡東洋町
+39302,Aki-gun Nahari-cho,Kochi,安芸郡奈半利町
+39303,Aki-gun Tano-cho,Kochi,安芸郡田野町
+39304,Aki-gun Yasuda-cho,Kochi,安芸郡安田町
+39305,Aki-gun Kitagawa-mura,Kochi,安芸郡北川村
+39306,Aki-gun Umaji-mura,Kochi,安芸郡馬路村
+39307,Aki-gun Geisei-mura,Kochi,安芸郡芸西村
+39341,Nagaoka-gun Motoyama-cho,Kochi,長岡郡本山町
+39344,Nagaoka-gun Otoyo-cho,Kochi,長岡郡大豊町
+39363,Tosa-gun Tosa-cho,Kochi,土佐郡土佐町
+39364,Tosa-gun Okawa-mura,Kochi,土佐郡大川村
+39386,Agawa-gun Ino-cho,Kochi,吾川郡いの町
+39387,Agawa-gun Niyodogawa-cho,Kochi,吾川郡仁淀川町
+39401,Takaoka-gun Nakatosa-cho,Kochi,高岡郡中土佐町
+39402,Takaoka-gun Sakawa-cho,Kochi,高岡郡佐川町
+39403,Takaoka-gun Ochi-cho,Kochi,高岡郡越知町
+39405,Takaoka-gun Yusuhara-cho,Kochi,高岡郡檮原町
+39410,Takaoka-gun Hidaka-mura,Kochi,高岡郡日高村
+39411,Takaoka-gun Tsuno-cho,Kochi,高岡郡津野町
+39412,Takaoka-gun Shimanto-cho,Kochi,高岡郡四万十町
+39424,Hata-gun Otsuki-cho,Kochi,幡多郡大月町
+39427,Hata-gun Mihara-mura,Kochi,幡多郡三原村
+39428,Hata-gun Kuroshio-cho,Kochi,幡多郡黒潮町
+40101,Kitakyushu-shi Moji-ku,Fukuoka,北九州市門司区
+40103,Kitakyushu-shi Wakamatsu-ku,Fukuoka,北九州市若松区
+40105,Kitakyushu-shi Tobata-ku,Fukuoka,北九州市戸畑区
+40106,Kitakyushu-shi Kokurakita-ku,Fukuoka,北九州市小倉北区
+40107,Kitakyushu-shi Kokuraminami-ku,Fukuoka,北九州市小倉南区
+40108,Kitakyushu-shi Yahatahigashi-ku,Fukuoka,北九州市八幡東区
+40109,Kitakyushu-shi Yahatanishi-ku,Fukuoka,北九州市八幡西区
+40131,Fukuoka-shi Higashi-ku,Fukuoka,福岡市東区
+40132,Fukuoka-shi Hakata-ku,Fukuoka,福岡市博多区
+40133,Fukuoka-shi Chuo-ku,Fukuoka,福岡市中央区
+40134,Fukuoka-shi Minami-ku,Fukuoka,福岡市南区
+40135,Fukuoka-shi Nishi-ku,Fukuoka,福岡市西区
+40136,Fukuoka-shi Jonan-ku,Fukuoka,福岡市城南区
+40137,Fukuoka-shi Sawara-ku,Fukuoka,福岡市早良区
+40202,Omuta-shi,Fukuoka,大牟田市
+40203,Kurume-shi,Fukuoka,久留米市
+40204,Nogata-shi,Fukuoka,直方市
+40205,Iizuka-shi,Fukuoka,飯塚市
+40206,Tagawa-shi,Fukuoka,田川市
+40207,Yanagawa-shi,Fukuoka,柳川市
+40210,Yame-shi,Fukuoka,八女市
+40211,Chikugo-shi,Fukuoka,筑後市
+40212,Okawa-shi,Fukuoka,大川市
+40213,Yukuhashi-shi,Fukuoka,行橋市
+40214,Buzen-shi,Fukuoka,豊前市
+40215,Nakama-shi,Fukuoka,中間市
+40216,Ogori-shi,Fukuoka,小郡市
+40217,Chikushino-shi,Fukuoka,筑紫野市
+40218,Kasuga-shi,Fukuoka,春日市
+40219,Onojo-shi,Fukuoka,大野城市
+40220,Munakata-shi,Fukuoka,宗像市
+40221,Dazaifu-shi,Fukuoka,太宰府市
+40223,Koga-shi,Fukuoka,古賀市
+40224,Fukutsu-shi,Fukuoka,福津市
+40225,Ukiha-shi,Fukuoka,うきは市
+40226,Miyawaka-shi,Fukuoka,宮若市
+40227,Kama-shi,Fukuoka,嘉麻市
+40228,Asakura-shi,Fukuoka,朝倉市
+40229,Miyama-shi,Fukuoka,みやま市
+40230,Itoshima-shi,Fukuoka,糸島市
+40231,Nakagawa-shi,Fukuoka,那珂川市
+40341,Kasuya-gun Umi-machi,Fukuoka,糟屋郡宇美町
+40342,Kasuya-gun Sasaguri-machi,Fukuoka,糟屋郡篠栗町
+40343,Kasuya-gun Shime-machi,Fukuoka,糟屋郡志免町
+40344,Kasuya-gun Sue-machi,Fukuoka,糟屋郡須恵町
+40345,Kasuya-gun Shingu-machi,Fukuoka,糟屋郡新宮町
+40348,Kasuya-gun Hisayama-machi,Fukuoka,糟屋郡久山町
+40349,Kasuya-gun Kasuya-machi,Fukuoka,糟屋郡粕屋町
+40381,Onga-gun Ashiya-machi,Fukuoka,遠賀郡芦屋町
+40382,Onga-gun Mizumaki-machi,Fukuoka,遠賀郡水巻町
+40383,Onga-gun Okagaki-machi,Fukuoka,遠賀郡岡垣町
+40384,Onga-gun Onga-cho,Fukuoka,遠賀郡遠賀町
+40401,Kurate-gun Kotake-machi,Fukuoka,鞍手郡小竹町
+40402,Kurate-gun Kurate-machi,Fukuoka,鞍手郡鞍手町
+40421,Kaho-gun Keisen-machi,Fukuoka,嘉穂郡桂川町
+40447,Asakura-gun Chikuzen-machi,Fukuoka,朝倉郡筑前町
+40448,Asakura-gun Toho-mura,Fukuoka,朝倉郡東峰村
+40503,Mii-gun Tachiarai-machi,Fukuoka,三井郡大刀洗町
+40522,Mizuma-gun Oki-machi,Fukuoka,三潴郡大木町
+40544,Yame-gun Hirokawa-machi,Fukuoka,八女郡広川町
+40601,Tagawa-gun Kawara-machi,Fukuoka,田川郡香春町
+40602,Tagawa-gun Soeda-machi,Fukuoka,田川郡添田町
+40604,Tagawa-gun Itoda-machi,Fukuoka,田川郡糸田町
+40605,Tagawa-gun Kawasaki-machi,Fukuoka,田川郡川崎町
+40608,Tagawa-gun Oto-machi,Fukuoka,田川郡大任町
+40609,Tagawa-gun Aka-mura,Fukuoka,田川郡赤村
+40610,Tagawa-gun Fukuchi-machi,Fukuoka,田川郡福智町
+40621,Miyako-gun Kanda-machi,Fukuoka,京都郡苅田町
+40625,Miyako-gun Miyako-machi,Fukuoka,京都郡みやこ町
+40642,Chikujo-gun Yoshitomi-machi,Fukuoka,築上郡吉富町
+40646,Chikujo-gun Koge-machi,Fukuoka,築上郡上毛町
+40647,Chikujo-gun Chikujo-machi,Fukuoka,築上郡築上町
+41201,Saga-shi,Saga,佐賀市
+41202,Karatsu-shi,Saga,唐津市
+41203,Tosu-shi,Saga,鳥栖市
+41204,Taku-shi,Saga,多久市
+41205,Imari-shi,Saga,伊万里市
+41206,Takeo-shi,Saga,武雄市
+41207,Kashima-shi,Saga,鹿島市
+41208,Ogi-shi,Saga,小城市
+41209,Ureshino-shi,Saga,嬉野市
+41210,Kanzaki-shi,Saga,神埼市
+41327,Kanzaki-gun Yoshinogari-cho,Saga,神埼郡吉野ヶ里町
+41341,Miyaki-gun Kiyama-cho,Saga,三養基郡基山町
+41345,Miyaki-gun Kamimine-cho,Saga,三養基郡上峰町
+41346,Miyaki-gun Miyaki-cho,Saga,三養基郡みやき町
+41387,Higashimatsura-gun Genkai-cho,Saga,東松浦郡玄海町
+41401,Nishimatsura-gun Arita-cho,Saga,西松浦郡有田町
+41423,Kishima-gun Omachi-cho,Saga,杵島郡大町町
+41424,Kishima-gun Kohoku-machi,Saga,杵島郡江北町
+41425,Kishima-gun Shiroishi-cho,Saga,杵島郡白石町
+41441,Fujitsu-gun Tara-cho,Saga,藤津郡太良町
+42201,Nagasaki-shi,Nagasaki,長崎市
+42202,Sasebo-shi,Nagasaki,佐世保市
+42203,Shimabara-shi,Nagasaki,島原市
+42204,Isahaya-shi,Nagasaki,諫早市
+42205,Omura-shi,Nagasaki,大村市
+42207,Hirado-shi,Nagasaki,平戸市
+42208,Matsura-shi,Nagasaki,松浦市
+42209,Tsushima-shi,Nagasaki,対馬市
+42210,Iki-shi,Nagasaki,壱岐市
+42211,Goto-shi,Nagasaki,五島市
+42212,Saikai-shi,Nagasaki,西海市
+42213,Unzen-shi,Nagasaki,雲仙市
+42214,Minamishimabara-shi,Nagasaki,南島原市
+42307,Nishisonogi-gun Nagayo-cho,Nagasaki,西彼杵郡長与町
+42308,Nishisonogi-gun Togitsu-cho,Nagasaki,西彼杵郡時津町
+42321,Higashisonogi-gun Higashisonogi-cho,Nagasaki,東彼杵郡東彼杵町
+42322,Higashisonogi-gun Kawatana-cho,Nagasaki,東彼杵郡川棚町
+42323,Higashisonogi-gun Hasami-cho,Nagasaki,東彼杵郡波佐見町
+42383,Kitamatsura-gun Ojika-cho,Nagasaki,北松浦郡小値賀町
+42391,Kitamatsura-gun Saza-cho,Nagasaki,北松浦郡佐々町
+42411,Minamimatsura-gun Shinkamigoto-cho,Nagasaki,南松浦郡新上五島町
+43101,Kumamoto-shi Chuo-ku,Kumamoto,熊本市中央区
+43102,Kumamoto-shi Higashi-ku,Kumamoto,熊本市東区
+43103,Kumamoto-shi Nishi-ku,Kumamoto,熊本市西区
+43104,Kumamoto-shi Minami-ku,Kumamoto,熊本市南区
+43105,Kumamoto-shi Kita-ku,Kumamoto,熊本市北区
+43202,Yatsushiro-shi,Kumamoto,八代市
+43203,Hitoyoshi-shi,Kumamoto,人吉市
+43204,Arao-shi,Kumamoto,荒尾市
+43205,Minamata-shi,Kumamoto,水俣市
+43206,Tamana-shi,Kumamoto,玉名市
+43208,Yamaga-shi,Kumamoto,山鹿市
+43210,Kikuchi-shi,Kumamoto,菊池市
+43211,Uto-shi,Kumamoto,宇土市
+43212,Kamiamakusa-shi,Kumamoto,上天草市
+43213,Uki-shi,Kumamoto,宇城市
+43214,Aso-shi,Kumamoto,阿蘇市
+43215,Amakusa-shi,Kumamoto,天草市
+43216,Koshi-shi,Kumamoto,合志市
+43348,Shimomashiki-gun Misato-machi,Kumamoto,下益城郡美里町
+43364,Tamana-gun Gyokuto-machi,Kumamoto,玉名郡玉東町
+43367,Tamana-gun Nankan-machi,Kumamoto,玉名郡南関町
+43368,Tamana-gun Nagasu-machi,Kumamoto,玉名郡長洲町
+43369,Tamana-gun Nagomi-machi,Kumamoto,玉名郡和水町
+43403,Kikuchi-gun Ozu-machi,Kumamoto,菊池郡大津町
+43404,Kikuchi-gun Kikuyo-machi,Kumamoto,菊池郡菊陽町
+43423,Aso-gun Minamioguni-machi,Kumamoto,阿蘇郡南小国町
+43424,Aso-gun Oguni-machi,Kumamoto,阿蘇郡小国町
+43425,Aso-gun Ubuyama-mura,Kumamoto,阿蘇郡産山村
+43428,Aso-gun Takamori-machi,Kumamoto,阿蘇郡高森町
+43432,Aso-gun Nishihara-mura,Kumamoto,阿蘇郡西原村
+43433,Aso-gun Minamiaso-mura,Kumamoto,阿蘇郡南阿蘇村
+43441,Kamimashiki-gun Mifune-machi,Kumamoto,上益城郡御船町
+43442,Kamimashiki-gun Kashima-machi,Kumamoto,上益城郡嘉島町
+43443,Kamimashiki-gun Mashiki-machi,Kumamoto,上益城郡益城町
+43444,Kamimashiki-gun Kosa-machi,Kumamoto,上益城郡甲佐町
+43447,Kamimashiki-gun Yamato-cho,Kumamoto,上益城郡山都町
+43468,Yatsushiro-gun Hikawa-cho,Kumamoto,八代郡氷川町
+43482,Ashikita-gun Ashikita-machi,Kumamoto,葦北郡芦北町
+43484,Ashikita-gun Tsunagi-machi,Kumamoto,葦北郡津奈木町
+43501,Kuma-gun Nishiki-machi,Kumamoto,球磨郡錦町
+43505,Kuma-gun Taragi-machi,Kumamoto,球磨郡多良木町
+43507,Kuma-gun Mizukami-mura,Kumamoto,球磨郡水上村
+43510,Kuma-gun Sagara-mura,Kumamoto,球磨郡相良村
+43511,Kuma-gun Itsuki-mura,Kumamoto,球磨郡五木村
+43512,Kuma-gun Yamae-mura,Kumamoto,球磨郡山江村
+43513,Kuma-gun Kuma-mura,Kumamoto,球磨郡球磨村
+43514,Kuma-gun Asagiri-cho,Kumamoto,球磨郡あさぎり町
+43531,Amakusa-gun Reihoku-machi,Kumamoto,天草郡苓北町
+44201,Oita-shi,Oita,大分市
+44202,Beppu-shi,Oita,別府市
+44203,Nakatsu-shi,Oita,中津市
+44204,Hita-shi,Oita,日田市
+44205,Saiki-shi,Oita,佐伯市
+44206,Usuki-shi,Oita,臼杵市
+44207,Tsukumi-shi,Oita,津久見市
+44208,Taketa-shi,Oita,竹田市
+44209,Bungotakada-shi,Oita,豊後高田市
+44210,Kitsuki-shi,Oita,杵築市
+44211,Usa-shi,Oita,宇佐市
+44212,Bungoono-shi,Oita,豊後大野市
+44213,Yufu-shi,Oita,由布市
+44214,Kunisaki-shi,Oita,国東市
+44322,Higashikunisaki-gun Himeshima-mura,Oita,東国東郡姫島村
+44341,Hayami-gun Hiji-machi,Oita,速見郡日出町
+44461,Kusu-gun Kokonoe-machi,Oita,玖珠郡九重町
+44462,Kusu-gun Kusu-machi,Oita,玖珠郡玖珠町
+45201,Miyazaki-shi,Miyazaki,宮崎市
+45202,Miyakonojo-shi,Miyazaki,都城市
+45203,Nobeoka-shi,Miyazaki,延岡市
+45204,Nichinan-shi,Miyazaki,日南市
+45205,Kobayashi-shi,Miyazaki,小林市
+45206,Hyuga-shi,Miyazaki,日向市
+45207,Kushima-shi,Miyazaki,串間市
+45208,Saito-shi,Miyazaki,西都市
+45209,Ebino-shi,Miyazaki,えびの市
+45341,Kitamorokata-gun Mimata-cho,Miyazaki,北諸県郡三股町
+45361,Nishimorokata-gun Takaharu-cho,Miyazaki,西諸県郡高原町
+45382,Higashimorokata-gun Kunitomi-cho,Miyazaki,東諸県郡国富町
+45383,Higashimorokata-gun Aya-cho,Miyazaki,東諸県郡綾町
+45401,Koyu-gun Takanabe-cho,Miyazaki,児湯郡高鍋町
+45402,Koyu-gun Shintomi-cho,Miyazaki,児湯郡新富町
+45403,Koyu-gun Nishimera-son,Miyazaki,児湯郡西米良村
+45404,Koyu-gun Kijo-cho,Miyazaki,児湯郡木城町
+45405,Koyu-gun Kawaminami-cho,Miyazaki,児湯郡川南町
+45406,Koyu-gun Tsuno-cho,Miyazaki,児湯郡都農町
+45421,Higashiusuki-gun Kadogawa-cho,Miyazaki,東臼杵郡門川町
+45429,Higashiusuki-gun Morotsuka-son,Miyazaki,東臼杵郡諸塚村
+45430,Higashiusuki-gun Shiiba-son,Miyazaki,東臼杵郡椎葉村
+45431,Higashiusuki-gun Misato-cho,Miyazaki,東臼杵郡美郷町
+45441,Nishiusuki-gun Takachiho-cho,Miyazaki,西臼杵郡高千穂町
+45442,Nishiusuki-gun Hinokage-cho,Miyazaki,西臼杵郡日之影町
+45443,Nishiusuki-gun Gokase-cho,Miyazaki,西臼杵郡五ヶ瀬町
+46201,Kagoshima-shi,Kagoshima,鹿児島市
+46203,Kanoya-shi,Kagoshima,鹿屋市
+46204,Makurazaki-shi,Kagoshima,枕崎市
+46206,Akune-shi,Kagoshima,阿久根市
+46208,Izumi-shi,Kagoshima,出水市
+46210,Ibusuki-shi,Kagoshima,指宿市
+46213,Nishinomote-shi,Kagoshima,西之表市
+46214,Tarumizu-shi,Kagoshima,垂水市
+46215,Satsumasendai-shi,Kagoshima,薩摩川内市
+46216,Hioki-shi,Kagoshima,日置市
+46217,So-shi,Kagoshima,曽於市
+46218,Kirishima-shi,Kagoshima,霧島市
+46219,Ichikikushikino-shi,Kagoshima,いちき串木野市
+46220,Minamisatsuma-shi,Kagoshima,南さつま市
+46221,Shibushi-shi,Kagoshima,志布志市
+46222,Amami-shi,Kagoshima,奄美市
+46223,Minamikyushu-shi,Kagoshima,南九州市
+46224,Isa-shi,Kagoshima,伊佐市
+46225,Aira-shi,Kagoshima,姶良市
+46303,Kagoshima-gun Mishima-mura,Kagoshima,鹿児島郡三島村
+46304,Kagoshima-gun Toshima-mura,Kagoshima,鹿児島郡十島村
+46392,Satsuma-gun Satsuma-cho,Kagoshima,薩摩郡さつま町
+46404,Izumi-gun Nagashima-cho,Kagoshima,出水郡長島町
+46452,Aira-gun Yusui-cho,Kagoshima,姶良郡湧水町
+46468,So-gun Osaki-cho,Kagoshima,曽於郡大崎町
+46482,Kimotsuki-gun Higashikushira-cho,Kagoshima,肝属郡東串良町
+46490,Kimotsuki-gun Kinko-cho,Kagoshima,肝属郡錦江町
+46491,Kimotsuki-gun Minamiosumi-cho,Kagoshima,肝属郡南大隅町
+46492,Kimotsuki-gun Kimotsuki-cho,Kagoshima,肝属郡肝付町
+46501,Kumage-gun Nakatane-cho,Kagoshima,熊毛郡中種子町
+46502,Kumage-gun Minamitane-cho,Kagoshima,熊毛郡南種子町
+46505,Kumage-gun Yakushima-cho,Kagoshima,熊毛郡屋久島町
+46523,Oshima-gun Yamato-son,Kagoshima,大島郡大和村
+46524,Oshima-gun Uken-son,Kagoshima,大島郡宇検村
+46525,Oshima-gun Setochi-cho,Kagoshima,大島郡瀬戸内町
+46527,Oshima-gun Tatsugo-cho,Kagoshima,大島郡龍郷町
+46529,Oshima-gun Kikai-cho,Kagoshima,大島郡喜界町
+46530,Oshima-gun Tokunoshima-cho,Kagoshima,大島郡徳之島町
+46531,Oshima-gun Amagi-cho,Kagoshima,大島郡天城町
+46532,Oshima-gun Isen-cho,Kagoshima,大島郡伊仙町
+46533,Oshima-gun Wadomari-cho,Kagoshima,大島郡和泊町
+46534,Oshima-gun China-cho,Kagoshima,大島郡知名町
+46535,Oshima-gun Yoron-cho,Kagoshima,大島郡与論町
+47201,Naha-shi,Okinawa,那覇市
+47205,Ginowan-shi,Okinawa,宜野湾市
+47207,Ishigaki-shi,Okinawa,石垣市
+47208,Urasoe-shi,Okinawa,浦添市
+47209,Nago-shi,Okinawa,名護市
+47210,Itoman-shi,Okinawa,糸満市
+47211,Okinawa-shi,Okinawa,沖縄市
+47212,Tomigusuku-shi,Okinawa,豊見城市
+47213,Uruma-shi,Okinawa,うるま市
+47214,Miyakojima-shi,Okinawa,宮古島市
+47215,Nanjo-shi,Okinawa,南城市
+47301,Kunigami-gun Kunigami-son,Okinawa,国頭郡国頭村
+47302,Kunigami-gun Ogimi-son,Okinawa,国頭郡大宜味村
+47303,Kunigami-gun Higashi-son,Okinawa,国頭郡東村
+47306,Kunigami-gun Nakijin-son,Okinawa,国頭郡今帰仁村
+47308,Kunigami-gun Motobu-cho,Okinawa,国頭郡本部町
+47311,Kunigami-gun Onna-son,Okinawa,国頭郡恩納村
+47313,Kunigami-gun Ginoza-son,Okinawa,国頭郡宜野座村
+47314,Kunigami-gun Kin-cho,Okinawa,国頭郡金武町
+47315,Kunigami-gun Ie-son,Okinawa,国頭郡伊江村
+47324,Nakagami-gun Yomitan-son,Okinawa,中頭郡読谷村
+47325,Nakagami-gun Kadena-cho,Okinawa,中頭郡嘉手納町
+47326,Nakagami-gun Chatan-cho,Okinawa,中頭郡北谷町
+47327,Nakagami-gun Kitanakagusuku-son,Okinawa,中頭郡北中城村
+47328,Nakagami-gun Nakagusuku-son,Okinawa,中頭郡中城村
+47329,Nakagami-gun Nishihara-cho,Okinawa,中頭郡西原町
+47348,Shimajiri-gun Yonabaru-cho,Okinawa,島尻郡与那原町
+47350,Shimajiri-gun Haebaru-cho,Okinawa,島尻郡南風原町
+47353,Shimajiri-gun Tokashiki-son,Okinawa,島尻郡渡嘉敷村
+47354,Shimajiri-gun Zamami-son,Okinawa,島尻郡座間味村
+47355,Shimajiri-gun Aguni-son,Okinawa,島尻郡粟国村
+47356,Shimajiri-gun Tonaki-son,Okinawa,島尻郡渡名喜村
+47357,Shimajiri-gun Minamidaito-son,Okinawa,島尻郡南大東村
+47358,Shimajiri-gun Kitadaito-son,Okinawa,島尻郡北大東村
+47359,Shimajiri-gun Iheya-son,Okinawa,島尻郡伊平屋村
+47360,Shimajiri-gun Izena-son,Okinawa,島尻郡伊是名村
+47361,Shimajiri-gun Kumejima-cho,Okinawa,島尻郡久米島町
+47362,Shimajiri-gun Yaese-cho,Okinawa,島尻郡八重瀬町
+47375,Miyako-gun Tarama-son,Okinawa,宮古郡多良間村
+47381,Yaeyama-gun Taketomi-cho,Okinawa,八重山郡竹富町
+47382,Yaeyama-gun Yonaguni-cho,Okinawa,八重山郡与那国町

@@ -64,7 +64,8 @@ from extract import (LocalSource, S3Source, load_codelist, compact, DB_PATH,
                      ARCHIVE, incremental_window, record_run,
                      seek_key,
                      select_pending, catch_up_start, CATCH_UP_DAYS,
-                     recorded_floor)
+                     recorded_floor,
+                     sec_code_of)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 GAZETTEER = os.path.join(HERE, "gazetteer_municipalities.csv")
@@ -980,7 +981,7 @@ def main():
             if done % 500 == 0:
                 print("  %d/%d filings" % (done, len(targets)))
                 sys.stdout.flush()
-            base = [doc_id, m.get("edinetCode"), (m.get("secCode") or "")[:4] or None,
+            base = [doc_id, m.get("edinetCode"), sec_code_of(m),
                     rec.get("filer") or m.get("filerName"),
                     m.get("periodEnd") or None, rec["date"],
                     sha1, sha5, PARSER_VERSION]

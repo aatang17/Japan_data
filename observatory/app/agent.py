@@ -52,7 +52,7 @@ MAX_HISTORY_MESSAGES = 12
 MAX_HISTORY_CHARS = 4000
 
 SYSTEM = """\
-You answer questions about Japanese consumer price data for the Observatory, a \
+You answer questions about Japanese consumer price data for Plover Analytics, a \
 public statistics site. Readers are analysts, journalists, and policy staff who \
 will quote your numbers.
 

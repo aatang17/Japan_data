@@ -1,7 +1,7 @@
 # UI/UX Design — Detailed Reference
 
 > Exhaustive specs behind the `ui-ux-design` skill procedure ([SKILL.md](SKILL.md)). Canonical home for
-> the Observatory's visual rules. Read the matching section before building that surface. Once code
+> Plover Analytics' visual rules. Read the matching section before building that surface. Once code
 > exists, the token file and shared components named here are the source of truth for values; this doc
 > mirrors them.
 

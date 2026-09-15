@@ -62,7 +62,8 @@ import duckdb
 from extract import (LocalSource, S3Source, load_codelist, compact, DB_PATH,
                      incremental_window, record_run,
                      select_pending, catch_up_start, CATCH_UP_DAYS,
-                     recorded_floor)
+                     recorded_floor,
+                     sec_code_of)
 from fin_extract import (NUM_RE, STANDARD_DEI, CONSOLIDATED_DEI, balance_check,
                          summary_check)
 
@@ -251,7 +252,7 @@ def main():
                 print("  %d/%d filings, %d facts" % (done, len(targets), n_facts))
                 sys.stdout.flush()
             base = [doc_id, doc_type, m.get("edinetCode"),
-                    (m.get("secCode") or "")[:4] or None,
+                    sec_code_of(m),
                     rec.get("filer") or m.get("filerName"),
                     m.get("periodEnd") or None, rec["date"], sha, PARSER_VERSION]
             con.execute("DELETE FROM eq_ssr_filings WHERE doc_id = ?", [doc_id])

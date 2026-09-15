@@ -109,7 +109,7 @@
     });
     var source = "Source: annual securities reports via EDINET · matched panel of " +
       count(trendData.panel_companies) + " listed companies, FY" + trendData.first_year +
-      "–FY" + trendData.last_year + " · Japan Data Observatory";
+      "–FY" + trendData.last_year + " · Plover Analytics";
     var cfg = {
       xType: "category",
       series: [{ name: m.label + (m.unit === "%" ? " (%)" : " (" + m.unit + ")"), slot: 1, points: points }],
@@ -129,7 +129,7 @@
     };
     $("trend-csv").onclick = function () {
       csvDownload("japan-boards-panel.csv",
-        ["Japan Data Observatory — boards and pay, matched panel",
+        ["Plover Analytics — boards and pay, matched panel",
          trendData.panel_note,
          "Scope: " + trendData.listed_scope,
          "Official statistics as filed; averages, ratios and per-head figures calculated by the platform.",
@@ -208,7 +208,7 @@
       "they cover, excluding ‘of which’ sub-rows. " + esc(d.pay_consistency_note || "");
     $("screen-csv").onclick = function () {
       csvDownload("japan-boards-" + d.metric + ".csv",
-        ["Japan Data Observatory — boards and pay screen: " + d.title,
+        ["Plover Analytics — boards and pay screen: " + d.title,
          "Scope: " + d.scope,
          "Official statistics as filed; average age, ratios and pay per officer calculated.",
          d.pay_consistency_note || "",
@@ -333,7 +333,7 @@
   };
 
   function renderCompany(d) {
-    document.title = (d.filer_name_en || d.filer_name) + " — Boards & Pay · Japan Data Observatory";
+    document.title = (d.filer_name_en || d.filer_name) + " — Boards & Pay · Plover Analytics";
     $("co-name").textContent = d.filer_name_en || d.filer_name;
     $("co-code").textContent = d.sec_code || "";
     $("co-industry").textContent = d.industry_en || d.industry || "";
@@ -414,7 +414,7 @@
       "itself — not a translation by this platform. The Japanese name is always shown beside it.";
     $("board-csv").onclick = function () {
       csvDownload("board-" + d.sec_code + ".csv",
-        ["Japan Data Observatory — board of " + (d.filer_name_en || d.filer_name),
+        ["Plover Analytics — board of " + (d.filer_name_en || d.filer_name),
          "Filing " + d.doc_id + ", FY end " + d.period_end + ", filed " + d.filed_date,
          "SHA-256 of the archived filing: " + (d.sha256 || ""),
          "Names, titles, dates of birth and shareholdings are official statistics as filed. " +
@@ -471,7 +471,7 @@
       "including anyone who left mid-year, so they legitimately differ from the board size above.";
     $("pay-csv").onclick = function () {
       csvDownload("officer-pay-" + d.sec_code + ".csv",
-        ["Japan Data Observatory — officer remuneration of " + (d.filer_name_en || d.filer_name),
+        ["Plover Analytics — officer remuneration of " + (d.filer_name_en || d.filer_name),
          "Filing " + d.doc_id + ", FY end " + d.period_end + ", filed " + d.filed_date,
          "All yen figures are official statistics as filed. per_head_yen = total ÷ officers paid (calculated).",
          d.components_note,
@@ -518,7 +518,7 @@
           : "");
       $("named-csv").onclick = function () {
         csvDownload("named-pay-" + d.sec_code + ".csv",
-          ["Japan Data Observatory — individuals disclosed by " + (d.filer_name_en || d.filer_name),
+          ["Plover Analytics — individuals disclosed by " + (d.filer_name_en || d.filer_name),
            "Filing " + d.doc_id + ", FY end " + d.period_end + ", filed " + d.filed_date,
            "Consolidated remuneration (連結報酬等), official statistics as filed.",
            d.consolidated_pay_note,
@@ -555,7 +555,7 @@
           }).join("") + "</tbody>";
         $("hist-csv").onclick = function () {
           csvDownload("board-history-" + d.sec_code + ".csv",
-            ["Japan Data Observatory — five-year board and pay record, " +
+            ["Plover Analytics — five-year board and pay record, " +
              (d.filer_name_en || d.filer_name),
              h.panel_note, h.consolidated_pay_note,
              "Source: 有価証券報告書 via EDINET, Financial Services Agency."],

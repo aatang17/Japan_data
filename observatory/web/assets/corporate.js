@@ -241,7 +241,7 @@ async function renderGrowth() {
     growthChart.exportPNG("japan-corporate-" + st.industry + "-" + st.size + "-yoy.png");
   document.getElementById("growth-csv").onclick = () =>
     growthChart.exportCSV("japan-corporate-" + st.industry + "-" + st.size + "-yoy.csv", [
-      "Japan Data Observatory — corporate sales, ordinary profit and capital investment, " +
+      "Plover Analytics — corporate sales, ordinary profit and capital investment, " +
         "year on year (%) · " + industryLabel(st.industry) + ", " + sizeLabel(st.size),
       "Trust: calculated from official amounts — " + CALC.yoy,
       "Source: " + (OV.credit_line || ""),
@@ -298,7 +298,7 @@ async function renderMargin() {
     marginChart.exportPNG("japan-corporate-" + st.industry + "-margin-by-size.png");
   document.getElementById("margin-csv").onclick = () =>
     marginChart.exportCSV("japan-corporate-" + st.industry + "-margin-by-size.csv", [
-      "Japan Data Observatory — ordinary profit margin by capital size (%) · " + industryLabel(st.industry),
+      "Plover Analytics — ordinary profit margin by capital size (%) · " + industryLabel(st.industry),
       "Trust: calculated from official amounts — " + CALC.margin,
       "Source: " + (OV.credit_line || ""),
       "Release: " + OV.release.label + " (sha256 " + OV.release.sha256 + ")",
@@ -391,7 +391,7 @@ async function renderTable() {
     "ones.</div>";
 
   document.getElementById("table-csv").onclick = () => {
-    const lines = ["# Japan Data Observatory — corporate finance by industry, " + sizeLabel(st.size) +
+    const lines = ["# Plover Analytics — corporate finance by industry, " + sizeLabel(st.size) +
                      ", " + qLabel(latestIso()),
                    "# Source: " + (OV.credit_line || ""),
                    "# Release: " + OV.release.label + " (sha256 " + OV.release.sha256 + ")",

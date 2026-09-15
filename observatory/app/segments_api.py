@@ -612,7 +612,7 @@ def lens_csv(sec_code: str):
     years.sort()
     out = io.StringIO()
     w = lambda line: out.write(line + "\n")
-    w("# Japan Data Observatory — Company Profile: %s (%s)" % (name, sec_code))
+    w("# Plover Analytics — Company Profile: %s (%s)" % (name, sec_code))
     w("# Filed figures: %s" % d["credit_lines"][0])
     w("# Customs figures: %s Release %s (sha256 %s), retrieved %s"
       % (d["credit_lines"][1], d["customs"]["release"]["label"],

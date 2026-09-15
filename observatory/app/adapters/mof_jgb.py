@@ -193,7 +193,7 @@ def parse(raw_bytes):
             "code": code,
             "name_en": name_en,
             "name_ja": None,
-            "unit": "pct",
+            "unit": "percent",
             "weight_per_10000": None,   # meaningless for a yield
             "sort_order": order,
         })

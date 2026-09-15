@@ -1,6 +1,6 @@
 ---
 name: ui-ux-design
-description: Use when creating, changing, or reviewing the visual appearance, layout, or styling of any dashboard, chart, data table, stat tile, filter, export, or embed surface for the Observatory data platform — public pages, Pro workspaces, and internal ops screens. Enforces the financial-data house style (FRED / Bloomberg / Koyfin / Stripe Dashboard), numeric-formatting discipline, the provenance-on-every-number rule, the anti-AI-tell checklist, and the mandatory responsive look-at-it gate before any UI is called done. NOT for API/DB/pipeline/business-logic, ingestion jobs, or copy-only edits that don't change how a screen looks.
+description: Use when creating, changing, or reviewing the visual appearance, layout, or styling of any dashboard, chart, data table, stat tile, filter, export, or embed surface for Plover Analytics data platform — public pages, Pro workspaces, and internal ops screens. Enforces the financial-data house style (FRED / Bloomberg / Koyfin / Stripe Dashboard), numeric-formatting discipline, the provenance-on-every-number rule, the anti-AI-tell checklist, and the mandatory responsive look-at-it gate before any UI is called done. NOT for API/DB/pipeline/business-logic, ingestion jobs, or copy-only edits that don't change how a screen looks.
 ---
 
 # UI/UX Design — Observatory Data Platform

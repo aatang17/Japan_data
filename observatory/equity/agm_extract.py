@@ -89,7 +89,8 @@ import duckdb
 from extract import (LocalSource, S3Source, load_codelist, compact, DB_PATH,
                      incremental_window, record_run, seek_key,
                      select_pending, catch_up_start, CATCH_UP_DAYS,
-                     recorded_floor)
+                     recorded_floor,
+                     sec_code_of)
 from facility_extract import grid_of, norm, to_num
 
 PARSER_VERSION = "agm-1"
@@ -670,7 +671,7 @@ def main():
             base = {
                 "doc_id": doc_id, "doc_type": doc_type,
                 "issuer_edinet_code": ecode,
-                "issuer_sec_code": (m.get("secCode") or "")[:4] or None,
+                "issuer_sec_code": sec_code_of(m),
                 "issuer_name": m.get("filerName") or reg.get(u"提出者名"),
                 "filed_date": (m.get("submitDateTime") or "")[:10] or rec["date"],
                 "meeting_date": None, "meeting_type": None,

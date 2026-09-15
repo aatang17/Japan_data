@@ -234,7 +234,7 @@ function sourceLine(extra) {
 function csvHeader(what, formulas) {
   const rel = TR.release;
   return [
-    "Japan Data Observatory — " + what,
+    "Plover Analytics — " + what,
     "Source: Ministry of Finance, Japan, " + rel.source_name,
     "Source page: " + rel.source_page,
     "Release: " + rel.label + " (sha256 " + rel.sha256 + ")",

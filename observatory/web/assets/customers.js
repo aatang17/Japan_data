@@ -75,7 +75,7 @@ function csvDownload(name, headerLines, cols, rows) {
 
 function csvHeader(what) {
   return [
-    "Japan Data Observatory — " + what,
+    "Plover Analytics — " + what,
     C.credit_line + " Annual securities reports, segment information note (主要な顧客ごとの情報).",
     "Latest filing per company; current fiscal year only. " + C.coverage.filers_naming_a_customer +
       " companies name " + C.coverage.relationships + " customer relationships.",

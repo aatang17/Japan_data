@@ -322,6 +322,13 @@ function muniRows(payload) {
   var seg = st.segment;
   var wanted = st.muni === "all" ? ["municipality", "group"] : ["municipality"];
   var out = [];
+  // Every English name ends ", <prefecture>", which is useful in search and in
+  // the API but is the same word on all 194 rows of a table already scoped to
+  // one prefecture. Strip that one suffix, and only where it matches.
+  var prefRow = (payload.geographies || []).filter(function (g) {
+    return g.level === "prefecture";
+  })[0];
+  var suffix = prefRow && prefRow.name_en ? ", " + prefRow.name_en : null;
   (payload.geographies || []).forEach(function (g) {
     if (wanted.indexOf(g.level) < 0) return;
     var pop = muniValue(payload, g.code, seg, "population");
@@ -334,7 +341,11 @@ function muniRows(payload) {
     // rather than zero.
     var opening = (pop !== null && net !== null) ? pop - net : null;
     out.push({
-      code: g.code, name: g.name, level: g.level,
+      // The register names every area in Japanese only; name_en is Japan
+      // Post's published romanisation, attached by the API. English leads and
+      // the filed Japanese sits beside it, as on the prefecture table.
+      code: g.code, name: shortName(g.name_en, suffix) || g.name,
+      name_ja: g.name_ja || g.name, level: g.level,
       population: pop, net_change: net,
       change_pct: (opening && opening > 0 && net !== null) ? net / opening * 100 : null,
       natural_change: muniValue(payload, g.code, seg, "natural_change"),
@@ -348,11 +359,22 @@ function muniRows(payload) {
   return out;
 }
 
+function shortName(nameEn, suffix) {
+  if (!nameEn || !suffix) return nameEn;
+  return nameEn.slice(-suffix.length) === suffix
+    ? nameEn.slice(0, -suffix.length) : nameEn;
+}
+
 function muniCell(row, key) {
   if (key === "name") {
-    return "<td>" + escapeHtml(row.name) +
-      (row.level === "group"
-        ? ' <span class="muted">· total of the areas below it</span>' : "") +
+    var aside = [];
+    if (row.name_ja && row.name_ja !== row.name) {
+      aside.push('<span class="name-part">' + escapeHtml(row.name_ja) + "</span>");
+    }
+    if (row.level === "group") aside.push("· total of the areas below it");
+    return '<td data-sort="' + escapeHtml(row.name) + '">' +
+      '<span class="name-part">' + escapeHtml(row.name) + "</span>" +
+      (aside.length ? ' <span class="muted">' + aside.join(" ") + "</span>" : "") +
       "</td>";
   }
   var v = row[key];
@@ -430,9 +452,9 @@ function muniCsvRows() {
   var rows = muniRows(payload);
   var keys = MUNI_COLS.filter(function (c) { return c.key !== "name"; })
     .map(function (c) { return c.key; });
-  return [["code", "municipality", "level"].concat(keys)].concat(
+  return [["code", "municipality", "municipality_ja", "level"].concat(keys)].concat(
     rows.map(function (r) {
-      return [r.code, r.name, r.level].concat(
+      return [r.code, r.name, r.name_ja, r.level].concat(
         keys.map(function (k) { return r[k] === null ? "" : r[k]; }));
     }));
 }
@@ -1644,7 +1666,7 @@ function tableCsvRows() {
 
 function csvHeader(extra) {
   var lines = [
-    "# Japan Data Observatory — population by prefecture",
+    "# Plover Analytics — population by prefecture",
     "# Source: " + (REG.credit_line || ""),
     "# Release: " + REG.release.label + " (sha256 " + REG.release.sha256 + ")",
     "# Reference: stocks at " + REG.release.latest_period +
@@ -1793,7 +1815,7 @@ function wire() {
     var name = (GEO_BY_CODE[urlState().pref] || {}).name_en || "prefecture";
     var cfg = histConfig();
     downloadCsv("japan-" + name.toLowerCase() + "-population-history.csv", histCsvRows(),
-      [ "# Japan Data Observatory — " + name + ", long-run population",
+      [ "# Plover Analytics — " + name + ", long-run population",
         "# Source: " + (HIST.credit_line || ""),
         "# Release: " + HIST.release.label + " (sha256 " + HIST.release.sha256 + ")",
         "# Years: " + cfg.window.from + " to " + cfg.window.to +

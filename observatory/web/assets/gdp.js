@@ -305,7 +305,7 @@ function renderGrowth() {
     growthChart.exportPNG("japan-gdp-" + st.measure + ".png");
   document.getElementById("growth-csv").onclick = () =>
     growthChart.exportCSV("japan-gdp-" + st.measure + ".csv", [
-      "Japan Data Observatory — quarterly GDP, " + g.label,
+      "Plover Analytics — quarterly GDP, " + g.label,
       "Trust: " + (g.trust === "official" ? "official statistics as published"
                    : "calculated from official levels — " + CALC[st.measure]),
       "Source: " + (OV.credit_line || ""),
@@ -389,7 +389,7 @@ async function renderContrib() {
     contribChart.exportPNG("japan-gdp-contributions-" + st.cbasis + ".png");
   document.getElementById("contrib-csv").onclick = () =>
     contribChart.exportCSV("japan-gdp-contributions-" + st.cbasis + ".csv", [
-      "Japan Data Observatory — contributions to real GDP growth, " +
+      "Plover Analytics — contributions to real GDP growth, " +
         (st.cbasis === "yoy" ? "year on year" : "quarter on quarter") + " (percentage points)",
       "Trust: calculated from official levels — " +
         (st.cbasis === "yoy" ? CALC.contribution_yoy : CALC.contribution),
@@ -467,7 +467,7 @@ async function renderSeriesTable() {
     "From the published levels of release “" + escapeHtml(OV.release.label) + "”.</div>";
 
   document.getElementById("series-csv").onclick = () => {
-    const lines = ["# Japan Data Observatory — quarterly GDP components, " + st.basis +
+    const lines = ["# Plover Analytics — quarterly GDP components, " + st.basis +
                      ", " + qLabel(latestIso()),
                    "# Source: " + (OV.credit_line || ""),
                    "# Release: " + OV.release.label + " (sha256 " + OV.release.sha256 + ")",

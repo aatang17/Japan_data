@@ -1,4 +1,4 @@
-# PLAN — Japan Macro Observatory
+# PLAN — Plover Analytics
 
 > **Status:** PROPOSAL v2 — awaiting approval. Supersedes the Asia-breadth plan (v1, this
 > file when it was named `PLAN-ASIA-EXPANSION.md`).

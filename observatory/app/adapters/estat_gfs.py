@@ -288,7 +288,7 @@ DATASET = {
     "country": "Japan",
     "agency": "Cabinet Office, Economic and Social Research Institute",
     "agency_ja": "内閣府経済社会総合研究所",
-    "base": "2015 (SNA 2008, 平成27年基準)",
+    "base": "2015 (SNA 2008, Heisei 27 base year)",
     "frequency": "annual",
     "description": (
         "Japan's whole government — central government, local government and "

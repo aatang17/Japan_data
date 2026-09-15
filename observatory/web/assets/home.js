@@ -351,9 +351,9 @@ function scenarioHtml(k, S, total) {
     '</div><div class="ov-reading-note">' + escapeHtml(r[3]) + "</div></div>").join("");
   return '<div class="asst-scn" data-k="' + k + '">' +
     '<div class="asst-chat">' +
-      '<div class="asst-head"><span>Investment Assistant · Japan Data Observatory over MCP</span><span class="muted num"><span class="live-dot"></span>live · ' + (k + 1) + " of " + total + "</span></div>" +
+      '<div class="asst-head"><span>Investment Assistant · Plover Analytics over MCP</span><span class="muted num"><span class="live-dot"></span>live · ' + (k + 1) + " of " + total + "</span></div>" +
       '<div class="asst-q-row"><div class="asst-q">' + words + '<span class="asst-cur"></span></div></div>' +
-      '<div class="asst-status"><span>Querying Japan Data Observatory</span><span class="asst-dots"><i></i><i></i><i></i></span></div>' +
+      '<div class="asst-status"><span>Querying Plover Analytics</span><span class="asst-dots"><i></i><i></i><i></i></span></div>' +
       '<div class="asst-tools">' + S.tools.map((t, i) => tool(i + 1, t)).join("") + "</div>" +
       '<div class="asst-ans"><div class="asst-who">Assistant</div><div class="asst-text">' + S.answer + '</div><div class="asst-trust">' + trust + "</div></div>" +
       '<div class="asst-foot muted">Every tool call is shown to the reader. The assistant has no other route to the numbers.</div>' +
@@ -392,9 +392,9 @@ function runAssistant(scenarios) {
     if (handle) {
       CHARTS.push(handle);
       const png = els[i].querySelector("[data-png]"), csv = els[i].querySelector("[data-csv]");
-      png.addEventListener("click", e => { e.preventDefault(); handle.exportPNG("japan-data-observatory-" + (i + 1) + ".png"); });
-      csv.addEventListener("click", e => { e.preventDefault(); handle.exportCSV("japan-data-observatory-" + (i + 1) + ".csv",
-        ["Japan Data Observatory — " + S.title, S.source, "retrieved: " + new Date().toISOString(), "permalink: " + location.origin + "/" + S.open]); });
+      png.addEventListener("click", e => { e.preventDefault(); handle.exportPNG("plover-analytics-" + (i + 1) + ".png"); });
+      csv.addEventListener("click", e => { e.preventDefault(); handle.exportCSV("plover-analytics-" + (i + 1) + ".csv",
+        ["Plover Analytics — " + S.title, S.source, "retrieved: " + new Date().toISOString(), "permalink: " + location.origin + "/" + S.open]); });
     } else {
       els[i].querySelector("[data-png]").remove();
       els[i].querySelector("[data-csv]").remove();
@@ -510,7 +510,7 @@ function fillLetter() {
 function wireConnectCopy() {
   const btn = $("home-copy-cc");
   if (!btn) return;
-  const CMD = "claude mcp add --transport http japan-data-observatory https://ploveranalytics.com/mcp";
+  const CMD = "claude mcp add --transport http plover-analytics https://ploveranalytics.com/mcp";
   const was = btn.textContent;
   btn.addEventListener("click", () => {
     const done = () => {

@@ -167,7 +167,7 @@ either.
 2. **Digest identity** — does the weekly English digest live inside the Substack (one
    audience, one brand) or as a product feature behind Pro (revenue, lock-in)? This
    shapes Phase 2 significantly.
-3. **Naming** — whether the equity side keeps living under "Japan Data Observatory" or
+3. **Naming** — whether the equity side keeps living under "Plover Analytics" or
    gets its own product name for the fund audience.
 4. **Korea research budget** — zero for now, or a fixed few hours to verify DART (the
    Korean EDINET) feasibility so Phase 4 has a priced option on the shelf?

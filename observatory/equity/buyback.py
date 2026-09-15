@@ -42,7 +42,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import duckdb
 
-from extract import S3Source, incremental_window, record_run, seek_key
+from extract import (S3Source, incremental_window, record_run, seek_key,
+                     sec_code_of)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 _ARCHIVE = os.environ.get(
@@ -535,7 +536,7 @@ def main():
             if done % 500 == 0:
                 print("  %d/%d" % (done, len(targets)))
                 sys.stdout.flush()
-            base = (doc_id, meta.get("edinetCode"), (meta.get("secCode") or "")[:4] or None,
+            base = (doc_id, meta.get("edinetCode"), sec_code_of(meta),
                     meta.get("filerName"), day)
             if err:
                 con.execute("INSERT OR REPLACE INTO eq_buyback_filings VALUES (?,?,?,?,?,?,?,?,?,?)",

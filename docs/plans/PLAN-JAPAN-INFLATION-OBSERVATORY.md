@@ -4,7 +4,7 @@
 >
 > **One-liner:** Subscription-grade Japanese inflation intelligence — faster and clearer than official portals, cheaper and more transparent than terminals, with every number reproducible to its official source.
 >
-> **Platform framing:** Japan CPI is the first vertical on a dataset-agnostic "Observatory" data platform. The core (sources, releases, vintages, series, provenance, trust labels) must carry future datasets — Japan wages/PPI, then other countries — without schema rework.
+> **Platform framing:** Japan CPI is the first vertical on a dataset-agnostic "Plover Analytics" data platform. The core (sources, releases, vintages, series, provenance, trust labels) must carry future datasets — Japan wages/PPI, then other countries — without schema rework.
 >
 > **Companion doc:** [IMPL-JAPAN-INFLATION-OBSERVATORY.md](IMPL-JAPAN-INFLATION-OBSERVATORY.md) covers architecture, data model, milestones, and acceptance criteria.
 

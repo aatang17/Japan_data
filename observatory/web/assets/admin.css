@@ -1,6 +1,6 @@
 /* Admin console — the GSA-platform admin shell (persistent navy sidebar,
    nav-as-data, KPI summary cards, outline badges, centred login card),
-   restated in Observatory tokens so light and dark both work.
+   restated in Plover Analytics tokens so light and dark both work.
 
    Loaded only by admin.html, after tokens.css and app.css; tables, badges,
    banners and inputs come from app.css and are not restated here. */

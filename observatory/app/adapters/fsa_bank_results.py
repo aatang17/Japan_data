@@ -81,7 +81,7 @@ LINES = {
     "貸出金（末残）": ("loans", "Loans outstanding, period end", "jpy_trillion", False, 14),
     "不良債権額": ("npl", "Bad loans outstanding", "jpy_trillion", False, 15),
     "不良債権残高": ("npl", "Bad loans outstanding", "jpy_trillion", False, 15),
-    "不良債権比率": ("npl-ratio", "Bad-loan ratio", "pct", False, 16),
+    "不良債権比率": ("npl-ratio", "Bad-loan ratio", "percent", False, 16),
 }
 # Capital-ratio lines are the same label under different block headers.
 BLOCKS = {
@@ -263,14 +263,14 @@ def _read_sheet(grid, group, half):
             spec = LINES[label]
         elif block and (block, label) in RATIOS:
             slug, en, order = RATIOS[(block, label)]
-            spec = (slug, en, "pct", False, order)
+            spec = (slug, en, "percent", False, order)
         if spec is None:
             continue
         for col, period in header.items():
             value = _value(cells.get(col, ("",))[0])
             if value is None:
                 continue
-            if spec[2] == "pct":
+            if spec[2] == "percent":
                 if value >= 1.0:
                     raise ValidationError(
                         "%s %s %s: ratio %s is not a fraction; the file's "

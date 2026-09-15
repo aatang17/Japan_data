@@ -113,7 +113,7 @@ function customsSource(extra) {
 function csvHeader(what, formulas) {
   const f = L.filing, rel = L.customs.release;
   return [
-    "Japan Data Observatory — Company Profile: " + companyName() + " (" + L.company.sec_code + ") — " + what,
+    "Plover Analytics — Company Profile: " + companyName() + " (" + L.company.sec_code + ") — " + what,
     "Filed figures: " + L.credit_lines[0] + " Filing " + f.doc_id + ", FY to " + f.period_end +
       ", filed " + f.filed_date + ", status " + f.status + (f.detail ? " — " + f.detail : ""),
     "Customs figures: " + L.credit_lines[1] + " Release " + rel.label + " (sha256 " + rel.sha256 +

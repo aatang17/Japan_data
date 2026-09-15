@@ -47,6 +47,7 @@ WHAT A CONSUMER MUST NOT ASSUME, carried in the data rather than in prose:
 from fastapi import APIRouter, HTTPException, Query
 
 from . import asof
+from . import person_en
 
 from .agm_labels import label_en
 from .equity_api import NAME_CTES, NAMES_NOTE, PROVENANCE, _cur, _rows
@@ -293,6 +294,7 @@ def directors(limit: int = Query(50, ge=1, le=500),
                       direction), params)
     for r in rows:
         r["proposal_en"] = label_en(r.get("proposal"))
+    person_en.fix_rows(rows, "candidate_name_en")
     return _notes({"order": order, "kind": kind, "kind_note": KIND_NOTE[kind],
                    "rows": rows,
                    "cite": "/agm.html?order=%s&kind=%s&limit=%d" % (order, kind, limit)})
@@ -405,6 +407,7 @@ def company(sec_code: str):
         LEFT JOIN board_en be ON be.sec_code = ? AND be.name_key = %s
         WHERE v.doc_id IN (%s) ORDER BY v.doc_id, v.seq"""
         % (NAME_KEY % "v.candidate_name", ph), [code] + ids)
+    person_en.fix_rows(votes, "candidate_name_en")
     by_doc = {}
     for p in props:
         p["label_en"] = label_en(p.get("label"))

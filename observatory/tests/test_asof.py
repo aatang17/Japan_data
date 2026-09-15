@@ -184,11 +184,19 @@ class EndpointTest(unittest.TestCase):
             self.client.get("/api/v1/company/7203?as_of=nope").status_code, 400)
 
     def test_coverage_honours_the_ceiling(self):
-        r = self.client.get("/api/v1/company/7203/coverage?as_of=2025-07-01")
+        # The facilities archive starts on 2025-04-16 (it was back-filled to
+        # there), so a ceiling before that date must report the dataset as
+        # missing rather than serving a later filing. Dated from the archive's
+        # own floor, not from a fixed year, so back-filling it further does not
+        # quietly turn this test into a no-op.
+        r = self.client.get("/api/v1/company/7203/coverage?as_of=2025-01-01")
         self.assertEqual(r.status_code, 200)
-        # Facilities filings begin in 2026; as of mid-2025 there were none.
         missing = [m["dataset"] for m in r.json()["coverage"]["missing"]]
         self.assertIn("facilities", missing)
+        # And with no ceiling at all it is present, so the test above is
+        # measuring the ceiling and not an absent dataset.
+        now = self.client.get("/api/v1/company/7203/coverage").json()
+        self.assertIn("facilities", now["coverage"]["present"])
 
 
 if __name__ == "__main__":

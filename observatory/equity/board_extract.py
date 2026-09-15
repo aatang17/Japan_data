@@ -69,7 +69,8 @@ from extract import (LocalSource, S3Source, load_codelist, compact,
                      DB_PATH, incremental_window, record_run,
                      seek_key,
                      select_pending, catch_up_start, CATCH_UP_DAYS,
-                     recorded_floor)
+                     recorded_floor,
+                     sec_code_of)
 
 PARSER_VERSION = "board-m2-2"
 
@@ -105,6 +106,12 @@ PAY_COMPONENTS = ["fixed_yen", "base_yen", "performance_yen", "bonus_yen",
 # some are NEGATIVE — a forfeited restricted-share award is a reversal. Match
 # the family by pattern; a fixed list silently loses them.
 PAY_FAMILY = re.compile(r"RemunerationE?t?c?ByCategoryOfDirectorsAndOtherOfficers$")
+
+# Gate thresholds, each set from the distribution of the whole archive rather
+# than from a round number that felt safe. See G6-G8 in build().
+MAX_OFFICERS = 100                  # largest real board + auditors seen: 52
+SALARY_BAND = (500000, 100000000)   # average annual pay per employee, yen
+MAX_PAY_PER_OFFICER = 3000000000    # yen per officer per year, one category
 
 CATEGORY_EN = {
     "DirectorsExcludingOutsideDirectorsMember": "Directors (excl. outside)",
@@ -162,11 +169,27 @@ def romaji(member):
     The suffix is the filer's own context label, so this is a display name and a
     WEAK person key: it joins a pay row to a board row inside one filing. It is
     not evidence that two companies share a director — that needs a curated map.
+
+    Word boundaries are the filer's, never ours. Two habits break the
+    CamelCase read and are handled rather than split blindly:
+
+      * **A name typed entirely in capitals** — SATOMASAHIKO — states no
+        boundary at all. Splitting on capitals turned 639 directors into rows
+        of single letters ("S A T O M A S A H I K O"), which is not a name in
+        any language. The run is kept whole instead: every letter as filed,
+        none invented. Finding "Sato Masahiko" inside it would need a kana
+        table the filing does not carry.
+      * **A trailing digit** — Okita Fumio09 — is the filer disambiguating two
+        context ids, not part of the person's name.
     """
     s = re.sub(r"^(jpcrp\d+-asr_)?E\d+-\d+", "", member)
-    s = re.sub(r"Member$", "", s)
-    parts = re.findall(r"[A-Z][a-z0-9'\-\.]*|[A-Z]+(?![a-z])", s)
-    name = " ".join(parts) if parts else s
+    s = re.sub(r"(?:Member)+$", "", s)
+    s = re.sub(r"\d+$", "", s)
+    if s and not re.search(r"[a-z]", s):
+        name = s
+    else:
+        parts = re.findall(r"[A-Z][a-z0-9'\-\.]*|[A-Z]+(?![a-z])", s)
+        name = " ".join(parts) if parts else s
     return name, re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
 
 
@@ -353,6 +376,28 @@ def build(doc_id, company, people, pay, named, period_end):
         if abs(calc - filed) >= 10.0 ** -stated_dp(filed):
             problems.append("G2 female ratio filed %s vs recomputed %.4f" % (filed, calc))
 
+    # Three plausibility gates. Each one has a line drawn from what the whole
+    # archive actually contains, not from taste, and each catches a filing that
+    # states a number its own document cannot support. The number is still
+    # stored exactly as filed -- the gate marks the filing, it never edits it.
+    if officers is not None and officers > MAX_OFFICERS:                    # G6
+        # The largest real board-plus-auditors in 21,000 filings is 52. A
+        # filing claiming thousands has tagged a share count or a yen amount
+        # into the officer-count element.
+        problems.append("G6 %d tagged officers on a %d-seat board"
+                        % (officers, n_board))
+    salary = to_int(to_num(company.get("avg_salary_yen", "")))
+    if salary is not None and not SALARY_BAND[0] <= salary <= SALARY_BAND[1]:  # G7
+        # Average annual pay per employee. Below the band the filing has typed
+        # a figure already in thousands; above it, one already in millions.
+        problems.append("G7 average annual salary %d yen" % salary)
+    worst = max([r[6] for r in pay_rows if r[6] is not None] or [0])
+    if worst > MAX_PAY_PER_OFFICER:                                         # G8
+        # Per officer, per year. The largest package ever disclosed in Japan is
+        # about 13bn yen and that is one named person, so a whole CATEGORY
+        # averaging more than 3bn has been filed on the wrong scale.
+        problems.append("G8 pay of %d yen per officer in one category" % worst)
+
     ages = [r[9] for r in board if r[9] is not None]
     agg = {
         "board_size": n_board,
@@ -481,7 +526,7 @@ def main():
                 print("  %d/%d filings" % (done, len(targets)))
                 sys.stdout.flush()
             period_end = m.get("periodEnd") or None
-            base = [doc_id, m.get("edinetCode"), (m.get("secCode") or "")[:4] or None,
+            base = [doc_id, m.get("edinetCode"), sec_code_of(m),
                     rec.get("filer") or m.get("filerName"), period_end, rec["date"],
                     sha or rec.get("sha256"), PARSER_VERSION]
             for t in ("eq_board", "eq_pay_category", "eq_pay_named", "eq_company_year"):

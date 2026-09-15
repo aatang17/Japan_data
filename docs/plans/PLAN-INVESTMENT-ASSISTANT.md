@@ -1,4 +1,4 @@
-# Investment Assistant — a PM workspace on top of the Observatory
+# Investment Assistant — a PM workspace on top of Plover Analytics
 
 > Status: **draft for discussion**, 11 September 2026, revised the same day into an
 > *agent portal* shape after reviewing Funfo Agent OS. Nothing here is built.
@@ -9,7 +9,7 @@
 
 ## 1. What it is, in one paragraph
 
-Today the Observatory is a library: every number is there, but the reader has to go and
+Today Plover Analytics is a library: every number is there, but the reader has to go and
 look. The Investment Assistant turns it into a desk. A portfolio manager or analyst signs
 in, names the companies they cover, and from then on the platform watches those companies
 for them: a new filing, a buyback that stalls, a cross-holding sold down, a board change, a
@@ -35,8 +35,8 @@ Two settled decisions shape it:
 
 So the product is *not* "ask questions in a box". It is a **desk of specialists**: named,
 versioned analyst-agents that each own a job (watch buybacks, read filings, brief on CPI),
-run on a schedule against the Observatory's tools, and post what they find with the filing
-attached. The LLM runs on the **customer's own model key**; the Observatory hosts the
+run on a schedule against Plover Analytics' tools, and post what they find with the filing
+attached. The LLM runs on the **customer's own model key**; Plover Analytics hosts the
 schedule, the tools and the audit trail, never a model of its own. That is a deliberate
 step past "no LLM at all" and is the one decision in this plan that changes a settled rule.
 
@@ -49,11 +49,11 @@ to an investor's desk:
 | --- | --- | --- |
 | **Inbox** | Approvals waiting on them, finished runs, events on their names, shared threads. | The approval card is the key control: a specialist reads freely; a Slack post or email waits for a person. |
 | **Desk** | Their hired specialists under their name, each with last run and next run; the `#desk` feed where specialists post with their tool trail. | Feed posts carry the filing id and the Official-as-filed badge, or the derived tag with a formula. |
-| **Specialists** | The talent pool: hire a ready-made analyst. Each card is a brief + Observatory tools + workflows + a version. | Coverage Clerk, Buyback Monitor, Macro Briefer, Unwind Scout, Filing Reader, Board & Pay Analyst, Claim Checker, Model Feeder, Note Writer. |
+| **Specialists** | The talent pool: hire a ready-made analyst. Each card is a brief + Plover Analytics tools + workflows + a version. | Coverage Clerk, Buyback Monitor, Macro Briefer, Unwind Scout, Filing Reader, Board & Pay Analyst, Claim Checker, Model Feeder, Note Writer. |
 | **Research** | Threads with a specialist; each keeps its own memory. Notes pin to a number and its vintage. | The specialist's page shows what it watches and the tool behind each item. |
 | **Files** | The specialist's workspace: rules, run logs, exports, the coverage list. | Everything a specialist writes is a file the user can read. |
 | **Audit** | Tools ranked by who uses them; runs, calls, tokens, approvals; MCP connections. | Trust is auditable, not asserted: no specialist has any other route to a number. |
-| **Settings** | Model key, Observatory key, approval policy, delivery, external MCP servers, members, licence. | The approval policy is one table: read freely · own workspace freely · outward asks first · **no order routing, ever**. |
+| **Settings** | Model key, Plover Analytics key, approval policy, delivery, external MCP servers, members, licence. | The approval policy is one table: read freely · own workspace freely · outward asks first · **no order routing, ever**. |
 
 A **specialist** is: a brief (versioned like software), a tool list drawn from the 26 MCP
 tools plus the user's own declared tools, a schedule or trigger (nightly refresh, each new
@@ -103,7 +103,7 @@ Assistant is **not a dataset**; it is a new namespace, like the cross-shareholdi
 
 | # | Milestone | Done when | Est. |
 | --- | --- | --- | --- |
-| M0 | Accounts + per-user keys + model key | Email-link sign-in; the user's Observatory key and their own model key stored (hashed / encrypted); keys revocable from the admin console | 2 wks |
+| M0 | Accounts + per-user keys + model key | Email-link sign-in; the user's Plover Analytics key and their own model key stored (hashed / encrypted); keys revocable from the admin console | 2 wks |
 | M1 | Runner + two specialists | A scheduler runs a specialist against the MCP tools on the user's model key; Coverage Clerk and Buyback Monitor post to `#desk` with tool trails; runs and calls recorded in Audit; health reports the runner | 4 wks |
 | M2 | Inbox + approval policy + delivery | Approval cards gate every outward action; morning digest; Slack | 2 wks |
 | M3 | Specialists pool + Desk | The talent-pool page, hire/open, versions and updates; the desk view; Macro Briefer, Unwind Scout, Filing Reader | 3 wks |

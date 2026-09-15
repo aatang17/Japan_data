@@ -58,7 +58,8 @@ import duckdb
 from extract import (LocalSource, S3Source, compact, DB_PATH,
                      incremental_window, record_run,
                      select_pending, catch_up_start, CATCH_UP_DAYS,
-                     recorded_floor)
+                     recorded_floor,
+                     sec_code_of)
 from edinet_honbun import (honbun, blocks, tables_in, section, taxonomy_prefix,
                            grid_of, norm, jp_date, to_int, NoHonbun)
 
@@ -463,7 +464,7 @@ def main():
                          "parser_version": PARSER_VERSION,
                          "kind": kind_of(m.get("docDescription")),
                          "edinet_code": m.get("edinetCode"),
-                         "sec_code": (m.get("secCode") or "")[:4] or None,
+                         "sec_code": sec_code_of(m),
                          "filer_name": rec.get("filer") or m.get("filerName"),
                          "gate_checked": 0, "gate_passed": 0})
             d = m.get("submitDateTime") or rec.get("date")

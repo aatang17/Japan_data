@@ -1,6 +1,6 @@
 # Japan Spent Thirty Years Forgetting How Prices Work. Then It Remembered.
 
-*Introducing the Japan Data Observatory inflation dashboard — 55 years of Japanese
+*Introducing the Plover Analytics inflation dashboard — 55 years of Japanese
 consumer prices, 582 individually priced items, and every calculation shown.*
 
 ---
@@ -19,7 +19,7 @@ almost never charted, because doing it properly means holding 582 item-level ser
 back to 1971 and recomputing the distribution every month. So we built the thing that
 does it, and we are making it free.
 
-This is the first post from the **Japan Data Observatory**. Start here:
+This is the first post from the **Plover Analytics**. Start here:
 **[the inflation dashboard →](https://web-production-c9178.up.railway.app/cpi.html)**
 
 ---
@@ -180,7 +180,7 @@ against a 2.06% CPI. Somebody is wrong.
 
 ---
 
-*The Japan Data Observatory publishes Japanese price statistics, Bank of Japan
+*The Plover Analytics publishes Japanese price statistics, Bank of Japan
 balance-sheet data, JGB yields and inbound tourism — free, cited, and versioned.
 Source for all price data in this post: Statistics Bureau of Japan, via the Japan Data
 Observatory. Index levels are official; rates of change are calculated and carry their

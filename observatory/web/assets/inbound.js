@@ -192,7 +192,7 @@ function sourceLine(extra) {
 function csvHeader(what) {
   const rel = AV.release;
   return [
-    "Japan Data Observatory — " + what,
+    "Plover Analytics — " + what,
     "Source: Japan National Tourism Organization (JNTO), " + rel.source_name,
     "Source page: " + rel.source_page,
     "Release: " + rel.label + " (sha256 " + rel.sha256 + ")",

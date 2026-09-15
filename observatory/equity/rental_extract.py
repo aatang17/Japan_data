@@ -59,7 +59,8 @@ from extract import (LocalSource, S3Source, load_codelist, compact,
                      DB_PATH, incremental_window, record_run,
                      seek_key,
                      select_pending, catch_up_start, CATCH_UP_DAYS,
-                     recorded_floor)
+                     recorded_floor,
+                     sec_code_of)
 from facility_extract import grid_of, norm, read_t1, strip_tags, to_num
 
 PARSER_VERSION = "rent-1"
@@ -336,7 +337,7 @@ def main():
                 print("  %d/%d filings" % (done, len(targets)))
                 sys.stdout.flush()
             base = [doc_id, m.get("edinetCode"),
-                    (m.get("secCode") or "")[:4] or None,
+                    sec_code_of(m),
                     rec.get("filer") or m.get("filerName"),
                     m.get("periodEnd") or None, rec["date"],
                     sha1, PARSER_VERSION]

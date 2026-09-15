@@ -166,7 +166,7 @@
       .concat(options.metrics.map(function (m) { return m.metric; }))
       .concat(["roe_filed_pct", "roe_vs_filed_pp", "equity_ratio_filed_pct"]);
     var header = [
-      "Japan Data Observatory — screener, ranked by " + data.sort + " (" + data.order + ")",
+      "Plover Analytics — screener, ranked by " + data.sort + " (" + data.order + ")",
       "filters: " + JSON.stringify(data.filters),
       "trust: derived — every ratio calculated on this platform from filed inputs; size fields in yen as filed",
     ].concat(options.metrics.map(function (m) { return m.metric + " = " + m.formula; }))

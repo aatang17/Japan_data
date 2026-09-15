@@ -42,6 +42,7 @@ from .adapters import (boj_assets, cpi_jp, cpi_jp_goods_services, cpi_jp_items,
                        mof_trade_food, mof_trade_hs, mof_trade_machinery,
                        mof_trade_pharma,
                        soumu_local_finance, ssds_population,
+                       ust_real_yields, ust_yields,
                        estat_gdp, estat_gfs, mof_hojin,
                        fsa_npl, fsa_bank_results, jba_banks)
 
@@ -58,6 +59,8 @@ ADAPTERS = {"cpi-jp": cpi_jp, "cpi-jp-items": cpi_jp_items, "boj-assets": boj_as
             "govt-accounts-jp": estat_gfs,
             "local-finance-jp": soumu_local_finance,
             "jgb-yields": mof_jgb, "jnto-visitors": jnto_visitors,
+            "ust-yields": ust_yields,
+            "ust-real-yields": ust_real_yields,
             "population-jp": juki_population,
             "population-jp-history": ssds_population,
             "gdp-jp": estat_gdp,

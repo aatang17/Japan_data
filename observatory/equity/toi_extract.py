@@ -73,7 +73,8 @@ import duckdb
 from extract import (LocalSource, S3Source, compact, DB_PATH,
                      incremental_window, record_run,
                      select_pending, catch_up_start, CATCH_UP_DAYS,
-                     recorded_floor)
+                     recorded_floor,
+                     sec_code_of)
 from edinet_honbun import (honbun, instance, facts, blocks, tables_in, section,
                            section_text, taxonomy_prefix, grid_of, norm,
                            jp_date, to_int, to_float, to_int_loose, YEN_NUM,
@@ -789,7 +790,7 @@ def main():
             if doc_type in ("290", "300"):
                 base["target_edinet_code"] = filer_code
                 base["offeror_edinet_code"] = subject
-                base["target_sec_code"] = (m.get("secCode") or "")[:4] or None
+                base["target_sec_code"] = sec_code_of(m)
             else:
                 base["offeror_edinet_code"] = filer_code
                 base["target_edinet_code"] = subject

@@ -145,7 +145,7 @@
       "treasury). Both are calculated by the platform from figures as filed.";
     $("holders-csv").onclick = function () {
       csvDownload("japan-register-holders.csv",
-        ["Japan Data Observatory — holders appearing in Japanese shareholder registers",
+        ["Plover Analytics — holders appearing in Japanese shareholder registers",
          "Scope: " + d.scope + (d.nominees_included ? "" : "; nominee and custodian accounts excluded"),
          "Names, share counts and percentages as filed in 大株主の状況; seat counts and averages calculated.",
          "Source: 有価証券報告書 via EDINET, Financial Services Agency."],
@@ -200,7 +200,7 @@
         "custody accounts, and 'Top holders', which is the filing's own 計 row.";
     $("screen-csv").onclick = function () {
       csvDownload("japan-register-screen-" + d.metric + ".csv",
-        ["Japan Data Observatory — shareholder register screen",
+        ["Plover Analytics — shareholder register screen",
          "Ranked by " + (SCREEN_LABEL[d.metric] || d.metric) + ", " + d.order + "; scope: " + d.scope,
          "Percentages as filed in 所有者別状況 and 大株主の状況; nominee totals classified by the platform.",
          "Source: 有価証券報告書 via EDINET, Financial Services Agency."],
@@ -267,7 +267,7 @@
   function renderCompany(d) {
     company = d;
     var name = d.filer_name_en || d.filer_name;
-    document.title = name + " · Shareholder Register · Japan Data Observatory";
+    document.title = name + " · Shareholder Register · Plover Analytics";
     $("co-name").textContent = name;
     $("co-code").textContent = d.sec_code || d.edinet_code || "";
     if (d.filer_name_en && d.filer_name) {
@@ -363,7 +363,7 @@
       : "No custody accounts appear in this register, so every row is a holder in its own name.";
     $("reg-csv").onclick = function () {
       csvDownload("register-" + (d.sec_code || d.doc_id) + ".csv",
-        ["Japan Data Observatory — shareholder register (大株主の状況)",
+        ["Plover Analytics — shareholder register (大株主の状況)",
          (d.filer_name_en || "") + " (" + d.filer_name + "), securities code " + (d.sec_code || ""),
          "Fiscal year ended " + d.period_end + "; filed " + d.filed_date + "; filing " + d.doc_id,
          "Official statistics exactly as filed. Stake % is of shares in issue excluding treasury.",
@@ -406,7 +406,7 @@
     }
     var source = "Source: " + (d.filer_name_en || d.filer_name) +
       " annual securities report, FY ended " + (d.period_end || "") +
-      " · via EDINET · Japan Data Observatory";
+      " · via EDINET · Plover Analytics";
     // Composition of one total at one point in time: columns on a zero
     // baseline, never a pie.
     var cfg = {
@@ -433,7 +433,7 @@
       }).join("") + "</tbody></table>";
     $("mix-csv").onclick = function () {
       csvDownload("register-mix-" + (d.sec_code || d.doc_id) + ".csv",
-        ["Japan Data Observatory — register by investor category (所有者別状況)",
+        ["Plover Analytics — register by investor category (所有者別状況)",
          (d.filer_name_en || "") + " (" + d.filer_name + "), securities code " + (d.sec_code || ""),
          "Fiscal year ended " + d.period_end + "; filing " + d.doc_id,
          "Official statistics exactly as filed. Percentages are of ALL issued shares — a " +
@@ -470,7 +470,7 @@
       }).join("") + "</tbody></table>";
     $("hist-csv").onclick = function () {
       csvDownload("register-history-" + (d.sec_code || d.doc_id) + ".csv",
-        ["Japan Data Observatory — shareholder register, year by year",
+        ["Plover Analytics — shareholder register, year by year",
          (d.filer_name_en || "") + " (" + d.filer_name + "), securities code " + (d.sec_code || ""),
          "One row per archived annual report. Percentages as filed; nominee share calculated.",
          "Source: 有価証券報告書 via EDINET, Financial Services Agency."],
@@ -489,7 +489,7 @@
   function renderHolder(d) {
     var rows = d.positions || [];
     var name = d.name_en || d.name || (rows.length ? rows[0].held_as : d.key) || d.key;
-    document.title = name + " · Shareholder Register · Japan Data Observatory";
+    document.title = name + " · Shareholder Register · Plover Analytics";
     $("ho-name").textContent = name;
     $("ho-code").textContent = d.key;
     $("ho-meta").innerHTML = "Appears in " + count(d.companies) +
@@ -520,7 +520,7 @@
       }).join("") + "</tbody></table>";
     $("ho-csv").onclick = function () {
       csvDownload("register-holder-" + d.key + ".csv",
-        ["Japan Data Observatory — one holder's appearances in Japanese registers",
+        ["Plover Analytics — one holder's appearances in Japanese registers",
          "Holder: " + name + " (" + d.key + ")",
          d.reverse_note,
          "Share counts and percentages exactly as filed in each company's 大株主の状況.",

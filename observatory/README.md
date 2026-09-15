@@ -1,6 +1,6 @@
 # Observatory — Japan CPI
 
-Working v1 of the Observatory data platform ([plan](../docs/plans/PLAN-JAPAN-INFLATION-OBSERVATORY.md),
+Working v1 of Plover Analytics data platform ([plan](../docs/plans/PLAN-JAPAN-INFLATION-OBSERVATORY.md),
 [implementation plan](../docs/plans/IMPL-JAPAN-INFLATION-OBSERVATORY.md)) with two Japan CPI
 datasets, both monthly, January 1970 to the latest published month, ingested directly from e-Stat:
 
@@ -1345,3 +1345,61 @@ Quick check:
 curl -X POST localhost:8007/mcp -H 'Content-Type: application/json' \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 ```
+
+
+## US Treasury curves (`ust-yields`, `ust-real-yields`)
+
+The first non-Japan datasets in the macro core, added 2026-09-15 for market
+study rather than for the product. They follow the golden rule exactly: two
+adapter modules plus registry entries, no core schema change. A yield curve is
+a time series, so unlike the SEC financials it fits `datasets → series →
+observations` without argument.
+
+| | `ust-yields` | `ust-real-yields` |
+| --- | --- | --- |
+| What | Par yields on Treasuries | Real yields on TIPS |
+| Maturities | 14, from 1 month to 30 years | 5, from 5 to 30 years |
+| History | 1990-01-02, 9,181 business days | 2003-01-02, 5,929 business days |
+| Observations | 99,502 | 27,469 |
+
+Subtracting one from the other at the same maturity gives **breakeven
+inflation**, the market's own CPI forecast for that horizon. That is a derived
+figure: it carries its formula, never an official badge, and is computed at
+serve time rather than stored.
+
+### Two things the source forces
+
+**One CSV per year, and each request takes ~19 seconds** regardless of size.
+That is server-side and cannot be hurried; the all-years URL answers 403. A
+cold fetch is therefore 37 requests and about 12 minutes.
+
+**So closed years are cached.** The Treasury does not revise 1995, so past
+years are kept under `data/ust-yields-years/` and only the current year and
+the one before it are re-fetched — two requests and about forty seconds on a
+normal run. The cache is derived state: delete it and the next run rebuilds
+it, which is also how a year would be repaired if the Treasury ever restated
+one. `UST_YEARS_REFRESH_ALL=1` forces a full re-download. On Railway the cache
+sits on the mounted volume, so it survives redeploys; a fresh volume pays the
+cold cost once, behind an already-open port.
+
+The endpoint also stops answering occasionally — a cold run timed out mid-way
+on 15 September 2026 and the same URL served fine a minute later — so
+`fetch_year_csv` retries four times with a widening pause before giving up.
+
+### Verified end to end (2026-09-15)
+
+- Every maturity for 2026-09-09 reconciles **exactly** against the Treasury's
+  own published row.
+- **Gaps stay gaps.** The 30-year was suspended in February 2002 and returned
+  in February 2006: 994 nulls, **zero** zeros. The 1.5-month is null before
+  February 2025, the 4-month before October 2022, the 1-month before July 2001.
+- Breakevens reproduce known history: 3.17% at the November 2021 inflation
+  scare, 1.46% in August 2020, and **−1.79%** during the November 2008
+  deflation panic.
+- Both appear in `/api/v1/catalog/datasets`, on the `/curve` endpoint, and in
+  the MCP `list_datasets` tool under the Rates section.
+
+A `rates.html` page still shows the JGB curve only. Putting these on a page is
+a UI change and belongs with the `ui-ux-design` skill; the data and the API
+are done without it.
+

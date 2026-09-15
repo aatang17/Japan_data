@@ -1,6 +1,6 @@
 # Japan Inc. Spent Sixty Years Buying Each Other's Shares. Now It Is Selling Them and Calling It Profit.
 
-*Introducing the Japan Data Observatory equity screens — every annual securities report
+*Introducing the Plover Analytics equity screens — every annual securities report
 on EDINET, tagged line by line. 3,809 filers, ¥56tn of cross-shareholdings, and the 168
 companies whose profit this year was mostly a one-off.*
 
@@ -19,7 +19,7 @@ wholly-owned subsidiary of Tokyo Broadcasting System*. The broadcaster incubated
 semiconductor equipment maker during the Kennedy administration and never sold.
 
 This post is about what happens when a company like that finally does sell. It is the
-first from the **Japan Data Observatory equity screens**. Start here:
+first from the **Plover Analytics equity screens**. Start here:
 **[TBS Holdings, as filed →](https://web-production-c9178.up.railway.app/financials.html?c=9401)**
 
 ---
@@ -178,10 +178,10 @@ it. The screen is Japan GAAP only.)*
 
 ---
 
-*The Japan Data Observatory publishes Japanese price statistics, Bank of Japan
+*The Plover Analytics publishes Japanese price statistics, Bank of Japan
 balance-sheet data, JGB yields, inbound tourism and the full EDINET corporate record —
 free, cited and versioned. Source for all company data in this post: each company's
-有価証券報告書, Financial Services Agency of Japan (EDINET), via the Japan Data Observatory.
+有価証券報告書, Financial Services Agency of Japan (EDINET), via the Plover Analytics.
 Yen figures are as tagged in the filings; ratios are calculated and carry their formulas.*
 
 **[Open the company screens →](https://web-production-c9178.up.railway.app/financials.html)**

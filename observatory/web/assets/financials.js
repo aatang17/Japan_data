@@ -191,7 +191,7 @@
     $("screen-csv").addEventListener("click", function () {
       if (!screenData) return;
       csvDownload("financials-screen-" + state.metric + ".csv", [
-        "Japan Data Observatory — financials screen: " + screenData.metric_label,
+        "Plover Analytics — financials screen: " + screenData.metric_label,
         "One filing per company (latest accepted annual securities report); consolidated where filed, parent-only otherwise",
         "trust: official (as filed) · source: EDINET, Financial Services Agency of Japan",
         "yen values exact as tagged; *_pct ratios = filed fraction × 100",
@@ -372,7 +372,7 @@
     if (!rows.length) return;
     var fields = company.fields;
     csvDownload("financials-" + state.code + "-key-indicators-" + state.basis + ".csv", [
-      "Japan Data Observatory — key indicators as filed (主要な経営指標等の推移): " +
+      "Plover Analytics — key indicators as filed (主要な経営指標等の推移): " +
         (company.filer_name_en || company.filer_name) + " (" + state.code + ")",
       "basis: " + state.basis + " · trust: official (as filed) · source: EDINET, Financial Services Agency of Japan",
       "yen values exact as tagged; *_pct = filed fraction × 100; per-share values in yen; per = filer's own PER at year end",
@@ -522,7 +522,7 @@
     if (!statement) return;
     var d = statement;
     csvDownload("financials-" + state.code + "-" + d.statement + "-" + d.basis + "-" + d.period_end + ".csv", [
-      "Japan Data Observatory — " + d.statement_name + " as filed: " +
+      "Plover Analytics — " + d.statement_name + " as filed: " +
         (d.filer_name_en || d.filer_name) + " (" + state.code + ")",
       "basis: " + d.basis + " · fiscal year ended " + d.period_end + " · prior column " + d.prior_period_end +
         " · filed " + d.filed_date + " · EDINET " + d.doc_id + " · SHA-256 " + d.sha256,
