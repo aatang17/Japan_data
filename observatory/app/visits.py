@@ -7,9 +7,23 @@ blocker or not, and needs no third party and no cookie banner.
 
 A visitor is HMAC(daily salt, address + user agent), truncated: stable for one
 UTC day so a session counts once, unlinkable across days, and not reversible
-to an address. No cookies, and no address is ever stored. The salt lives
-beside the log on the volume, so a restart does not split a day's visitors in
-two.
+to an address. No address is ever stored. The salt lives beside the log on the
+volume, so a restart does not split a day's visitors in two.
+
+That identity deliberately dies at midnight, which makes "did this reader come
+back next week" unanswerable. A reader who accepts the banner is given a
+durable random id in a cookie instead, and their events are keyed on a hash of
+it: the same person across days, still no address and still nothing that says
+who they are. Consent is the whole difference between the two identities, so
+the cookie is issued by one endpoint the reader's own click reaches, never set
+by the counter as a side effect of serving a page. Declining is recorded the
+same way — a stored "no" is what stops the banner asking again.
+
+Two things need no consent and are measured for everyone: the count of readers
+active in the last few minutes, which lives in memory and is never written
+down, and how long a page was open, which the page reports at the moment it
+closes. Neither stores anything on the reader's machine, and both are keyed on
+whichever identity that reader already has.
 
 Writes take the same shape as the admin audit trail (see admin_api.py):
 append-only JSONL under data/, no DuckDB write path anywhere (CLAUDE.md,
@@ -37,6 +51,32 @@ SALT_PATH = ANALYTICS_DIR / "salt"
 
 VISITOR_CHARS = 12
 MAX_PATH_CHARS = 200
+
+# The reader's stored choice, and the durable id that a "yes" buys. The id is
+# opaque and random: it is not derived from anything about the reader, so it
+# says nothing if it leaks and can be thrown away by clearing cookies.
+PING_PATH = "/api/v1/visit/ping"
+CONSENT_PATH = "/api/v1/visit/consent"
+
+CONSENT_COOKIE = "pa_consent"
+VISITOR_COOKIE = "pa_vid"
+CONSENT_MAX_AGE = 60 * 60 * 24 * 365  # a year, then the choice is asked again
+VID_CHARS = 32
+
+# How recently a request must have arrived for its visitor to count as here
+# now. Open pages send a keep-alive inside this window, so a reader sitting
+# still on one page stays counted; anything without scripts drops off it.
+LIVE_SECONDS = 300
+LIVE_MAX = 5000
+
+# Gap that ends a session. Thirty minutes is the industry's convention and is
+# kept so the number can be compared with anyone else's.
+SESSION_GAP_SECONDS = 1800
+
+# A page reported as open for longer than this was left open, not read. Capped
+# rather than dropped: the visit happened, and dropping the long tail would
+# flatter the median.
+MAX_DWELL_SECONDS = 3600
 
 # Batch size and age at which the buffer is written out.
 FLUSH_EVERY = 25
@@ -77,6 +117,11 @@ _BROWSER_DAY = [""]
 _BROWSER_SEEN = set()
 MAX_BROWSER_SEEN = 100000
 
+# Who is on the site right now: visitor -> what they last asked for and when.
+# Memory only, never written to the log — "right now" has no history, and a
+# restart that empties it costs five minutes of a number nobody stores.
+_LIVE = {}
+
 
 def _salt():
     """The HMAC key, generated once and kept on the volume."""
@@ -106,6 +151,178 @@ def _visitor(ip, user_agent, day):
     mac = hmac.new(_salt(), ("%s|%s|%s" % (day, ip, user_agent)).encode("utf-8"),
                    hashlib.sha256)
     return mac.hexdigest()[:VISITOR_CHARS]
+
+
+def _stable_visitor(vid):
+    """The id of a reader who accepted the cookie, hashed the same way and the
+    same width as a daily visitor, so every count downstream is blind to which
+    of the two it is holding. Hashed rather than stored raw for one reason: the
+    log is then useless to anyone who also has the reader's cookie."""
+    mac = hmac.new(_salt(), ("vid|%s" % vid).encode("utf-8"), hashlib.sha256)
+    return mac.hexdigest()[:VISITOR_CHARS]
+
+
+def today():
+    return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
+
+
+def new_visitor_id():
+    return binascii.hexlify(os.urandom(VID_CHARS // 2)).decode("ascii")
+
+
+def _cookies(headers):
+    """Cookie header -> dict. Tolerant on purpose: a malformed cookie from
+    somewhere else on the domain must not cost us the counting."""
+    jar = {}
+    raw = _header(headers, b"cookie")
+    for part in raw.split(";"):
+        name, sep, value = part.partition("=")
+        if sep:
+            jar[name.strip()] = value.strip()
+    return jar
+
+
+def consent_value(vid, since):
+    """What is stored in the visitor cookie: the id, and the day it was
+    issued. Carrying the day in the cookie is what makes "reader we already
+    knew" answerable without keeping a register of everyone ever seen."""
+    return "%s.%s" % (vid, since)
+
+
+def parse_visitor_cookie(value):
+    """(durable visitor id, day it was issued), or (None, None) if the cookie
+    does not parse. Anything unreadable is treated as no cookie at all — the
+    daily identity still counts that reader, so a mangled value loses the
+    detail, never the visit."""
+    vid, _, since = (value or "").partition(".")
+    if not vid or not vid.isalnum() or len(vid) > 64:
+        return None, None
+    if len(since) != 10 or since[4] != "-" or since[7] != "-":
+        since = None
+    return vid, since
+
+
+def _consented(jar):
+    """The reader's durable id, but only where they have said yes to it."""
+    if jar.get(CONSENT_COOKIE) != "granted":
+        return None, None
+    return parse_visitor_cookie(jar.get(VISITOR_COOKIE))
+
+
+def _touch_live(visitor, path, country, network):
+    """Note that this visitor is here, now. Bounded: a flood evicts the
+    stalest entries rather than growing without limit.
+
+    A path of None means "still here, on whatever you last had open" — a page
+    fetching its own chart data must keep its reader alive without the live
+    table claiming somebody is sitting on an API endpoint.
+    """
+    with _LOCK:
+        held = _LIVE.get(visitor) or {}
+        _LIVE[visitor] = {"at": time.time(), "path": path or held.get("path"),
+                          "country": country, "network": network}
+        if len(_LIVE) > LIVE_MAX:
+            for key in sorted(_LIVE, key=lambda k: _LIVE[k]["at"])[:len(_LIVE) - LIVE_MAX]:
+                _LIVE.pop(key, None)
+
+
+def live():
+    """Readers active in the last LIVE_SECONDS, and what they have open.
+
+    Counted from memory, so this is the one figure on the traffic page that
+    owes nothing to the log — and the one that cannot be asked about the past.
+    """
+    cutoff = time.time() - LIVE_SECONDS
+    with _LOCK:
+        rows = [(v, dict(d)) for v, d in _LIVE.items() if d["at"] >= cutoff]
+        for key in [v for v, d in _LIVE.items() if d["at"] < cutoff - LIVE_SECONDS]:
+            _LIVE.pop(key, None)  # swept here, so no timer has to exist
+    pages, countries = {}, {}
+    for _, d in rows:
+        if d.get("path"):
+            pages[d["path"]] = pages.get(d["path"], 0) + 1
+        if d.get("country"):
+            countries[d["country"]] = countries.get(d["country"], 0) + 1
+
+    def top(source):
+        out = [{"key": k, "visitors": n} for k, n in source.items()]
+        out.sort(key=lambda r: (-r["visitors"], r["key"]))
+        return out[:15]
+
+    now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+    return {
+        "at": now.isoformat(timespec="seconds") + "Z",
+        "window_seconds": LIVE_SECONDS,
+        "visitors": len(rows),
+        "pages": top(pages),
+        "countries": top(countries),
+    }
+
+
+def record_dwell(scope, path, seconds, view=None):
+    """One page, closed, after this many seconds visible. Reported by the page
+    itself at the moment it goes away — the server cannot see reading, only
+    requests, and a reader on one page for ten minutes makes none."""
+    try:
+        seconds = int(float(seconds))
+    except (TypeError, ValueError):
+        return
+    if seconds <= 0:
+        return
+    seconds = min(seconds, MAX_DWELL_SECONDS)
+    headers = [(k.lower(), v) for k, v in scope.get("headers") or ()]
+    user_agent = _header(headers, b"user-agent")
+    if _is_bot(user_agent):
+        return
+    now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+    ip = _client_ip(scope, _header(headers, b"x-forwarded-for"))
+    visitor = identify(ip, user_agent, headers, now.strftime("%Y-%m-%d"))[0]
+    event = {
+        "at": now.isoformat(timespec="seconds") + "Z",
+        "visitor": visitor,
+        "kind": "dwell",
+        "path": (path or "/")[:MAX_PATH_CHARS],
+        "seconds": seconds,
+        "bot": False,
+    }
+    # Which page view this belongs to. A page reports again every time it is
+    # hidden, so one reading can arrive three times; the id is what lets the
+    # longest report win instead of all three being counted as separate reads.
+    if view:
+        event["view"] = str(view)[:16]
+    _record(event)
+
+
+def heartbeat(scope, path):
+    """A page saying it is still open. Touches the live registry and writes
+    nothing: a keep-alive every minute would otherwise be the largest thing in
+    the log and would tell us nothing the dwell record does not."""
+    headers = [(k.lower(), v) for k, v in scope.get("headers") or ()]
+    user_agent = _header(headers, b"user-agent")
+    if _is_bot(user_agent):
+        return
+    now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+    ip = _client_ip(scope, _header(headers, b"x-forwarded-for"))
+    geoip.prepare()
+    country, network = geoip.lookup(ip)
+    visitor = identify(ip, user_agent, headers, now.strftime("%Y-%m-%d"))[0]
+    _touch_live(visitor, (path or "/")[:MAX_PATH_CHARS], country, network)
+
+
+def identify(ip, user_agent, headers, day):
+    """(visitor id, the day their cookie was issued or None, consent state).
+
+    One place decides which of the two identities a request carries, so the
+    counter, the keep-alive and the dwell record can never disagree about who
+    somebody is.
+    """
+    jar = _cookies(headers)
+    vid, since = _consented(jar)
+    if vid:
+        return _stable_visitor(vid), since, "granted"
+    choice = jar.get(CONSENT_COOKIE)
+    return (_visitor(ip, user_agent, day), None,
+            "denied" if choice == "denied" else None)
 
 
 def _header(headers, name):
@@ -163,6 +380,11 @@ def _kind(path):
     """What was asked for. None means "do not count at all"."""
     if path.startswith("/admin"):
         return None  # the console watching itself is not traffic
+    if path.startswith(PING_PATH) or path.startswith(CONSENT_PATH):
+        # The page telling us it is open, and the reader answering the banner.
+        # Both are handled where they land; counting them here would turn one
+        # reader on one page into a steady stream of API calls.
+        return None
     if path.startswith("/api/v1") or path.startswith("/api/openapi"):
         return "api"
     if path.startswith("/mcp"):
@@ -253,7 +475,7 @@ def observe(scope, status):
     # it — the address itself goes no further than this function.
     geoip.prepare()
     country, network = geoip.lookup(ip)
-    visitor = _visitor(ip, user_agent, day)
+    visitor, since, choice = identify(ip, user_agent, headers, day)
 
     if kind == "asset":
         if not _confirm_browser(visitor, day):
@@ -270,7 +492,8 @@ def observe(scope, status):
 
     sender, internal = _referrer_host(_header(headers, b"referer"),
                                       _header(headers, b"host"))
-    _record({
+    bot = _is_bot(user_agent)
+    event = {
         "at": now.isoformat(timespec="seconds") + "Z",
         "visitor": visitor,
         "path": path,
@@ -280,8 +503,17 @@ def observe(scope, status):
         "internal": internal,
         "country": country,
         "network": network,
-        "bot": _is_bot(user_agent),
-    })
+        "bot": bot,
+    }
+    # Only recorded when the reader has answered the banner: the absence of
+    # these two is what "has not chosen yet" looks like in the log.
+    if choice:
+        event["consent"] = choice
+    if since:
+        event["since"] = since
+    _record(event)
+    if not bot:
+        _touch_live(visitor, path if kind == "page" else None, country, network)
 
 
 class VisitCounter(object):
@@ -354,6 +586,62 @@ def _months_in_window(start, end):
     return months
 
 
+_DAY_BASE = {}
+
+
+def _epoch(at):
+    """"2026-09-16T08:30:00Z" -> seconds. Written out rather than handed to
+    strptime because this runs once per line and a half-million lines of
+    strptime is seconds of wall clock on the admin page."""
+    day = at[:10]
+    base = _DAY_BASE.get(day)
+    if base is None:
+        stamp = datetime.datetime(int(day[:4]), int(day[5:7]), int(day[8:10]),
+                                  tzinfo=datetime.timezone.utc)
+        base = _DAY_BASE[day] = int(stamp.timestamp())
+    return base + int(at[11:13]) * 3600 + int(at[14:16]) * 60 + int(at[17:19])
+
+
+def visitor_of(event):
+    return event.get("visitor") or ""
+
+
+def _median(values):
+    if not values:
+        return None
+    ordered = sorted(values)
+    middle = len(ordered) // 2
+    if len(ordered) % 2:
+        return ordered[middle]
+    return (ordered[middle - 1] + ordered[middle]) / 2.0
+
+
+def _sessions(activity):
+    """One visitor's timestamps -> the sessions they sat in.
+
+    A session ends when nothing is asked for for half an hour. Its length is
+    the span of what it contains, so a session of one page is zero seconds
+    long and is counted separately rather than averaged in as a very short
+    read — that is the bounce, and it is a different fact.
+    """
+    lengths, pages, single = [], [], 0
+    for stamps in activity.values():
+        stamps.sort()
+        run = [stamps[0]]
+        for stamp in stamps[1:]:
+            if stamp - run[-1] > SESSION_GAP_SECONDS:
+                lengths.append(run[-1] - run[0])
+                pages.append(len(run))
+                single += 1 if len(run) == 1 else 0
+                run = [stamp]
+            else:
+                run.append(stamp)
+        lengths.append(run[-1] - run[0])
+        pages.append(len(run))
+        single += 1 if len(run) == 1 else 0
+    return lengths, pages, single
+
+
 def summary(days=30, top=15):
     """Traffic over the last `days` UTC days, aggregated for the admin page.
 
@@ -375,6 +663,15 @@ def summary(days=30, top=15):
     visitors, bot_hits, api_calls, mcp_calls = set(), 0, 0, 0
     api_in_page, api_external = 0, 0
     browsers = set()
+    # How long pages were open, as reported by the pages themselves, one entry
+    # per page view rather than per report.
+    dwell_views = {}
+    # When each visitor asked for something, so sessions can be cut out of it.
+    activity = {}
+    # Readers carrying a cookie: the day theirs was issued, and the days they
+    # have appeared on. The only two facts here that outlive a single day.
+    stable_since, stable_days = {}, {}
+    consent = {"granted": 0, "denied": 0, "unanswered": 0}
     first_event, last_event = None, None
     lines_read, unreadable = 0, 0
 
@@ -421,6 +718,16 @@ def summary(days=30, top=15):
                     if event.get("visitor"):
                         browsers.add(event["visitor"])
                     continue
+                # Nor is a closing page report traffic: the page view it
+                # belongs to was counted when the page was asked for.
+                if kind == "dwell":
+                    seconds = event.get("seconds")
+                    if isinstance(seconds, (int, float)) and seconds > 0:
+                        key = event.get("view") or ("%s|%s" % (visitor_of(event), at))
+                        held = dwell_views.get(key)
+                        if not held or seconds > held[1]:
+                            dwell_views[key] = (event.get("path") or "/", seconds)
+                    continue
                 visitor = event.get("visitor")
                 if visitor:
                     bucket["visitors"].add(visitor)
@@ -429,6 +736,18 @@ def summary(days=30, top=15):
                 # apart; they are left out of both splits rather than guessed at.
                 knows_origin = "internal" in event
                 in_page = bool(event.get("internal"))
+
+                # A reader is somebody moving around the site: pages they
+                # asked for, and the chart data their own page fetched, which
+                # is the only proof a tab is still being used. Somebody pulling
+                # the API from a terminal is not sitting in a session and would
+                # otherwise invent hours-long ones.
+                if visitor and (kind == "page"
+                                or (kind == "api" and in_page)):
+                    activity.setdefault(visitor, []).append(_epoch(at))
+                if visitor and event.get("since"):
+                    stable_since.setdefault(visitor, event["since"])
+                    stable_days.setdefault(visitor, set()).add(day)
 
                 if kind in ("api", "mcp"):
                     if kind == "api":
@@ -443,6 +762,9 @@ def summary(days=30, top=15):
                             api_external += 1
                 elif kind == "page" and (event.get("status") or 0) < 400:
                     bucket["pageviews"] += 1
+                    choice = event.get("consent") or "unanswered"
+                    if choice in consent:
+                        consent[choice] += 1
                     page = pages.setdefault(
                         event.get("path") or "/", {"views": 0, "visitors": set()})
                     page["views"] += 1
@@ -512,12 +834,30 @@ def summary(days=30, top=15):
             })
         cursor += datetime.timedelta(days=1)
 
-    def ranked(source):
+    dwell, page_dwell = [], {}
+    for page_path, seconds in dwell_views.values():
+        dwell.append(seconds)
+        page_dwell.setdefault(page_path, []).append(seconds)
+
+    session_lengths, session_pages, single_page = _sessions(activity)
+    # New here means "accepted the cookie inside this window"; returning means
+    # the cookie predates it. Read off the day each cookie was issued, which
+    # the cookie itself carries — no register of past readers is kept.
+    returning = sum(1 for since in stable_since.values() if since < start.isoformat())
+    repeat = sum(1 for seen in stable_days.values() if len(seen) > 1)
+    days_seen = [len(seen) for seen in stable_days.values()]
+
+    def ranked(source, dwell_by=None):
         rows = [{"key": k, "views": v["views"], "visitors": len(v["visitors"]),
                  # Visits from something that also fetched the page's styles and
                  # images, so was rendering it rather than only reading the HTML.
                  "browser_visits": len(v["visitors"] & browsers)}
                 for k, v in source.items()]
+        if dwell_by is not None:
+            for row in rows:
+                seen = dwell_by.get(row["key"]) or []
+                row["dwell_median"] = _median(seen)
+                row["dwell_samples"] = len(seen)
         rows.sort(key=lambda r: (-r["views"], r["key"]))
         return rows[:max(1, min(int(top), 100))]
 
@@ -533,7 +873,7 @@ def summary(days=30, top=15):
         "mcp_calls": mcp_calls,
         "bot_hits": bot_hits,
         "daily": series,
-        "top_pages": ranked(pages),
+        "top_pages": ranked(pages, page_dwell),
         "top_referrers": ranked(refs),
         # Arrivals carrying no referring link, and the only things known about
         # them. Without this the referrer table silently omits most arrivals
@@ -547,6 +887,34 @@ def summary(days=30, top=15):
         # honest test for "was this a person": a browser fetches the styles and
         # images, a script almost never does.
         "browser_visits": len(visitors & browsers),
+        # How long a page stayed open, and how long a visit lasted. The first
+        # is reported by the page, the second read off the request log; both
+        # are medians, because one tab left open for a day would carry an
+        # average on its own.
+        "dwell": {
+            "samples": len(dwell),
+            "median_seconds": _median(dwell),
+        },
+        "sessions": {
+            "samples": len(session_lengths),
+            "median_seconds": _median([n for n in session_lengths if n > 0]),
+            "measurable": len([n for n in session_lengths if n > 0]),
+            "single_page": single_page,
+            "pages_median": _median(session_pages),
+        },
+        # Readers carrying a cookie, which is the only population that can be
+        # followed from one day to the next.
+        "people": {
+            "known": len(stable_since),
+            "returning": returning,
+            "new": len(stable_since) - returning,
+            "repeat": repeat,
+            "days_median": _median(days_seen),
+        },
+        # What share of page reads came from a reader who had answered the
+        # banner at all. Without it the cookie figures read as the whole
+        # readership rather than the part of it that said yes.
+        "consent": consent,
         "top_countries": ranked(countries),
         "top_networks": ranked(networks),
         # What share of counted traffic could be placed at all. Without it an

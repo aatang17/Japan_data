@@ -336,6 +336,15 @@ def audit_log(request: Request, limit: int = 200):
 
 # --- traffic ------------------------------------------------------------------
 
+@router.get("/visits/live")
+def visits_live(request: Request):
+    """Who is on the site in the last few minutes. Held in the server's
+    memory, never written down, and gone when it restarts — the one figure
+    here that cannot be asked about yesterday."""
+    _require_admin(request)
+    return visits.live()
+
+
 @router.get("/visits")
 def visit_summary(request: Request, days: int = 30):
     """Readership counted by the server itself, from the append-only visit log

@@ -247,11 +247,11 @@ live. Every downloaded file is archived under `data/raw/` with its SHA-256.
 
 ## Admin console
 
-`/admin.html` — internal operations, unlisted from the public nav. Five views: **Ingest
+`/admin.html` — internal operations, unlisted from the public nav. Six views: **Ingest
 Health** (per-dataset currency, quiet-ingest detection, artifact fingerprints), **Vintage
 Browser** (every stored release and exactly what it introduced, revised, or withdrew),
-**Curation Queue** and **Party Profiles** (below), and **Audit Log** (every sign-in and
-admin action).
+**Traffic** (below), **Curation Queue** and **Party Profiles** (below), and **Audit Log**
+(every sign-in and admin action).
 
 - Enabled only when `ADMIN_PASSWORD` is set (environment or `.env`); without it every
   `/admin/api` endpoint answers 503 and the page says so. Sessions are HttpOnly cookies
@@ -261,6 +261,30 @@ admin action).
   party registry `parties.json`.
 - Routes live under `/admin/api` (`app/admin_api.py`), outside `/api/v1`, so authenticated
   responses never touch the shared response cache.
+
+### Traffic (`#traffic`)
+
+Readership counted by the server itself (`app/visits.py`), because script-tag analytics are
+blocked on the bank and fund networks this product is aimed at. Events go to append-only
+JSONL under `data/analytics/`; no DuckDB write path, and no counting failure can reach a
+response.
+
+- **Two identities.** By default a visitor is a salted one-way hash of address and user
+  agent that changes daily, so no address is stored and nobody can be followed across days.
+  A reader who accepts the cookie banner is given a random id in `pa_vid` instead (a year,
+  HttpOnly) and is keyed on a hash of that — which is what makes returning readers
+  answerable. `pa_consent` stores the answer either way, so a reader who declines is not
+  asked again. Both cookies are issued only by `POST /api/v1/visit/consent`, never as a
+  side effect of serving a page; `navigator.globalPrivacyControl` suppresses the question.
+- **Reading now** is held in memory for five minutes and never written down. Open pages
+  send a keep-alive to `POST /api/v1/visit/ping` once a minute so a reader sitting on one
+  page does not vanish from it.
+- **Time on page** is reported by the page when it is hidden or closed, counting visible
+  seconds only, capped at an hour, deduplicated per page view. Neither this nor the
+  keep-alive stores anything on the reader's machine, so neither is behind the banner.
+- The banner itself is `web/assets/consent.js`, injected into every page by
+  `app/prerender.py` (like the icons) so a new page cannot ship without it. What readers
+  are told is on `/methodology.html#cookies`.
 
 ### Party profiles (`#parties`, `#queue`)
 

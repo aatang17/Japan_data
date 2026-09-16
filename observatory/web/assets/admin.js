@@ -516,10 +516,30 @@ function fmtCount(v) {
   return v.toLocaleString("en-US");
 }
 
+/* Seconds as a person reads them. Under a minute keeps its seconds, because
+   the difference between 20 and 50 seconds on a page is the whole question. */
+function fmtDuration(seconds) {
+  if (seconds === null || seconds === undefined) return MISSING;
+  seconds = Math.round(seconds);
+  if (seconds < 60) return seconds + "s";
+  var mins = Math.floor(seconds / 60);
+  if (mins < 60) return mins + "m " + (seconds % 60) + "s";
+  return Math.floor(mins / 60) + "h " + (mins % 60) + "m";
+}
+
+/* The "right now" panel refreshes itself; the handle lives here so leaving the
+   page can stop it. */
+var liveTimer = null;
+var LIVE_REFRESH_MS = 20000;
+
 function disposeTrafficChart() {
   if (trafficChart) {
     trafficChart.dispose();
     trafficChart = null;
+  }
+  if (liveTimer) {
+    window.clearInterval(liveTimer);
+    liveTimer = null;
   }
 }
 
@@ -538,6 +558,52 @@ function viewTraffic(target, arg) {
   });
 }
 
+/* Readers on the site in the last few minutes, and what they have open.
+   Its own endpoint rather than part of the summary: it answers in memory,
+   costs nothing, and is the one figure here worth asking for again while the
+   page is open. */
+function liveMarkup(d) {
+  if (!d) return '<p class="table-empty">Live readership is unavailable.</p>';
+  var minutes = Math.round((d.window_seconds || 300) / 60);
+  var rows = (d.pages || []).filter(function (r) { return r.key; }).map(function (r) {
+    return '<tr><td class="mono"><a href="' + escapeHtml(r.key) + '" target="_blank" ' +
+      'rel="noopener">' + escapeHtml(r.key) + "</a></td>" +
+      '<td class="num">' + fmtCount(r.visitors) + "</td></tr>";
+  }).join("");
+  var places = (d.countries || []).map(function (r) {
+    return escapeHtml(countryName(r.key)) + " " + fmtCount(r.visitors);
+  }).join(" · ");
+
+  return '<div class="kpi-row">' +
+    kpi(fmtCount(d.visitors), "Reading Now", d.visitors ? "ok" : "") +
+    kpi(fmtCount((d.pages || []).length), "Pages Open", "") +
+    kpi(fmtCount((d.countries || []).length), "Countries", "") + "</div>" +
+    (rows
+      ? '<div class="table-wrap"><table class="data" data-no-enhance><thead><tr>' +
+        '<th>Page Open Now</th><th class="num">Readers</th></tr></thead><tbody>' +
+        rows + "</tbody></table></div>"
+      : '<p class="table-empty">Nobody has asked for anything in the last ' +
+        minutes + " minutes.</p>") +
+    '<p class="source-line">A reader counts as here for ' + minutes + " minutes after " +
+    "their last request; an open page reports itself every minute, so somebody sitting " +
+    "still on one page stays counted." + (places ? " Now: " + places + "." : "") + "</p>";
+}
+
+function refreshLive(target) {
+  var box = target.querySelector("#traffic-live");
+  if (!box) return;
+  api("/visits/live").then(function (d) {
+    var still = target.querySelector("#traffic-live");
+    if (still) still.innerHTML = liveMarkup(d);
+  }).catch(function () {
+    var still = target.querySelector("#traffic-live");
+    // Silent: the window figures beside it are still good, and a red box
+    // every twenty seconds would say the console is broken when it is not.
+    if (still) still.innerHTML = '<p class="table-empty">Live readership is ' +
+      "unavailable — the figures below are unaffected.</p>";
+  });
+}
+
 function trafficMarkup(d, days) {
   var seg = '<div class="seg" role="group" aria-label="Window" id="traffic-seg">' +
     TRAFFIC_WINDOWS.map(function (w) {
@@ -549,8 +615,9 @@ function trafficMarkup(d, days) {
     '<div class="admin-page-head"><h1>Traffic</h1><span class="spacer"></span>' + seg +
     '<button type="button" class="btn" id="traffic-refresh">Refresh</button>' +
     '<p class="admin-page-sub">Readership counted by the server itself, so readers on ' +
-    "networks that block analytics scripts are counted too — no cookies are set and no " +
-    "addresses are stored. " + escapeHtml(fmtDay(d.from)) + " to " + escapeHtml(fmtDay(d.to)) +
+    "networks that block analytics scripts are counted too. No addresses are stored; the " +
+    "only cookie is the one a reader accepts, and it holds a random number and the day it " +
+    "was issued. " + escapeHtml(fmtDay(d.from)) + " to " + escapeHtml(fmtDay(d.to)) +
     (d.last_event ? " · last request " + escapeHtml(fmtStamp(d.last_event)) : "") +
     ".</p></div>";
 
@@ -585,16 +652,81 @@ function trafficMarkup(d, days) {
     : '<p class="table-empty">No requests recorded yet. Counting begins the moment this ' +
       "build is deployed, and the window fills in from that day forward.</p>" + trafficCalc(d);
 
-  return head + '<div class="kpi-row">' + kpis + "</div>" + banner +
+  return head +
+    '<div class="admin-section">Right Now <span class="note">from the server\u2019s ' +
+    "memory, refreshed every 20 seconds</span></div>" +
+    '<div id="traffic-live"><p class="admin-loading">Loading live readership…</p></div>' +
+    '<div class="admin-section">This Window <span class="note">' +
+    escapeHtml(fmtDay(d.from)) + " to " + escapeHtml(fmtDay(d.to)) + "</span></div>" +
+    '<div class="kpi-row">' + kpis + "</div>" + banner +
     '<div class="admin-section">Daily Readership <span class="note">unique visitors and ' +
     "page views per day</span></div>" + chart +
+    trafficTime(d) + trafficPeople(d) +
     '<div class="admin-section">Most-Read Pages <span class="note">page views in this ' +
     "window</span></div>" +
     trafficTable(d.top_pages, "Page",
-      { link: true, empty: "No page views recorded in this window." }) +
+      { link: true, dwell: true, empty: "No page views recorded in this window." }) +
     '<div class="admin-section">How Readers Arrived <span class="note">only the sending ' +
     "site is recorded, never the page a reader came from</span></div>" +
     trafficArrivals(d) + trafficDirect(d) + trafficPlaces(d);
+}
+
+/* A share of a total, where a real but tiny share must not read as zero. */
+function share(part, total) {
+  if (!total) return MISSING;
+  var pct = (part || 0) / total * 100;
+  if (pct > 0 && pct < 1) return "<1%";
+  return Math.round(pct) + "%";
+}
+
+/* How long a page was open, and how long a visit ran. Medians, not averages:
+   one tab left open over a weekend would carry an average by itself. */
+function trafficTime(d) {
+  var dwell = d.dwell || {};
+  var sessions = d.sessions || {};
+  var bounce = sessions.samples ? share(sessions.single_page, sessions.samples) : MISSING;
+  var note = fmtCount(dwell.samples) + " page" + (dwell.samples === 1 ? "" : "s") +
+    " reported a reading time · " + fmtCount(sessions.samples) + " visit" +
+    (sessions.samples === 1 ? "" : "s") + " reconstructed from the request log";
+  return '<div class="admin-section">How Long Readers Stayed ' +
+    '<span class="note">' + escapeHtml(note) + "</span></div>" +
+    '<div class="kpi-row">' +
+    kpi(fmtDuration(dwell.median_seconds), "Median Time on Page", "") +
+    kpi(fmtDuration(sessions.median_seconds), "Median Visit Length", "") +
+    kpi(sessions.pages_median === null || sessions.pages_median === undefined
+      ? MISSING : String(sessions.pages_median), "Pages per Visit (Median)", "") +
+    kpi(bounce, "Left After One Page", "") +
+    "</div>";
+}
+
+/* Readers carrying a cookie: the only population that can be followed from one
+   day to the next, and how much of the readership it covers. */
+function trafficPeople(d) {
+  var people = d.people || {};
+  var consent = d.consent || {};
+  var answered = (consent.granted || 0) + (consent.denied || 0) + (consent.unanswered || 0);
+  // Counts first, share after: with a long log behind it a real handful of
+  // consented reads rounds to 0% and reads as "nobody", which is not the same
+  // thing as "two people".
+  var note = fmtCount(consent.granted || 0) + " of " + fmtCount(answered) +
+    " page views (" + share(consent.granted, answered) + ") came from a reader who " +
+    "accepted the cookie, " + fmtCount(consent.denied || 0) + " (" +
+    share(consent.denied, answered) + ") from one who declined";
+  return '<div class="admin-section">Returning Readers ' +
+    '<span class="note">' + escapeHtml(note) + "</span></div>" +
+    '<div class="kpi-row">' +
+    kpi(fmtCount(people.known), "Readers With a Cookie", "") +
+    kpi(fmtCount(people.returning), "Known Before This Window", "") +
+    kpi(fmtCount(people.new), "First Seen in This Window", "") +
+    kpi(fmtCount(people.repeat), "Read on More Than One Day", "") +
+    kpi(people.days_median === null || people.days_median === undefined
+      ? MISSING : String(people.days_median), "Days Read (Median)", "") +
+    "</div>" +
+    (people.known
+      ? ""
+      : '<p class="table-empty">No reader in this window is carrying a cookie yet, so ' +
+        "none can be told apart from one day to the next. Every other figure on this " +
+        "page covers the whole readership and is unaffected.</p>");
 }
 
 /* ISO country code -> "Japan". Built into the browser, so no country table
@@ -633,6 +765,14 @@ function trafficTable(rows, label, opts) {
       '<td class="num">' + fmtCount(r.visitors) + "</td>" +
       (opts.browser
         ? '<td class="num">' + fmtCount(r.browser_visits) + "</td>"
+        : "") +
+      (opts.dwell
+        ? '<td class="num"' +
+          (r.dwell_samples
+            ? ' title="' + fmtCount(r.dwell_samples) + ' reading' +
+              (r.dwell_samples === 1 ? "" : "s") + ' measured"'
+            : ' title="No reading time was reported for this page"') + ">" +
+          fmtDuration(r.dwell_median) + "</td>"
         : "") + "</tr>";
   }).join("");
   return '<div class="table-wrap"><table class="data">' +
@@ -640,6 +780,7 @@ function trafficTable(rows, label, opts) {
     escapeHtml(opts.viewsLabel || "Page Views") + '</th>' +
     '<th class="num">Visits</th>' +
     (opts.browser ? '<th class="num">Browser Visits</th>' : "") +
+    (opts.dwell ? '<th class="num">Median Time on Page</th>' : "") +
     "</tr></thead><tbody>" + body + "</tbody></table></div>";
 }
 
@@ -734,8 +875,31 @@ function trafficCalc(d) {
     "visitors can be counted without being identified and cannot be matched across days.</p>" +
     "<p>Because that identifier deliberately changes every day, a <strong>visit</strong> is " +
     "one visitor on one day, and the figure for a window is the sum of its days — not a " +
-    "count of people. Someone who reads on ten days is ten visits. Following a reader " +
-    "across days would need a durable identifier, which this design refuses to keep.</p>" +
+    "count of people. Someone who reads on ten days is ten visits.</p>" +
+    "<p>A reader who accepts the banner is counted differently: they are given a cookie " +
+    "holding a random number and the day it was issued, and their events are keyed on a " +
+    "hash of it instead of on the daily one. That is what makes <strong>returning " +
+    "readers</strong> answerable, and it is the only thing the cookie is for — it holds " +
+    "nothing about the reader, and no address is stored for them either. " +
+    "<strong>Known before this window</strong> counts readers whose cookie was issued " +
+    "before the window opened; <strong>first seen in this window</strong> accepted inside " +
+    "it. Clearing cookies makes a reader new again, and a reader who declines, or who " +
+    "never answers, is counted only by the daily identity.</p>" +
+    "<p><strong>Reading now</strong> is counted in the server's memory, not from the log: " +
+    "visitors who have asked for something in the last five minutes. An open page reports " +
+    "itself once a minute so that a reader sitting on one page does not vanish, which " +
+    "means anything without scripts — a terminal, a blocked browser — drops out of this " +
+    "figure after five quiet minutes while still being counted everywhere else. Nothing " +
+    "about it is stored, so it cannot be asked about yesterday and a restart empties it.</p>" +
+    "<p><strong>Time on page</strong> is reported by the page itself when it is closed or " +
+    "hidden: the seconds it was actually visible, so a tab in the background does not " +
+    "accrue time. Anything over an hour is recorded as an hour — that page was left open, " +
+    "not read. A page closed within a second of opening, or opened without scripts, " +
+    "reports nothing and is not in the median. <strong>Visit length</strong> is separate " +
+    "and needs no script: the span of one visitor's requests, ended by half an hour of " +
+    "silence, counting page reads and the chart data those pages fetched. A visit of one " +
+    "page has no span to measure, so it is reported as <strong>left after one page</strong> " +
+    "rather than averaged in as a very short visit.</p>" +
     "<p>A <strong>page view</strong> is a successful page request. Styles, scripts, images, " +
     "the admin console itself and the internal cache warm-up are not counted; a page request " +
     "that returned an error is recorded but is not counted as a page view. " +
@@ -806,6 +970,13 @@ function wireTraffic(target, d, days) {
   document.getElementById("traffic-refresh").addEventListener("click", function () {
     viewTraffic(target, days);
   });
+  refreshLive(target);
+  if (liveTimer) window.clearInterval(liveTimer);
+  liveTimer = window.setInterval(function () {
+    // The console can be left open for a day; polling a page nobody is looking
+    // at would add the watcher to the count it is watching.
+    if (document.visibilityState !== "hidden") refreshLive(target);
+  }, LIVE_REFRESH_MS);
   var seg = document.getElementById("traffic-seg");
   var btns = seg ? seg.querySelectorAll("button") : [];
   for (var i = 0; i < btns.length; i++) {
@@ -816,7 +987,10 @@ function wireTraffic(target, d, days) {
 
   var box = document.getElementById("traffic-chart");
   if (!box) return;
-  disposeTrafficChart();
+  if (trafficChart) {
+    trafficChart.dispose();
+    trafficChart = null;
+  }
   trafficChart = obsChart(box, "line", trafficChartCfg(d));
   var stem = "observatory-traffic-" + d.from + "-to-" + d.to;
   document.getElementById("traffic-png").addEventListener("click", function () {
@@ -832,6 +1006,10 @@ function wireTraffic(target, d, days) {
       "Page views = successful page requests; assets and the admin console excluded",
       "Automated hits (crawlers, monitors, healthchecks) excluded from both series",
       "An empty cell is a day before counting began, which is not the same as zero",
+      "Time on page is reported by the page when hidden or closed; visit length is the",
+      "span of one visitor's requests, ended by 30 minutes of silence",
+      "Returning readers are those carrying an accepted cookie; the rest cannot be",
+      "followed across days by design",
       "Country and network: IP Geolocation by DB-IP (https://db-ip.com), CC BY 4.0",
     ]);
   });

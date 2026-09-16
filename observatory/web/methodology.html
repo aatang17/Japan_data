@@ -1273,6 +1273,37 @@
   assistant's prose is the product of whichever AI client you connect, not of this site; check its
   statements against the cited pages.</p>
 
+  <h2 id="cookies">Cookies and how readers are counted<span class="h2-note">One cookie, only if you accept it</span></h2>
+  <p>Visits are counted by the server itself, from its own request log. Nothing about that
+  needs a cookie or a script: the address a request came from is turned into a one-way hash
+  together with the browser's description of itself and a secret that changes daily, and only
+  the hash is written down. The address is never stored. It also means readers on networks
+  that block analytics scripts &mdash; most banks and asset managers &mdash; are counted like
+  everyone else.</p>
+  <p>Because that identifier is rebuilt every day, it cannot tell a reader who came back from
+  a reader who is new. Answering that needs something durable, so it is asked for:</p>
+  <ul>
+    <li><b>If you accept</b>, one cookie is stored holding a random number and the date it
+    was issued. It is not derived from anything about you, is readable only by this server,
+    and lasts a year. Its single purpose is to distinguish a returning reader from a new one.</li>
+    <li><b>If you decline</b>, that choice is stored &mdash; a cookie recording only the word
+    &ldquo;denied&rdquo;, so you are not asked again on every page &mdash; and nothing else
+    is kept. Every figure other than returning readers is unaffected.</li>
+    <li><b>If your browser sends Global Privacy Control</b>, the question is not put at all
+    and no cookie is set.</li>
+  </ul>
+  <p>Two further things are measured for every reader, because neither stores anything on
+  your machine. <b>How long a page stayed open</b> is reported by the page when you close or
+  leave it, counting only the time it was actually visible; anything beyond an hour is
+  recorded as an hour. <b>How many readers are on the site right now</b> is held in the
+  server's memory for five minutes and never written down, which is why an open page sends a
+  keep-alive once a minute.</p>
+  <p>None of it is shared with anyone. There is no third-party analytics service, no
+  advertising network, no tag manager and no script from any other domain on this site;
+  nothing here is sold, and nothing leaves the server that runs it. The counts exist to show
+  which datasets are worth extending. You can change your answer at any time from the
+  &ldquo;Cookies&rdquo; link at the foot of any page, and clearing your cookies erases it.</p>
+
   <h2 id="license">Attribution</h2>
   <p><b>Statistics Bureau of Japan.</b> Consumer price data © Statistics Bureau of Japan,
   republished under the <a href="https://www.e-stat.go.jp/terms-of-use" rel="noopener">e-Stat terms

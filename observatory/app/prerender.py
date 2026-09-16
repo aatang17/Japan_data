@@ -764,6 +764,13 @@ ICON_LINKS = (
 )
 _HAS_ICON = re.compile(r'(?is)<link[^>]+rel=["\']icon["\']')
 
+# The cookie banner and the page's own report of how long it stayed open, on
+# every page for the same reason the icons are: it belongs to the site rather
+# than to any one page, and a new page must never be able to ship without it.
+# Deferred, so nothing a reader came for waits on it.
+CONSENT_SCRIPT = '<script src="/assets/consent.js" defer></script>'
+_HAS_CONSENT = re.compile(r'(?is)<script[^>]+consent\.js')
+
 # Where a page's own numbers can be read as JSON. A dataset page is answered
 # by its manifest's summary endpoint; an entity page by the endpoint that
 # serves that one entity.
@@ -948,6 +955,9 @@ def _inject(html, page_name, canonical=None, query_string=""):
     # The icons every page carries, written once here rather than 46 times.
     if not _HAS_ICON.search(html):
         html = _HEAD_END.sub(ICON_LINKS + "\n</head>", html, count=1)
+
+    if not _HAS_CONSENT.search(html):
+        html = _HEAD_END.sub(CONSENT_SCRIPT + "\n</head>", html, count=1)
 
     # Where this page's numbers can be read as data, and what the page is.
     # A company view states the company; a series view is still a view of its

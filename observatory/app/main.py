@@ -43,6 +43,7 @@ from . import refresh  # noqa: E402
 from .mcp import router as mcp_router  # noqa: E402
 from . import seo  # noqa: E402
 from .seo import router as seo_router  # noqa: E402
+from .visits_api import router as visits_router  # noqa: E402
 
 WEB_DIR = pathlib.Path(__file__).resolve().parent.parent / "web"
 
@@ -198,6 +199,9 @@ app.include_router(sec_router)
 # surface over the population datasets and sits ahead of them for the same
 # reason.
 app.include_router(company_router)
+# /api/v1/visit/… is the page talking to the counter about itself, and sits
+# ahead of the core router for the same reason: /{dataset}/… would swallow it.
+app.include_router(visits_router)
 app.include_router(catalog_router)
 app.include_router(representation_router)
 app.include_router(router)
