@@ -188,6 +188,27 @@ class ConsentEndpointTest(unittest.TestCase):
         self.assertEqual(got.json()["consent"], "denied")
 
 
+class ProxiedSchemeTest(unittest.TestCase):
+    """Behind the platform's proxy the connection to this process is plain
+    http, so a cookie marked Secure from `request.url.scheme` is never marked
+    at all. Production showed exactly that."""
+
+    def test_the_forwarded_scheme_decides(self):
+        client = TestClient(app)
+        got = client.post("/api/v1/visit/consent", json={"choice": "granted"},
+                          headers={"x-forwarded-proto": "https"})
+        cookies = got.headers.get_list("set-cookie")
+        self.assertTrue(cookies)
+        for cookie in cookies:
+            self.assertIn("Secure", cookie, cookie)
+
+    def test_plain_http_still_gets_a_usable_cookie(self):
+        client = TestClient(app)
+        got = client.post("/api/v1/visit/consent", json={"choice": "granted"})
+        for cookie in got.headers.get_list("set-cookie"):
+            self.assertNotIn("Secure", cookie, cookie)
+
+
 def _events():
     """Every event in the current month's log."""
     path = visits._month_path(datetime.datetime.utcnow())

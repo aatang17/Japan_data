@@ -27,7 +27,7 @@ import duckdb
 from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel
 
-from . import db, filer_labels, parties, vintages, visits
+from . import db, filer_labels, parties, seo, vintages, visits
 from .api import ADAPTERS, health
 from .equity_api import DB_PATH as EQUITY_DB_PATH
 
@@ -151,10 +151,13 @@ def login(body: LoginBody, request: Request, response: Response):
         audit("login_failed", "wrong password", ip)
         raise HTTPException(401, "Wrong password")
     expiry = int(time.time()) + SESSION_HOURS * 3600
+    # seo.is_https, not request.url.scheme: behind the platform's proxy the
+    # scheme reads http on an https-only site, and the session cookie was
+    # therefore never marked Secure in production.
     response.set_cookie(
         COOKIE, _sign(expiry), max_age=SESSION_HOURS * 3600, path="/admin",
         httponly=True, samesite="strict",
-        secure=request.url.scheme == "https")
+        secure=seo.is_https(request))
     audit("login", "signed in", ip)
     expires = datetime.datetime.fromtimestamp(expiry, datetime.timezone.utc)
     return {"ok": True,

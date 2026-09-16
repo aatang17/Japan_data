@@ -15,7 +15,7 @@ import json
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
-from . import visits
+from . import seo, visits
 
 router = APIRouter(prefix="/api/v1/visit", tags=["Traffic"],
                    include_in_schema=False)
@@ -93,7 +93,7 @@ async def consent(request: Request):
     response = JSONResponse(body, headers={"Cache-Control": "no-store"})
     # Secure only where the browser will accept it: a Secure cookie set over
     # plain http is dropped, which would silently break local development.
-    secure = request.url.scheme == "https"
+    secure = seo.is_https(request)
     response.set_cookie(visits.CONSENT_COOKIE, choice,
                         max_age=visits.CONSENT_MAX_AGE, path="/",
                         samesite="lax", secure=secure)

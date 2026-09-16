@@ -214,6 +214,22 @@ def _is_tracking(key):
     return key.startswith("utm_") or key in _TRACKING
 
 
+def is_https(request):
+    """Whether the READER's connection is https.
+
+    Not the same question as ``request.url.scheme``, which describes the hop
+    between the platform's proxy and this process and is always plain http.
+    Uvicorn only believes X-Forwarded-* from 127.0.0.1 and the proxy is not
+    on it, so the scheme reads http on a site that is https-only — and a
+    cookie marked Secure only when that reading says https is never marked
+    Secure at all. Read the header ourselves, exactly as the visit counter
+    reads the forwarded address.
+    """
+    proto = (request.headers.get("x-forwarded-proto") or "")
+    proto = proto.split(",")[0].strip().lower()
+    return (proto or request.url.scheme) == "https"
+
+
 def canonical_url(path, query_string=""):
     """The one address for a request's path and query.
 
