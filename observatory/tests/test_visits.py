@@ -90,6 +90,110 @@ class IdentityTest(unittest.TestCase):
             self.assertIsNone(got[1], value)
 
 
+class BotFilterTest(unittest.TestCase):
+    """What the user-agent filter catches. The named agents below were each
+    counted as readers until they were added; a regression here inflates
+    every figure on the traffic page at once."""
+
+    def test_googles_own_fetchers_are_not_readers(self):
+        for agent in (
+            "Mozilla/5.0 (compatible; Google-InspectionTool/1.0;)",
+            "GoogleOther",
+            "Mozilla/5.0 (Linux; Android 4.4.2; Nexus 4 Build/KOT49H) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/81.0.4044.138 Mobile Safari/537.36 "
+            "(compatible; Google-Read-Aloud; +https://support.google.com/webmasters/answer/1061943)",
+            "Mozilla/5.0 (compatible; Google-Site-Verification/1.0)",
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
+            "HeadlessChrome/128.0.0.0 Safari/537.36 Chrome-Lighthouse",
+        ):
+            self.assertTrue(visits._is_bot(agent), agent)
+
+    def test_assistants_fetching_on_a_users_behalf_are_not_readers(self):
+        for agent in ("Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; "
+                      "ChatGPT-User/1.0; +https://openai.com/bot",
+                      "Claude-User/1.0", "Perplexity-User/1.0",
+                      "meta-externalagent/1.1"):
+            self.assertTrue(visits._is_bot(agent), agent)
+
+    def test_libraries_are_not_readers(self):
+        for agent in ("Scrapy/2.11 (+https://scrapy.org)", "Python/3.12 aiohttp/3.9",
+                      "node-fetch/1.0", "axios/1.6.0", "PostmanRuntime/7.36"):
+            self.assertTrue(visits._is_bot(agent), agent)
+
+    def test_a_browser_is_a_reader(self):
+        self.assertFalse(visits._is_bot(UA))
+        self.assertFalse(visits._is_bot(
+            "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 "
+            "(KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1"))
+
+
+class HostingTest(unittest.TestCase):
+    """Which networks are data centres. The names are DB-IP's."""
+
+    def test_clouds_hosts_and_cdns_are_hosting(self):
+        for name in ("Google LLC", "Amazon.com, Inc.", "DigitalOcean, LLC", "OVH SAS",
+                     "Shenzhen Tencent Computer Systems Company Limited",
+                     "Microsoft Corporation", "Hetzner Online GmbH", "M247 Europe SRL",
+                     "HostRoyale Technologies Pvt Ltd", "Scaleway SAS",
+                     "Cloudflare, Inc.", "The Constant Company, LLC"):
+            self.assertTrue(visits.is_hosting(name), name)
+
+    def test_consumer_and_corporate_networks_are_not(self):
+        for name in ("NTT Communications Corporation", "KDDI CORPORATION",
+                     "SoftBank Corp.", "Bell Canada", "Comcast Cable Communications, LLC",
+                     "COLT Technology Services Group Limited", "Google Fiber Inc.",
+                     "Apple Inc.", "China Unicom Shanghai network"):
+            self.assertFalse(visits.is_hosting(name), name)
+
+    def test_an_unplaced_address_is_not_hosting(self):
+        self.assertFalse(visits.is_hosting(None))
+        self.assertFalse(visits.is_hosting(""))
+
+
+class PeopleTest(unittest.TestCase):
+    """The strict figure: a reading time, a placed network, not a data centre.
+    Written straight into the log, so the test is of the summary alone."""
+
+    def test_only_a_scripted_visit_off_a_data_centre_is_a_person(self):
+        now = datetime.datetime.utcnow().replace(microsecond=0)
+        at = now.isoformat() + "Z"
+
+        def page(visitor, network, ref="www.google.com"):
+            return {"at": at, "visitor": visitor, "path": "/holdings.html",
+                    "kind": "page", "status": 200, "ref": ref, "internal": False,
+                    "country": "JP", "network": network, "bot": False}
+
+        def dwell(visitor):
+            return {"at": at, "visitor": visitor, "kind": "dwell",
+                    "path": "/holdings.html", "seconds": 40, "bot": False,
+                    "view": "v-" + visitor}
+
+        events = [
+            page("pp-person", "NTT Communications Corporation"), dwell("pp-person"),
+            page("pp-cloud", "Google LLC"), dwell("pp-cloud"),        # ran the script, but a data centre
+            page("pp-silent", "KDDI CORPORATION"),                     # a placed ISP, no script report
+            page("pp-unplaced", None), dwell("pp-unplaced"),            # ran the script, not placed
+        ]
+        for event in events:
+            visits._record(event)
+        visits.flush()
+
+        got = visits.summary(1)
+        self.assertEqual(got["confirmed"]["people"], 1)
+        self.assertGreaterEqual(got["confirmed"]["scripted"], 3)
+        self.assertGreaterEqual(got["confirmed"]["hosting"], 1)
+        google = [r for r in got["top_referrers"] if r["key"] == "www.google.com"][0]
+        self.assertEqual(google["visitors"], 4)
+        self.assertEqual(google["people"], 1)
+        networks = dict((r["key"], r) for r in got["top_networks"])
+        self.assertTrue(networks["Google LLC"]["hosting"])
+        self.assertFalse(networks["NTT Communications Corporation"]["hosting"])
+        self.assertEqual(networks["NTT Communications Corporation"]["people"], 1)
+        self.assertEqual(networks["Google LLC"]["people"], 0)
+        today = got["daily"][-1]
+        self.assertEqual(today["people"], 1)
+
+
 class CountedAsTest(unittest.TestCase):
     """What each path counts as. The beacon is the trap: counted as an API
     call it would turn one reader on one page into a stream of them."""

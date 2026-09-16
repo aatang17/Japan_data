@@ -282,6 +282,15 @@ response.
 - **Time on page** is reported by the page when it is hidden or closed, counting visible
   seconds only, capped at an hour, deduplicated per page view. Neither this nor the
   keep-alive stores anything on the reader's machine, so neither is behind the banner.
+- **People** is the strict figure, and the one to quote. Anything that does not call
+  itself a bot is a *visit*; a *person* is a visit that also reported a reading time (only
+  the page's script can send one, so a browser rendered it), from an address placed on a
+  network, where that network is not a cloud, host or CDN (`HOSTING_MARKERS` in
+  `app/visits.py`; such rows are marked Data Centre in the network table). Deliberately an
+  undercount — iCloud Private Relay readers leave through Cloudflare or Akamai and are
+  excluded. The People column on the arrivals table is what says whether a source's clicks
+  were real. `BOT_MARKERS` also names Google's non-"bot" fetchers (`Google-InspectionTool`,
+  `GoogleOther`, `Google-Read-Aloud`), which were the largest "readership" for a month.
 - The banner itself is `web/assets/consent.js`, injected into every page by
   `app/prerender.py` (like the icons) so a new page cannot ship without it. What readers
   are told is on `/methodology.html#cookies`.

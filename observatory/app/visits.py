@@ -100,7 +100,46 @@ BOT_MARKERS = ("bot", "crawler", "spider", "crawl", "slurp", "curl", "wget",
                "okhttp", "headless", "phantom", "monitor", "uptime",
                "pingdom", "healthcheck", "health-check", "kube-probe",
                "railway", "preview", "scraper", "fetcher", "archiver",
-               "facebookexternalhit", "embedly", "feedfetcher")
+               "facebookexternalhit", "embedly", "feedfetcher",
+               # Google's own fetchers that do not say "bot": the Search
+               # Console inspection tool, the crawler for its other products,
+               # the read-aloud renderer and the ownership check. Together they
+               # were the largest "readership" on the site for a month.
+               "google-inspectiontool", "googleother", "google-read-aloud",
+               "google-site-verification", "google favicon", "google-safety",
+               "lighthouse", "pagespeed", "webpagetest", "gtmetrix",
+               # AI assistants fetching a page on a user's behalf. Still not a
+               # reader of this site.
+               "chatgpt-user", "claude-user", "perplexity-user",
+               "meta-externalagent", "cohere-ai", "anthropic-ai",
+               # Libraries and tools that identify themselves honestly.
+               "scrapy", "aiohttp", "python-urllib", "python/", "node-fetch",
+               "axios/", "libwww", "httpclient", "postman", "insomnia",
+               "dataprovider", "censys", "zgrab", "nuclei", "masscan",
+               "wappalyzer", "netcraft")
+
+# Substrings of a network operator's name that mean "a data centre, not a
+# home or an office". Matched against the DB-IP operator name, lower-cased,
+# and used only to keep such visits out of the People figure — they are still
+# counted everywhere else. Undercounting is the accepted direction: a reader
+# behind iCloud Private Relay leaves through Cloudflare or Akamai and is not
+# counted as a person, which the admin page discloses.
+#
+# "google llc" rather than "google", or Google Fiber's subscribers would be
+# machines. "apple" is deliberately absent for the same reason.
+HOSTING_MARKERS = ("amazon", "google llc", "google cloud", "microsoft",
+                   "digitalocean", "ovh", "hetzner", "linode", "akamai",
+                   "cloudflare", "fastly", "scaleway", "tencent", "alibaba",
+                   "huawei cloud", "oracle", "m247", "hostroyale", "hostpapa",
+                   "vultr", "the constant company", "choopa", "leaseweb",
+                   "contabo", "ionos", "godaddy", "psychz", "colocrossing",
+                   "quadranet", "zenlayer", "datacamp", "gcore", "g-core",
+                   "hostinger", "namecheap", "hostwinds", "kamatera", "upcloud",
+                   "equinix", "rackspace", "servers.com", "hostkey", "selectel",
+                   "timeweb", "sharktech", "ipxo", "webnx", "limestone", "nocix",
+                   "frantech", "ramnode", "hivelocity", "reliablesite",
+                   "hostdime", "datacenter", "data center", "hosting", "cloud",
+                   "server", "vps", "dedicated", "colocation")
 
 _SALT = []
 _BUFFER = []
@@ -262,7 +301,10 @@ def live():
 def record_dwell(scope, path, seconds, view=None):
     """One page, closed, after this many seconds visible. Reported by the page
     itself at the moment it goes away — the server cannot see reading, only
-    requests, and a reader on one page for ten minutes makes none."""
+    requests, and a reader on one page for ten minutes makes none.
+
+    The report is also the evidence that a script ran in a real browser,
+    which is one of the three tests behind the People figure in summary()."""
     try:
         seconds = int(float(seconds))
     except (TypeError, ValueError):
@@ -372,6 +414,19 @@ def _is_bot(user_agent):
     agent = user_agent.lower()
     for marker in BOT_MARKERS:
         if marker in agent:
+            return True
+    return False
+
+
+def is_hosting(network):
+    """True when the network operator is a cloud, host or CDN — somewhere a
+    machine lives, not a reader. None (address not placed) is not hosting, but
+    it is not a person either: the People figure requires a placed network."""
+    if not network:
+        return False
+    name = network.lower()
+    for marker in HOSTING_MARKERS:
+        if marker in name:
             return True
     return False
 
@@ -646,8 +701,13 @@ def summary(days=30, top=15):
     """Traffic over the last `days` UTC days, aggregated for the admin page.
 
     Humans and automated traffic are separated rather than merged: the
-    headline counts are people, and the bot total is reported beside them so
-    a crawl is never mistaken for readership.
+    headline counts exclude anything that says it is a bot, and the bot total
+    is reported beside them so a crawl is never mistaken for readership.
+
+    Anything that does not say so is counted as a visit, which is why the
+    stricter "people" figure exists: visits that also reported a reading time
+    (a script ran, so a browser rendered the page) from a network that is
+    placed and is not a data centre. See `confirmed` in the result.
     """
     flush()  # so the page shows the requests that just arrived
     days = max(1, min(int(days), 365))
@@ -663,6 +723,14 @@ def summary(days=30, top=15):
     visitors, bot_hits, api_calls, mcp_calls = set(), 0, 0, 0
     api_in_page, api_external = 0, 0
     browsers = set()
+    # Visitors whose page reported how long it was open. That report is sent
+    # by a script running in the page, which a scraper taking the HTML never
+    # runs — so it is the evidence that a real browser rendered the page.
+    scripted = set()
+    # The network each visitor was placed on. A visitor is one address on one
+    # day, so this is constant for them; a cookie reader who changes networks
+    # keeps the last one seen.
+    visitor_network = {}
     # How long pages were open, as reported by the pages themselves, one entry
     # per page view rather than per report.
     dwell_views = {}
@@ -717,10 +785,14 @@ def summary(days=30, top=15):
                 if kind == "browser":
                     if event.get("visitor"):
                         browsers.add(event["visitor"])
+                        if event.get("network"):
+                            visitor_network[event["visitor"]] = event["network"]
                     continue
                 # Nor is a closing page report traffic: the page view it
                 # belongs to was counted when the page was asked for.
                 if kind == "dwell":
+                    if event.get("visitor"):
+                        scripted.add(event["visitor"])
                     seconds = event.get("seconds")
                     if isinstance(seconds, (int, float)) and seconds > 0:
                         key = event.get("view") or ("%s|%s" % (visitor_of(event), at))
@@ -732,6 +804,8 @@ def summary(days=30, top=15):
                 if visitor:
                     bucket["visitors"].add(visitor)
                     visitors.add(visitor)
+                    if event.get("network"):
+                        visitor_network[visitor] = event["network"]
                 # Older records predate the in-page flag and cannot be told
                 # apart; they are left out of both splits rather than guessed at.
                 knows_origin = "internal" in event
@@ -812,6 +886,15 @@ def summary(days=30, top=15):
                     if visitor:
                         row["visitors"].add(visitor)
 
+    # A person, for the purposes of this page: a visit whose page reported its
+    # reading time (so a script ran in a real browser) from a network that is
+    # placed and is not a data centre. Every part of that is evidence a
+    # scraper does not usually produce; none of it is proof. Deliberately the
+    # strict reading — the figure is meant to be believed, not to be large.
+    hosting_visitors = set(v for v, n in visitor_network.items() if is_hosting(n))
+    placed_visitors = set(visitor_network)
+    people = (scripted & placed_visitors) - hosting_visitors
+
     # A day before counting began is UNKNOWN, not zero: padding the window
     # back to its requested length with zeros would draw weeks of invented
     # quiet. A day after it with no traffic is a true zero.
@@ -822,12 +905,13 @@ def summary(days=30, top=15):
         key = cursor.isoformat()
         bucket = daily.get(key)
         if began is None or key < began:
-            series.append({"date": key, "visitors": None, "pageviews": None,
-                           "api_calls": None, "bot_hits": None})
+            series.append({"date": key, "visitors": None, "people": None,
+                           "pageviews": None, "api_calls": None, "bot_hits": None})
         else:
             series.append({
                 "date": key,
                 "visitors": len(bucket["visitors"]) if bucket else 0,
+                "people": len(bucket["visitors"] & people) if bucket else 0,
                 "pageviews": bucket["pageviews"] if bucket else 0,
                 "api_calls": bucket["api"] if bucket else 0,
                 "bot_hits": bucket["bots"] if bucket else 0,
@@ -851,7 +935,9 @@ def summary(days=30, top=15):
         rows = [{"key": k, "views": v["views"], "visitors": len(v["visitors"]),
                  # Visits from something that also fetched the page's styles and
                  # images, so was rendering it rather than only reading the HTML.
-                 "browser_visits": len(v["visitors"] & browsers)}
+                 "browser_visits": len(v["visitors"] & browsers),
+                 # Visits that pass every test for a person, defined above.
+                 "people": len(v["visitors"] & people)}
                 for k, v in source.items()]
         if dwell_by is not None:
             for row in rows:
@@ -860,6 +946,10 @@ def summary(days=30, top=15):
                 row["dwell_samples"] = len(seen)
         rows.sort(key=lambda r: (-r["views"], r["key"]))
         return rows[:max(1, min(int(top), 100))]
+
+    network_rows = ranked(networks)
+    for row in network_rows:
+        row["hosting"] = is_hosting(row["key"])
 
     files = _log_files()
     return {
@@ -878,7 +968,8 @@ def summary(days=30, top=15):
         # Arrivals carrying no referring link, and the only things known about
         # them. Without this the referrer table silently omits most arrivals
         # and an empty table reads as broken detection.
-        "direct": {"views": direct["views"], "visitors": len(direct["visitors"])},
+        "direct": {"views": direct["views"], "visitors": len(direct["visitors"]),
+                   "people": len(direct["visitors"] & people)},
         "direct_networks": ranked(direct_networks),
         "direct_pages": ranked(direct_pages),
         "api_in_page": api_in_page,
@@ -887,6 +978,15 @@ def summary(days=30, top=15):
         # honest test for "was this a person": a browser fetches the styles and
         # images, a script almost never does.
         "browser_visits": len(visitors & browsers),
+        # The strict figure: visits that reported a reading time from a placed,
+        # non-hosting network. The parts are reported beside it so a zero can
+        # be read — no script reports, no placed networks, or all data centre.
+        "confirmed": {
+            "people": len(people),
+            "scripted": len(visitors & scripted),
+            "placed": len(visitors & placed_visitors),
+            "hosting": len(visitors & hosting_visitors),
+        },
         # How long a page stayed open, and how long a visit lasted. The first
         # is reported by the page, the second read off the request log; both
         # are medians, because one tab left open for a day would carry an
@@ -916,7 +1016,7 @@ def summary(days=30, top=15):
         # readership rather than the part of it that said yes.
         "consent": consent,
         "top_countries": ranked(countries),
-        "top_networks": ranked(networks),
+        "top_networks": network_rows,
         # What share of counted traffic could be placed at all. Without it an
         # empty location table reads as "nobody came" rather than "the tables
         # were not loaded".

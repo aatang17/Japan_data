@@ -633,8 +633,13 @@ function trafficMarkup(d, days) {
 
   // "Visits", never "unique visitors": the identifier rotates daily, so this
   // is the sum of each day's visitors, not a headcount of people.
+  // People is the strict figure — a script ran, the network is placed and is
+  // not a data centre — and sits beside Visits so the gap between the two is
+  // the first thing read off the row.
+  var confirmed = d.confirmed || {};
   var kpis =
     kpi(fmtCount(d.visitors), "Visits", "") +
+    kpi(fmtCount(confirmed.people), "People", "") +
     kpi(fmtCount(d.browser_visits), "Browser Visits", "") +
     kpi(fmtCount(d.pageviews), "Page Views", "") +
     kpi(fmtCount(d.api_calls + d.mcp_calls), "API Requests", "") +
@@ -658,7 +663,7 @@ function trafficMarkup(d, days) {
     '<div id="traffic-live"><p class="admin-loading">Loading live readership…</p></div>' +
     '<div class="admin-section">This Window <span class="note">' +
     escapeHtml(fmtDay(d.from)) + " to " + escapeHtml(fmtDay(d.to)) + "</span></div>" +
-    '<div class="kpi-row">' + kpis + "</div>" + banner +
+    '<div class="kpi-row">' + kpis + "</div>" + peopleNote(d) + banner +
     '<div class="admin-section">Daily Readership <span class="note">unique visitors and ' +
     "page views per day</span></div>" + chart +
     trafficTime(d) + trafficPeople(d) +
@@ -669,6 +674,19 @@ function trafficMarkup(d, days) {
     '<div class="admin-section">How Readers Arrived <span class="note">only the sending ' +
     "site is recorded, never the page a reader came from</span></div>" +
     trafficArrivals(d) + trafficDirect(d) + trafficPlaces(d);
+}
+
+/* What the People figure is made of, so a small number can be read: how many
+   visits ran the page's script, how many were placed, how many were data
+   centres. A line under the row it qualifies, not a panel. */
+function peopleNote(d) {
+  var c = d.confirmed;
+  if (!c || !d.visitors) return "";
+  return '<p class="admin-page-sub">Of ' + fmtCount(d.visitors) + " visits, " +
+    fmtCount(c.scripted) + " reported a reading time, " + fmtCount(c.placed) +
+    " were placed on a network, and " + fmtCount(c.hosting) +
+    " came from a data centre. <strong>People</strong> counts the visits that reported a " +
+    "time from a placed network that is not a data centre — see Show calculation.</p>";
 }
 
 /* A share of a total, where a real but tiny share must not read as zero. */
@@ -760,11 +778,18 @@ function trafficTable(rows, label, opts) {
       ? '<a href="' + escapeHtml(r.key) + '" target="_blank" rel="noopener">' +
         escapeHtml(r.key) + "</a>"
       : escapeHtml(opts.label ? opts.label(r.key) : r.key);
+    if (r.hosting) {
+      name += ' <span class="badge badge-neutral" title="A cloud, hosting or CDN ' +
+        'network: its visits are never counted as people">Data Centre</span>';
+    }
     return "<tr><td" + (opts.plain ? "" : ' class="mono"') + ">" + name + "</td>" +
       '<td class="num">' + fmtCount(r.views) + "</td>" +
       '<td class="num">' + fmtCount(r.visitors) + "</td>" +
       (opts.browser
         ? '<td class="num">' + fmtCount(r.browser_visits) + "</td>"
+        : "") +
+      (opts.people
+        ? '<td class="num">' + fmtCount(r.people) + "</td>"
         : "") +
       (opts.dwell
         ? '<td class="num"' +
@@ -780,6 +805,7 @@ function trafficTable(rows, label, opts) {
     escapeHtml(opts.viewsLabel || "Page Views") + '</th>' +
     '<th class="num">Visits</th>' +
     (opts.browser ? '<th class="num">Browser Visits</th>' : "") +
+    (opts.people ? '<th class="num">People</th>' : "") +
     (opts.dwell ? '<th class="num">Median Time on Page</th>' : "") +
     "</tr></thead><tbody>" + body + "</tbody></table></div>";
 }
@@ -789,12 +815,13 @@ function trafficTable(rows, label, opts) {
    detection rather than "nobody followed a link". */
 function trafficArrivals(d) {
   var rows = (d.top_referrers || []).map(function (r) {
-    return { key: r.key, views: r.views, visitors: r.visitors, direct: false };
+    return { key: r.key, views: r.views, visitors: r.visitors, people: r.people,
+             direct: false };
   });
   var direct = d.direct || { views: 0, visitors: 0 };
   if (direct.views) {
     rows.push({ key: "Direct — no referring link", views: direct.views,
-                visitors: direct.visitors, direct: true });
+                visitors: direct.visitors, people: direct.people, direct: true });
   }
   if (!rows.length) {
     return '<p class="table-empty">No page reads in this window.</p>';
@@ -808,11 +835,13 @@ function trafficArrivals(d) {
                 : '<td class="mono">' + escapeHtml(r.key) + "</td>") +
       '<td class="num">' + fmtCount(r.views) + "</td>" +
       '<td class="num">' + share + "%</td>" +
-      '<td class="num">' + fmtCount(r.visitors) + "</td></tr>";
+      '<td class="num">' + fmtCount(r.visitors) + "</td>" +
+      '<td class="num">' + fmtCount(r.people) + "</td></tr>";
   }).join("");
   return '<div class="table-wrap"><table class="data">' +
     '<thead><tr><th>Source</th><th class="num">Page Views</th>' +
-    '<th class="num">Share</th><th class="num">Visits</th></tr></thead><tbody>' +
+    '<th class="num">Share</th><th class="num">Visits</th>' +
+    '<th class="num">People</th></tr></thead><tbody>' +
     body + "</tbody></table></div>";
 }
 
@@ -824,7 +853,8 @@ function trafficDirect(d) {
     '<span class="note">the closest thing to a source a direct arrival has' +
     "</span></div>" +
     trafficTable(d.direct_networks, "Network",
-      { plain: true, empty: "No direct arrival could be attributed to a network." }) +
+      { plain: true, people: true,
+        empty: "No direct arrival could be attributed to a network." }) +
     '<div class="admin-section">Pages Opened Directly ' +
     '<span class="note">opened with no referring link, so typed, bookmarked or ' +
     "followed from a mail or messaging app</span></div>" +
@@ -855,12 +885,12 @@ function trafficPlaces(d) {
     '<span class="note">' + escapeHtml(coverage) + "</span></div>" +
     trafficTable(d.top_countries, "Country",
       { plain: true, label: countryName, viewsLabel: "Requests", browser: true,
-        empty: "No request in this window could be placed." }) +
+        people: true, empty: "No request in this window could be placed." }) +
     '<div class="admin-section">Requests by Network Operator ' +
     '<span class="note">the network a request came from, which is not the same ' +
     "as who the reader works for</span></div>" +
     trafficTable(d.top_networks, "Network",
-      { plain: true, viewsLabel: "Requests", browser: true,
+      { plain: true, viewsLabel: "Requests", browser: true, people: true,
         empty: "No request in this window could be attributed to a network." }) +
     '<p class="source-line">Location and network from ' +
     '<a href="https://db-ip.com" target="_blank" rel="noopener">IP Geolocation by ' +
@@ -921,6 +951,17 @@ function trafficCalc(d) {
     "actually read a page would take a script running in the browser watching them, which " +
     "this product deliberately does not do. Counted once per visitor per day, and the " +
     "asset requests themselves are never counted as traffic or stored.</p>" +
+    "<p><strong>People</strong> is the strict figure, and the one to quote: a visit that " +
+    "passes three tests at once. Its page reported a reading time, which only the script " +
+    "in the page can send, so a real browser rendered it. Its address was placed on a " +
+    "network. And that network is not a cloud, host or CDN — Amazon, Google, Microsoft, " +
+    "DigitalOcean, OVH, Hetzner, Tencent, Cloudflare and the like, marked " +
+    "<span class=\"badge badge-neutral\">Data Centre</span> in the network table. Each " +
+    "test alone is weak; a scraper rarely passes all three. It is deliberately an " +
+    "undercount: a reader on a phone using iCloud Private Relay leaves through Cloudflare " +
+    "or Akamai and is not counted, and a page closed within a second reports no time. " +
+    "The three parts are shown beside the figure so a zero can be read — no reading " +
+    "times, nothing placed, or everything from a data centre.</p>" +
     "<p><strong>Automated hits</strong> — crawlers, uptime monitors, the platform " +
     "healthcheck and anything sending no browser identification — are counted separately " +
     "and excluded from every other figure here.</p>" +
@@ -953,6 +994,8 @@ function trafficChartCfg(d) {
         points: d.daily.map(function (r) { return [r.date, r.visitors]; }) },
       { name: "Page Views", slot: 2,
         points: d.daily.map(function (r) { return [r.date, r.pageviews]; }) },
+      { name: "People", slot: 3,
+        points: d.daily.map(function (r) { return [r.date, r.people]; }) },
     ],
     dp: 0,
     yAxisDp: 0,
@@ -1003,6 +1046,9 @@ function wireTraffic(target, d, days) {
       "Window: " + d.from + " to " + d.to,
       "Visitors = distinct address-and-browser hashes on that UTC day",
       "The hash rotates daily by design, so days cannot be summed into people",
+      "People = visitors whose page reported a reading time (a script ran in a browser),",
+      "placed on a network that is not a cloud, host or CDN; the strict reading, so an",
+      "undercount: readers behind iCloud Private Relay leave through a CDN and are excluded",
       "Page views = successful page requests; assets and the admin console excluded",
       "Automated hits (crawlers, monitors, healthchecks) excluded from both series",
       "An empty cell is a day before counting began, which is not the same as zero",
