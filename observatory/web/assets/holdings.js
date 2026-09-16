@@ -558,7 +558,10 @@
       var nameEn = (d.entity && d.entity.name_en) ||
                    (d.filing && d.filing.filer_name_en) ||
                    (d.holders[0] && d.holders[0].holder_name_en) || "";
-      document.title = (nameEn || name) + " · Cross-Shareholdings · Observatory";
+      // Matches the title the server already sent for this address, so the
+      // tab does not change wording when the fetch lands. See app/prerender.py.
+      document.title = (nameEn || name) + " (" + code +
+        ") \u2014 Cross-Shareholdings \u00b7 Plover Analytics";
       $("co-name").textContent = nameEn || name;
       // the Japanese name is the one on the filing — keep it on the page, under
       // the English heading, not hidden behind a hover

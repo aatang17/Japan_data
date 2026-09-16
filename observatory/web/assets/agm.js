@@ -365,8 +365,9 @@
     $("co-name").textContent = d.name_en || d.name || d.sec_code;
     $("co-code").textContent = d.sec_code +
       (d.name_en && d.name ? " · " + d.name : "");
-    document.title = (d.name_en || d.name || d.sec_code) +
-      " — AGM Votes · Plover Analytics";
+    // Matches the served title for this address; see app/prerender.py.
+    document.title = (d.name_en || d.name || d.sec_code) + " (" + d.sec_code +
+      ") \u2014 AGM Voting Results \u00b7 Plover Analytics";
     $("co-meta").innerHTML = fmtNum(ms.length, 0) + " meeting" +
       (ms.length === 1 ? "" : "s") + " on file · " +
       "<span class='badge badge-official'>Official statistic</span>";

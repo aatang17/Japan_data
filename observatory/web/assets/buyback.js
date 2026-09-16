@@ -386,7 +386,9 @@
 
   // ---- company view --------------------------------------------------------
   function renderCompany(d) {
-    document.title = (d.name_en || d.filer_name) + " · Buybacks · Plover Analytics";
+    // Matches the served title for this address; see app/prerender.py.
+    document.title = (d.name_en || d.filer_name) + " (" + (d.sec_code || "") +
+      ") \u2014 Share Buybacks \u00b7 Plover Analytics";
     $("co-name").textContent = d.name_en || d.filer_name;
     $("co-code").textContent = d.sec_code || d.edinet_code;
     if (d.name_en && d.filer_name) {

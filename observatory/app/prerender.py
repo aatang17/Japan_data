@@ -335,7 +335,58 @@ _CO_NAME_H1 = re.compile(r'(?is)(<h1[^>]*\sid=["\']co-name["\'][^>]*>)(.*?)(</h1
 _SEC_CODE = re.compile(r'^[0-9A-Za-z]{4}$')
 _SPACE = re.compile(r'[\s\u3000]+')
 
+_CREDIT = ("Source: company filings on EDINET "
+           "(Financial Services Agency of Japan).")
+
 _company_cache = {}
+_entity_cache = {}
+
+
+def _equity_version():
+    from . import equity_api
+    return equity_api.file_version()
+
+
+def _macro_version():
+    from . import db
+    return db.file_version()
+
+
+def _one(sql, params):
+    """One row from the equity database, or None."""
+    from . import equity_api
+    return equity_api._cur().execute(sql, params).fetchone()
+
+
+def _one_macro(sql, params):
+    """One row from the macro database, or None."""
+    from . import db
+    return db.read_cursor().execute(sql, params).fetchone()
+
+
+def _cached(key, version_fn, build):
+    """build()'s answer, remembered until the database it came from changes.
+
+    One cache for every entity view, keyed by the view's own name as well as
+    the entity, so a company's holdings line and its AGM line never collide.
+    """
+    try:
+        version = version_fn()
+    except Exception:  # noqa: BLE001 — never worth an error page
+        version = None
+    full = key + (version,)
+    with _lock:
+        if full in _entity_cache:
+            return _entity_cache[full]
+    try:
+        value = build()
+    except Exception:  # noqa: BLE001 — see module docstring: best-effort only
+        value = None
+    with _lock:
+        if len(_entity_cache) > 20000:
+            _entity_cache.clear()
+        _entity_cache[full] = value
+    return value
 
 # One trip for the identity and the three counts a reader searches by. The
 # counts come off the latest annual report's doc_id, which is the filing the
@@ -450,7 +501,8 @@ def _company_meta(code):
                     "(Financial Services Agency of Japan)." % (doc_id, filed_date)
 
     return {"title": title, "description": sentence, "h1": name,
-            "noscript": noscript, "code": code, "name_ja": japanese}
+            "noscript": noscript, "code": code, "name_ja": japanese,
+            "name": name, "ident": ident}
 
 
 def _join(parts):
@@ -460,22 +512,229 @@ def _join(parts):
     return ", ".join(parts[:-1]) + " and " + parts[-1]
 
 
-# Which query parameter names the entity, per page. Only pages that genuinely
-# serve one entity per address belong here: a page whose query only filters a
-# table is still one page and must keep one title.
-ENTITY_PARAM = {"company.html": "code"}
+# ---------------------------------------------------------------------------
+# the other per-entity views
+# ---------------------------------------------------------------------------
+#
+# Three more pages serve one subject per address: a company's cross-
+# shareholdings, its AGM results, and one series of the CPI. Each had the
+# same problem company.html had, and each needs its own answer rather than
+# the company blurb repeated three times — three pages carrying one
+# description for the same company is the duplicate problem again, only
+# spread sideways. So each states what *that* page shows.
+
+_HOLDINGS_SQL = """
+WITH l AS (
+  SELECT doc_id, period_end FROM eq_filings WHERE sec_code = ?
+  ORDER BY period_end DESC NULLS LAST, filed_date DESC NULLS LAST LIMIT 1)
+SELECT l.period_end, count(h.row_no), sum(h.book_value_yen),
+       count(h.held_sec_code)
+FROM l LEFT JOIN eq_holdings h USING (doc_id)
+GROUP BY l.period_end
+"""
+
+_AGM_SQL = """
+SELECT count(DISTINCT m.doc_id), max(m.filed_date),
+       min(v.approval_pct_filed), count(v.seq)
+FROM eq_agm_meetings m LEFT JOIN eq_agm_votes v USING (doc_id)
+WHERE m.issuer_sec_code = ?
+"""
+
+_BUYBACK_SQL = """
+SELECT count(DISTINCT f.doc_id), max(f.submitted),
+       max(p.authorised_yen), max(p.progress_yen_pct)
+FROM eq_buyback_filings f LEFT JOIN eq_buyback_programs p USING (doc_id)
+WHERE f.sec_code = ?
+"""
+
+_SERIES_SQL = """
+SELECT s.name_en, s.name_ja, s.weight_per_10000,
+       (SELECT min(o.period) FROM observations o WHERE o.series_id = s.series_id),
+       (SELECT max(o.period) FROM observations o WHERE o.series_id = s.series_id)
+FROM series s WHERE s.dataset = ? AND s.code = ?
+"""
+
+# The explorer holds two CPI datasets and defaults to the categories one, the
+# same default its own urlState() applies. Anything else in ?dataset= is not
+# a view this page serves, so it gets the page's own description.
+_EXPLORER_DATASETS = {
+    "cpi-jp": "Japan's CPI categories",
+    "cpi-jp-items": "Japan's CPI at full item depth",
+}
+_EXPLORER_DEFAULT = "cpi-jp"
+
+
+def _yen_bn(value):
+    """A book value as the tables show it: billions of yen, one decimal."""
+    if not value:
+        return None
+    return "{:,.1f}".format(float(value) / 1e9)
+
+
+def _holdings_view(values):
+    code = (values.get("c") or "").strip()
+    base = company_meta(code)
+    if not base:
+        return None
+    facts = _cached(("holdings", code), _equity_version,
+                    lambda: _one(_HOLDINGS_SQL, [code]))
+    name, ident = base["name"], base["ident"]
+    held = total = listed = 0
+    period = ""
+    if facts:
+        period_end, held, total, listed = facts
+        held, listed = held or 0, listed or 0
+        period = period_end.strftime("%B %Y") if period_end else ""
+    if not held:
+        return None
+    sentence = "%s holds %d cross-shareholding%s" % (
+        ident, held, "" if held == 1 else "s")
+    money = _yen_bn(total)
+    if money:
+        sentence += ", \u00a5%sbn at book value" % money
+    if listed:
+        sentence += ", %d of them in companies also covered here" % listed
+    sentence += ", as filed in its annual securities report%s." % (
+        " for the year to " + period if period else "")
+    return {"title": "%s (%s) \u2014 Cross-Shareholdings \u00b7 Plover Analytics"
+                     % (name, code),
+            "description": sentence, "h1": name,
+            "noscript": sentence + " " + _CREDIT,
+            "code": code, "name_ja": base.get("name_ja")}
+
+
+def _agm_view(values):
+    code = (values.get("company") or "").strip()
+    base = company_meta(code)
+    if not base:
+        return None
+    facts = _cached(("agm", code), _equity_version,
+                    lambda: _one(_AGM_SQL, [code]))
+    if not facts or not facts[0]:
+        return None
+    meetings, latest, lowest, votes = facts
+    name, ident = base["name"], base["ident"]
+    sentence = "AGM voting results for %s: %d meeting%s on file" % (
+        ident, meetings, "" if meetings == 1 else "s")
+    if votes and lowest is not None:
+        # As filed by the company; never recomputed here.
+        sentence += ", lowest reported approval %.2f%%" % lowest
+    if latest:
+        sentence += ", latest filed %s" % latest
+    sentence += ", from extraordinary reports on EDINET."
+    return {"title": "%s (%s) \u2014 AGM Voting Results \u00b7 Plover Analytics"
+                     % (name, code),
+            "description": sentence, "h1": name,
+            "noscript": sentence + " " + _CREDIT,
+            "code": code, "name_ja": base.get("name_ja")}
+
+
+def _buyback_view(values):
+    code = (values.get("c") or "").strip()
+    base = company_meta(code)
+    if not base:
+        return None
+    facts = _cached(("buyback", code), _equity_version,
+                    lambda: _one(_BUYBACK_SQL, [code]))
+    if not facts or not facts[0]:
+        return None
+    filings, latest, authorised, progress = facts
+    name, ident = base["name"], base["ident"]
+    sentence = "Share buybacks by %s: %d monthly filing%s on file" % (
+        ident, filings, "" if filings == 1 else "s")
+    money = _yen_bn(authorised)
+    if money:
+        sentence += ", largest programme authorised at \u00a5%sbn" % money
+    if latest:
+        sentence += ", latest filed %s" % latest
+    sentence += ", from EDINET."
+    return {"title": "%s (%s) \u2014 Share Buybacks \u00b7 Plover Analytics"
+                     % (name, code),
+            "description": sentence, "h1": name,
+            "noscript": sentence + " " + _CREDIT,
+            "code": code, "name_ja": base.get("name_ja")}
+
+
+def _explorer_view(values):
+    code = (values.get("series") or "").strip()
+    dataset = (values.get("dataset") or "").strip() or _EXPLORER_DEFAULT
+    if not code or dataset not in _EXPLORER_DATASETS:
+        return None
+    facts = _cached(("series", dataset, code), _macro_version,
+                    lambda: _one_macro(_SERIES_SQL, [dataset, code]))
+    if not facts:
+        return None
+    # The two CPI datasets overlap: all 78 category codes are published again
+    # inside the item table, with identical observations, so ?series=0001 and
+    # ?series=0001&dataset=cpi-jp-items are one series at two addresses. The
+    # shorter one — the explorer's own default — is named as the real one.
+    canonical = None
+    if dataset != _EXPLORER_DEFAULT and _in_default_dataset(code):
+        canonical = "%s/explorer.html?series=%s" % (
+            SITE_BASE_URL_FOR_JSONLD(), code)
+    name_en, name_ja, weight, first, last = facts
+    name = (name_en or name_ja or "").strip()
+    if not name:
+        return None
+    ident = "%s (%s)" % (name, name_ja) if name_ja and name_ja != name else name
+    sentence = "%s in %s, item code %s." % (ident, _EXPLORER_DATASETS[dataset], code)
+    if weight and weight >= 10000:
+        # The all-items total is the basket, not a share of it.
+        sentence += " The whole basket, 10,000 parts per 10,000."
+    elif weight:
+        # Parts per 10,000 (\u4e00\u4e07\u5206\u6bd4), as the Bureau publishes them — never percent.
+        sentence += " Weight %s per 10,000 of the basket." % (
+            "{:,.0f}".format(weight) if weight >= 1 else "%.1f" % weight)
+    if first and last:
+        sentence += " Monthly index from %s to %s, as published by the Statistics Bureau." % (
+            first.strftime("%B %Y"), last.strftime("%B %Y"))
+    # The code is in the title because the names are not unique: the same
+    # item is published as both an aggregate and a leaf ("Electricity" is
+    # 0056 and 3500), and several parenthetical names ("(ordinary fares)")
+    # mean different things under different parents. The explorer's own
+    # search box already invites the code, so it is what a reader searches.
+    return {"title": "%s (%s) \u2014 Japan CPI \u00b7 Plover Analytics" % (name, code),
+            "description": sentence,
+            "noscript": sentence + " Source: Statistics Bureau of Japan.",
+            "datasets": [dataset], "canonical": canonical}
+
+
+def _in_default_dataset(code):
+    """Is this code also published in the explorer's default dataset?"""
+    return bool(_cached(("in-default", code), _macro_version,
+                        lambda: _one_macro(
+                            "SELECT 1 FROM series WHERE dataset = ? AND code = ?",
+                            [_EXPLORER_DEFAULT, code])))
+
+
+def _company_view(values):
+    base = company_meta((values.get("code") or "").strip())
+    if not base:
+        return None
+    return {"title": base["title"], "description": base["description"],
+            "h1": base["h1"], "noscript": base["noscript"]}
+
+
+# Which page serves one entity per address, and how to describe it. A page
+# whose query only filters a table is still one page and stays out.
+ENTITY_PAGES = {
+    "company.html": _company_view,
+    "holdings.html": _holdings_view,
+    "agm.html": _agm_view,
+    "buyback.html": _buyback_view,
+    "explorer.html": _explorer_view,
+}
 
 
 def entity_meta(page_name, query_string):
     """Per-entity head and heading for this exact address, or None."""
-    param = ENTITY_PARAM.get(page_name)
-    if not param or not query_string:
+    view = ENTITY_PAGES.get(page_name)
+    if not view or not query_string:
         return None
-    values = dict(parse_qsl(query_string, keep_blank_values=True))
-    value = (values.get(param) or "").strip()
-    if not value:
+    try:
+        return view(dict(parse_qsl(query_string, keep_blank_values=True)))
+    except Exception:  # noqa: BLE001 — see module docstring: best-effort only
         return None
-    return company_meta(value)
 
 
 # ---------------------------------------------------------------------------
@@ -508,7 +767,12 @@ _HAS_ICON = re.compile(r'(?is)<link[^>]+rel=["\']icon["\']')
 # Where a page's own numbers can be read as JSON. A dataset page is answered
 # by its manifest's summary endpoint; an entity page by the endpoint that
 # serves that one entity.
-ENTITY_API = {"company.html": "/api/v1/company/%s"}
+ENTITY_API = {
+    "company.html": "/api/v1/company/%s",
+    "holdings.html": "/api/v1/equity/company/%s",
+    "agm.html": "/api/v1/equity/agm/company/%s",
+    "buyback.html": "/api/v1/equity/buyback/company/%s",
+}
 
 SITE = "Plover Analytics"
 
@@ -655,19 +919,26 @@ def _inject(html, page_name, canonical=None, query_string=""):
     # fetched from. Written here rather than into the 46 files because only
     # the server knows which host answered and which view was asked for; a
     # literal in each file would say the same thing 46 times and drift.
+    # What this address is, when the address names one company or one series
+    # rather than the page's whole subject. Falls back to the page's own
+    # description the moment the code is unknown, so a typo serves the shell
+    # rather than an error. Read before the canonical is written, because a
+    # view that shares its subject with another address says so here.
+    entity = entity_meta(page_name, query_string)
+    if entity and entity.get("canonical"):
+        canonical = entity["canonical"]
+
     if canonical and not _HAS_CANONICAL.search(html):
         tag = '<link rel="canonical" href="%s">\n' % _escape(canonical)
         html = _HEAD_END.sub(tag + "</head>", html, count=1)
 
-    # What this address is, when the address names one company rather than
-    # the page's whole subject. Falls back to the page's own description the
-    # moment the code is unknown, so a typo serves the shell, not an error.
-    entity = entity_meta(page_name, query_string)
     if entity:
         html = _TITLE_TAG.sub(
             lambda m: "<title>%s</title>" % _escape(entity["title"]), html, count=1)
-        html = _CO_NAME_H1.sub(
-            lambda m: m.group(1) + _escape(entity["h1"]) + m.group(3), html, count=1)
+        if entity.get("h1"):
+            html = _CO_NAME_H1.sub(
+                lambda m: m.group(1) + _escape(entity["h1"]) + m.group(3),
+                html, count=1)
 
     description = (entity or {}).get("description") or DESCRIPTIONS.get(page_name)
     if description and not _HAS_DESC.search(html):
@@ -679,16 +950,25 @@ def _inject(html, page_name, canonical=None, query_string=""):
         html = _HEAD_END.sub(ICON_LINKS + "\n</head>", html, count=1)
 
     # Where this page's numbers can be read as data, and what the page is.
-    datasets = [] if entity else page_datasets(html, page_name)
+    # A company view states the company; a series view is still a view of its
+    # dataset, so it keeps the dataset node and only the wording changes.
+    template = ENTITY_API.get(page_name) if entity else None
+    company_node = bool(template and entity.get("code"))
+    if company_node:
+        datasets = []
+    elif entity and entity.get("datasets"):
+        # A series view names the dataset it is a view of, since the page
+        # itself carries no data-dataset and the registry maps no page to it.
+        datasets = entity["datasets"]
+    else:
+        datasets = page_datasets(html, page_name)
     alternates = []
     nodes = []
-    if entity:
-        template = ENTITY_API.get(page_name)
-        if template and entity.get("code"):
-            path = template % entity["code"]
-            alternates.append((path, entity["h1"]))
-            nodes.append(company_jsonld(
-                entity, canonical or "", SITE_BASE_URL_FOR_JSONLD() + path))
+    if company_node:
+        path = template % entity["code"]
+        alternates.append((path, entity.get("h1") or entity["title"]))
+        nodes.append(company_jsonld(
+            entity, canonical or "", SITE_BASE_URL_FOR_JSONLD() + path))
     else:
         from . import registry
         for mid in datasets:
