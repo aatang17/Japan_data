@@ -112,11 +112,62 @@ BOT_MARKERS = ("bot", "crawler", "spider", "crawl", "slurp", "curl", "wget",
                # reader of this site.
                "chatgpt-user", "claude-user", "perplexity-user",
                "meta-externalagent", "cohere-ai", "anthropic-ai",
+               "mistralai-user", "bytespider", "omgili",
                # Libraries and tools that identify themselves honestly.
                "scrapy", "aiohttp", "python-urllib", "python/", "node-fetch",
                "axios/", "libwww", "httpclient", "postman", "insomnia",
                "dataprovider", "censys", "zgrab", "nuclei", "masscan",
                "wappalyzer", "netcraft")
+
+# The fetchers that work for an AI product, and what each one is doing. They
+# are automated traffic and are counted as such — none of them is a reader —
+# but lumping them in with crawlers and uptime monitors throws away the one
+# question worth asking of them: is anything out there answering questions
+# about this site, and from which pages?
+#
+# Three purposes, and they are different facts:
+#   training - taking the text to train on. No reader at the other end.
+#   search   - building an index that can later cite a page. A reader may
+#              follow, and arrives with the assistant's site as the referrer.
+#   asked    - fetched right now because a person asked that assistant about
+#              this page. The closest thing to a reader in this table, though
+#              still not a visit: the person read the answer, not the page.
+#
+# The label and the purpose are OUR reading of each vendor's published
+# documentation, not something the request states. The user agent is, as
+# always, a claim anyone can copy.
+AI_AGENTS = (
+    ("chatgpt-user", "ChatGPT", "asked"),
+    ("oai-searchbot", "OpenAI SearchBot", "search"),
+    ("gptbot", "OpenAI GPTBot", "training"),
+    ("claude-user", "Claude", "asked"),
+    ("claude-searchbot", "Claude SearchBot", "search"),
+    ("claudebot", "Anthropic ClaudeBot", "training"),
+    ("anthropic-ai", "Anthropic", "training"),
+    ("perplexity-user", "Perplexity", "asked"),
+    ("perplexitybot", "Perplexity", "search"),
+    ("duckassistbot", "DuckDuckGo Assist", "search"),
+    ("mistralai-user", "Mistral", "asked"),
+    ("meta-externalagent", "Meta AI", "training"),
+    ("bytespider", "ByteDance", "training"),
+    ("amazonbot", "Amazon", "training"),
+    ("applebot", "Apple", "search"),
+    ("ccbot", "Common Crawl", "training"),
+    ("cohere-ai", "Cohere", "training"),
+    ("diffbot", "Diffbot", "training"),
+    ("youbot", "You.com", "search"),
+    ("timpibot", "Timpi", "search"),
+    ("omgilibot", "Webz.io", "training"),
+)
+
+# Sites where a person asks an assistant a question and can then click through
+# to a source. An arrival carrying one of these as its referrer is a reader who
+# reached us through an answer — the thing the AI fetchers above are only ever
+# a proxy for. Matched on the host, so a country domain counts too.
+AI_REFERRER_HOSTS = ("chatgpt.com", "openai.com", "claude.ai", "anthropic.com",
+                     "perplexity.ai", "copilot.microsoft.com", "gemini.google.com",
+                     "bard.google.com", "you.com", "phind.com", "poe.com",
+                     "deepseek.com", "kagi.com", "mistral.ai", "grok.com", "x.ai")
 
 # Substrings of a network operator's name that mean "a data centre, not a
 # home or an office". Matched against the DB-IP operator name, lower-cased,
@@ -418,6 +469,34 @@ def _is_bot(user_agent):
     return False
 
 
+def ai_agent(user_agent):
+    """(label, purpose) for an AI product's fetcher, or (None, None).
+
+    Checked in AI_AGENTS order, which puts the specific names first: a
+    user-initiated fetch and a training crawler from the same vendor share a
+    prefix, and the wrong one matching would report a reader's question as a
+    scrape.
+    """
+    agent = (user_agent or "").lower()
+    if not agent:
+        return None, None
+    for marker, label, purpose in AI_AGENTS:
+        if marker in agent:
+            return label, purpose
+    return None, None
+
+
+def is_ai_referrer(host):
+    """Did this arrival come from an assistant's answer?"""
+    if not host:
+        return False
+    name = host.lower()
+    for domain in AI_REFERRER_HOSTS:
+        if name == domain or name.endswith("." + domain):
+            return True
+    return False
+
+
 def is_hosting(network):
     """True when the network operator is a cloud, host or CDN — somewhere a
     machine lives, not a reader. None (address not placed) is not hosting, but
@@ -548,6 +627,7 @@ def observe(scope, status):
     sender, internal = _referrer_host(_header(headers, b"referer"),
                                       _header(headers, b"host"))
     bot = _is_bot(user_agent)
+    label, purpose = ai_agent(user_agent)
     event = {
         "at": now.isoformat(timespec="seconds") + "Z",
         "visitor": visitor,
@@ -560,6 +640,12 @@ def observe(scope, status):
         "network": network,
         "bot": bot,
     }
+    # Which AI product asked for this, and why. Recorded on the event rather
+    # than worked out when reading, so a vendor renaming its crawler next year
+    # does not silently rewrite what last year's traffic was.
+    if label:
+        event["agent"] = label
+        event["agent_purpose"] = purpose
     # Only recorded when the reader has answered the banner: the absence of
     # these two is what "has not chosen yet" looks like in the log.
     if choice:
@@ -721,6 +807,13 @@ def summary(days=30, top=15):
     direct_networks, direct_pages = {}, {}
     located, unlocated = 0, 0
     visitors, bot_hits, api_calls, mcp_calls = set(), 0, 0, 0
+    # Automated traffic that belongs to an AI product, kept apart from the rest
+    # of it: which assistant, what it was doing, and which page it wanted.
+    ai_agents = {}
+    # Page reads that arrived from an assistant's answer — a person, not a
+    # fetcher — counted separately because they are the only evidence that any
+    # of the fetching ever reaches a reader.
+    ai_referred = {"views": 0, "visitors": set()}
     api_in_page, api_external = 0, 0
     browsers = set()
     # Visitors whose page reported how long it was open. That report is sent
@@ -778,6 +871,20 @@ def summary(days=30, top=15):
                 if event.get("bot"):
                     bot_hits += 1
                     bucket["bots"] += 1
+                    label = event.get("agent")
+                    if label:
+                        row = ai_agents.setdefault(label, {
+                            "views": 0, "visitors": set(),
+                            "purpose": event.get("agent_purpose") or "",
+                            "pages": {}, "last": ""})
+                        row["views"] += 1
+                        if event.get("visitor"):
+                            row["visitors"].add(event["visitor"])
+                        page = event.get("path")
+                        if page:
+                            row["pages"][page] = row["pages"].get(page, 0) + 1
+                        if at > row["last"]:
+                            row["last"] = at
                     continue
 
                 kind = event.get("kind")
@@ -854,6 +961,10 @@ def summary(days=30, top=15):
                     ref["views"] += 1
                     if visitor:
                         ref["visitors"].add(visitor)
+                    if is_ai_referrer(sender):
+                        ai_referred["views"] += 1
+                        if visitor:
+                            ai_referred["visitors"].add(visitor)
                 elif is_read and knows_origin and not in_page:
                     # No referring link: typed, bookmarked, or opened from a
                     # mail or messaging app, which strip the header.
@@ -951,6 +1062,23 @@ def summary(days=30, top=15):
     for row in network_rows:
         row["hosting"] = is_hosting(row["key"])
 
+    referrer_rows = ranked(refs)
+    for row in referrer_rows:
+        row["ai"] = is_ai_referrer(row["key"])
+
+    # Assistants, busiest first. The page is the most-requested one, which is
+    # what says whether anything out there is reading a particular dataset.
+    agent_rows = []
+    for label, row in ai_agents.items():
+        by_page = sorted(row["pages"].items(), key=lambda kv: (-kv[1], kv[0]))
+        agent_rows.append({
+            "key": label, "purpose": row["purpose"], "views": row["views"],
+            "visitors": len(row["visitors"]), "last": row["last"] or None,
+            "top_page": by_page[0][0] if by_page else None,
+            "pages": len(row["pages"]),
+        })
+    agent_rows.sort(key=lambda r: (-r["views"], r["key"]))
+
     files = _log_files()
     return {
         "window_days": days,
@@ -964,7 +1092,7 @@ def summary(days=30, top=15):
         "bot_hits": bot_hits,
         "daily": series,
         "top_pages": ranked(pages, page_dwell),
-        "top_referrers": ranked(refs),
+        "top_referrers": referrer_rows,
         # Arrivals carrying no referring link, and the only things known about
         # them. Without this the referrer table silently omits most arrivals
         # and an empty table reads as broken detection.
@@ -1015,6 +1143,12 @@ def summary(days=30, top=15):
         # banner at all. Without it the cookie figures read as the whole
         # readership rather than the part of it that said yes.
         "consent": consent,
+        # What the AI products are doing here: the fetchers, and the readers
+        # who arrived from one of their answers. The second is the only one of
+        # the two that is a person.
+        "ai_agents": agent_rows,
+        "ai_referrals": {"views": ai_referred["views"],
+                         "visitors": len(ai_referred["visitors"])},
         "top_countries": ranked(countries),
         "top_networks": network_rows,
         # What share of counted traffic could be placed at all. Without it an

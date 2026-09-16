@@ -291,9 +291,27 @@ response.
   excluded. The People column on the arrivals table is what says whether a source's clicks
   were real. `BOT_MARKERS` also names Google's non-"bot" fetchers (`Google-InspectionTool`,
   `GoogleOther`, `Google-Read-Aloud`), which were the largest "readership" for a month.
+- **AI assistants** are counted as automated traffic, never as readers, but are reported
+  in their own section with what each was doing: `training` (no person at the other end),
+  `search` (one may arrive later) or `asked` (a person was asking that assistant about
+  this page at that moment). `AI_AGENTS` in `app/visits.py` names them; every entry must
+  also appear in `BOT_MARKERS`, and a test asserts the two agree. Separately,
+  `ai_referrals` counts page reads whose referrer was an assistant — a reader who
+  followed a citation out of an answer, which is the only figure here that is a person.
 - The banner itself is `web/assets/consent.js`, injected into every page by
   `app/prerender.py` (like the icons) so a new page cannot ship without it. What readers
   are told is on `/methodology.html#cookies`.
+
+### What machines are told (`app/seo.py`)
+
+`robots.txt`, `sitemap.xml` and **`llms.txt`** are generated from the registry and the
+contents of `web/`, never stored as files, so none can drift from what the site serves.
+`llms.txt` follows the llmstxt.org convention: what the site is, what `trust: "official"`
+versus `trust: "derived"` means, that a missing value is never zero, how to cite a page,
+and how to read the data as of a past date. It exists because an assistant that lifts a
+number off a chart without its trust label reports a calculated rate as an official
+statistic — the one failure this product exists to prevent. Only datasets that actually
+serve data are listed.
 
 ### Party profiles (`#parties`, `#queue`)
 

@@ -1,4 +1,5 @@
-"""What search engines are told about the site: robots.txt and sitemap.xml.
+"""What search engines and AI clients are told about the site: robots.txt,
+sitemap.xml and llms.txt.
 
 Both are generated on request rather than stored as files, so neither can
 drift from what the site actually serves. The page list is the contents of
@@ -142,7 +143,11 @@ router = APIRouter()
 def robots():
     lines = ["User-agent: *", "Allow: /"]
     lines += ["Disallow: " + path for path in DISALLOWED]
-    lines += ["", "Sitemap: " + SITE_BASE_URL + "/sitemap.xml", ""]
+    lines += ["", "Sitemap: " + SITE_BASE_URL + "/sitemap.xml"]
+    # Not part of the robots standard, and ignored by crawlers that do not know
+    # it. It is here because the clients that DO look for llms.txt often read
+    # robots.txt first, and a line they ignore costs nothing.
+    lines += ["LLM-Guidance: " + SITE_BASE_URL + "/llms.txt", ""]
     return PlainTextResponse("\n".join(lines))
 
 
@@ -186,6 +191,188 @@ def sitemap_pages():
 @router.get("/sitemap-companies.xml", include_in_schema=False)
 def sitemap_companies():
     return _urlset(company_urls())
+
+
+# ---------------------------------------------------------------------------
+# what an AI client is told
+# ---------------------------------------------------------------------------
+#
+# /llms.txt is the convention (llmstxt.org) for a page addressed to a language
+# model rather than to a person: what the site is, what it holds, and how to
+# quote it. It earns its place here more than on most sites, because an
+# assistant that lifts a number off a chart page without its trust label will
+# report a rate this platform calculated as an official statistic — which is
+# the one failure the whole product exists to prevent. Saying so in the one
+# file those clients already fetch costs nothing.
+#
+# Generated from the registry rather than kept as a file, for the same reason
+# the sitemap is: a dataset appears here because it is registered and serving
+# data, so this cannot drift from what the site actually has.
+
+LLMS_INTRO = """# Plover Analytics
+
+> Japanese official statistics and company disclosures, taken from the primary
+> sources, published exactly as issued or filed, and archived so that any
+> figure can also be read as it stood on an earlier date. Free to use, free to
+> quote, and built to be cited rather than paraphrased.
+
+Sources are the Statistics Bureau of Japan, the Bank of Japan, the Ministry of
+Finance, the Cabinet Office, the Ministry of Internal Affairs and
+Communications, and company filings on EDINET (Financial Services Agency).
+Nothing here is scraped from another aggregator.
+
+## How to quote a number from this site
+
+Every value the API returns carries a `trust` field, and it means something
+exact:
+
+- `trust: "official"` — the figure exactly as the publisher released it or the
+  company filed it. Never recomputed, never smoothed, never corrected. Filer
+  errors are published as filed and flagged, not fixed.
+- `trust: "derived"` — this platform calculated it, and the `calc` field beside
+  it states the formula in full. When you quote such a number, quote the
+  formula with it, or say that it is calculated. Do not describe it as an
+  official statistic.
+
+A missing value is missing: it is returned as null and shown as an em dash. It
+is never zero, and must never be reported as zero.
+
+Rates computed from published (rounded) index levels can differ from the
+publisher's own published rate by up to 0.1 percentage points. That is
+disclosed, not an error, and must not be "corrected" by rounding to match.
+
+Stocks, flows, levels and price changes are different measure types and are
+never summed, netted or ranked against one another.
+
+## How to cite
+
+Cite the page URL — it encodes the entire view, so it resolves to the same
+chart later — together with the publisher's own credit line, which every
+response carries at `source.credit`. For example:
+
+    Plover Analytics, "Consumer Price Index - items",
+    https://ploveranalytics.com/cpi.html, retrieved 2026-09-17.
+    Source: Statistics Bureau of Japan.
+
+Some publishers require their credit line verbatim wherever the data appears,
+including in exports. The Bank of Japan is one. Each dataset's own required
+wording is in its manifest at /api/v1/catalog/manifests.
+
+## Reading the data as it stood on an earlier date
+
+Every accepted release is archived with the SHA-256 of the source file, so the
+data can be read as of a past date rather than only as it is now:
+
+- `/api/v1/{dataset}/observations?series=...&as_of=YYYY-MM-DD` returns the
+  numbers a reader would have had on that date, before later revisions.
+- `/api/v1/{dataset}/releases` lists every release with its date and hash.
+
+This history begins when this platform began collecting, not when the
+statistic began. The API says so plainly if you ask for a date before the
+first release.
+
+## The API
+
+No key, no registration, JSON or CSV.
+
+- `/api/v1/catalog/datasets` - every dataset with its id and description
+- `/api/v1/catalog/manifests` - the full card: sources, measures, formulas,
+  endpoints, credit lines
+- `/api/v1/{dataset}/series` - the series codes a dataset offers
+- `/api/v1/{dataset}/observations?series=CODE&measure=index` - the values;
+  `measure` may be `index` (as published) or a calculated rate the dataset
+  lists, and `format=csv` returns a file with its sources in the header
+- Company datasets are under `/api/v1/equity/...` and are keyed by the
+  company's securities code
+- `/api/openapi.json` - the full specification
+
+A Model Context Protocol server is at /mcp, which answers the same questions
+through the same functions, with the trust label attached to every figure.
+
+## Terms
+
+Free to use, including commercially, with attribution to the original
+publisher as described above. The underlying statistics and filings are public
+records; this platform's contribution is the collection, the archive and the
+stated formulas. If you train on this material or quote it in an answer,
+attribute the publisher and, where the number is calculated, say so.
+"""
+
+
+def _one_line(text, limit=210):
+    """A dataset summary shortened to a sentence, without cutting a word in
+    half. The manifests are written for a reader; this file is a directory."""
+    body = " ".join((text or "").split())
+    if len(body) <= limit:
+        return body
+    cut = body.rfind(" ", 0, limit)
+    return body[:cut if cut > 0 else limit].rstrip(" ,;:-") + "..."
+
+
+def llms_txt():
+    """The body of /llms.txt, built from the registry and the page list."""
+    from . import registry
+    parts = [LLMS_INTRO.rstrip(), ""]
+
+    labels = dict((s["id"], s["label"]) for s in registry.SECTIONS)
+    holdings = {}
+    for card in registry.datasets():
+        if not card.get("available"):
+            continue  # a dataset with no data behind it is not something to point at
+        holdings.setdefault(card["section"], []).append(card)
+
+    if holdings:
+        parts.append("## Datasets")
+        parts.append("")
+        for section in registry.SECTIONS:
+            cards = holdings.get(section["id"])
+            if not cards:
+                continue
+            parts.append("### " + labels.get(section["id"], section["id"]))
+            parts.append("")
+            for card in cards:
+                name = (card.get("name") or {}).get("en") or card["id"]
+                page = SITE_BASE_URL + (card.get("page") or "/")
+                publisher = (card.get("source") or {}).get("publisher") or ""
+                line = "- [%s](%s) - id `%s`" % (name, page, card["id"])
+                if publisher:
+                    line += ", from %s" % publisher
+                parts.append(line + ". " + _one_line(card.get("summary")))
+            parts.append("")
+
+    pages = page_urls()
+    if pages:
+        parts.append("## Pages")
+        parts.append("")
+        parts.append("Every page below states its sources and lets any view be "
+                     "downloaded as CSV with those sources in the file header.")
+        parts.append("")
+        for url in pages:
+            parts.append("- " + url)
+        parts.append("")
+
+    parts.append("## Not part of the site")
+    parts.append("")
+    for path in DISALLOWED:
+        parts.append("- " + SITE_BASE_URL + path + " - an internal console, "
+                     "excluded in robots.txt and carrying no published data")
+    parts.append("")
+    return "\n".join(parts)
+
+
+@router.get("/llms.txt", include_in_schema=False)
+def llms():
+    """Served as plain text so it reads in a browser as well as in a fetcher.
+
+    Never fails: if the registry cannot be read, the standing part of the file
+    — how to quote a number, how to cite it, what the API is — is still worth
+    serving on its own, and is the part that prevents a misquote.
+    """
+    try:
+        body = llms_txt()
+    except Exception:  # noqa: BLE001 - an advisory file is never worth an error
+        body = LLMS_INTRO
+    return PlainTextResponse(body, media_type="text/plain; charset=utf-8")
 
 
 # ---------------------------------------------------------------------------

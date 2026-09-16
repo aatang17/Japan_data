@@ -673,7 +673,49 @@ function trafficMarkup(d, days) {
       { link: true, dwell: true, empty: "No page views recorded in this window." }) +
     '<div class="admin-section">How Readers Arrived <span class="note">only the sending ' +
     "site is recorded, never the page a reader came from</span></div>" +
-    trafficArrivals(d) + trafficDirect(d) + trafficPlaces(d);
+    trafficArrivals(d) + trafficDirect(d) + trafficAI(d) + trafficPlaces(d);
+}
+
+/* What each AI fetcher was doing. Three different facts, so three labels:
+   nobody read the page when it was taken for training, and somebody was asking
+   about it when it was fetched on request. */
+var AI_PURPOSE = {
+  asked: { label: "Someone asked about this page", cls: "badge-ok" },
+  search: { label: "Building an index that can cite us", cls: "badge-info" },
+  training: { label: "Taking the text to train on", cls: "badge-neutral" },
+};
+
+/* Assistants that fetched pages, and readers who arrived from an assistant's
+   answer. Given its own section because it answers a question nothing else
+   here can: is anything out there answering questions about this site. */
+function trafficAI(d) {
+  var rows = d.ai_agents || [];
+  var referred = d.ai_referrals || { views: 0, visitors: 0 };
+  var note = referred.views
+    ? fmtCount(referred.views) + " page view" + (referred.views === 1 ? "" : "s") +
+      " arrived from an assistant\u2019s answer"
+    : "no reader has arrived from an assistant\u2019s answer yet";
+  var body = rows.length
+    ? '<div class="table-wrap"><table class="data">' +
+      "<thead><tr><th>Assistant</th><th>What it was doing</th>" +
+      '<th class="num">Requests</th><th class="num">Visits</th>' +
+      "<th>Most-requested page</th><th>Last seen</th></tr></thead><tbody>" +
+      rows.map(function (r) {
+        var p = AI_PURPOSE[r.purpose] ||
+          { label: r.purpose || MISSING, cls: "badge-neutral" };
+        return "<tr><td>" + escapeHtml(r.key) + "</td>" +
+          '<td><span class="badge ' + p.cls + '">' + escapeHtml(p.label) + "</span></td>" +
+          '<td class="num">' + fmtCount(r.views) + "</td>" +
+          '<td class="num">' + fmtCount(r.visitors) + "</td>" +
+          '<td class="mono">' + (r.top_page ? escapeHtml(r.top_page) : MISSING) + "</td>" +
+          '<td class="num">' + (r.last ? escapeHtml(fmtStamp(r.last)) : MISSING) +
+          "</td></tr>";
+      }).join("") + "</tbody></table></div>"
+    : '<p class="table-empty">No assistant has fetched a page in this window. ' +
+      "They are identified by the name they send, so one that sends none is " +
+      "counted as an ordinary crawler instead.</p>";
+  return '<div class="admin-section">AI Assistants ' +
+    '<span class="note">' + escapeHtml(note) + "</span></div>" + body;
 }
 
 /* What the People figure is made of, so a small number can be read: how many
@@ -816,7 +858,7 @@ function trafficTable(rows, label, opts) {
 function trafficArrivals(d) {
   var rows = (d.top_referrers || []).map(function (r) {
     return { key: r.key, views: r.views, visitors: r.visitors, people: r.people,
-             direct: false };
+             ai: r.ai, direct: false };
   });
   var direct = d.direct || { views: 0, visitors: 0 };
   if (direct.views) {
@@ -830,9 +872,12 @@ function trafficArrivals(d) {
   var total = rows.reduce(function (n, r) { return n + r.views; }, 0);
   var body = rows.map(function (r) {
     var share = total ? Math.round((r.views / total) * 100) : 0;
-    return "<tr>" +
-      (r.direct ? "<td><strong>" + escapeHtml(r.key) + "</strong></td>"
-                : '<td class="mono">' + escapeHtml(r.key) + "</td>") +
+    var name = r.direct
+      ? "<td><strong>" + escapeHtml(r.key) + "</strong></td>"
+      : '<td class="mono">' + escapeHtml(r.key) +
+        (r.ai ? ' <span class="badge badge-ok" title="A reader who followed a ' +
+          'citation out of an assistant\u2019s answer">AI Answer</span>' : "") + "</td>";
+    return "<tr>" + name +
       '<td class="num">' + fmtCount(r.views) + "</td>" +
       '<td class="num">' + share + "%</td>" +
       '<td class="num">' + fmtCount(r.visitors) + "</td>" +
@@ -962,6 +1007,16 @@ function trafficCalc(d) {
     "or Akamai and is not counted, and a page closed within a second reports no time. " +
     "The three parts are shown beside the figure so a zero can be read — no reading " +
     "times, nothing placed, or everything from a data centre.</p>" +
+    "<p><strong>AI assistants</strong> are counted inside automated hits, never as " +
+    "readers, but are listed separately because the three things they do are not the " +
+    "same fact. <em>Taking the text to train on</em> means no person was at the other " +
+    "end. <em>Building an index</em> means one may arrive later. <em>Someone asked " +
+    "about this page</em> means a person was asking that assistant about it at that " +
+    "moment — they read the answer, not the page, so it is still not a visit. " +
+    "Each is identified by the name the fetcher sends, which anything can copy, and " +
+    "one that sends no name is counted as an ordinary crawler. The figure beside the " +
+    "table is a different thing and is a person: page reads whose referrer was an " +
+    "assistant, meaning a reader followed a citation here out of an answer.</p>" +
     "<p><strong>Automated hits</strong> — crawlers, uptime monitors, the platform " +
     "healthcheck and anything sending no browser identification — are counted separately " +
     "and excluded from every other figure here.</p>" +

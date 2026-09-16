@@ -150,6 +150,72 @@ class HostingTest(unittest.TestCase):
         self.assertFalse(visits.is_hosting(""))
 
 
+class AIAgentTest(unittest.TestCase):
+    """Which AI product asked, and what it was doing. The vendors ship a
+    user-initiated fetcher and a training crawler whose names share a prefix,
+    so the order of the table is the thing that can break."""
+
+    def test_the_user_fetcher_is_not_the_training_crawler(self):
+        self.assertEqual(visits.ai_agent("ChatGPT-User/1.0"), ("ChatGPT", "asked"))
+        self.assertEqual(
+            visits.ai_agent("Mozilla/5.0 (compatible; GPTBot/1.2; "
+                            "+https://openai.com/gptbot)"),
+            ("OpenAI GPTBot", "training"))
+        self.assertEqual(visits.ai_agent("Claude-User/1.0"), ("Claude", "asked"))
+        self.assertEqual(visits.ai_agent("ClaudeBot/1.0 (+claudebot@anthropic.com)"),
+                         ("Anthropic ClaudeBot", "training"))
+        self.assertEqual(visits.ai_agent("Perplexity-User/1.0"), ("Perplexity", "asked"))
+        self.assertEqual(visits.ai_agent("Mozilla/5.0 (compatible; PerplexityBot/1.0)"),
+                         ("Perplexity", "search"))
+
+    def test_every_named_assistant_is_also_filtered_out_of_readership(self):
+        for marker, _label, _purpose in visits.AI_AGENTS:
+            self.assertTrue(visits._is_bot(marker + "/1.0"), marker)
+
+    def test_a_browser_is_not_an_assistant(self):
+        self.assertEqual(visits.ai_agent(UA), (None, None))
+        self.assertEqual(visits.ai_agent(""), (None, None))
+
+    def test_an_answer_engine_is_recognised_as_a_referrer(self):
+        for host in ("chatgpt.com", "claude.ai", "www.perplexity.ai",
+                     "copilot.microsoft.com", "gemini.google.com"):
+            self.assertTrue(visits.is_ai_referrer(host), host)
+        for host in ("www.google.com", "asiaecon.substack.com", "", None):
+            self.assertFalse(visits.is_ai_referrer(host), host)
+
+    def test_an_assistant_is_reported_apart_from_the_crawlers(self):
+        now = datetime.datetime.utcnow().replace(microsecond=0)
+        at = now.isoformat() + "Z"
+        visits._record({"at": at, "visitor": "ai-asked", "path": "/holdings.html",
+                        "kind": "page", "status": 200, "ref": None, "internal": False,
+                        "country": "US", "network": "OpenAI", "bot": True,
+                        "agent": "ChatGPT", "agent_purpose": "asked"})
+        visits._record({"at": at, "visitor": "ai-crawl", "path": "/cpi.html",
+                        "kind": "page", "status": 200, "ref": None, "internal": False,
+                        "country": "US", "network": "Amazon.com, Inc.", "bot": True,
+                        "agent": "OpenAI GPTBot", "agent_purpose": "training"})
+        # A reader who followed a citation out of an answer: a person, not a bot.
+        visits._record({"at": at, "visitor": "ai-reader", "path": "/holdings.html",
+                        "kind": "page", "status": 200, "ref": "chatgpt.com",
+                        "internal": False, "country": "GB",
+                        "network": "British Telecommunications", "bot": False})
+        visits.flush()
+
+        got = visits.summary(1)
+        agents = dict((r["key"], r) for r in got["ai_agents"])
+        self.assertEqual(agents["ChatGPT"]["purpose"], "asked")
+        self.assertEqual(agents["ChatGPT"]["top_page"], "/holdings.html")
+        self.assertEqual(agents["OpenAI GPTBot"]["purpose"], "training")
+        # Counted as automation, never as readers.
+        self.assertNotIn("ai-asked", [r["key"] for r in got["ai_agents"]])
+        self.assertGreaterEqual(got["bot_hits"], 2)
+        self.assertGreaterEqual(got["ai_referrals"]["views"], 1)
+        row = [r for r in got["top_referrers"] if r["key"] == "chatgpt.com"][0]
+        self.assertTrue(row["ai"])
+        google = [r for r in got["top_referrers"] if r["key"] == "www.google.com"]
+        self.assertTrue(all(not r["ai"] for r in google))
+
+
 class PeopleTest(unittest.TestCase):
     """The strict figure: a reading time, a placed network, not a data centre.
     Written straight into the log, so the test is of the summary alone."""
