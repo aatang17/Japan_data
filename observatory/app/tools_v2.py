@@ -126,6 +126,20 @@ def _screen_stakes(sort, f, limit):
         activist="true" if sort == "activist" or f.get("activist") else "")
 
 
+def _screen_shorts(sort, f, limit):
+    m = _eq("short_api")
+    if sort == "holders":
+        return m.holders(limit=limit)
+    if sort == "recent":
+        return call_api(m.recent, limit=limit,
+                        min_ratio=float(f.get("min_ratio", 0) or 0),
+                        min_change=float(f.get("min_change", 0) or 0),
+                        closing=str(f.get("closing", "") or ""))
+    return call_api(m.companies, q=f.get("q", ""),
+                    sort=str(f.get("sort", "disclosed_pct") or "disclosed_pct"),
+                    limit=limit)
+
+
 def _screen_boards(sort, f, limit):
     return call_api(_eq("governance_api").screen, metric=sort, year=f.get("year", ""),
                     listed=f.get("listed", ""),
@@ -197,6 +211,7 @@ def _screen_fns():
         "cross-shareholdings": _screen_cross_shareholdings,
         "shareholder-register": _screen_register,
         "large-shareholdings": _screen_stakes,
+        "short-positions": _screen_shorts,
         "boards-and-pay": _screen_boards,
         "buybacks": _screen_buybacks,
         "facilities": _screen_facilities,

@@ -270,6 +270,9 @@
       <tr><td>Rice production cost</td><td class="muted">Annual</td><td class="num">1,610 days</td></tr>
       <tr><td>Company filings (EDINET)</td><td class="muted">Continuous; extraction runs nightly</td><td class="num">7 days</td></tr>
       <tr><td>Listed-issue classification (JPX)</td><td class="muted">Republished by Japan Exchange Group</td><td class="num">45 days</td></tr>
+      <tr><td>Short positions (JPX)</td><td class="muted">Every business day; JPX keeps about twelve days and deletes the rest</td><td class="num">7 days</td></tr>
+      <tr><td>Margin balances (JPX)</td><td class="muted">Weekly, by application date; the long-run file lags the weekly release</td><td class="num">21 days</td></tr>
+      <tr><td>Investor-type flows (JPX)</td><td class="muted">Weekly, the Thursday after the week; only the current month stays online</td><td class="num">21 days</td></tr>
     </tbody>
   </table>
   </div>
@@ -1175,6 +1178,155 @@
       parent-only otherwise; every row says which. Rankings use one filing per company, its latest
       accepted annual report; companies without the ranking metric are left out and counted on the
       page. Filters are floors and caps in each metric's own unit.</li>
+    </ul>
+    </div>
+  </details>
+
+  <details class="ds" id="calc-margin">
+    <summary><span>Margin balances</span><span class="ds-note">JPX weekly, two cuts that check each other</span></summary>
+    <div class="ds-body">
+    <p><b>margin-jp</b> is Japan Exchange Group's 信用取引現在高: how much stock is held long on
+    borrowed money and how much is held short on borrowed stock, on the Tokyo and Nagoya markets,
+    every week since 2 August 2002. Levels are <b>official statistics exactly as published</b>;
+    the margin ratio and every change are calculated here.</p>
+    <ul>
+      <li><b>Two workbooks, one balance, and they check each other.</b> The exchange publishes the
+      same total cut by whose account it sits in (委託 customers, 自己 the member firm's own book)
+      and by which kind of margin it is (一般 negotiable, 制度 standardised). Each cut sums to the
+      same published total, and both identities are checked at every ingest, in both units and on
+      both sides. Those checks are also what confirm the column mapping: these workbooks label
+      their columns with merged header cells that no parser can read unambiguously.</li>
+      <li><b>The two workbooks restate the same total, and disagree in two weeks out of 1,224.</b>
+      At 2003-06-13 and 2004-03-12 the account file and the kind file print slightly different
+      totals — at most 0.43%. Both are JPX's own figures; the account cut is the one stored, and
+      the discrepancy is disclosed rather than reconciled away. An ingest fails if any week's two
+      totals differ by more than half a percent.</li>
+      <li><b>Shares and value are different measures.</b> Every balance is published twice, as a
+      share count in 千株 and a value in 百万円, and each is stored in its published unit. The
+      value of an account balance is struck at contract prices, so it is not a mark-to-market of
+      the share count, and the two are never summed or ranked against one another. Charts show
+      one unit at a time.</li>
+      <li><b>A definition break in July 2013, marked on the chart.</b> Figures up to the
+      2013-07-12 application date cover the Tokyo, Osaka and Nagoya markets; from 2013-07-19 they
+      cover Tokyo and Nagoya, the Osaka cash equity market having merged into Tokyo. The level
+      steps at that week. It is stored exactly as published either side of it and the break is
+      drawn on the chart, never smoothed.</li>
+      <li><b>The margin ratio is calculated, and it is 信用倍率, not 取組比率.</b>
+      <code>ratio[t] = total shares bought on margin[t] ÷ total shares sold short[t]</code>, from
+      published share counts — the number a Japanese equity desk quotes. It is the reciprocal of
+      the exchange's own 取組比率, which is published per issue and divides the other way round.</li>
+      <li><b>A week is dated by its application date</b> (申込日), as the exchange dates the table
+      — a Friday in all but about forty of the weeks, and earlier when the market closed for a
+      holiday. A week the exchange did not publish is absent, never zero. Because the periods are
+      weekly, the year-on-year and month-on-month measures the monthly datasets serve are not
+      offered here: a twelve-month lag does not land on a week.</li>
+      <li><b>Per-issue balances are not in this dataset.</b> The weekly table by company and the
+      daily one for the watchlist issues are separate publications; this is the market aggregate
+      only.</li>
+    </ul>
+    </div>
+  </details>
+
+  <details class="ds" id="calc-investor-flows">
+    <summary><span>Trading by investor type</span><span class="ds-note">JPX weekly; the history only exists if we keep it</span></summary>
+    <div class="ds-body">
+    <p><b>investor-flows-jp</b> is Japan Exchange Group's 投資部門別売買状況: what each kind of
+    investor bought and sold in Japanese equities each week, from the returns of trading
+    participants with ¥3bn or more of capital. Sales and purchases are <b>official statistics
+    exactly as published</b>; the net is calculated here.</p>
+    <ul>
+      <li><b>The weekly history cannot be downloaded, so it is kept as it appears.</b> JPX leaves
+      only the current month of weekly files on its site; the monthly page holds the current year
+      and the annual page ten yearly totals. Every weekly workbook is therefore archived here
+      under its own SHA-256 as it is published, and the full history is rebuilt from that archive
+      at each ingest. The record begins when capture began and grows a week at a time; it cannot
+      be extended backwards by us or by anyone else.</li>
+      <li><b>Every week is published twice, and both copies must agree.</b> Each workbook carries
+      the week it reports and the week before it, so consecutive files overlap. That overlap is
+      not redundancy: two independently typed copies of one figure must match exactly, and an
+      ingest stops if they do not — which is how a revision announces itself. A revision to a
+      week that has already fallen off the site cannot reach us, and nothing here pretends
+      otherwise.</li>
+      <li><b>The table adds up four levels deep, and every level is checked.</b> Proprietary plus
+      brokerage make the total; institutions, individuals, foreigners and securities companies
+      make brokerage; investment trusts, business corporations, other corporations and financial
+      institutions make institutions; insurers, banks, trust banks and other financials make
+      financial institutions. All four identities are checked at every ingest, in both units and
+      on both sides, and a file that breaks one is not published.</li>
+      <li><b>Net purchases are calculated.</b>
+      <code>net[investor, t] = purchases[investor, t] − sales[investor, t]</code>, from the
+      published gross figures; it equals the 差引き balance column JPX prints. It is the only
+      figure in this dataset that can be negative — a gross sale or purchase never is.</li>
+      <li><b>The published ratio columns are not stored.</b> Their denominator changes down the
+      page: the proprietary and brokerage ratios are shares of the grand total, the
+      investor-category ratios shares of brokerage alone. One column meaning two things is worse
+      than no column, so a share is computed here against whichever total is meant.</li>
+      <li><b>Value and shares are different measures.</b> Every figure is published twice, in
+      ¥ thousand and in thousands of shares, each stored in its published unit and never ranked
+      against the other.</li>
+      <li><b>What the survey covers.</b> Trading participants with capital of ¥3bn or more, in
+      domestic common stocks only (no preferred shares), including ToSTNeT off-auction trades.
+      It is most of the market's turnover, not all of it, and the exchange says so on the file.
+      Weeks are dated by the Monday they begin.</li>
+    </ul>
+    </div>
+  </details>
+
+  <details class="ds" id="calc-shorts">
+    <summary><span>Short positions</span><span class="ds-note">JPX daily disclosure, a tape not a snapshot</span></summary>
+    <div class="ds-body">
+    <p>A holder whose short position reaches 0.5% of a listed company's shares must report it,
+    and Japan Exchange Group publishes every such report the next business day. The ratio
+    (空売り残高割合), the share count (空売り残高数量), the trading-unit count, the calculation
+    date (計算年月日) and the publication date are <b>official statistics exactly as published</b>.
+    Whether a position is still open, a company's total across its holders, and the move since a
+    holder's previous report are calculated here and carry their formulas.</p>
+    <ul>
+      <li><b>The archive cannot be back-filled, and that is the headline limitation.</b> JPX keeps
+      roughly twelve business days of these files on its site and then deletes them. There is no
+      archive, no API and no second source, so this record begins the day capture began and can
+      never be extended backwards by us or anyone else. Every surface states how many publication
+      days it holds, because that number is the completeness of everything computed from it.</li>
+      <li><b>Each file is a tape of reports, not the outstanding book.</b> A daily workbook carries
+      the reports received that day, dated by their own calculation date — usually two business
+      days earlier. A holder files again only when the position moves, so consecutive files
+      overlap only partly. The <b>open book</b> is therefore derived: the newest report per
+      (issuer, holder, discretionary manager, fund) by calculation date, counted as open unless
+      that report is a below-threshold closing report. A position opened before the archive began
+      and not moved since has never been published into it and is not in the book.</li>
+      <li><b>A closing report's zero is a real zero.</b> A holder falling under 0.5% files one
+      final report saying so, with a ratio at or near zero. That is the position going away, not a
+      missing value, and it is what removes the position from the book. Missing is still shown as
+      an em dash and is never exported as 0.</li>
+      <li><b>A total is the disclosed short, never short interest.</b> Only positions of 0.5% or
+      more are disclosed at all, so a company's total across its holders understates the true
+      short by whatever sits below the threshold. It is labelled disclosed short everywhere and is
+      never presented as short interest.</li>
+      <li><b>Ratios are added only within one company.</b> Holders of the same issuer share a
+      denominator, so their published ratios sum. A short of 3% of one company and 3% of another
+      are different measures: no total across companies is shown, and a holder is ranked by its
+      count of positions and its largest one instead. Share counts follow the same rule.</li>
+      <li><b>The ratio is JPX's, not the statutory one.</b> 空売り残高割合 is measured against
+      shares outstanding. It is not the 株券等保有割合 used by the 5% long filings, whose
+      denominator includes the holder's own potential shares, so the two are never netted against
+      each other or ranked together. The workbook writes the ratio as a decimal fraction; it is
+      stored and shown as the percentage JPX's own PDF prints, which is the same number.</li>
+      <li><b>Holders are grouped by a folded name.</b> Case, punctuation, spacing and the legal-form
+      tail (plc, Ltd, LLC and the like) are folded so one holder is one row however a file spelled
+      it. Nothing that distinguishes one arm of a group from another is removed: Morgan Stanley &amp;
+      Co. International plc never merges with Morgan Stanley MUFG Securities. A holder reporting
+      through a discretionary mandate names the manager and fund, and those are part of the
+      position's identity rather than decoration.</li>
+      <li><b>Every daily file is a vintage.</b> Each workbook is archived with the SHA-256 of its
+      bytes before anything is parsed, and a stored file is never rewritten: reading the same file
+      twice stores nothing, and a revised file for the same day lands beside the first. The Daily
+      Files Held table on the page lists what is held, so a day that is missing is visible rather
+      than inferred.</li>
+      <li><b>A file that fails a gate is not stored at all.</b> The parser refuses a workbook whose
+      Japanese header row has changed, whose internal publication date disagrees with its filename,
+      that carries fewer than fifty reports, that omits an issuer code, holder or share count, or
+      that states a ratio outside 0–50% or a calculation date after publication or more than thirty
+      days before it. The days already held stay live.</li>
     </ul>
     </div>
   </details>

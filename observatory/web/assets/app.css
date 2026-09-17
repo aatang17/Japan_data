@@ -2048,3 +2048,13 @@ pre.code {
    inherits --obs-header-ink and needs no dark-mode variant of its own. */
 .brand { display: inline-flex; align-items: center; gap: 7px; }
 .brand-mark { flex: 0 0 auto; }
+
+/* The coverage statement. On the datasets whose source deletes its own files —
+   short positions, investor flows — the depth of our archive IS the
+   completeness of everything computed from it, so it is stated at the top of
+   the page rather than in a footnote, and turns amber when the tape stops. */
+.coverage-bar { margin: 16px 0 0; padding: 10px 0 10px 14px;
+  border-left: 2px solid var(--obs-primary); font-size: 12.5px; line-height: 1.6;
+  color: var(--obs-text-muted); text-wrap: pretty; }
+.coverage-bar b { color: var(--obs-ink); font-weight: 600; }
+.coverage-bar.is-stale { border-left-color: var(--obs-warn); }

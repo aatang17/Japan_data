@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Investor Flows · Plover Analytics</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+
+<header class="site-header" data-section="equities" data-page="flows"></header>
+<script src="assets/nav.js"></script>
+
+<main class="container">
+  <div class="page-tabs" data-page-tabs></div>
+  <div id="stale-banner"></div>
+
+  <div class="metric-card">
+    <div class="metric-card-head">
+      <h1>Trading by Investor Type</h1>
+      <span class="metric-asof" id="page-asof"></span>
+      <p class="metric-sub" id="page-sub"><span class="skeleton" style="display:inline-block;width:420px;height:14px"></span></p>
+    </div>
+    <div class="strip">
+      <div class="strip-grid cols-4" id="tiles">
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+      </div>
+    </div>
+    <p class="strip-foot" id="strip-foot"></p>
+    <details class="calc" id="strip-calc"></details>
+  </div>
+
+  <p class="coverage-bar" id="coverage"></p>
+
+  <section aria-labelledby="h-net">
+    <h2 id="h-net">Net Purchases by Investor Type <span class="h2-note" id="net-note"></span></h2>
+    <p class="section-sub">What each kind of investor bought less what it sold, week by week. A
+    negative bar is net selling. Sales and purchases are published gross; the net is calculated
+    from them and equals the balance column the exchange prints beside them.</p>
+    <div class="chart-panel">
+    <div class="controls">
+      <label for="net-market">Market</label>
+      <select id="net-market" aria-label="Market"></select>
+      <div class="seg" role="group" aria-label="Unit" id="net-unit">
+        <button type="button" data-unit="value" aria-pressed="true">Value</button>
+        <button type="button" data-unit="volume">Shares</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="net-png">Download PNG</button>
+      <button type="button" class="btn" id="net-csv">Download CSV</button>
+    </div>
+    <div class="chart" id="net-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="net-source"></p>
+    <details class="calc" id="net-calc"></details>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-week">
+    <h2 id="h-week">Latest Week in Full <span class="h2-note" id="week-note"></span></h2>
+    <p class="section-sub">Every investor category the exchange publishes, at the depth it
+    publishes them — the total splits into proprietary and brokerage, brokerage into four
+    investor types, institutions into four more, and financial institutions into four beyond
+    that. Each level adds to the one above it, and that is checked at every ingest.</p>
+    <div class="controls">
+      <label for="week-market">Market</label>
+      <select id="week-market" aria-label="Market"></select>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="week-csv">Download CSV</button>
+    </div>
+    <div class="table-wrap" id="week-table"><div class="skeleton" style="width:100%;height:340px"></div></div>
+    <p class="table-foot" id="week-foot"></p>
+    <details class="calc" id="week-calc"></details>
+  </section>
+
+  <section aria-label="Data sources and provenance" class="prov">
+    <div id="prov-cards"></div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="inner">
+    <span id="credit-line">Source: Japan Exchange Group — Trading by type of investors (投資部門別売買状況).</span>
+    Sales and purchases are official figures exactly as published; net purchases and every share
+    on this page are calculated from them.
+    <a href="methodology.html#calc-investor-flows">Methodology</a>
+  </div>
+</footer>
+
+<script src="assets/echarts.min.js"></script>
+<script src="assets/format.js"></script>
+<script src="assets/charts.js"></script>
+<script src="assets/sortable.js"></script>
+<script src="assets/flows.js"></script>
+</body>
+</html>

@@ -40,7 +40,8 @@ from .adapters import (boj_assets, cpi_jp, cpi_jp_goods_services, cpi_jp_items,
                        soumu_local_finance, ssds_population,
                        ust_real_yields, ust_yields,
                        estat_gdp, estat_gfs, mof_hojin,
-                       fsa_npl, fsa_bank_results, jba_banks)
+                       fsa_npl, fsa_bank_results, jba_banks,
+                       jpx_margin, jpx_investor_type)
 
 # The agent is optional: without the openai package installed the data API
 # and the site keep working, and /ask reports itself as unavailable.
@@ -89,7 +90,9 @@ ADAPTERS = {"cpi-jp": cpi_jp, "cpi-jp-items": cpi_jp_items, "boj-assets": boj_as
             "rice-production-cost": maff_rice_cost,
             "ja-statistics": maff_ja_coops,
             "fsa-npl": fsa_npl, "fsa-bank-results": fsa_bank_results,
-            "jba-banks": jba_banks}
+            "jba-banks": jba_banks,
+            "margin-jp": jpx_margin,
+            "investor-flows-jp": jpx_investor_type}
 
 router = APIRouter(prefix="/api/v1", tags=["Datasets"])
 

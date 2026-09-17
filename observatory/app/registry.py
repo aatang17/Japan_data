@@ -71,6 +71,9 @@ SECTIONS = [
     {"id": "ownership", "label": "Ownership"},
     {"id": "governance", "label": "Governance"},
     {"id": "capital-returns", "label": "Capital returns"},
+    # Market activity: what the whole market is doing, as opposed to what one
+    # company filed. Margin balances and investor-type flows live here.
+    {"id": "market", "label": "Market activity"},
     {"id": "assets", "label": "Assets"},
     {"id": "financials", "label": "Financials"},
     # The US comparison shelf: not Japan, not a product surface, but served in
@@ -81,7 +84,7 @@ SECTION_IDS = [s["id"] for s in SECTIONS]
 
 SHAPES = ("series", "company", "events")
 TRUST = ("official", "derived")          # "model" is reserved; refused today
-FREQUENCIES = ("daily", "monthly", "quarterly", "semiannual", "annual",
+FREQUENCIES = ("daily", "weekly", "monthly", "quarterly", "semiannual", "annual",
                "per-filing", "per-event")
 VINTAGE_UNITS = ("release", "filing")
 # "captured_at" is deliberately absent: capture time was never recorded,
@@ -113,6 +116,9 @@ UNITS = ("index", "%", "pp", "USD", "per_10000", "per_1000", "births_per_woman",
          "JPY", "JPY_per_60kg", "JPY_billion",
          "JPY_thousand", "JPY_million", "JPY_100mn", "JPY_trillion", "tonnes_10k",
          "persons", "person_nights", "count", "quantity", "shares",
+         # Japanese market statistics are published in 千株; a thousand-share
+         # count is stored and shown in that unit, never rescaled to shares.
+         "shares_thousand",
          "voting_rights", "m2", "JPY_per_m2", "x", "years", "days", "date",
          "category", "boolean", "text")
 
@@ -143,7 +149,8 @@ _API_UNIT = {"index": "index", "JPY_100mn": "jpy_100mn", "%": "percent",
 
 # Equity API modules, in registration order. Macro modules come from
 # api.ADAPTERS, so a new adapter is registered here by being registered there.
-EQUITY_MODULES = ("equity_api", "ownership_api", "lvh_api", "governance_api",
+EQUITY_MODULES = ("equity_api", "ownership_api", "lvh_api", "short_api",
+                  "governance_api",
                   "buyback_api", "facility_api", "financials_api", "agm_api",
                   "segments_api", "sec_api")
 

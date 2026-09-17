@@ -88,6 +88,12 @@ EXTRACTORS = [
     # our archive the only copy. Day-partitioned rather than watermarked per
     # document, and cheap — a nightly run reads a handful of days.
     ("tdnet_extract.py",      "tdnet",                []),
+    # JPX's daily short-position disclosure. Not EDINET either, and in the
+    # same position as TDnet: the exchange deletes each daily file after about
+    # twelve business days, so a night this does not run is a day of the
+    # record that nobody can recover. Cheap — one page and the days we are
+    # missing from it, usually one.
+    ("short_extract.py",      "short-positions",      []),
 ]
 
 # buyback.py takes neither --db nor --no-compact; it reads EQUITY_DB_PATH and

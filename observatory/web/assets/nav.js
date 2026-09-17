@@ -138,6 +138,7 @@ var NAV_SECTIONS = [
           { id: "holdings", label: "Cross-Shareholdings", href: "holdings.html" },
           { id: "ownership", label: "Register", href: "ownership.html" },
           { id: "stakes", label: "5% Filings", href: "stakes.html" },
+          { id: "shorts", label: "Short Positions", href: "shorts.html" },
         ] },
       { id: "governance", label: "Governance", href: "governance.html",
         tabs: [
@@ -152,6 +153,13 @@ var NAV_SECTIONS = [
           { id: "customers", label: "Customers", href: "customers.html" },
         ] },
       { id: "company", label: "Company Profile", href: "company.html" },
+      // Market activity: what the whole market is doing, as opposed to what
+      // one company filed. Both pages are weekly JPX aggregates.
+      { id: "margin", label: "Market", href: "margin.html",
+        tabs: [
+          { id: "margin", label: "Margin Balances", href: "margin.html" },
+          { id: "flows", label: "Investor Flows", href: "flows.html" },
+        ] },
       { id: "screener", label: "Screens", href: "screener.html",
         tabs: [
           { id: "screener", label: "Screener", href: "screener.html" },

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Margin Balances · Plover Analytics</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+
+<header class="site-header" data-section="equities" data-page="margin"></header>
+<script src="assets/nav.js"></script>
+
+<main class="container">
+  <div class="page-tabs" data-page-tabs></div>
+  <div id="stale-banner"></div>
+
+  <div class="metric-card">
+    <div class="metric-card-head">
+      <h1>Margin Balances</h1>
+      <span class="metric-asof" id="page-asof"></span>
+      <p class="metric-sub" id="page-sub"><span class="skeleton" style="display:inline-block;width:420px;height:14px"></span></p>
+    </div>
+    <div class="strip">
+      <div class="strip-grid cols-4" id="tiles">
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+        <div class="strip-cell skeleton" style="min-height:104px"></div>
+      </div>
+    </div>
+    <p class="strip-foot" id="strip-foot"></p>
+    <details class="calc" id="strip-calc"></details>
+  </div>
+
+  <section aria-labelledby="h-bal">
+    <h2 id="h-bal">Outstanding Margin Balances <span class="h2-note" id="bal-note"></span></h2>
+    <p class="section-sub">Stock held long on borrowed money and stock held short on borrowed
+    stock, on the Tokyo and Nagoya markets, at each week's application date. Both sides are
+    published on the same day in the same unit, which is what makes them comparable to each
+    other. Share counts and yen values are different measures and are shown one at a time.</p>
+    <div class="chart-panel">
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Unit" id="bal-unit">
+        <button type="button" data-unit="shares" aria-pressed="true">Shares</button>
+        <button type="button" data-unit="value">Value</button>
+      </div>
+      <div class="seg" role="group" aria-label="Date range" id="bal-range">
+        <button type="button" data-range="5">5Y</button>
+        <button type="button" data-range="10">10Y</button>
+        <button type="button" data-range="max" aria-pressed="true">Max</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="bal-png">Download PNG</button>
+      <button type="button" class="btn" id="bal-csv">Download CSV</button>
+    </div>
+    <div class="chart" id="bal-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="bal-source"></p>
+    <details class="calc" id="bal-calc"></details>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-ratio">
+    <h2 id="h-ratio">Margin Ratio <span class="h2-note" id="ratio-note"></span></h2>
+    <p class="section-sub">Stock bought on margin divided by stock sold short, in shares — the
+    信用倍率 a Japanese equity desk quotes about positioning. Above one, more stock is held long
+    on borrowed money than is held short on borrowed stock. It is calculated here from the two
+    published balances, not published as a series.</p>
+    <div class="chart-panel">
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Date range" id="ratio-range">
+        <button type="button" data-range="5">5Y</button>
+        <button type="button" data-range="10">10Y</button>
+        <button type="button" data-range="max" aria-pressed="true">Max</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="ratio-png">Download PNG</button>
+      <button type="button" class="btn" id="ratio-csv">Download CSV</button>
+    </div>
+    <div class="chart" id="ratio-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="ratio-source"></p>
+    <details class="calc" id="ratio-calc"></details>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-cut">
+    <h2 id="h-cut">Balance Detail <span class="h2-note" id="cut-note"></span></h2>
+    <p class="section-sub">The same balance cut two ways — by whose account it sits in, and by
+    which kind of margin it is. Each cut adds to the same total, and that is checked at every
+    ingest. Changes are on the week before and are calculated from the published levels.</p>
+    <div class="controls">
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="cut-csv">Download CSV</button>
+    </div>
+    <div class="table-wrap" id="cut-table"><div class="skeleton" style="width:100%;height:280px"></div></div>
+    <p class="table-foot" id="cut-foot"></p>
+    <details class="calc" id="cut-calc"></details>
+  </section>
+
+  <section aria-label="Data sources and provenance" class="prov">
+    <div id="prov-cards"></div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="inner">
+    <span id="credit-line">Source: Japan Exchange Group — Outstanding margin transactions (信用取引現在高).</span>
+    Balances are official figures exactly as published; the margin ratio and every change
+    on this page are calculated from them.
+    <a href="methodology.html#calc-margin">Methodology</a>
+  </div>
+</footer>
+
+<script src="assets/echarts.min.js"></script>
+<script src="assets/format.js"></script>
+<script src="assets/charts.js"></script>
+<script src="assets/sortable.js"></script>
+<script src="assets/margin.js"></script>
+</body>
+</html>

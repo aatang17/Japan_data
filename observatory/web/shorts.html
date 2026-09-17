@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Short Positions · Plover Analytics</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/app.css">
+<style>
+/* page-local layout only — tokens and components come from app.css */
+.co-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 14px; margin: 18px 0 4px; }
+.co-head h1 { margin: 0; }
+.co-code { font-family: var(--obs-mono, monospace); color: var(--obs-text-muted); font-size: 15px; }
+.co-name-ja { font-size: 14px; color: var(--obs-text-muted); margin: 2px 0 0; }
+.filing-meta { font-size: 12.5px; color: var(--obs-text-muted); margin: 2px 0 0; }
+
+.tbl-stk { width: 100%; border-collapse: collapse; min-width: 680px; }
+.tbl-stk.wide { min-width: 980px; }
+.tbl-stk th, .tbl-stk td { padding: 9px 12px; font-size: 13.5px; border-bottom: 1px solid var(--obs-grid); }
+.tbl-stk thead th { font-size: 12px; font-weight: 600; color: var(--obs-text-muted);
+  text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid var(--obs-border); }
+.tbl-stk .r, .tbl-stk th.r { text-align: right; font-variant-numeric: tabular-nums; }
+.tbl-stk tbody tr:hover td { background: var(--obs-surface-subtle); }
+.tbl-stk a { color: var(--obs-primary); text-decoration: none; }
+.tbl-stk a:hover { text-decoration: underline; }
+.tbl-stk .cell-item { max-width: 320px; text-wrap: pretty; }
+.tbl-stk .cell-item .ja { margin-top: 1px; line-height: 1.35; font-size: 12px; color: var(--obs-text-muted); }
+.tbl-stk .sub { display: block; font-size: 11px; color: var(--obs-text-muted); margin-top: 1px; }
+/* a date and a signed move are single tokens — they must never break in two */
+.tbl-stk .nowrap, .tbl-stk .move { white-space: nowrap; }
+.tbl-stk .move { font-variant-numeric: tabular-nums; }
+/* a closed position stays on the page, quieter, because its exit is the news */
+.tbl-stk tr.is-closed td { color: var(--obs-text-muted); }
+
+.badge-note { color: var(--obs-text-muted); border-color: var(--obs-border);
+  text-transform: none; letter-spacing: 0; font-weight: 500; }
+
+.sec-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline; }
+.sec-note { font-size: 12.5px; line-height: 1.6; color: var(--obs-text-muted);
+  margin: 0 0 8px; text-wrap: pretty; }
+.sec-note b { color: var(--obs-ink); font-weight: 600; }
+.tbl-formula { font-size: 12px; line-height: 1.55; color: var(--obs-text-muted);
+  margin: 10px 0 0; text-wrap: pretty; }
+
+.fact-row { display: flex; flex-wrap: wrap; gap: 10px 44px; margin: 14px 0 4px;
+  padding-left: 14px; border-left: 2px solid var(--obs-border); }
+.fact-row div { margin: 0; }
+.fact-row dt { font-size: 12px; font-weight: 600; color: var(--obs-text-muted);
+  text-transform: uppercase; letter-spacing: 0.04em; margin: 0 0 3px; }
+.fact-row dd { margin: 0; font-size: 21px; font-weight: 600; color: var(--obs-ink);
+  font-variant-numeric: tabular-nums; line-height: 1.15; }
+.fact-row dd .unit { font-size: 13px; font-weight: 400; color: var(--obs-text-muted); }
+.fact-row .qual { display: block; font-size: 12px; font-weight: 400;
+  color: var(--obs-text-muted); margin-top: 2px; }
+</style>
+</head>
+<body class="page-wide">
+
+<header class="site-header" data-section="equities" data-page="shorts"></header>
+<script src="assets/nav.js"></script>
+
+<main class="container">
+  <!-- Filled by assets/nav.js from this page's group in the Equities strip. -->
+  <div class="page-tabs" data-page-tabs></div>
+
+  <!-- market view -->
+  <section id="market-view">
+    <div class="page-head">
+      <h1>Short Positions</h1>
+      <p class="page-sub">Every disclosed short position in a Japanese listed company. A holder
+      reaching 0.5% of an issuer's shares must report it, and the exchange publishes the report
+      the next business day — holder, issuer, size, and the day the position was measured. The
+      mirror of the 5% long filings, and the one record here that nobody can rebuild: JPX deletes
+      each daily file after about twelve business days.</p>
+    </div>
+
+    <div class="explorer-controls">
+      <div class="search-rail">
+        <div class="search-field">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"
+               class="search-icon"><circle cx="7" cy="7" r="4.6"></circle><path d="M10.4 10.4 14 14"></path></svg>
+          <input type="search" id="q" placeholder="Company name in English or Japanese, or securities code. E.g. Metaplanet, メタプラネット, 3350"
+                 aria-label="Search issuers" autocomplete="off">
+        </div>
+      </div>
+    </div>
+    <div id="search-results"></div>
+
+    <p class="coverage-bar" id="coverage"></p>
+    <div class="strip" id="stat-strip"></div>
+
+    <h2>Most Shorted Companies <span class="h2-note" id="co-count"></span></h2>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Rank by" id="co-seg">
+        <button type="button" data-sort="disclosed_pct" aria-pressed="true">By disclosed short</button>
+        <button type="button" data-sort="holders">By number of holders</button>
+        <button type="button" data-sort="shares">By shares short</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="co-csv">Download CSV</button>
+    </div>
+    <p class="sec-note" id="co-meta"></p>
+    <div class="table-wrap"><table class="tbl-stk" id="co-table"></table></div>
+    <p class="tbl-formula" id="co-formula"></p>
+
+    <h2>Short Sellers <span class="h2-note" id="ho-count"></span></h2>
+    <div class="sec-actions">
+      <p class="sec-note" style="flex:1">Each holder's open book. Positions are counted and the
+      largest one shown; ratios are <b>not</b> summed across companies, because a percentage of
+      one company and a percentage of another are different measures.</p>
+      <button type="button" class="btn" id="ho-csv">Download CSV</button>
+    </div>
+    <div class="table-wrap"><table class="tbl-stk" id="ho-table"></table></div>
+
+    <h2>Recent Reports <span class="h2-note" id="tape-count"></span></h2>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Filter" id="tape-seg">
+        <button type="button" data-filter="all" aria-pressed="true">All reports</button>
+        <button type="button" data-filter="moves">Moves of 0.5pp or more</button>
+        <button type="button" data-filter="large">Positions of 2% or more</button>
+        <button type="button" data-filter="closing">Closing reports</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="tape-csv">Download CSV</button>
+    </div>
+    <p class="sec-note" id="tape-meta"></p>
+    <div class="table-wrap"><table class="tbl-stk wide" id="tape-table"></table></div>
+    <p class="tbl-formula" id="tape-formula"></p>
+
+    <h2>Daily Files Held <span class="h2-note" id="files-count"></span></h2>
+    <p class="sec-note">One row per workbook JPX published and this archive read, with the
+    SHA-256 of the bytes parsed. A day absent from this table is a day nobody can recover.</p>
+    <div class="table-wrap"><table class="tbl-stk" id="files-table"></table></div>
+  </section>
+
+  <!-- company view -->
+  <section id="company-view" hidden>
+    <p style="margin:16px 0 0"><a href="shorts.html">← All short positions</a></p>
+    <div class="co-head"><h1 id="c-name"></h1><span class="co-code" id="c-code"></span></div>
+    <p class="co-name-ja" id="c-name-ja" hidden></p>
+    <p class="filing-meta" id="c-meta"></p>
+    <dl class="fact-row" id="c-facts"></dl>
+    <p class="coverage-bar" id="c-coverage"></p>
+
+    <h2>Disclosed Short Positions <span class="h2-note" id="c-pos-count"></span></h2>
+    <p class="sec-note">Each holder's latest report on this company. Ratios and share counts are
+    <b>official statistics</b> exactly as published by JPX. A holder that has fallen under 0.5%
+    files once more and then stops — it is shown as closed, not removed.</p>
+    <div class="table-wrap"><table class="tbl-stk wide" id="c-pos-table"></table></div>
+    <p class="tbl-formula" id="c-formula"></p>
+
+    <h2>All Reports for This Company <span class="h2-note" id="c-rep-count"></span></h2>
+    <div class="sec-actions">
+      <p class="sec-note" style="flex:1">One row per report, newest calculation date first.</p>
+      <button type="button" class="btn" id="c-csv">Download CSV</button>
+    </div>
+    <div class="table-wrap"><table class="tbl-stk wide" id="c-rep-table"></table></div>
+  </section>
+
+  <!-- holder view -->
+  <section id="holder-view" hidden>
+    <p style="margin:16px 0 0"><a href="shorts.html">← All short positions</a></p>
+    <div class="co-head"><h1 id="h-name"></h1></div>
+    <p class="filing-meta" id="h-meta"></p>
+    <dl class="fact-row" id="h-facts"></dl>
+    <h2>Open Positions <span class="h2-note" id="h-pos-count"></span></h2>
+    <div class="sec-actions">
+      <p class="sec-note" style="flex:1">This holder's latest report on each company it is short.</p>
+      <button type="button" class="btn" id="h-csv">Download CSV</button>
+    </div>
+    <div class="table-wrap"><table class="tbl-stk wide" id="h-table"></table></div>
+  </section>
+
+  <footer class="page-foot">
+    <p>Source: Japan Exchange Group — 空売り残高に関する情報 (Information on Outstanding Short
+    Selling Positions), published each business day. Ratios and share counts are official, exactly
+    as published; the ratio is shown as the percentage JPX's own PDF prints, where the workbook
+    writes the same number as a decimal fraction. Whether a position is still open, and a company's
+    total across its holders, are calculated here and carry their formula. Each daily workbook is
+    archived with its SHA-256 before parsing. Only positions of 0.5% or more are disclosed at all,
+    so a company's total is the disclosed short — always less than its true short interest.</p>
+  </footer>
+</main>
+
+<script src="assets/format.js"></script>
+<script src="assets/sortable.js"></script>
+<script src="assets/shorts.js"></script>
+</body>
+</html>

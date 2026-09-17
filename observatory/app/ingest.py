@@ -44,7 +44,8 @@ from .adapters import (boj_assets, cpi_jp, cpi_jp_goods_services, cpi_jp_items,
                        soumu_local_finance, ssds_population,
                        ust_real_yields, ust_yields,
                        estat_gdp, estat_gfs, mof_hojin,
-                       fsa_npl, fsa_bank_results, jba_banks)
+                       fsa_npl, fsa_bank_results, jba_banks,
+                       jpx_margin, jpx_investor_type)
 
 ADAPTERS = {"cpi-jp": cpi_jp, "cpi-jp-items": cpi_jp_items, "boj-assets": boj_assets,
             "cpi-jp-goods-services": cpi_jp_goods_services, "cpi-jp-sa": cpi_jp_sa,
@@ -77,7 +78,9 @@ ADAPTERS = {"cpi-jp": cpi_jp, "cpi-jp-items": cpi_jp_items, "boj-assets": boj_as
             "rice-production-cost": maff_rice_cost,
             "ja-statistics": maff_ja_coops,
             "fsa-npl": fsa_npl, "fsa-bank-results": fsa_bank_results,
-            "jba-banks": jba_banks}
+            "jba-banks": jba_banks,
+            "margin-jp": jpx_margin,
+            "investor-flows-jp": jpx_investor_type}
 
 # "this (series, period) had no prior value at all" — distinct from a prior
 # value that happens to be None.

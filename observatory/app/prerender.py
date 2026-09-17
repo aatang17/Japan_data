@@ -260,6 +260,15 @@ DESCRIPTIONS = {
     "stakes.html":
         "Japanese 5% filings (大量保有報告書) — who crossed the disclosure threshold in a "
         "listed company, when, and in which direction.",
+    "margin.html":
+        "Margin balances on the Tokyo and Nagoya markets (信用取引現在高) — stock bought on "
+        "margin and sold short, weekly since 2002, with the sale/purchase ratio.",
+    "flows.html":
+        "Weekly trading by investor type in Japanese equities (投資部門別売買状況) — what "
+        "foreigners, individuals, trust banks and companies bought and sold.",
+    "shorts.html":
+        "Disclosed short positions in Japanese listed companies (空売り残高) — who is short "
+        "which company, how much, and how it has moved, published daily by JPX.",
     "ownership.html":
         "The ten largest shareholders of Japanese listed companies, as filed in each "
         "company's annual securities report.",
