@@ -436,17 +436,25 @@ def health():
                 "                  AND r.status <> 'rejected')", [slug]).fetchone()[0]
             vintage_count = con.execute(
                 "SELECT count(*) FROM releases WHERE dataset=?", [slug]).fetchone()[0]
+            # When the refresh last REACHED this dataset, as opposed to when
+            # the data last moved. The two come apart exactly when something
+            # is wrong, so they are reported side by side.
+            checked = heartbeat.check_status(slug)
             if row is None:
-                out.append({"dataset": slug, "status": "attention", "published": False,
-                            "reason": "no published release"})
+                entry = {"dataset": slug, "status": "attention", "published": False,
+                         "reason": "no published release"}
+                entry.update(checked)
+                out.append(entry)
                 continue
             latest_period, ingested_at, published_fetch = row
             days = (today - latest_period).days
             stale = days > pres["stale_after_days"]
             orphan = newest_fetch is not None and newest_fetch > published_fetch
-            out.append({
+            entry = {
                 "dataset": slug,
-                "status": "attention" if (stale or orphan) else "ok",
+                "status": "attention" if (stale or orphan or checked["checked_overdue"]
+                                          or checked["last_check_outcome"] == "failed")
+                          else "ok",
                 "published": True,
                 "latest_period": latest_period.isoformat(),
                 "days_since_latest_period": days,
@@ -458,7 +466,9 @@ def health():
                 "unpublished_artifact": orphan,
                 "last_fetch_at": newest_fetch.isoformat() + "Z" if newest_fetch else None,
                 "vintages": vintage_count,
-            })
+            }
+            entry.update(checked)
+            out.append(entry)
         # The EDINET-derived datasets keep their own clock: they are not
         # ingests and have no release table, so they report how far each
         # extractor has read the archive instead. Defensive because the equity
@@ -501,6 +511,14 @@ def health():
                   "equity_extractors": equity,
                   "manifests": manifests}
         report.update(machine)
+        # Whether an alarm raised here could actually reach anyone. Reported
+        # because for six days in September 2026 the answer was no and
+        # nothing said so.
+        try:
+            from . import refresh
+            report.update(refresh.delivery())
+        except Exception:                                    # noqa: BLE001
+            pass
         return report
     finally:
         con.close()

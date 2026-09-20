@@ -120,6 +120,24 @@ class _Clock(object):
 
 # --- what counts as a problem ------------------------------------------------
 
+def _age_hours(stamp, now=None):
+    """Hours since an ISO stamp from the health report, or None if unreadable.
+
+    The report mixes precisions — the journal writes whole seconds, the equity
+    tables carry microseconds — and both end in 'Z', which Python 3.9's
+    fromisoformat does not accept. Unreadable is None rather than 0: an alarm
+    must never be raised by a parsing failure, nor silenced by one.
+    """
+    if not stamp:
+        return None
+    try:
+        parsed = datetime.datetime.fromisoformat(str(stamp).rstrip("Z"))
+    except ValueError:
+        return None
+    parsed = parsed.replace(tzinfo=_UTC)
+    return ((now or _utcnow()) - parsed).total_seconds() / 3600.0
+
+
 def problems(report):
     """(key, message) for everything wrong in a health report.
 
@@ -139,6 +157,21 @@ def problems(report):
                       % (name, "; ".join(bad.get("errors", [])))))
     for row in report.get("datasets", []):
         slug = row.get("dataset")
+        # Asked of every dataset, published or not, and asked FIRST: a dataset
+        # the refresh has stopped reaching is the fault that hides all the
+        # others. Its data can sit comfortably inside a 90-day staleness
+        # allowance for weeks while nothing whatsoever is happening to it.
+        if row.get("checked_overdue"):
+            found.append((slug + ":unchecked",
+                          "%s has not been refreshed for %s hours (limit %s) — the "
+                          "pipeline has stopped reaching it, whatever its data looks like"
+                          % (slug, row.get("hours_since_checked"),
+                             row.get("check_max_age_hours"))))
+        if row.get("last_check_outcome") == "failed":
+            found.append((slug + ":failing",
+                          "%s failed its last refresh at %s: %s"
+                          % (slug, row.get("last_checked_at"),
+                             row.get("last_check_detail") or "no detail recorded")))
         if not row.get("published"):
             found.append((slug + ":unpublished",
                           "%s has no published release" % slug))
@@ -153,6 +186,32 @@ def problems(report):
             found.append((slug + ":orphan",
                           "%s fetched a file that produced no release — a validation "
                           "failure nobody was told about" % slug))
+    # The EDINET extractors, which this function ignored entirely until
+    # 2026-09-20. All eleven were frozen for a week; /catalog/health said so
+    # the whole time and the watch that turns health into an alert never read
+    # that half of the report.
+    #
+    # They need no journal: eq_extract_runs already records when each
+    # extractor last ran, which is the same "did the pipeline reach it?"
+    # question the macro journal answers.
+    for row in report.get("equity_extractors", []):
+        name = "equity/" + str(row.get("dataset"))
+        ran = _age_hours(row.get("last_extracted_at"))
+        if ran is not None and ran > heartbeat.check_max_age_hours():
+            found.append((name + ":unchecked",
+                          "%s has not run for %.0f hours — the extractor has stopped, "
+                          "whatever the archive holds" % (name, ran)))
+        if row.get("stale"):
+            found.append((name + ":stale",
+                          "%s has read the archive only through %s (%s days behind, "
+                          "limit %s)" % (name, row.get("archive_read_through"),
+                                         row.get("days_behind"),
+                                         row.get("stale_after_days"))))
+        for flag in row.get("shape_flags") or []:
+            found.append(("%s:shape:%s.%s" % (name, flag.get("table"), flag.get("column")),
+                          "%s changed shape: %s.%s %s"
+                          % (name, flag.get("table"), flag.get("column"),
+                             flag.get("detail") or "")))
     return found
 
 
@@ -163,6 +222,42 @@ _last_alert = {}
 
 def _webhook():
     return (os.environ.get("ALERT_WEBHOOK_URL") or "").strip()
+
+
+def _alert_emails():
+    """Addresses to alarm, from ALERT_EMAIL_TO (comma-separated)."""
+    raw = (os.environ.get("ALERT_EMAIL_TO") or "").strip()
+    return [a.strip() for a in raw.split(",") if a.strip()]
+
+
+def delivery():
+    """How an alarm would actually leave the building, for the health report.
+
+    Worth reporting, because the answer was "it would not" for the whole of
+    the 14-19 September 2026 outage: the watch below ran every fifteen
+    minutes and printed ATTENTION into a log with nobody reading it, because
+    no webhook and no mailbox were ever configured. An alarm nobody can
+    receive is not a quieter alarm, it is no alarm, and the health endpoint
+    should say so rather than implying one exists.
+    """
+    from . import mailer
+    channels = []
+    if _webhook():
+        channels.append("webhook")
+    if _alert_emails() and mailer.configured():
+        channels.append("email")
+    return {"alert_channels": channels,
+            "alerts_deliverable": bool(channels)}
+
+
+def _email(subject, text):
+    """Send one alarm to every configured address. Never raises."""
+    from . import mailer
+    for address in _alert_emails():
+        try:
+            mailer.send(address, subject, text)
+        except Exception as exc:                             # noqa: BLE001
+            print("refresh: alert email to %s failed: %s" % (address, exc))
 
 
 def _post(url, payload):
@@ -193,17 +288,21 @@ def alert(found, now=None):
              or stamp - _last_alert[key] >= ALERT_REPEAT_SECONDS]
     if not fresh:
         return []
+    site = seo.SITE_BASE_URL
+    text = "Plover Analytics — %d problem(s):\n%s" % (
+        len(fresh), "\n".join("• " + message for _, message in fresh))
+    if site:
+        text += "\n%s/api/v1/catalog/health" % site
     if url:
-        site = seo.SITE_BASE_URL
-        text = "Plover Analytics — %d problem(s):\n%s" % (
-            len(fresh), "\n".join("• " + message for _, message in fresh))
-        if site:
-            text += "\n%s/api/v1/catalog/health" % site
         try:
             _post(url, {"text": text})
         except Exception as exc:  # noqa: BLE001 — an alert must never crash the app
             print("refresh: alert webhook failed: %s" % exc)
             return []
+    # Email is sent independently of the webhook and swallows its own
+    # failures: one dead channel must not silence the other, and must not
+    # hold the quiet window open so the next pass repeats everything.
+    _email("Plover Analytics: %d data problem(s)" % len(fresh), text)
     for key, _ in fresh:
         _last_alert[key] = stamp
     return [key for key, _ in fresh]

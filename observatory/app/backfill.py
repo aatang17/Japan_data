@@ -71,6 +71,16 @@ def log(msg):
     print("BACKFILL %s" % msg, flush=True)
 
 
+def record_check(dataset, outcome, detail=None):
+    """Note in the journal that the refresh reached this dataset.
+
+    Called for every outcome including 'unchanged', because the alarm asks
+    whether the pipeline still reaches a dataset, not whether the source moved.
+    """
+    from . import heartbeat
+    heartbeat.record(dataset, outcome, detail)
+
+
 def _on_term(signum, frame):
     global _stopping
     _stopping = True
@@ -94,18 +104,54 @@ def fresh_copy(live, work):
     """A copy of the served file to work on, or None when it cannot be taken.
 
     A write-ahead log beside the served file means its last writer did not
-    checkpoint; copying the main file alone would silently drop those rows,
-    so the copy is refused rather than risked.
+    checkpoint, so the main file alone is missing those rows. Copying the pair
+    and letting DuckDB replay the log into the copy keeps them; copying the
+    main file alone would silently drop them.
+
+    Refusing instead — which is what this did until 2026-09-20 — looked like
+    the safe choice and was a deadlock. The API holds the served file open
+    read-only and guardrail 5 forbids it ever writing, so nothing in the
+    running system can checkpoint that log away. One killed extractor left a
+    log beside equity.duckdb on 2026-09-13 and every nightly refresh from then
+    on declined to copy the file, freezing all eleven EDINET extractors for a
+    week while the archive kept filling. A guard that cannot clear itself is
+    not a guard.
     """
     _discard(work)
     if not live.exists():
         log("%s does not exist yet; nothing to copy" % live.name)
         return None
-    wal = _wal(live)
-    if wal.exists() and wal.stat().st_size > 0:
-        log("%s has an unflushed write-ahead log; leaving it alone" % live.name)
-        return None
     shutil.copyfile(str(live), str(work))
+    wal = _wal(live)
+    if not (wal.exists() and wal.stat().st_size > 0):
+        return work
+    # Copy the log second and only then check the main file has not moved
+    # under us. Nothing should be writing (the API is read-only and the
+    # nightly writer runs only while the server is stopped), but a torn pair
+    # would replay garbage, and that is the served database.
+    stat_before = live.stat()
+    shutil.copyfile(str(wal), str(_wal(work)))
+    if (live.stat().st_mtime_ns, live.stat().st_size) != (stat_before.st_mtime_ns,
+                                                          stat_before.st_size):
+        log("%s moved while being copied; leaving it for the next pass" % live.name)
+        _discard(work)
+        return None
+    # Replay and flatten, so the copy is self-contained from here on and the
+    # swap has one file to rename rather than a pair to keep consistent.
+    try:
+        con = duckdb.connect(str(work))
+        try:
+            con.execute("CHECKPOINT")
+        finally:
+            con.close()
+        _discard_wal_only(work)
+    except duckdb.Error as exc:
+        log("%s has a write-ahead log that will not replay (%s); left untouched"
+            % (live.name, exc))
+        _discard(work)
+        return None
+    log("%s carried an unflushed write-ahead log; replayed %d bytes of it into the copy"
+        % (live.name, wal.stat().st_size))
     return work
 
 
@@ -117,6 +163,14 @@ def swap(work, live):
     finally:
         con.close()
     _discard_wal_only(work)
+    # Any log beside the served file was already replayed into this copy by
+    # fresh_copy, so it is redundant — and about to be actively dangerous,
+    # because a log left next to a file it no longer matches is replayed into
+    # it by the next reader. Dropped BEFORE the rename, never after: a crash
+    # in this window costs the rows that log held, which this copy still
+    # carries and the extractors would read again; a crash in the other order
+    # leaves a mismatched pair, which is the served database corrupted.
+    _discard_wal_only(live)
     os.replace(str(work), str(live))
     log("swapped %s in (%d bytes)" % (live.name, live.stat().st_size))
 
@@ -143,13 +197,29 @@ def _run(cmd, env, cwd):
 
 # --- macro datasets ----------------------------------------------------------
 
-def _release_count(path):
+def _published_mark(path, dataset):
+    """Identity of one dataset's published release, or None if it has none.
+
+    Emphatically not a count. ingest.py publishes by marking the previous
+    release 'superseded' and inserting the new one in the same transaction,
+    so the number of published rows is one per dataset forever — it rises on
+    a dataset's first ever publish and never again.
+
+    Counting them was therefore a test that only a brand-new dataset could
+    pass, and between 14 and 19 September 2026 it quietly threw away every
+    refresh of every mature dataset: August CPI was fetched, validated and
+    published into the copy each night, the copy was judged 'unchanged', and
+    the site went on serving July. release_id comes from a sequence, so a new
+    release is always a new mark.
+    """
     con = duckdb.connect(str(path), read_only=True)
     try:
-        return con.execute(
-            "SELECT count(*) FROM releases WHERE status = 'published'").fetchone()[0]
+        row = con.execute(
+            "SELECT release_id, latest_period FROM releases "
+            "WHERE dataset = ? AND status = 'published'", [dataset]).fetchone()
+        return tuple(row) if row else None
     except duckdb.Error:
-        return 0
+        return None
     finally:
         con.close()
 
@@ -161,7 +231,7 @@ def backfill_macro(datasets):
             return
         if fresh_copy(LIVE_MACRO, work) is None:
             return
-        before = _release_count(work)
+        before = _published_mark(work, ds)
         env = dict(os.environ, OBSERVATORY_DB_PATH=str(work))
         log("ingest %s into a copy" % ds)
         started = time.time()
@@ -171,15 +241,20 @@ def backfill_macro(datasets):
             log("ingest %s did not publish (exit %s, %.0fs); served data untouched"
                 % (ds, rc, took))
             _discard(work)
+            record_check(ds, "failed", "ingest exited %s" % rc)
             if rc == -1:
                 return
             continue
-        if _release_count(work) > before:
+        after = _published_mark(work, ds)
+        if after is not None and after != before:
             swap(work, LIVE_MACRO)
-            log("published %s (%.0fs)" % (ds, took))
+            log("published %s (%.0fs): release %s, data through %s"
+                % (ds, took, after[0], after[1]))
+            record_check(ds, "published", "release %s through %s" % (after[0], after[1]))
         else:
             log("%s unchanged (%.0fs); nothing to swap" % (ds, took))
             _discard(work)
+            record_check(ds, "unchanged", None)
 
 
 # Archived GDP releases per slice. Loading all 134 takes about three quarters
