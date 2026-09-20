@@ -152,7 +152,17 @@ def _parse_file(raw_bytes, origin):
                 "%s: row has %d fields, header has %d" % (origin, len(fields), len(header)))
         try:
             month, day, year = fields[0].split("/")
-            period = "%04d-%02d-%02d" % (int(year), int(month), int(day))
+            # A date, never a string. Every other adapter emits
+            # datetime.date here, and ingest.py compares what an adapter
+            # produces against the periods it reads back from DuckDB, which
+            # are dates. A string matches none of them, so the second ingest
+            # of this dataset saw all 99,502 values as brand new AND all
+            # 99,502 stored ones as withdrawn, and wrote each (series, date)
+            # twice into one release — the primary key violation that had
+            # ust-yields and ust-real-yields failing every night from their
+            # first publish on 2026-09-15. The first publish worked because
+            # there was nothing to compare against.
+            period = datetime.date(int(year), int(month), int(day))
         except Exception:
             raise ValidationError("%s: bad date %r" % (origin, fields[0]))
         row = {}
@@ -217,11 +227,11 @@ def validate(series, observations):
                 % (o["code"], o["period"], o["value"], YIELD_MIN, YIELD_MAX))
 
     ordered = sorted(dates)
-    first = datetime.date.fromisoformat(ordered[0])
+    first = ordered[0]
     if first > FIRST_DATE + datetime.timedelta(days=7):
         raise ValidationError("history starts %s, expected %s" % (first, FIRST_DATE))
     for a, b in zip(ordered, ordered[1:]):
-        gap = (datetime.date.fromisoformat(b) - datetime.date.fromisoformat(a)).days
+        gap = (b - a).days
         if gap > MAX_GAP_DAYS:
             raise ValidationError("gap of %d days between %s and %s" % (gap, a, b))
 
@@ -237,7 +247,7 @@ def validate(series, observations):
         "series": len(series),
         "observations": len(observations),
         "dates": len(ordered),
-        "latest_period": latest,
+        "latest_period": latest.isoformat(),
         "latest_10y_real_pct": curve.get("10Y"),
         "latest_5y_real_pct": curve.get("5Y"),
     }

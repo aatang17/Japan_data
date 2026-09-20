@@ -98,6 +98,38 @@ def _many(con, sql, rows):
         con.executemany(sql, rows)
 
 
+def _check_periods(adapter, slug, observations):
+    """Every adapter must date an observation with a datetime.date.
+
+    A string that merely looks like a date is the bug this catches, and it is
+    a nasty one because it does not fail where it is made. The period an
+    adapter emits is compared against the period read back from DuckDB, which
+    is always a date; a string equals none of them, so the point-in-time diff
+    concludes that every value is new and every stored value has been
+    withdrawn, and writes the same (series, period) twice into one release.
+    What surfaces, thousands of lines later, is a primary key violation on
+    observation_vintages naming an id and a date from 1990.
+
+    That is exactly how ust-yields and ust-real-yields failed every night
+    from their first publish on 2026-09-15. The first ingest of a dataset
+    cannot show it — there is nothing to compare against — so the fault ships
+    looking healthy and appears only on the second run.
+
+    Checked once here rather than left to each adapter's validate(), because
+    it is a contract between every adapter and the store, and forty-three
+    adapters is forty-three chances to get it wrong.
+    """
+    for o in observations:
+        period = o.get("period")
+        # bool is not a concern; datetime IS a date subclass and would store
+        # a silent time component, so it is rejected rather than accepted.
+        if type(period) is not datetime.date:
+            raise adapter.ValidationError(
+                "%s: observation period must be a datetime.date, got %r (%s). "
+                "A string here breaks the vintage diff on every ingest after "
+                "the first." % (slug, period, type(period).__name__))
+
+
 def run(slug, from_file=None):
     adapter = ADAPTERS[slug]
 
@@ -183,6 +215,7 @@ def run(slug, from_file=None):
         ).fetchone()[0]
 
         series, observations = adapter.parse(raw)
+        _check_periods(adapter, slug, observations)
         summary = adapter.validate(series, observations)
         # The whole summary is stored on the release, but a dataset that
         # carries its geography in it (every municipality in Japan) would
