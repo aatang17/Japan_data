@@ -370,3 +370,52 @@ class DeliveryTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TelegramTest(unittest.TestCase):
+    """The Telegram channel: configured only as a pair, and never one refused message."""
+
+    def setUp(self):
+        for key in ("TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID", "ALERT_WEBHOOK_URL",
+                    "ALERT_EMAIL_TO", "RESEND_API_KEY", "RESEND_FROM"):
+            os.environ.pop(key, None)
+            self.addCleanup(os.environ.pop, key, None)
+        self._post = refresh._post
+        self.addCleanup(setattr, refresh, "_post", self._post)
+        self.sent = []
+        refresh._post = lambda url, payload: self.sent.append((url, payload))
+
+    def test_token_without_chat_is_not_a_channel(self):
+        os.environ["TELEGRAM_BOT_TOKEN"] = "123:abc"
+        self.assertFalse(refresh.delivery()["alerts_deliverable"])
+
+    def test_token_and_chat_is_a_channel(self):
+        os.environ["TELEGRAM_BOT_TOKEN"] = "123:abc"
+        os.environ["TELEGRAM_CHAT_ID"] = "42"
+        self.assertEqual(refresh.delivery()["alert_channels"], ["telegram"])
+
+    def test_alarm_reaches_every_chat_as_plain_text(self):
+        os.environ["TELEGRAM_BOT_TOKEN"] = "123:abc"
+        os.environ["TELEGRAM_CHAT_ID"] = "42, 43"
+        refresh._last_alert.clear()
+        refresh.alert([("cpi-jp:unchecked", "cpi_jp [odd] name has not been refreshed")])
+        self.assertEqual([p["chat_id"] for _, p in self.sent], ["42", "43"])
+        self.assertTrue(all(u.endswith("/bot123:abc/sendMessage") for u, _ in self.sent))
+        self.assertTrue(all("parse_mode" not in p for _, p in self.sent))
+
+    def test_a_long_alarm_is_split_under_telegrams_limit(self):
+        text = "\n".join("• dataset-%03d has not been refreshed for 144 hours" % i
+                         for i in range(300))
+        pieces = refresh._chunks(text)
+        self.assertGreater(len(pieces), 1)
+        self.assertTrue(all(len(p) <= refresh.TELEGRAM_LIMIT for p in pieces))
+        self.assertEqual("\n".join(pieces), text)
+
+    def test_a_telegram_failure_never_raises(self):
+        os.environ["TELEGRAM_BOT_TOKEN"] = "123:abc"
+        os.environ["TELEGRAM_CHAT_ID"] = "42"
+
+        def boom(url, payload):
+            raise OSError("network down")
+        refresh._post = boom
+        refresh._send_telegram("hello")          # must not raise

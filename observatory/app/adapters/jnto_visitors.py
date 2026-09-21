@@ -396,6 +396,11 @@ MIN_OBSERVATIONS = 13_000
 # catch a units change or a misread column, not to second-guess data.
 MAX_MONTHLY = 20_000_000
 
+# The quantum JNTO rounds an estimate (推計値) month to before publishing it.
+# Stated in the source's own notes, and the reason the parent/child gate
+# below cannot demand half-unit agreement in those two months.
+ESTIMATE_ROUNDING = 100
+
 
 def validate(series, observations):
     expected = set(code for code, _ja, _en, _p, _k in MARKETS)
@@ -460,15 +465,33 @@ def validate(series, observations):
     # No parent may be exceeded by the children present. Equality is not
     # required: before 2016 the source published no residual rows, so the
     # named markets legitimately fall short of their regional total.
+    #
+    # An estimate (推計値) month is the exception, and it is arithmetic, not
+    # a concession. JNTO rounds those figures to the nearest 100 before
+    # publishing them, so each of n children can sit up to 50 above its true
+    # value while the parent sits up to 50 below: the children can exceed the
+    # parent by (n + 1) x 50 with the underlying numbers perfectly consistent.
+    # August 2026 did exactly that — four Nordic markets summing to 9,500
+    # against a parent of 9,400 — and failed the flat half-unit tolerance
+    # every night from 2026-09-01, on rounding alone.
+    #
+    # The strict tolerance stays for every finalised month, which is the
+    # whole history bar the two newest. Loosening it everywhere would have
+    # been the easy fix and would have blinded the gate to the misread column
+    # it exists to catch.
     for period, values in by_period.items():
+        rounded = period in provisional_periods
         for parent in set(PARENT.values()):
             if parent is None or parent not in values:
                 continue
             kids = [v for code, v in values.items() if PARENT.get(code) == parent]
-            if sum(kids) - values[parent] > 0.5:
+            slack = (len(kids) + 1) * (ESTIMATE_ROUNDING / 2.0) if rounded else 0.5
+            if sum(kids) - values[parent] > slack:
                 raise ValidationError(
-                    "%s: children of %s sum to %d, above the parent's %d"
-                    % (period, parent, sum(kids), values[parent]))
+                    "%s: children of %s sum to %d, above the parent's %d%s"
+                    % (period, parent, sum(kids), values[parent],
+                       " by more than rounding to the nearest %d allows"
+                       % ESTIMATE_ROUNDING if rounded else ""))
 
     if complete_months < 200:
         raise ValidationError(

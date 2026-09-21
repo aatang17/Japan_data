@@ -37,6 +37,7 @@ import json
 import os
 import signal
 import time
+import urllib.error
 import urllib.request
 
 from starlette.concurrency import run_in_threadpool
@@ -230,6 +231,21 @@ def _alert_emails():
     return [a.strip() for a in raw.split(",") if a.strip()]
 
 
+def _telegram():
+    """(bot token, [chat ids]) from the environment, or (None, []).
+
+    TELEGRAM_BOT_TOKEN comes from @BotFather; TELEGRAM_CHAT_ID is the chat the
+    bot posts into (comma-separated for several). Both are needed: a token
+    with nowhere to post, or a chat with no bot, delivers nothing.
+    """
+    token = (os.environ.get("TELEGRAM_BOT_TOKEN") or "").strip()
+    raw = (os.environ.get("TELEGRAM_CHAT_ID") or "").strip()
+    chats = [c.strip() for c in raw.split(",") if c.strip()]
+    if not token or not chats:
+        return None, []
+    return token, chats
+
+
 def delivery():
     """How an alarm would actually leave the building, for the health report.
 
@@ -246,8 +262,71 @@ def delivery():
         channels.append("webhook")
     if _alert_emails() and mailer.configured():
         channels.append("email")
+    if _telegram()[0]:
+        channels.append("telegram")
     return {"alert_channels": channels,
             "alerts_deliverable": bool(channels)}
+
+
+# Telegram refuses a message over 4,096 characters. The first cycle after a
+# long outage can carry dozens of problems, and one refused message would be
+# the whole alarm lost, so long text is sent in pieces cut at line breaks.
+TELEGRAM_LIMIT = 4000
+
+
+def _chunks(text, limit=TELEGRAM_LIMIT):
+    """Split text into pieces no longer than `limit`, at line breaks where possible."""
+    pieces, current = [], ""
+    for line in text.split("\n"):
+        while len(line) > limit:             # one absurdly long line: hard cut
+            if current:
+                pieces.append(current)
+                current = ""
+            pieces.append(line[:limit])
+            line = line[limit:]
+        candidate = line if not current else current + "\n" + line
+        if len(candidate) > limit:
+            pieces.append(current)
+            current = line
+        else:
+            current = candidate
+    if current:
+        pieces.append(current)
+    return pieces
+
+
+def _send_telegram(text):
+    """Post an alarm to every configured Telegram chat. Never raises.
+
+    Plain text on purpose: Telegram's Markdown modes reject a message with an
+    unbalanced underscore or bracket, and dataset names and error details are
+    full of both. A formatting refusal must not be what silences an alarm.
+
+    The token is part of the request URL, so no error printed here ever
+    includes the URL — only the status and Telegram's own description.
+    """
+    token, chats = _telegram()
+    if not token:
+        return
+    url = "https://api.telegram.org/bot%s/sendMessage" % token
+    for chat in chats:
+        for piece in _chunks(text):
+            try:
+                _post(url, {"chat_id": chat, "text": piece,
+                            "disable_web_page_preview": True})
+            except urllib.error.HTTPError as exc:
+                try:
+                    reason = json.loads(exc.read().decode("utf-8", "replace")).get(
+                        "description")
+                except Exception:                            # noqa: BLE001
+                    reason = None
+                print("refresh: telegram alert to chat %s failed: HTTP %s %s"
+                      % (chat, exc.code, reason or ""))
+                break                        # the rest would fail the same way
+            except Exception as exc:                         # noqa: BLE001
+                print("refresh: telegram alert to chat %s failed: %s"
+                      % (chat, type(exc).__name__))
+                break
 
 
 def _email(subject, text):
@@ -299,10 +378,11 @@ def alert(found, now=None):
         except Exception as exc:  # noqa: BLE001 — an alert must never crash the app
             print("refresh: alert webhook failed: %s" % exc)
             return []
-    # Email is sent independently of the webhook and swallows its own
-    # failures: one dead channel must not silence the other, and must not
-    # hold the quiet window open so the next pass repeats everything.
+    # Email and Telegram are sent independently of the webhook and swallow
+    # their own failures: one dead channel must not silence another, and must
+    # not hold the quiet window open so the next pass repeats everything.
     _email("Plover Analytics: %d data problem(s)" % len(fresh), text)
+    _send_telegram(text)
     for key, _ in fresh:
         _last_alert[key] = stamp
     return [key for key, _ in fresh]
@@ -362,5 +442,14 @@ if __name__ == "__main__":
 
     if len(sys.argv) > 1 and sys.argv[1] == "heartbeat":
         print("ingest heartbeat: %s" % heartbeat.write()["at"])
+    elif len(sys.argv) > 1 and sys.argv[1] == "test-alert":
+        # Proves a channel end to end before anyone relies on it: an alarm
+        # channel first tested by a real outage is an alarm channel untested.
+        print("channels: %s" % (delivery()["alert_channels"] or "none configured"))
+        _send_telegram("Plover Analytics — test alert. If you can read this, "
+                       "data-refresh alarms will reach this chat.")
+        _email("Plover Analytics: test alert",
+               "If you can read this, data-refresh alarms will reach this inbox.")
+        print("sent (any failure is printed above)")
     else:
         print(json.dumps(heartbeat.status(), indent=2))

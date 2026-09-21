@@ -10,6 +10,8 @@ CPI adapters need no key at all.
 """
 import json
 import os
+import time
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -18,6 +20,19 @@ USER_AGENT = "ObservatoryIngest/0.1 (data pipeline; contact: repo owner)"
 
 # The API caps one response; a larger table is walked with NEXT_KEY.
 PAGE_LIMIT = 100000
+
+# e-Stat's gateway hiccups. On 2026-09-19 a single 502, answered in under a
+# second, was enough to fail the whole trade-machinery ingest for the day —
+# the dataset had been fine minutes earlier and was fine minutes later. The
+# Treasury adapter learned this in September too and already retries; this is
+# the same lesson in the place every e-Stat adapter shares.
+#
+# Only transport and gateway faults are retried. A non-zero e-Stat STATUS
+# means the table moved or the query is wrong, and repeating it just asks the
+# same wrong question four times.
+RETRY_ATTEMPTS = 4
+RETRY_PAUSE_SECONDS = 5
+RETRY_STATUS = (429, 500, 502, 503, 504)
 
 
 class ConfigError(Exception):
@@ -37,13 +52,33 @@ def app_id():
     return key
 
 
+def _fetch(url):
+    """The bytes of one call, retrying a gateway that is merely having a bad
+    moment. Raises the last error once the attempts are used up."""
+    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    last = None
+    for attempt in range(RETRY_ATTEMPTS):
+        try:
+            with urllib.request.urlopen(request, timeout=180) as response:
+                return response.read()
+        except urllib.error.HTTPError as exc:
+            if exc.code not in RETRY_STATUS:
+                raise
+            last = exc
+        except urllib.error.URLError as exc:                 # DNS, timeout, reset
+            last = exc
+        if attempt < RETRY_ATTEMPTS - 1:
+            # Widening pause: a gateway under load is not helped by four
+            # immediate retries.
+            time.sleep(RETRY_PAUSE_SECONDS * (attempt + 1))
+    raise last
+
+
 def call(operation, **params):
     """One API call, returned as parsed JSON. Raises on a non-zero status."""
     params["appId"] = app_id()
     url = BASE + operation + "?" + urllib.parse.urlencode(params)
-    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(request, timeout=180) as response:
-        payload = json.loads(response.read().decode("utf-8"))
+    payload = json.loads(_fetch(url).decode("utf-8"))
     envelope = payload[list(payload)[0]]
     result = envelope.get("RESULT", {})
     # STATUS 0 is success; 1 means "succeeded but matched nothing", which for
