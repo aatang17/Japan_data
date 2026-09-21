@@ -153,6 +153,69 @@ class FreshCopyTest(unittest.TestCase):
         self.assertIsNone(backfill.fresh_copy(self.live, self.work))
 
 
+class FullVolumeTest(unittest.TestCase):
+    """The full volume that killed the refresh on 2026-09-17 and 2026-09-20.
+
+    A swap frees the old file's space only once the server lets go of it, and
+    the next copy starts immediately; the OSError that followed ended the whole
+    process. A full disk must be waited out, and failing that, skipped — never
+    raised.
+    """
+
+    def setUp(self):
+        self.dir = pathlib.Path(tempfile.mkdtemp())
+        self.live = self.dir / "observatory.duckdb"
+        self.work = self.dir / "observatory.backfill.duckdb"
+        con = duckdb.connect(str(self.live))
+        con.execute("CREATE TABLE t (n INTEGER)")
+        con.execute("INSERT INTO t VALUES (1)")
+        con.close()
+        self.addCleanup(shutil.rmtree, str(self.dir), True)
+        self._waits = backfill.COPY_RETRY_WAITS
+        backfill.COPY_RETRY_WAITS = (0.01, 0.01, 0.01)
+        self.addCleanup(setattr, backfill, "COPY_RETRY_WAITS", self._waits)
+        self._copy = shutil.copyfile
+        self.addCleanup(setattr, shutil, "copyfile", self._copy)
+
+    def _fail(self, times, err=None):
+        real, calls = self._copy, {"n": 0}
+        err = err if err is not None else errno_enospc()
+
+        def copyfile(src, dst, *a, **k):
+            calls["n"] += 1
+            if calls["n"] <= times:
+                with open(dst, "wb") as fh:          # a partial copy is left
+                    fh.write(b"partial")
+                raise err
+            return real(src, dst, *a, **k)
+        shutil.copyfile = copyfile
+        return calls
+
+    def test_space_that_comes_back_is_waited_for(self):
+        calls = self._fail(2)
+        self.assertEqual(backfill.fresh_copy(self.live, self.work), self.work)
+        self.assertEqual(calls["n"], 3)
+        con = duckdb.connect(str(self.work), read_only=True)
+        self.assertEqual(con.execute("SELECT n FROM t").fetchall(), [(1,)])
+        con.close()
+
+    def test_space_that_never_comes_back_is_skipped_not_raised(self):
+        self._fail(99)
+        self.assertIsNone(backfill.fresh_copy(self.live, self.work))
+        self.assertFalse(self.work.exists(), "a partial copy was left on the volume")
+
+    def test_other_copy_errors_are_refused_without_waiting(self):
+        calls = self._fail(99, err=OSError(13, "Permission denied"))
+        self.assertIsNone(backfill.fresh_copy(self.live, self.work))
+        self.assertEqual(calls["n"], 1)
+        self.assertTrue(self.live.exists())
+
+
+def errno_enospc():
+    import errno
+    return OSError(errno.ENOSPC, "No space left on device")
+
+
 class SwapTest(unittest.TestCase):
     def setUp(self):
         self.dir = pathlib.Path(tempfile.mkdtemp())

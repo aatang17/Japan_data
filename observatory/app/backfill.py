@@ -40,6 +40,7 @@ Environment (all optional):
   BACKFILL_MAX_SLICES       stop after this many equity slices (default 400)
   BACKFILL_SEC_QUARTERS     quarterly SEC data sets to hold in all (default 12; 0 = none)
 """
+import errno
 import os
 import pathlib
 import shutil
@@ -100,7 +101,7 @@ def _discard(work):
             pass
 
 
-def fresh_copy(live, work):
+def _fresh_copy_once(live, work):
     """A copy of the served file to work on, or None when it cannot be taken.
 
     A write-ahead log beside the served file means its last writer did not
@@ -153,6 +154,56 @@ def fresh_copy(live, work):
     log("%s carried an unflushed write-ahead log; replayed %d bytes of it into the copy"
         % (live.name, wal.stat().st_size))
     return work
+
+
+# Waits between attempts when the volume is full, in seconds. The usual cause
+# is the file the previous swap replaced: renaming a copy over the served
+# database does not free the old file's space, because the server still holds
+# it open until its reader notices the change and reopens. So the space comes
+# back seconds to minutes AFTER the swap — and the next dataset's copy starts
+# at once. On 2026-09-17 and again on 2026-09-20 that window was enough to fill
+# a 5GB volume, and the OSError it raised killed this whole process, so every
+# dataset still queued behind it — and the entire equity refresh — never ran.
+COPY_RETRY_WAITS = (15, 30, 60, 120, 240)
+
+
+def _pause(seconds):
+    """Sleep, but give up at once if we are told to stop. True if stopping."""
+    end = time.time() + seconds
+    while time.time() < end:
+        if _stopping:
+            return True
+        time.sleep(min(1.0, max(0.0, end - time.time())))
+    return _stopping
+
+
+def fresh_copy(live, work):
+    """A working copy of the served file, or None when one cannot be had.
+
+    A full volume is waited out rather than raised: see COPY_RETRY_WAITS for
+    why the space is usually on its way back. Any other failure to copy is
+    reported and refused. Either way this returns None instead of raising, so
+    one bad copy costs this pass of this step, never the rest of the refresh,
+    and the served file is untouched throughout.
+    """
+    for attempt, wait in enumerate((0,) + tuple(COPY_RETRY_WAITS)):
+        if wait:
+            log("no room to copy %s; waiting %ds for the space a swap is still "
+                "holding (attempt %d of %d)"
+                % (live.name, wait, attempt + 1, len(COPY_RETRY_WAITS) + 1))
+            if _pause(wait):
+                _discard(work)
+                return None
+        try:
+            return _fresh_copy_once(live, work)
+        except OSError as exc:
+            _discard(work)
+            if exc.errno != errno.ENOSPC:
+                log("could not copy %s (%s); served data untouched" % (live.name, exc))
+                return None
+    log("still no room to copy %s after %d attempts; this step is skipped and "
+        "served data is untouched" % (live.name, len(COPY_RETRY_WAITS) + 1))
+    return None
 
 
 def swap(work, live):
@@ -230,6 +281,9 @@ def backfill_macro(datasets):
         if _stopping:
             return
         if fresh_copy(LIVE_MACRO, work) is None:
+            if not _stopping:
+                record_check(ds, "failed", "no working copy of the database could "
+                                           "be taken (volume full or file busy)")
             return
         before = _published_mark(work, ds)
         env = dict(os.environ, OBSERVATORY_DB_PATH=str(work))
