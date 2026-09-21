@@ -155,9 +155,14 @@ WIRE_NOTE = (
 
 
 def _require():
+    # The columns are asked for by name, not just the table: a database last
+    # written by parser td-1 has the tables without fiscal_period or the
+    # company name, and answered 500 on the first deploy until the refresh
+    # re-read the wire. Until then the honest answer is "not published yet".
     cur = _cur()
     try:
-        cur.execute("SELECT 1 FROM eq_tdnet_filings LIMIT 1")
+        cur.execute("SELECT fiscal_period FROM eq_tdnet_filings LIMIT 1")
+        cur.execute("SELECT company_name, exchange FROM eq_tdnet_items LIMIT 1")
     except Exception:                                            # noqa: BLE001
         raise HTTPException(503, "earnings releases dataset not published yet")
     return cur

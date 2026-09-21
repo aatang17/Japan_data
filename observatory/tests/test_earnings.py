@@ -210,6 +210,22 @@ class ApiTest(unittest.TestCase):
             earnings_api.screen(sort="progress", line="operating_income", period="full-year",
                                 fiscal_period="", order="desc", limit=50)
 
+    def test_tables_from_the_older_parser_are_not_published_yet_rather_than_an_error(self):
+        path = os.path.join(self.tmp, "td1.duckdb")
+        con = duckdb.connect(path)
+        con.execute("CREATE TABLE eq_tdnet_filings (doc_key VARCHAR, period VARCHAR)")
+        con.execute("CREATE TABLE eq_tdnet_items (disclosed_on DATE, title VARCHAR)")
+        con.close()
+        old = duckdb.connect(path, read_only=True)
+        earnings_api._cur = lambda: old.cursor()
+        try:
+            with self.assertRaises(HTTPException) as ctx:
+                earnings_api.summary()
+            self.assertEqual(ctx.exception.status_code, 503)
+        finally:
+            earnings_api._cur = lambda: self.con.cursor()
+            old.close()
+
     def test_wire_filters_by_kind(self):
         d = earnings_api.wire(kind="forecast-revision", q="", day="", limit=10)
         self.assertEqual([w["kind"] for w in d["disclosures"]], ["forecast-revision"])
