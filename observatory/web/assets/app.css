@@ -2058,3 +2058,21 @@ pre.code {
   color: var(--obs-text-muted); text-wrap: pretty; }
 .coverage-bar b { color: var(--obs-ink); font-weight: 600; }
 .coverage-bar.is-stale { border-left-color: var(--obs-warn); }
+
+/* Below ~1100px the brand, eight section links and the toggle no longer fit
+   on one 52px row, and flexbox squeezed each of them onto two lines instead.
+   The bar becomes two rows: brand and controls, then the section links on a
+   row of their own. Nothing in it ever breaks mid-label. Phones keep their
+   own wrapping layout (max-width: 480px above). */
+.brand, .theme-toggle { white-space: nowrap; flex-shrink: 0; }
+@media (min-width: 481px) and (max-width: 1100px) {
+  .site-header .inner { height: auto; flex-wrap: wrap; row-gap: 0; }
+  .brand, .site-header .header-right { min-height: 48px; }
+  .site-nav { order: 3; flex: 1 0 100%; align-items: center; min-height: 36px; padding-bottom: 4px; }
+  .site-nav a { white-space: nowrap; }
+}
+/* the sub-nav sticks under the taller two-row bar (48 + 36) */
+@media (min-width: 769px) and (max-width: 1100px) {
+  .site-nav { flex-wrap: nowrap; height: 36px; padding-bottom: 0; }
+  .site-subnav { top: 84px; }
+}
