@@ -2076,3 +2076,34 @@ pre.code {
   .site-nav { flex-wrap: nowrap; height: 36px; padding-bottom: 0; }
   .site-subnav { top: 84px; }
 }
+
+/* A section note runs to four or five lines and pushes the chart under the
+   fold. The first two lines say what the series is; the rest are caveats a
+   reader wants once. nav.js folds the remainder away and adds the toggle, so
+   the text is still in the DOM for find-on-page, for a crawler, and for the
+   prerendered answer pages. */
+.section-sub.is-clamped .section-sub-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+.section-sub-more {
+  display: block;
+  margin-top: 2px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  color: var(--obs-primary);
+  cursor: pointer;
+}
+.section-sub-more::before { content: "\25be  "; }
+.section-sub.is-clamped .section-sub-more::before { content: "\25b8  "; }
+.section-sub-more:hover { color: var(--obs-primary-dark); }
+@media print {
+  .section-sub.is-clamped .section-sub-text { display: block; overflow: visible; }
+  .section-sub-more { display: none; }
+}

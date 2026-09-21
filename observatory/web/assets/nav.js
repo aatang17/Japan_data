@@ -396,3 +396,114 @@ var NAV_SECTIONS = [
     setTimeout(function () { build(); setStack(); }, 2500);
   });
 })();
+
+/* ---------- section notes: two lines, then a toggle ----------
+
+   Every section carries a paragraph explaining what its numbers are. They
+   average four or five lines, and stacked above a chart they push the thing
+   the reader came for below the fold. The first two lines carry the
+   definition; the rest are caveats — read once, then in the way.
+
+   So the note is folded to two lines with a "More" toggle beside it. The
+   text is never removed: it stays in the DOM, so find-on-page, a crawler,
+   and the prerendered answer pages all see the whole paragraph. A note that
+   already fits gets no toggle, and the fit is measured again on resize,
+   because a note that fits on a wide screen will not on a phone. */
+(function () {
+  var COLLAPSED_LINES = 2;
+
+  function wrap(p) {
+    if (p.querySelector(".section-sub-text")) return p.querySelector(".section-sub-text");
+    var span = document.createElement("span");
+    span.className = "section-sub-text";
+    while (p.firstChild) span.appendChild(p.firstChild);
+    p.appendChild(span);
+    return span;
+  }
+
+  function fits(p, text) {
+    // Measured while clamped: a clamped box that is not overflowing is short
+    // enough to show whole. Nothing to measure on a hidden section.
+    if (!p.offsetParent && p.offsetHeight === 0) return null;
+    var had = p.classList.contains("is-clamped");
+    p.classList.add("is-clamped");
+    var over = text.scrollHeight - text.clientHeight > 1;
+    if (!had) p.classList.remove("is-clamped");
+    return !over;
+  }
+
+  function apply(p) {
+    var text = wrap(p);
+    var short = fits(p, text);
+    if (short === null) {
+      // Laid out in a hidden section; measure it when it is on screen.
+      p.classList.add("section-sub-unmeasured");
+      return;
+    }
+    p.classList.remove("section-sub-unmeasured");
+    var btn = p.querySelector(".section-sub-more");
+    if (short) {
+      p.classList.remove("is-clamped");
+      if (btn) btn.remove();
+      return;
+    }
+    if (!btn) {
+      btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "section-sub-more";
+      btn.addEventListener("click", function () {
+        var folded = p.classList.toggle("is-clamped");
+        btn.textContent = folded ? "More" : "Less";
+        btn.setAttribute("aria-expanded", folded ? "false" : "true");
+      });
+      p.appendChild(btn);
+      // Opened by hand, a note stays open until its section is redrawn.
+      p.classList.add("is-clamped");
+      btn.textContent = "More";
+      btn.setAttribute("aria-expanded", "false");
+    }
+  }
+
+  // Measuring costs a layout read, so a note that still has its wrapper is
+  // left alone unless the window changed width. Without that guard the sweep
+  // and the contents strip above take turns mutating the page, and a page
+  // that never stops mutating never gets swept at all.
+  var busy = false;
+  function sweep(remeasure) {
+    busy = true;
+    var notes = document.querySelectorAll("p.section-sub");
+    Array.prototype.forEach.call(notes, function (p) {
+      if (remeasure || !p.querySelector(".section-sub-text") ||
+          p.classList.contains("section-sub-unmeasured")) apply(p);
+    });
+    // Our own wrapping and toggling mutate the page too; the records they
+    // cause reach the observer before this clears the flag.
+    setTimeout(function () { busy = false; }, 0);
+  }
+
+  document.addEventListener("DOMContentLoaded", function () { sweep(true); });
+  window.addEventListener("load", function () {
+    sweep(true);
+    setTimeout(function () { sweep(true); }, 2500);
+  });
+
+  var timer = null;
+  window.addEventListener("resize", function () {
+    clearTimeout(timer);
+    timer = setTimeout(function () { sweep(true); }, 200);
+  });
+
+  // Sections that only appear once data arrives are picked up here, and so is
+  // a note a page rewrites itself — the population history note changes with
+  // the view, which drops our wrapper on the floor.
+  document.addEventListener("DOMContentLoaded", function () {
+    if (!window.MutationObserver) return;
+    var main = document.querySelector("main");
+    if (!main) return;
+    var pending = null;
+    new MutationObserver(function () {
+      if (busy || pending) return;             // a fixed window, never pushed back
+      pending = setTimeout(function () { pending = null; sweep(false); }, 400);
+    }).observe(main, { childList: true, subtree: true });
+  });
+})();
