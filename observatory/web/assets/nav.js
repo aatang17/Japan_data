@@ -131,7 +131,18 @@ var NAV_SECTIONS = [
     // it, what it reports — and each group's pages are its in-page tabs.
     // A group's id is its first tab's, so the strip entry and that page are
     // one destination. Every URL is unchanged.
+    // The strip leads with the company page — one company is what a reader
+    // arrives wanting — while the navy bar still lands on the Overview, which
+    // is the directory of what the section holds.
+    entry: "equities.html",
     pages: [
+      // One destination, two views of one company: everything we hold on it,
+      // and the segment-vs-customs lens that used to be the whole page.
+      { id: "company", label: "Company Profile", href: "company.html",
+        tabs: [
+          { id: "company", label: "Profile", href: "company.html" },
+          { id: "customs", label: "Customs Lens", href: "customs-lens.html" },
+        ] },
       { id: "overview", label: "Overview", href: "equities.html" },
       { id: "holdings", label: "Ownership", href: "holdings.html",
         tabs: [
@@ -149,10 +160,10 @@ var NAV_SECTIONS = [
       { id: "financials", label: "Financials", href: "financials.html",
         tabs: [
           { id: "financials", label: "Statements", href: "financials.html" },
+          { id: "earnings", label: "Earnings Releases", href: "earnings.html" },
           { id: "facilities", label: "Facilities & Land", href: "facilities.html" },
           { id: "customers", label: "Customers", href: "customers.html" },
         ] },
-      { id: "company", label: "Company Profile", href: "company.html" },
       // Market activity: what the whole market is doing, as opposed to what
       // one company filed. Both pages are weekly JPX aggregates.
       { id: "margin", label: "Market", href: "margin.html",
@@ -217,7 +228,7 @@ var NAV_SECTIONS = [
   var links = NAV_SECTIONS.map(function (s) {
     // A section's first page is its entry point.
     var current = s.id === sectionId;
-    return '<a href="' + esc(s.pages[0].href) + '"' +
+    return '<a href="' + esc(s.entry || s.pages[0].href) + '"' +
       (current ? ' aria-current="page"' : "") + ">" + esc(s.label) + "</a>";
   }).join("");
 
@@ -226,8 +237,65 @@ var NAV_SECTIONS = [
     '<nav class="site-nav" aria-label="Main">' + links + "</nav>" +
     '<div class="header-right">' +
     '<span class="header-asof" id="header-asof"></span>' +
+    '<span class="header-account" id="header-account"></span>' +
     '<button class="theme-toggle" type="button">Dark Mode</button>' +
     "</div></div>";
+
+  // The account control asks the server who is signed in, and renders nothing
+  // at all where accounts are not switched on — a "Sign in" link to a feature
+  // that does not exist is worse than no link. The slot reserves its width, so
+  // the bar cannot jump when the answer arrives.
+  (function accountSlot() {
+    var slot = document.getElementById("header-account");
+    if (!slot || !window.fetch) return;
+    fetch("/api/v1/account/me", { headers: { Accept: "application/json" } })
+      .then(function (r) {
+        if (r.status === 404) return null;               // feature off
+        if (r.status === 401) return { email: null };    // on, nobody signed in
+        if (!r.ok) return null;
+        return r.json();
+      })
+      .then(function (me) {
+        if (!me) return;
+        var here = location.pathname.replace(/^\//, "") + location.search;
+        if (!me.email) {
+          slot.innerHTML = '<a href="signin.html?returnTo=' + encodeURIComponent(here) +
+            '">Sign in</a>';
+          return;
+        }
+        var shown = me.email.length > 22
+          ? me.email.slice(0, 10) + "…" + me.email.slice(-10) : me.email;
+        slot.innerHTML = '<span class="acct-menu">' +
+          '<button type="button" aria-expanded="false">' + esc(shown) + " \u25be</button>" +
+          '<span class="acct-pop" hidden>' +
+          '<a href="#" data-do="signout">Sign out</a></span></span>';
+        var btn = slot.querySelector("button");
+        var pop = slot.querySelector(".acct-pop");
+        btn.addEventListener("click", function (e) {
+          e.stopPropagation();
+          var open = pop.hidden;
+          pop.hidden = !open;
+          btn.setAttribute("aria-expanded", String(open));
+        });
+        document.addEventListener("click", function (e) {
+          if (!pop.hidden && !slot.contains(e.target)) {
+            pop.hidden = true;
+            btn.setAttribute("aria-expanded", "false");
+          }
+        });
+        pop.addEventListener("click", function (e) {
+          var item = e.target.closest("[data-do='signout']");
+          if (!item) return;
+          e.preventDefault();
+          // A reload rather than a redirect: whichever page the reader is on
+          // is still readable signed out, so they stay where they were.
+          fetch("/api/v1/account/signout", { method: "POST" })
+            .then(function () { location.reload(); })
+            .catch(function () { location.reload(); });
+        });
+      })
+      .catch(function () { /* the header is not the place to report this */ });
+  })();
 
   // A page owning tabs stays marked current while any of its tabs is open —
   // otherwise opening the Item Explorer would un-highlight Inflation and the

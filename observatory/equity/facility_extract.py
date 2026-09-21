@@ -231,7 +231,7 @@ BOOK_UNITS = [(u"百万円", 1e6), (u"千円", 1e3), (u"億円", 1e8)]
 # Tokyo Gas denominates its US-subsidiary table in 百万米ドル. No FX rate is
 # invented: the table parses, its money stays missing (never 0), areas and
 # employees are kept, and the unit gate does not fail over it.
-FOREIGN_UNIT_RE = re.compile(u"(百万|千)?\s*(米ドル|ドル|ユーロ|元|ウォン|ポンド)")
+FOREIGN_UNIT_RE = re.compile(u"(百万|千)?\\s*(米ドル|ドル|ユーロ|元|ウォン|ポンド)")
 AREA_UNITS = [(u"千㎡", 1e3), (u"千m2", 1e3), (u"㎡", 1.0), (u"m2", 1.0)]
 
 

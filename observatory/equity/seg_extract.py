@@ -212,7 +212,7 @@ def to_num(s):
     return None
 
 
-SUBNOTE_PREFIX_RE = re.compile(u"^(?:うち|内、|内|\(うち|（うち)\s*")
+SUBNOTE_PREFIX_RE = re.compile(u"^(?:うち|内、|内|\\(うち|（うち)\\s*")
 GEOGRAPHIC_EXCLUDE = ("TOTAL", "OT", "OV")
 
 

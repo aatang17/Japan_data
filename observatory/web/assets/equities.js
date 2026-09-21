@@ -76,3 +76,64 @@ getJSON("/api/v1/equity/segments/customers?limit=1000").then(d => {
 }).catch(() => rowFailed("cus"));
 
 initThemeToggle();
+
+
+/* ---- find a company ----------------------------------------------------
+   The directory lists datasets; most visits start with one name. This is the
+   company page's own search, on the same endpoint, so the two can never offer
+   a different set of companies: those that have filed an annual report. */
+
+(function () {
+  var q = document.getElementById("co-q");
+  var box = document.getElementById("co-results");
+  if (!q || !box) return;
+  var matches = [], sel = -1, timer = null;
+
+  function close() {
+    box.hidden = true; box.innerHTML = ""; matches = []; sel = -1;
+    q.setAttribute("aria-expanded", "false");
+  }
+  function draw() {
+    box.innerHTML = matches.length
+      ? matches.map(function (c, i) {
+          return '<li role="option" data-code="' + escapeHtml(c.sec_code) + '" aria-selected="' +
+            (i === sel) + '"><span class="co-code">' + escapeHtml(c.sec_code) + "</span>" +
+            escapeHtml(c.name_en || c.name || "") +
+            '<span class="co-ja">' + escapeHtml(c.name || "") + "</span></li>";
+        }).join("")
+      : '<li class="none">No company files a report under that name.</li>';
+    box.hidden = false;
+    q.setAttribute("aria-expanded", "true");
+  }
+  function go(code) { location.href = "company.html?code=" + encodeURIComponent(code); }
+
+  q.addEventListener("input", function () {
+    var term = q.value.trim();
+    clearTimeout(timer);
+    if (!term) return close();
+    timer = setTimeout(function () {
+      getJSON("/api/v1/equity/financials/companies?q=" + encodeURIComponent(term) + "&limit=8")
+        .then(function (d) { matches = d.companies || []; sel = matches.length ? 0 : -1; draw(); })
+        .catch(close);
+    }, 180);
+  });
+  q.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") return close();
+    if (!matches.length) return;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      sel = (sel + (e.key === "ArrowDown" ? 1 : matches.length - 1)) % matches.length;
+      draw();
+    } else if (e.key === "Enter" && sel >= 0) {
+      e.preventDefault();
+      go(matches[sel].sec_code);
+    }
+  });
+  box.addEventListener("click", function (e) {
+    var li = e.target.closest("li[data-code]");
+    if (li) go(li.getAttribute("data-code"));
+  });
+  document.addEventListener("click", function (e) {
+    if (!box.hidden && !box.contains(e.target) && e.target !== q) close();
+  });
+})();

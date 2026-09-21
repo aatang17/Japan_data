@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+<meta name="robots" content="noindex">
+<title>Sign In · Plover Analytics</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+
+<header class="site-header" data-section="" data-page=""></header>
+<script src="assets/nav.js"></script>
+
+<main class="container">
+  <!-- One card, one field, four states. The card's contents are written by
+       signin.js; this is the shell and the fallback for a reader with no
+       JavaScript, who cannot be signed in either way. -->
+  <div class="auth-card" id="card">
+    <h1 class="auth-title">Sign In</h1>
+    <p class="auth-sub">Enter your email and we will send a single-use sign-in link.
+    There is no password.</p>
+    <noscript><p class="auth-sub">Signing in needs JavaScript enabled.</p></noscript>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="inner">
+    An account stores the companies you follow and nothing else. The data on this
+    platform is free to read without one.
+    <a href="methodology.html">Methodology</a>
+  </div>
+</footer>
+
+<script src="assets/format.js"></script>
+<script src="assets/signin.js"></script>
+</body>
+</html>

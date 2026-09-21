@@ -1,4 +1,6 @@
-/* Centralised formatters. Never format a number inline in page code.
+/* Centralised formatters, plus the small shared UI pieces every page needs —
+   the trust badge, the theme toggle, the image-export menu. Never format a
+   number inline in page code.
    Missing is "—", never 0. Negative uses a true minus (U+2212). */
 "use strict";
 
@@ -171,4 +173,216 @@ function initThemeToggle(onChange) {
 /* read a design token's computed value (charts must use this, never hex) */
 function cssVar(name) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+/* ---------- image export: sizes, clipboard, menu ----------------------------
+
+   Charts leave this platform inside other people's documents — a research
+   note, a slide, a Substack post — so the export button offers a choice
+   rather than one fixed file. Pick the shape once (it is remembered across
+   pages and sessions), then copy it straight onto the clipboard or download
+   it. Copy is first because an analyst assembling a deck wants the image in
+   the slide, not in the downloads folder.
+
+   Each preset fixes a logical canvas and an output width. Font sizes in the
+   chart options are absolute pixels, so enlarging the canvas alone would
+   shrink every label relative to the image; the pixel ratio does the
+   enlarging instead, and the type grows with the plot. */
+const EXPORT_SIZES = [
+  { key: "report", label: "Report column", w: 1200, h: 560, out: 2400 },
+  { key: "slide", label: "Slide, 16:9", w: 1200, h: 675, out: 3200 },
+  { key: "half", label: "Half slide", w: 720, h: 540, out: 1600 },
+];
+const EXPORT_SIZE_KEY = "obs.exportSize";
+
+function exportSize() {
+  let key = null;
+  try { key = window.localStorage.getItem(EXPORT_SIZE_KEY); } catch (e) { key = null; }
+  return EXPORT_SIZES.filter(s => s.key === key)[0] || EXPORT_SIZES[0];
+}
+
+function rememberExportSize(key) {
+  // Private browsing throws on write; the choice is a convenience, not state
+  // anything depends on, so losing it must not break the export.
+  try { window.localStorage.setItem(EXPORT_SIZE_KEY, key); } catch (e) { /* ignore */ }
+}
+
+/* "2,400 × 1,120 px" — what the file will actually be. */
+function exportSizeNote(size) {
+  const ratio = size.out / size.w;
+  const px = n => Math.round(n).toLocaleString("en-US");
+  return px(size.out) + " × " + px(size.h * ratio) + " px";
+}
+
+/* A data URL to a Blob, synchronously. Safari only accepts a clipboard write
+   inside the gesture that triggered it, and an await — even on a data URL —
+   is enough to leave it. */
+function pngBlob(dataUrl) {
+  const bin = atob(dataUrl.split(",")[1]);
+  const buf = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+  return new Blob([buf], { type: "image/png" });
+}
+
+const CAN_COPY_IMAGE = !!(window.ClipboardItem && navigator.clipboard &&
+  navigator.clipboard.write);
+
+function downloadDataURL(url, filename) {
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+}
+
+/* The element the reader just activated, so a menu can anchor to the button
+   that opened it without every call site having to pass the event through. */
+let lastPointer = { el: null, at: 0 };
+document.addEventListener("mousedown", e => {
+  lastPointer = { el: e.target, at: Date.now() };
+}, true);
+
+function exportAnchor(fallback) {
+  const fresh = lastPointer.el && Date.now() - lastPointer.at < 2000;
+  const clicked = fresh && lastPointer.el.closest
+    ? lastPointer.el.closest("button, a, [role=button]") : null;
+  if (clicked && document.contains(clicked)) return clicked;
+  // Safari does not focus a button on click, so this is the keyboard path.
+  const active = document.activeElement;
+  if (active && active !== document.body && document.contains(active) &&
+      active.getBoundingClientRect) return active;
+  return fallback || null;
+}
+
+let exportMenu = null;
+
+function closeExportMenu() {
+  if (!exportMenu) return;
+  const m = exportMenu;
+  exportMenu = null;
+  document.removeEventListener("mousedown", m.onDown, true);
+  document.removeEventListener("keydown", m.onKey, true);
+  window.removeEventListener("resize", closeExportMenu);
+  window.removeEventListener("scroll", closeExportMenu, true);
+  m.el.remove();
+  if (m.anchor && m.anchor.setAttribute) m.anchor.setAttribute("aria-expanded", "false");
+}
+
+/* Position below the anchor, kept inside the viewport and clear of the sticky
+   header. Fixed and parented to <body> so no panel's overflow can clip it and
+   no later section's stacking context can paint over it. */
+function placeExportMenu(el, anchor) {
+  const r = anchor.getBoundingClientRect();
+  const pad = 8;
+  const header = document.querySelector("header");
+  const ceiling = header ? header.getBoundingClientRect().bottom + 4 : pad;
+  // The menu is wider than the button that opens it, so on the right-hand side
+  // of the screen — where every chart's export button sits — it is hung from
+  // the button's right edge. Left-aligning there would push it past the panel.
+  let left = r.left + r.width / 2 > window.innerWidth / 2
+    ? r.right - el.offsetWidth : r.left;
+  if (left + el.offsetWidth > window.innerWidth - pad) {
+    left = window.innerWidth - pad - el.offsetWidth;
+  }
+  let top = r.bottom + 4;
+  if (top + el.offsetHeight > window.innerHeight - pad) {
+    const above = r.top - 4 - el.offsetHeight;
+    top = above > ceiling ? above : window.innerHeight - pad - el.offsetHeight;
+  }
+  el.style.left = Math.round(Math.max(pad, left)) + "px";
+  el.style.top = Math.round(Math.max(ceiling, top)) + "px";
+}
+
+/* Open the image-export menu.
+
+   renderPNG(size) must return a PNG data URL drawn at size.w × size.h with a
+   pixel ratio of size.out / size.w. With no anchor to hang the menu on — a
+   programmatic export, an unusual layout — the current size is downloaded
+   straight away rather than leaving the reader with nothing. */
+function obsExportMenu(filename, renderPNG, fallbackAnchor, fixedSize) {
+  const anchor = exportAnchor(fallbackAnchor);
+  const reopening = exportMenu && exportMenu.anchor === anchor;
+  closeExportMenu();
+  if (reopening) return;
+  const sizeNow = () => fixedSize || exportSize();
+  if (!anchor) { downloadDataURL(renderPNG(sizeNow()), filename); return; }
+
+  const chosen = exportSize().key;
+  const el = document.createElement("div");
+  el.className = "export-menu";
+  el.setAttribute("role", "menu");
+  el.setAttribute("aria-label", "Export image");
+  // A map or a population pyramid has a shape of its own: reflowing it to a
+  // 16:9 slide would squash the thing it is drawing. Those pass a fixed size
+  // and get the copy/download half of the menu without the size list.
+  el.innerHTML =
+    (fixedSize ? "" :
+      '<p class="export-menu-head">Image size</p>' +
+      '<div class="export-sizes">' +
+      EXPORT_SIZES.map(s =>
+        '<button type="button" class="export-size" data-size="' + s.key + '" ' +
+        'aria-pressed="' + (s.key === chosen) + '">' +
+        '<span>' + escapeHtml(s.label) + '</span>' +
+        '<span class="export-size-note num">' + escapeHtml(exportSizeNote(s)) + "</span>" +
+        "</button>").join("") +
+      "</div>") +
+    '<div class="export-menu-acts' + (fixedSize ? " export-menu-acts-only" : "") + '">' +
+    (CAN_COPY_IMAGE
+      ? '<button type="button" class="btn btn-primary" data-do="copy">Copy image</button>' : "") +
+    '<button type="button" class="btn" data-do="png">Download PNG</button>' +
+    "</div>" +
+    '<p class="export-menu-foot">Light theme, source line included' +
+    (fixedSize ? " \u00b7 " + escapeHtml(exportSizeNote(fixedSize)) : "") + ".</p>";
+  document.body.appendChild(el);
+  placeExportMenu(el, anchor);
+  anchor.setAttribute("aria-expanded", "true");
+
+  const onDown = e => { if (!el.contains(e.target) && e.target !== anchor) closeExportMenu(); };
+  const onKey = e => {
+    if (e.key !== "Escape") return;
+    closeExportMenu();
+    if (anchor.focus) anchor.focus();
+  };
+  document.addEventListener("mousedown", onDown, true);
+  document.addEventListener("keydown", onKey, true);
+  window.addEventListener("resize", closeExportMenu);
+  window.addEventListener("scroll", closeExportMenu, true);
+  exportMenu = { el: el, anchor: anchor, onDown: onDown, onKey: onKey };
+
+  el.addEventListener("click", e => {
+    const pick = e.target.closest(".export-size");
+    if (pick) {
+      rememberExportSize(pick.dataset.size);
+      Array.prototype.forEach.call(el.querySelectorAll(".export-size"), b =>
+        b.setAttribute("aria-pressed", String(b === pick)));
+      return;
+    }
+    const act = e.target.closest("[data-do]");
+    if (!act) return;
+    const size = sizeNow();
+    if (act.dataset.do === "png") {
+      downloadDataURL(renderPNG(size), filename);
+      closeExportMenu();
+      return;
+    }
+    let done;
+    try {
+      done = navigator.clipboard.write([
+        new ClipboardItem({ "image/png": pngBlob(renderPNG(size)) }),
+      ]);
+    } catch (err) { done = Promise.reject(err); }
+    done.then(() => {
+      act.textContent = "Copied";
+      setTimeout(closeExportMenu, 700);
+    }, () => {
+      // The clipboard rejects when the document is not focused and in browsers
+      // that do not allow image writes. The file is what the reader was after,
+      // so hand it over rather than report a failure and stop.
+      act.textContent = "Copy blocked — downloading";
+      downloadDataURL(renderPNG(size), filename);
+      setTimeout(closeExportMenu, 1400);
+    });
+  });
+
+  const first = el.querySelector("[data-do]");
+  if (first) first.focus();
 }

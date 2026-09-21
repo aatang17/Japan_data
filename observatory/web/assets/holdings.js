@@ -282,9 +282,14 @@
         };
         $("chart-png").onclick = function () {
           if (!chart) return;
-          var url = chart.getDataURL({ pixelRatio: 2, backgroundColor: cssVar("--obs-surface") || "#fff" });
-          var a = document.createElement("a");
-          a.href = url; a.download = "cross-shareholdings-unwind.png"; a.click();
+          // Drawn from the live chart rather than re-laid-out offscreen, so the
+          // size on offer is the one on screen.
+          var render = function () {
+            return chart.getDataURL({
+              pixelRatio: 2, backgroundColor: cssVar("--obs-surface") || "#fff" });
+          };
+          obsExportMenu("cross-shareholdings-unwind.png", render, $("chart-png"),
+            { w: chart.getWidth(), h: chart.getHeight(), out: chart.getWidth() * 2 });
         };
       })
       .catch(function (e) {

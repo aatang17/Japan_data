@@ -279,7 +279,7 @@
   function nameCell(r) {
     var main = r.name_en || r.name || r.sec_code;
     var sub = (r.name_en && r.name) ? "<span class='sub'>" + esc(r.name) + "</span>" : "";
-    return "<div class='cell-name'><a href='company.html?c=" + esc(r.sec_code) + "'>" +
+    return "<div class='cell-name'><a href='company.html?code=" + esc(r.sec_code) + "'>" +
       esc(main) + "</a>" + sub + "</div>";
   }
 

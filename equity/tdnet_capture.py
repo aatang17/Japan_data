@@ -67,8 +67,12 @@ def fetch(url, attempts=RETRIES):
 # ---- list page parsing -----------------------------------------------------
 TR = re.compile(r"<tr[^>]*>(.*?)</tr>", re.S)
 TIME = re.compile(r">(\d{1,2}:\d{2})<")
-CODE = re.compile(r">(\d{4,5})<")
-PDF = re.compile(r'href="([^"]+\.pdf)"[^>]*>(.*?)</a>', re.S)
+# Codes issued since January 2024 carry a letter (137A0, 588A0). A digits-only
+# pattern dropped the code from every such company's row — 9% of the wire by
+# September 2026 — so the cell is matched by its class and may hold letters.
+CODE = re.compile(r'kjCode[^>]*>\s*([0-9][0-9A-Z]{3,4})\s*<')
+NAME = re.compile(r'kjName[^>]*>(.*?)</td>', re.S)
+PDF =re.compile(r'href="([^"]+\.pdf)"[^>]*>(.*?)</a>', re.S)
 ZIP = re.compile(r'href="([^"]+\.zip)"')
 TAGS = re.compile(r"<[^>]+>")
 
@@ -82,11 +86,13 @@ def parse_list(html):
         t = TIME.search(tr)
         c = CODE.search(tr)
         z = ZIP.search(tr)
+        n = NAME.search(tr)
         title = TAGS.sub("", pdf.group(2))
         title = re.sub(r"\s+", " ", title).strip()
         rows.append({
             "time": t.group(1) if t else None,
             "sec_code": c.group(1) if c else None,
+            "name": re.sub(r"\s+", " ", TAGS.sub("", n.group(1))).strip() if n else None,
             "title": title,
             "pdf": pdf.group(1).rsplit("/", 1)[-1],
             "xbrl": z.group(1).rsplit("/", 1)[-1] if z else None,

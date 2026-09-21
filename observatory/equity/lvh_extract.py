@@ -222,7 +222,7 @@ def _days(iso):
 # A filer that states no English name sometimes writes a rule of dashes rather
 # than leaving the field empty. That is "not stated", not a name, and it must
 # never reach a page as a company's English name.
-DASHES_ONLY = re.compile(u"^[-\u2010\u2011\u2012\u2013\u2014\u2015\u2500\uFF0D\s\u3000]+$")
+DASHES_ONLY = re.compile(u"^[-\u2010\u2011\u2012\u2013\u2014\u2015\u2500\uFF0D\\s\u3000]+$")
 
 
 def clean_english_name(value):

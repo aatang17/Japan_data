@@ -215,6 +215,291 @@ function applyTableState(state) {
   }
 }
 
+/* --- export: the table as the reader has it --------------------------------
+
+   Tables here get read into research notes, spreadsheets and slides, and
+   retyping one is where wrong numbers come from. Two routes, both on the
+   toolbar every table already has:
+
+   - **Copy table** writes TSV *and* HTML to the clipboard, so a paste lands
+     as cells in Excel and as a real editable table in Word or PowerPoint —
+     not as a picture that cannot be checked or corrected.
+   - **Download CSV** writes the same rows with a provenance header block.
+
+   Both follow the screen: the current filter, the current sort, the columns
+   as displayed. An export that disagreed with the table above it would be
+   worse than no export at all. A missing value exports empty, never zero. */
+
+/* The visible text of a header or cell, without the sort arrow, the
+   screen-reader-only labels, or any control that happens to sit in it. */
+function exportText(node) {
+  const explicit = node.getAttribute && node.getAttribute("data-export");
+  if (explicit !== null && explicit !== undefined) return explicit.trim();
+  const clone = node.cloneNode(true);
+  Array.prototype.forEach.call(
+    clone.querySelectorAll(".arrow, .visually-hidden, svg, button, input, select"),
+    n => n.remove());
+  // A cell that stacks two lines — an English name over the filed Japanese —
+  // has no whitespace between them in the markup, and textContent would run
+  // them together as "All items総合".
+  Array.prototype.forEach.call(clone.querySelectorAll("div, p, li, br"),
+    n => n.insertAdjacentText("afterend", " "));
+  return (clone.textContent || "").replace(/\s+/g, " ").trim();
+}
+
+/* The heading a reader would cite this table by. */
+function tableTitle(table) {
+  const explicit = table.getAttribute("data-export-name");
+  if (explicit) return explicit;
+  const caption = table.querySelector("caption");
+  if (caption) return exportText(caption);
+  const section = table.closest("section, article");
+  const heading = section && section.querySelector("h1, h2, h3, h4");
+  if (heading) {
+    const clone = heading.cloneNode(true);
+    Array.prototype.forEach.call(clone.querySelectorAll(".h2-note"), n => n.remove());
+    return (clone.textContent || "").replace(/\s+/g, " ").trim();
+  }
+  return document.title;
+}
+
+/* The nearest source line above the table: climb until an ancestor has one,
+   so a page with several sourced sections cites the right section. */
+function tableSourceLine(table) {
+  let node = table.parentElement;
+  let found = null;
+  while (node && node !== document.body && !found) {
+    found = node.querySelector(".source-line");
+    node = node.parentElement;
+  }
+  // A page whose table sits outside any sourced section — the Item Explorer,
+  // whose source line belongs to the detail panel beside it — still has one
+  // source, and citing it beats exporting the table with none.
+  if (!found) {
+    const all = document.querySelectorAll(".source-line");
+    found = all.length ? all[all.length - 1] : null;
+  }
+  // Last resort: the page's own credit. Every surface here carries one, so an
+  // export should never leave without saying where the numbers came from.
+  if (!found) found = document.querySelector(".site-footer .inner");
+  if (!found) return "";
+  const clone = found.cloneNode(true);
+  Array.prototype.forEach.call(clone.querySelectorAll("a[href$='methodology.html']"),
+    n => n.remove());
+  return (clone.textContent || "").replace(/\s+/g, " ").trim();
+}
+
+function exportSlug(text) {
+  const slug = (text || "").toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
+  return slug || "table";
+}
+
+function tableProvenance(table) {
+  return {
+    title: tableTitle(table),
+    source: tableSourceLine(table),
+    url: window.location.href,
+    at: new Date().toISOString().slice(0, 19) + "Z",
+  };
+}
+
+/* Columns and rows, split into what the eye reads and what a spreadsheet
+   needs. `text` keeps the page's formatting — grouped thousands, the em-dash
+   for a gap; `value` is the bare number, or empty where nothing is published.
+   Never the two confused: a gap that exported as 0 would be a wrong number in
+   someone's model. */
+/* Every visible row, band rows included. bodyRows() drops a row that spans the
+   table because it is not a record to be sorted — but it is what separates one
+   block of a table from another, and a public-finance table whose "General
+   account" and "Reference" bands were flattened into one list would invite
+   exactly the addition its own note forbids. */
+function exportRowsOf(table) {
+  const out = [];
+  Array.prototype.forEach.call(table.tBodies, tb => {
+    Array.prototype.forEach.call(tb.rows, tr => { if (!tr.hidden) out.push(tr); });
+  });
+  return out;
+}
+
+function isBandRow(tr) {
+  return !!(tr.cells.length && tr.cells[0].colSpan > 1);
+}
+
+function tableExportData(table) {
+  const rows = bodyRows(table).filter(tr => !tr.hidden);
+  // A sparkline or an actions column carries nothing a spreadsheet can hold,
+  // and exporting it as a column of blanks would read as missing data rather
+  // than as a column that never had any.
+  const carriesData = i => rows.some(tr => {
+    const td = tr.cells[i];
+    return td && !td.querySelector("svg, button, input, select") &&
+      exportText(td) !== "";
+  });
+  const cols = [];
+  headerCells(table).forEach((th, i) => {
+    if (rows.length && !carriesData(i)) return;
+    cols.push({
+      index: i,
+      label: exportText(th),
+      num: th.classList.contains("num") || columnIsNumeric(rows, i),
+    });
+  });
+  const body = exportRowsOf(table).map(tr => cols.map((col, i) => {
+    if (isBandRow(tr)) {
+      const label = i === 0 ? exportText(tr.cells[0]) : "";
+      return { text: label, value: label };
+    }
+    const td = tr.cells[col.index];
+    if (!td) return { text: "", value: "" };
+    const text = exportText(td);
+    // A gap exports empty. Never as a dash a spreadsheet would read as text,
+    // and never as zero.
+    if (text === "" || text === MISSING || text === "-" || text === "\u2013") {
+      return { text: text, value: "" };
+    }
+    const num = exportNumber(text);
+    return { text: text, value: num === null ? text : num };
+  }));
+  return { cols: cols, rows: body };
+}
+
+/* The displayed figure as a spreadsheet would want it: grouping separators and
+   the true minus stripped, everything else left alone. Returned as a string so
+   the column keeps the precision it is printed at — "102.40" does not become
+   102.4, and an item code "0001" does not become 1.
+
+   Deliberately NOT cellSortValue(): that prefers a cell's `data-sort`, which
+   pages set to the raw underlying figure so a column sorts correctly. Exporting
+   it would put a raw-yen number under a "¥bn" header — a wrong number in
+   someone's model. What is on screen is what leaves. */
+function exportNumber(text) {
+  const cleaned = text
+    .replace(/\u2212/g, "-")
+    .replace(/,/g, "")
+    .replace(/^\+/, "")
+    .replace(/\s*(%|pp|\u00d7)$/i, "")
+    .trim();
+  return /^-?\d*\.?\d+$/.test(cleaned) && cleaned !== "" ? cleaned : null;
+}
+
+function csvCell(value) {
+  return /[",\n]/.test(value) ? '"' + value.replace(/"/g, '""') + '"' : value;
+}
+
+function tableCSV(table) {
+  const data = tableExportData(table);
+  const p = tableProvenance(table);
+  const lines = [
+    "# " + p.title,
+    p.source ? "# " + p.source : null,
+    "# Retrieved: " + p.at,
+    "# View: " + p.url,
+    "# Values as shown on the page. An empty cell is not published, never zero.",
+    data.cols.map(c => csvCell(c.label)).join(","),
+  ].filter(l => l !== null);
+  data.rows.forEach(r => lines.push(r.map(c => csvCell(c.value)).join(",")));
+  return lines.join("\n") + "\n";
+}
+
+/* Tab-separated, with the citation *after* the data: a paste lands the table
+   at the cursor with its column names on the first row, and the provenance
+   trails below where it can be kept or deleted. */
+function tableTSV(table) {
+  const data = tableExportData(table);
+  const p = tableProvenance(table);
+  const lines = [data.cols.map(c => c.label.replace(/\t/g, " ")).join("\t")];
+  data.rows.forEach(r => lines.push(r.map(c => c.value.replace(/\t/g, " ")).join("\t")));
+  lines.push("");
+  lines.push([p.title, p.source, "Retrieved " + p.at, p.url].filter(Boolean).join(" · "));
+  return lines.join("\n");
+}
+
+/* The clipboard's rich flavour. Word and PowerPoint ignore stylesheets, so
+   this is the one place the platform writes literal colours: they are part of
+   the exported document, not of any screen this repo styles. */
+function tableRichHTML(table) {
+  const data = tableExportData(table);
+  const p = tableProvenance(table);
+  const cell = (tag, text, num, weight) =>
+    "<" + tag + ' style="border:1px solid #d7dde5;padding:4px 8px;text-align:' +
+    (num ? "right" : "left") + ";" + (weight ? "font-weight:600;" : "") + '">' +
+    escapeHtml(text) + "</" + tag + ">";
+  const head = data.cols.map(c => cell("th", c.label, c.num, true)).join("");
+  const body = data.rows.map(r =>
+    "<tr>" + r.map((c, i) => cell("td", c.text, data.cols[i].num, false)).join("") + "</tr>"
+  ).join("");
+  return '<table style="border-collapse:collapse;font-family:Arial,Helvetica,sans-serif;' +
+    'font-size:10pt"><thead><tr>' + head + "</tr></thead><tbody>" + body + "</tbody></table>" +
+    '<p style="font-family:Arial,Helvetica,sans-serif;font-size:8pt;color:#5b6675">' +
+    escapeHtml([p.title, p.source, "Retrieved " + p.at].filter(Boolean).join(" · ")) +
+    ' — <a href="' + escapeHtml(p.url) + '">' + escapeHtml(p.url) + "</a></p>";
+}
+
+function flashButton(btn, message) {
+  if (btn._restore) clearTimeout(btn._restore);
+  else btn._was = btn.textContent;
+  btn.textContent = message;
+  btn._restore = setTimeout(() => {
+    btn.textContent = btn._was;
+    btn._restore = null;
+  }, 1500);
+}
+
+function copyTable(table, btn) {
+  const tsv = tableTSV(table);
+  const done = () => flashButton(btn, "Copied");
+  const fail = () => flashButton(btn, "Copy failed");
+  // The rich flavour is what makes a paste into a deck an editable table
+  // rather than a wall of tab-separated text, so it is tried first.
+  if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+    let write;
+    try {
+      write = navigator.clipboard.write([new ClipboardItem({
+        "text/plain": new Blob([tsv], { type: "text/plain" }),
+        "text/html": new Blob([tableRichHTML(table)], { type: "text/html" }),
+      })]);
+    } catch (e) { write = Promise.reject(e); }
+    write.then(done, () => copyPlain(tsv, done, fail));
+    return;
+  }
+  copyPlain(tsv, done, fail);
+}
+
+/* The clipboard API also rejects when the document is not focused, so the
+   textarea route is a fallback for failure, not only for absence. */
+function copyPlain(text, done, fail) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done, () => viaSelection(text, done, fail));
+  } else {
+    viaSelection(text, done, fail);
+  }
+}
+
+function viaSelection(text, done, fail) {
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.style.cssText = "position:fixed;left:-9999px;top:0";
+  document.body.appendChild(ta);
+  ta.select();
+  let ok = false;
+  try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+  ta.remove();
+  if (ok) done(); else fail();
+}
+
+function downloadTableCSV(table) {
+  // A BOM so Excel opens Japanese company and item names as UTF-8 rather than
+  // as mojibake; every other tool ignores it.
+  const blob = new Blob(["﻿" + tableCSV(table)],
+    { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = exportSlug(tableTitle(table)) + ".csv";
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
 /* Give a rendered table click-to-sort and a filter box.
 
    `table` may be the table or any element containing exactly one. Safe to call
@@ -236,33 +521,64 @@ function enhanceTable(target, opts) {
     state = { table: table, query: "", sortIndex: null, sortDir: "desc" };
     anchor._tableState = state;
 
-    if (opts.filter !== false) {
-      const bar = document.createElement("div");
-      bar.className = "table-tools";
-      const id = "tf-" + Math.random().toString(36).slice(2, 8);
-      bar.innerHTML =
-        '<label class="visually-hidden" for="' + id + '">Filter rows</label>' +
-        '<input type="search" id="' + id + '" class="table-filter" ' +
-          'placeholder="' + escapeHtml(opts.placeholder || "Filter rows…") + '" ' +
-          'autocomplete="off" spellcheck="false">' +
-        '<span class="table-count num"></span>';
-      anchor.parentNode.insertBefore(bar, anchor);
-      state.input = bar.querySelector("input");
-      state.count = bar.querySelector(".table-count");
-      state.input.addEventListener("input", () => {
-        state.query = state.input.value;
-        applyTableState(state);
-      });
+    // The filter is built whether or not it is wanted yet: a table that grows
+    // past the threshold on a later render gains its filter by being shown,
+    // not by rebuilding a toolbar the reader may already be typing into.
+    const bar = document.createElement("div");
+    bar.className = "table-tools";
+    const id = "tf-" + Math.random().toString(36).slice(2, 8);
+    bar.innerHTML =
+      '<label class="visually-hidden" for="' + id + '">Filter rows</label>' +
+      '<input type="search" id="' + id + '" class="table-filter" ' +
+        'placeholder="' + escapeHtml(opts.placeholder || "Filter rows…") + '" ' +
+        'autocomplete="off" spellcheck="false">' +
+      '<span class="table-count num"></span>' +
+      '<span class="table-export-group">' +
+      '<button type="button" class="table-export" data-export-do="copy">Copy table</button>' +
+      '<button type="button" class="table-export" data-export-do="csv">Download CSV</button>' +
+      "</span>";
+    anchor.parentNode.insertBefore(bar, anchor);
+    state.bar = bar;
+    state.input = bar.querySelector("input");
+    state.count = bar.querySelector(".table-count");
+    state.input.addEventListener("input", () => {
+      state.query = state.input.value;
+      applyTableState(state);
+    });
 
-      const empty = document.createElement("p");
-      empty.className = "table-empty";
-      empty.hidden = true;
-      anchor.parentNode.insertBefore(empty, anchor.nextSibling);
-      state.empty = empty;
-    }
+    const empty = document.createElement("p");
+    empty.className = "table-empty";
+    empty.hidden = true;
+    anchor.parentNode.insertBefore(empty, anchor.nextSibling);
+    state.empty = empty;
+
+    // Bound to the state, not to the table element: every page here re-renders
+    // its rows by replacing innerHTML, and state.table is updated each pass.
+    bar.addEventListener("click", e => {
+      const btn = e.target.closest("[data-export-do]");
+      if (!btn || !state.table) return;
+      if (btn.dataset.exportDo === "csv") downloadTableCSV(state.table);
+      else copyTable(state.table, btn);
+    });
+
+    state.filterAllowed = opts.filter !== false;
   }
   state.table = table;
   if (state.input) state.query = state.input.value;
+
+  // Below the threshold a filter box is clutter over a table the eye already
+  // takes in whole; export is worth having on any table worth reading.
+  // filterAllowed records a caller's explicit opt-out and never changes; the
+  // row count is re-read each pass, so a table that grows past the threshold
+  // on a later render gains its filter then.
+  const wantFilter = state.filterAllowed &&
+    bodyRows(table).length >= AUTO_ENHANCE_MIN_ROWS;
+  if (state.input) state.input.hidden = !wantFilter;
+  if (state.count) state.count.hidden = !wantFilter;
+  if (!wantFilter && state.input && state.input.value) {
+    state.input.value = "";
+    state.query = "";
+  }
 
   // A page that sorts its own rows marks its headers with `data-key` — both
   // sortableHead() above and the Item Explorer's own header builder do. Adding
@@ -303,10 +619,13 @@ function enhanceTable(target, opts) {
    soon as it is in the DOM, and again whenever a page re-renders its rows —
    which every page here does by replacing innerHTML.
 
-   Opt out with `data-no-enhance` on the table. Small tables are left alone:
-   below the threshold a filter box is clutter and a sort is pointless. */
+   Opt out with `data-no-enhance` on the table. Two thresholds, because the
+   behaviours earn their place at different sizes: a filter box is clutter and
+   a sort is pointless on a five-row table, but any table a reader would quote
+   is one they would rather copy than retype. */
 
 const AUTO_ENHANCE_MIN_ROWS = 6;
+const AUTO_EXPORT_MIN_ROWS = 2;
 let autoEnhancing = false;
 
 function autoEnhanceTables(root) {
@@ -317,8 +636,10 @@ function autoEnhanceTables(root) {
     Array.prototype.forEach.call(scope.querySelectorAll("table"), table => {
       if (table.hasAttribute("data-no-enhance")) return;
       if (!table.tHead || !table.tBodies.length) return;
-      if (bodyRows(table).length < AUTO_ENHANCE_MIN_ROWS) return;
+      const rowCount = bodyRows(table).length;
+      if (rowCount < AUTO_EXPORT_MIN_ROWS) return;
       enhanceTable(table, {
+        sort: rowCount >= AUTO_ENHANCE_MIN_ROWS,
         placeholder: table.getAttribute("data-filter-placeholder") || "Filter rows…",
       });
     });

@@ -313,6 +313,34 @@ number off a chart without its trust label reports a calculated rate as an offic
 statistic — the one failure this product exists to prevent. Only datasets that actually
 serve data are listed.
 
+**Answer pages** (`app/answers.py`) are one permanent address per question people ask an
+assistant — `/japan-inflation-rate.html`, `/boj-jgb-holdings.html`, `/jgb-10-year-yield.html`
+and so on. The title is the question; the first paragraph is the answer, with the period,
+the source and the comparison with a year earlier, written into the HTML at serve time from
+the same functions that serve `/api/v1`, so it changes when the ingest publishes and never
+by hand. Each carries the definition, a chart, the latest readings as a table, a citation
+line and the provenance card, and is served as Markdown at `.md` and as JSON at
+`/api/v1/answers/{slug}`. A question is one entry in `QUESTIONS` (dataset, series, what
+kind of figure it is, the nouns the sentence needs) plus a shell page in `web/`; the
+sentence rules — a rate says it is calculated and shows its formula, a level is stated as
+published, a comparison across a known series break is not made — live in that one module.
+
+`robots.txt` names the crawlers behind the AI assistants and admits each; `sitemap-pages.xml`
+carries a `<lastmod>` per page from the newest release date among the datasets the page
+fronts (none for a page with no data behind it). With `INDEXNOW_KEY` set (`app/indexnow.py`),
+an ingest that publishes a release reports the pages it changed to Bing and the engines that
+share its index; the key is served at `/indexnow-key.txt` as proof of ownership. Unset, nothing
+is sent and the ingest is unchanged.
+
+Every page also carries its numbers in the HTML itself, for a crawler that does not run
+JavaScript (most of the ones behind AI assistants): `app/readable.py` builds, from the
+same functions that serve `/api/v1`, one sentence with the latest reading and one table of
+the latest values for the series the page leads with, and `app/prerender.py` writes it
+into a collapsed `<details class="readable">` at the foot of `<main>`. The same block is
+served as Markdown at the page's address with `.md` in place of `.html` (`/cpi.md`,
+`/company.md?code=7203`), and every page links to it with `<link rel="alternate">`. The
+landing page's four coverage counts are written into their tiles the same way.
+
 ### Party profiles (`#parties`, `#queue`)
 
 Who each fund, company and person IS, curated by hand — see

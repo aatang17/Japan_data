@@ -82,6 +82,7 @@ html { scroll-padding-top: 66px; }
 .header-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
 .header-asof { font-size: 12px; color: var(--obs-header-muted); white-space: nowrap; }
 
+
 .theme-toggle {
   font: inherit; font-size: 12px;
   color: var(--obs-header-text);
@@ -145,6 +146,37 @@ h2 {
   color: var(--obs-text-muted);
   max-width: 74ch;
   margin: 0 0 12px;
+}
+
+/* A section note runs to four or five lines and pushes the chart under the
+   fold. The first two lines say what the series is; the rest are caveats a
+   reader wants once. nav.js folds the remainder away and adds the toggle, so
+   the text is still in the DOM for find-on-page, for a crawler, and for the
+   prerendered answer pages. */
+.section-sub.is-clamped .section-sub-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+.section-sub-more {
+  display: block;
+  margin-top: 2px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  color: var(--obs-primary);
+  cursor: pointer;
+}
+.section-sub-more::before { content: "\25be  "; }
+.section-sub.is-clamped .section-sub-more::before { content: "\25b8  "; }
+.section-sub-more:hover { color: var(--obs-primary-dark); }
+@media print {
+  .section-sub.is-clamped .section-sub-text { display: block; overflow: visible; }
+  .section-sub-more { display: none; }
 }
 h3 { font-size: 13.5px; color: var(--obs-ink); font-weight: 600; margin: 16px 0 6px; }
 
@@ -344,6 +376,71 @@ input[type="search"] { width: 300px; max-width: 100%; }
 .btn:hover { background: var(--obs-surface-subtle); }
 
 .controls .spacer { flex: 1; }
+
+/* ---------- image export menu ----------
+
+   Opened by a chart's "Export image" button. Fixed and parented to <body>, so
+   a panel's overflow cannot clip it and a later section cannot paint over it.
+   There are no shadows in this system, so the border does the floating: a
+   muted rule rather than the usual hairline, which would disappear against a
+   panel of the same colour underneath. */
+.export-menu {
+  position: fixed;
+  z-index: 930;
+  width: 268px;
+  padding: 10px;
+  background: var(--obs-surface);
+  border: 1px solid var(--obs-text-muted);
+  border-radius: 3px;
+}
+.export-menu-head {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--obs-text-muted);
+}
+.export-sizes { display: flex; flex-direction: column; gap: 4px; }
+.export-size {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  color: var(--obs-ink);
+  background: var(--obs-surface);
+  border: 1px solid var(--obs-border);
+  border-radius: 3px;
+  padding: 5px 8px;
+  cursor: pointer;
+}
+.export-size:hover { background: var(--obs-surface-subtle); }
+.export-size[aria-pressed="true"] {
+  border-color: var(--obs-primary);
+  color: var(--obs-primary);
+  font-weight: 600;
+}
+.export-size-note { font-size: 11px; color: var(--obs-text-muted); }
+.export-size[aria-pressed="true"] .export-size-note { color: var(--obs-primary); }
+.export-menu-acts {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--obs-border);
+}
+.export-menu-acts .btn { flex: 1; text-align: center; }
+/* Without a size list above it there is nothing to divide off. */
+.export-menu-acts-only { margin-top: 0; padding-top: 0; border-top: 0; }
+.export-menu-foot {
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: var(--obs-text-muted);
+}
 
 /* ---------- ask (floating assistant) ---------- */
 
@@ -592,6 +689,7 @@ details.calc code {
 .table-tools {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 6px;
 }
@@ -616,6 +714,25 @@ details.calc code {
   color: var(--obs-text-muted);
   white-space: nowrap;
 }
+/* One flex item, so at narrow widths the pair wraps to its own line together
+   and stays right-aligned there rather than splitting across two rows. */
+.table-export-group { display: flex; gap: 4px; margin-left: auto; }
+/* Quieter than .btn on purpose. Every table on the platform carries these two,
+   so a pair of outlined buttons above each one would out-shout the numbers
+   they belong to. */
+.table-export {
+  font: inherit;
+  font-size: 11.5px;
+  color: var(--obs-text-muted);
+  background: none;
+  border: 0;
+  border-radius: 3px;
+  padding: 2px 4px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.table-export:hover { color: var(--obs-primary); text-decoration: underline; }
+.table-export:focus-visible { outline: 2px solid var(--obs-primary); outline-offset: 1px; }
 .table-empty {
   font-size: 12.5px;
   color: var(--obs-text-muted);
@@ -2049,15 +2166,210 @@ pre.code {
 .brand { display: inline-flex; align-items: center; gap: 7px; }
 .brand-mark { flex: 0 0 auto; }
 
-/* The coverage statement. On the datasets whose source deletes its own files —
-   short positions, investor flows — the depth of our archive IS the
-   completeness of everything computed from it, so it is stated at the top of
-   the page rather than in a footnote, and turns amber when the tape stops. */
-.coverage-bar { margin: 16px 0 0; padding: 10px 0 10px 14px;
-  border-left: 2px solid var(--obs-primary); font-size: 12.5px; line-height: 1.6;
-  color: var(--obs-text-muted); text-wrap: pretty; }
-.coverage-bar b { color: var(--obs-ink); font-weight: 600; }
-.coverage-bar.is-stale { border-left-color: var(--obs-warn); }
+/* ===================================================================
+   Company Profile — everything filed on one company, on one page.
+   Built on the composed endpoint; the vocabulary here (the sticky jump
+   bar, the "what we hold" rail, the statement tables) is this page's.
+   =================================================================== */
+
+/* the finder sits above the company card, not inside it */
+.co-find { position: relative; margin-top: 16px; }
+.co-find .search-rail { max-width: 720px; }
+.co-find .co-results { position: absolute; left: 0; right: 0; max-width: 720px; z-index: 20; }
+
+/* search results under the rail */
+.co-results {
+  list-style: none; margin: 0; padding: 0; border: 1px solid var(--obs-border);
+  border-top: 0; border-radius: 0 0 3px 3px; max-height: 320px; overflow-y: auto;
+}
+.co-results li {
+  padding: 9px 12px; border-bottom: 1px solid var(--obs-grid); font-size: 13px;
+  color: var(--obs-ink); cursor: pointer;
+}
+.co-results li:last-child { border-bottom: 0; }
+.co-results li:hover, .co-results li[aria-selected="true"] { background: var(--obs-surface-subtle); }
+.co-results li.none { color: var(--obs-text-muted); cursor: default; }
+.co-code {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-size: 12.5px; color: var(--obs-primary); margin-right: 8px;
+}
+.co-ja { display: block; color: var(--obs-text-muted); font-size: 11.5px; margin-top: 2px; }
+.co-nm { color: var(--obs-ink); font-weight: 600; }
+
+/* identity */
+.co-id { display: flex; justify-content: flex-end; margin-top: 10px; }
+.co-id-main h1 {
+  font-size: 24px; font-weight: 700; letter-spacing: -0.3px; color: var(--obs-ink); margin: 0;
+}
+.co-tick {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; font-weight: 500;
+  color: var(--obs-primary); border: 1px solid var(--obs-border); border-radius: 3px;
+  padding: 2px 7px; margin-right: 10px; vertical-align: 3px;
+}
+.co-id-sub { margin: 7px 0 0; font-size: 12.5px; color: var(--obs-text-muted); }
+.co-id-filing {
+  margin-left: auto; text-align: right; font-size: 11.5px; color: var(--obs-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.co-id-filing b { display: block; color: var(--obs-ink); font-size: 12.5px; font-weight: 600; }
+.co-sha {
+  display: block; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px; color: var(--obs-text-faint);
+}
+
+/* what we hold, grouped by the section it feeds */
+.co-holds {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  border: 1px solid var(--obs-border); border-radius: 3px; margin-top: 16px; overflow: hidden;
+}
+.co-hold-group {
+  padding: 10px 12px; border-right: 1px solid var(--obs-border);
+  text-decoration: none; color: inherit; display: block;
+}
+.co-hold-group:last-child { border-right: 0; }
+.co-hold-group:hover { background: var(--obs-surface-subtle); text-decoration: none; }
+.co-hold-head {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.7px; text-transform: uppercase;
+  color: var(--obs-text-muted); margin-bottom: 7px;
+}
+.co-hold { display: block; font-size: 12px; color: var(--obs-ink); margin-bottom: 5px; }
+.co-hold:last-child { margin-bottom: 0; }
+.co-hold i {
+  display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--obs-primary); margin-right: 7px; vertical-align: middle;
+}
+.co-hold em {
+  font-style: normal; color: var(--obs-text-faint); font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* tabs inside a section — views of one question, not separate sections */
+.co-tabs { display: flex; flex-wrap: wrap; gap: 0; border-bottom: 1px solid var(--obs-border); margin-top: 16px; }
+.co-tabs button {
+  background: none; border: 0; border-bottom: 2px solid transparent; padding: 8px 14px;
+  font-size: 12.5px; font-weight: 500; color: var(--obs-text-muted); cursor: pointer;
+}
+.co-tabs button:hover { color: var(--obs-ink); }
+.co-tabs button[aria-selected="true"] {
+  color: var(--obs-primary); border-bottom-color: var(--obs-primary); font-weight: 600;
+}
+.co-tabs button:focus-visible { outline: 2px solid var(--obs-primary); outline-offset: -2px; }
+
+/* A statement subtotal, and the filing's own total line. */
+table.data tr.row-total td { font-weight: 600; color: var(--obs-ink); background: var(--obs-surface-subtle); }
+
+/* two short sections side by side, so the page stays one screen-ish */
+/* Two short sections share a row only where there is room for both. Below
+   that the pair is one column again, and each strip goes back to whatever
+   width the platform's own breakpoints give it — this rule must never reach
+   a phone, or a four-figure strip forces the page to scroll sideways. */
+@media (min-width: 1081px) {
+  .co-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 0 28px; align-items: start; }
+  .co-pair .strip-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+.co-prov {
+  margin-top: 28px; padding-top: 12px; border-top: 1px solid var(--obs-border);
+  font-size: 12px; color: var(--obs-text-muted); max-width: 92ch;
+}
+.co-prov b { color: var(--obs-ink); font-weight: 600; }
+.co-prov .badge { margin: 0 6px; }
+
+.co-empty { margin-top: 28px; font-size: 14px; color: var(--obs-text-muted); }
+.co-empty-hint { font-size: 13px; color: var(--obs-text-faint); }
+.co-try {
+  background: none; border: 0; padding: 0 2px; font: inherit; color: var(--obs-primary);
+  cursor: pointer; text-decoration: underline; text-underline-offset: 3px;
+}
+
+@media (max-width: 720px) {
+  .co-id-filing { margin-left: 0; text-align: left; }
+}
+
+/* The equities directory opens with one company, not with the datasets: most
+   visits start from a name. Quiet chrome — it introduces the search, it is
+   not a hero. */
+.dir-start {
+  margin: 18px 0 26px; padding: 14px 16px 16px;
+  border: 1px solid var(--obs-border); border-radius: 3px; background: var(--obs-surface);
+  position: relative;
+}
+.dir-start-head { margin-bottom: 10px; }
+.dir-start-head strong {
+  display: block; font-size: 13px; font-weight: 600; color: var(--obs-ink); margin-bottom: 3px;
+}
+.dir-start-head span { font-size: 12.5px; color: var(--obs-text-muted); }
+.dir-start .co-results { position: absolute; left: 16px; right: 16px; z-index: 20; background: var(--obs-surface); }
+
+/* ===================================================================
+   Sign in. One card, one field, four states. No password lives here.
+   =================================================================== */
+.auth-card {
+  max-width: 420px; margin: 40px 0 64px; padding: 24px;
+  border: 1px solid var(--obs-border); border-radius: 3px; background: var(--obs-surface);
+}
+.auth-title { font-size: 20px; font-weight: 700; color: var(--obs-ink); margin: 0 0 8px; letter-spacing: -0.2px; }
+.auth-sub { font-size: 13px; color: var(--obs-text-muted); margin: 0 0 18px; }
+.auth-label { display: block; font-size: 12px; font-weight: 600; color: var(--obs-ink); margin-bottom: 6px; }
+.auth-input {
+  width: 100%; padding: 9px 11px; font-size: 14px; color: var(--obs-ink);
+  background: var(--obs-surface-subtle); border: 1px solid var(--obs-border); border-radius: 3px;
+}
+.auth-input:focus { outline: none; border-color: var(--obs-primary); box-shadow: 0 0 0 2px var(--obs-focus-soft); }
+.auth-btn { margin-top: 14px; }
+.auth-hint { font-size: 12px; color: var(--obs-text-faint); margin: 14px 0 0; }
+.auth-hint a { color: var(--obs-primary); }
+/* Outline only: a filled red block reads as a system failure, and a mistyped
+   address is not one. */
+.auth-alert {
+  border: 1px solid var(--obs-trust-stale); color: var(--obs-trust-stale);
+  border-radius: 3px; padding: 8px 11px; font-size: 12.5px; margin-bottom: 14px;
+}
+.auth-sent { border-left: 2px solid var(--obs-trust-official); padding-left: 14px; }
+.auth-sent p { font-size: 13px; color: var(--obs-text); margin: 0 0 10px; }
+.auth-link {
+  background: none; border: 0; padding: 0; font: inherit; font-size: 12.5px;
+  color: var(--obs-primary); cursor: pointer; text-decoration: underline; text-underline-offset: 3px;
+}
+
+/* The header's account slot. Text, never an avatar in a circle; the width is
+   reserved so the bar does not jump when the answer arrives. */
+.header-account { display: inline-flex; align-items: center; min-width: 54px; justify-content: flex-end; }
+/* ...but hold back nothing when there is nothing to hold it for. On a
+   deployment without accounts the slot never fills, and 54px reserved for good
+   was enough on its own to wrap the brand on /holdings.html, whose as-of is the
+   longest on the platform. Empty means "no answer to show", so it takes no
+   room; the reservation still applies the moment there is one. */
+.header-account:empty { min-width: 0; }
+.header-account a, .header-account button {
+  background: none; border: 0; padding: 0; font: inherit; font-size: 12px;
+  color: var(--obs-header-text); cursor: pointer; text-decoration: none; white-space: nowrap;
+}
+.header-account a:hover, .header-account button:hover { color: var(--obs-header-ink); }
+.header-account .acct-menu { position: relative; }
+.header-account .acct-pop {
+  position: absolute; right: 0; top: calc(100% + 8px); min-width: 140px; z-index: 40;
+  background: var(--obs-surface); border: 1px solid var(--obs-border); border-radius: 3px;
+}
+.header-account .acct-pop a {
+  display: block; padding: 8px 12px; font-size: 12.5px; color: var(--obs-ink);
+  border-bottom: 1px solid var(--obs-grid);
+}
+.header-account .acct-pop a:last-child { border-bottom: 0; color: var(--obs-text-muted); }
+.header-account .acct-pop a:hover { background: var(--obs-surface-subtle); color: var(--obs-ink); }
+
+/* The account slot is one more thing competing for the header's right edge.
+   Below the width where the section list starts to wrap, the as-of is the
+   first to go: it is repeated on the page itself, and an address a reader
+   cannot read is worse than no address. */
+@media (max-width: 1280px) {
+  .header-account a, .header-account button {
+    max-width: 150px; overflow: hidden; text-overflow: ellipsis;
+  }
+}
+@media (max-width: 1100px) {
+  .site-header .header-asof { display: none; }
+}
 
 /* Below ~1100px the brand, eight section links and the toggle no longer fit
    on one 52px row, and flexbox squeezed each of them onto two lines instead.
@@ -2077,33 +2389,56 @@ pre.code {
   .site-subnav { top: 84px; }
 }
 
-/* A section note runs to four or five lines and pushes the chart under the
-   fold. The first two lines say what the series is; the rest are caveats a
-   reader wants once. nav.js folds the remainder away and adds the toggle, so
-   the text is still in the DOM for find-on-page, for a crawler, and for the
-   prerendered answer pages. */
-.section-sub.is-clamped .section-sub-text {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  overflow: hidden;
+/* The coverage statement. On the datasets whose source deletes its own files —
+   short positions, investor flows — the depth of our archive IS the
+   completeness of everything computed from it, so it is stated at the top of
+   the page rather than in a footnote, and turns amber when the tape stops. */
+.coverage-bar { margin: 16px 0 0; padding: 10px 0 10px 14px;
+  border-left: 2px solid var(--obs-primary); font-size: 12.5px; line-height: 1.6;
+  color: var(--obs-text-muted); text-wrap: pretty; }
+.coverage-bar b { color: var(--obs-ink); font-weight: 600; }
+.coverage-bar.is-stale { border-left-color: var(--obs-warn); }
+
+/* ---------- latest values as text ----------
+   The block app/prerender.py writes at the foot of <main>: the latest
+   reading and a table of the latest values, served in the HTML so a reader
+   without scripts — a crawler, an assistant — gets the numbers. Collapsed,
+   in the voice of the "Show calculation" disclosures; no page script
+   touches it, so it never flashes or moves. */
+details.readable { margin-top: 28px; }
+details.readable .calc-body { padding: 8px 12px 4px; }
+details.readable .calc-body h3 {
+  font-size: 13px; font-weight: 600; color: var(--obs-ink); margin: 14px 0 4px;
 }
-.section-sub-more {
-  display: block;
-  margin-top: 2px;
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  font-size: 12px;
-  color: var(--obs-primary);
-  cursor: pointer;
+details.readable .calc-body h3:first-child { margin-top: 0; }
+details.readable .calc-body p { margin: 6px 0; font-size: 12.5px; line-height: 1.5; }
+details.readable .table-wrap { display: inline-block; margin: 8px 0; max-width: 100%; vertical-align: top; }
+details.readable table.data { width: auto; }
+details.readable table.data td:first-child { white-space: nowrap; }
+details.readable table.data caption {
+  caption-side: top; text-align: left; font-size: 11px; color: var(--obs-text-muted);
+  padding: 6px 10px; border-bottom: 1px solid var(--obs-border);
 }
-.section-sub-more::before { content: "\25be  "; }
-.section-sub.is-clamped .section-sub-more::before { content: "\25b8  "; }
-.section-sub-more:hover { color: var(--obs-primary-dark); }
-@media print {
-  .section-sub.is-clamped .section-sub-text { display: block; overflow: visible; }
-  .section-sub-more { display: none; }
+details.readable table.data th { position: static; }
+details.readable .source-line a { color: var(--obs-primary); }
+
+/* ---- Answer pages (assets/answer.js; app/answers.py) ---------------------
+   One question, answered in the first paragraph. The lead is the largest
+   text on the page after the h1; everything below it is quieter. */
+.answer-lead {
+  font-size: 19px; line-height: 1.5; color: var(--obs-ink); margin: 14px 0 0;
+  max-width: 78ch; font-variant-numeric: tabular-nums;
+}
+.answer-lead:empty { min-height: 29px; }
+.answer-context {
+  font-size: 15px; line-height: 1.55; color: var(--obs-text); margin: 10px 0 0;
+  max-width: 78ch; font-variant-numeric: tabular-nums;
+}
+.answer-asof { font-size: 12.5px; color: var(--obs-text-muted); margin: 12px 0 0; }
+.answer .metric-card .calc { margin-top: 10px; }
+.answer-links { font-size: 12.5px; color: var(--obs-text-muted); margin-top: 8px; }
+.answer-cite {
+  font-size: 14px; line-height: 1.55; color: var(--obs-text); max-width: 78ch;
+  padding: 12px 14px; border: 1px solid var(--obs-border); border-radius: 3px;
+  background: var(--obs-surface-subtle); font-variant-numeric: tabular-nums;
 }

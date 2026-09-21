@@ -16,18 +16,22 @@ those are readers too.
 So three things are written into the HTML on the way out:
 
   * the navigation, as plain links, inside the header shell nav.js fills;
-  * the latest reading, in a <noscript> block at the top of <main>;
-  * a meta description, which no page had.
+  * the latest reading and a table of the latest values, in a collapsed
+    disclosure at the foot of <main> (app/readable.py builds it);
+  * a meta description, which no page had;
+  * on the landing page, the four coverage counts the script counts up to.
 
 The links go inside the header element whose innerHTML nav.js assigns on
 load (nav.js:192), and that script is synchronous and sits immediately
-after the element, so a browser never paints the plain list. The figures go
-in <noscript> rather than into the subtitle slot they would otherwise fit:
-that slot is filled by the page script only once its fetch returns, so a
-sentence placed there would be visible until the data landed and would move
-the layout when it was replaced. Neither addition changes a rendered pixel,
-and both state what the rendered page states — progressive enhancement, not
-cloaking.
+after the element, so a browser never paints the plain list. The figures
+used to sit in <noscript>, which a browser never renders — but a number of
+the crawlers behind AI assistants strip <noscript> too, so they now sit in
+the page proper: a collapsed <details> after the last section, in the same
+voice as the page's "Show calculation" disclosures, that no page script
+touches. It is visible to a reader who opens it and states exactly what the
+rendered tiles state — progressive enhancement, not cloaking. The landing
+page's counts are written into the tiles themselves, which the script then
+counts up to the same value.
 
 Everything is best-effort. Any failure — an unparseable nav, a dataset
 without an overview, a database mid-swap — serves the file untouched rather
@@ -51,7 +55,16 @@ _MAIN_OPEN = re.compile(r'(<main\b[^>]*>)')
 _HEAD_END = re.compile(r'</head>', re.IGNORECASE)
 _HAS_DESC = re.compile(r'(?is)<meta[^>]+name=["\']description["\']')
 _HAS_CANONICAL = re.compile(r'(?is)<link[^>]+rel=["\']canonical["\']')
+_HAS_ROBOTS = re.compile(r'(?is)<meta[^>]+name=["\']robots["\']')
 _DATASET = re.compile(r'<main[^>]*\sdata-dataset="([^"]+)"')
+_DEFAULT_FLOW = re.compile(r'<main[^>]*\sdata-default-flow="([^"]+)"')
+# The block goes after the page's last section: before an in-<main> page
+# footer where the equity pages have one, otherwise just before </main>.
+_PAGE_FOOT = re.compile(r'(<footer class="page-foot")')
+_MAIN_CLOSE = re.compile(r'(</main>)')
+_HOME_COUNT = re.compile(r'(id="n-(datasets|companies|filings|sources)">)\u2014(<)')
+_TITLE_TEXT = re.compile(r'(?is)<title>(.*?)</title>')
+_ANSWER = re.compile(r'<main[^>]*\sdata-answer="([^"]+)"')
 
 _lock = threading.Lock()
 _nav_cache = {"mtime": None, "html": ""}
@@ -104,12 +117,12 @@ def nav_links_html():
 # ---------------------------------------------------------------------------
 
 def _format(value, unit):
-    """A figure as a reader would write it, for text meant to be parsed.
+    """A figure as a reader would write it.
 
-    A plain hyphen rather than the true minus the visible tiles use, since
-    this line is read by crawlers and language models rather than people.
-    Large magnitudes get thousands separators and lose a meaningless
-    trailing ".0" — "5,193,819 \u00a5100mn" rather than "5193819.0\u00a5100mn".
+    The true minus the visible tiles use, since this sentence is now on the
+    page rather than in <noscript>. Large magnitudes get thousands separators
+    and lose a meaningless trailing ".0" — "5,193,819 \u00a5100mn" rather
+    than "5193819.0\u00a5100mn".
     """
     if value is None:
         return None
@@ -122,6 +135,7 @@ def _format(value, unit):
         shown = "{:,.0f}".format(value)
     else:
         shown = ("%.1f" % value).rstrip("0").rstrip(".")
+    shown = shown.replace("-", "\u2212", 1) if shown.startswith("-") else shown
     # A percentage sits against its number; a named unit is a separate word.
     joiner = "" if unit in ("%", "pp") else " "
     return shown + joiner + unit if unit else shown
@@ -266,6 +280,9 @@ DESCRIPTIONS = {
     "flows.html":
         "Weekly trading by investor type in Japanese equities (投資部門別売買状況) — what "
         "foreigners, individuals, trust banks and companies bought and sold.",
+    "earnings.html":
+        "Earnings releases of Japanese listed companies (決算短信) — quarterly results as "
+        "disclosed on TDnet, each company's own forecast, and progress against it.",
     "shorts.html":
         "Disclosed short positions in Japanese listed companies (空売り残高) — who is short "
         "which company, how much, and how it has moved, published daily by JPX.",
@@ -285,8 +302,11 @@ DESCRIPTIONS = {
         "Financial statements of Japanese listed companies as tagged on EDINET, with the "
         "five-year summary and ratios calculated from them.",
     "company.html":
-        "One Japanese listed company across every dataset here: ownership, board, pay, "
-        "buybacks, financials, facilities and customers.",
+        "One Japanese listed company across every dataset here: the filings it comes from, "
+        "statements, register, board and pay, buybacks, facilities and segments.",
+    "customs-lens.html":
+        "What a Japanese company reports by region and customer, against the customs flows "
+        "its business sits in — both in the company's own fiscal year.",
     "screener.html":
         "Screen Japanese listed companies on financial and governance measures taken from "
         "their own EDINET filings.",
@@ -343,6 +363,12 @@ _CO_NAME_H1 = re.compile(r'(?is)(<h1[^>]*\sid=["\']co-name["\'][^>]*>)(.*?)(</h1
 # and gets the plain shell rather than a database lookup.
 _SEC_CODE = re.compile(r'^[0-9A-Za-z]{4}$')
 _SPACE = re.compile(r'[\s\u3000]+')
+
+# An address that exists but has nothing behind it. It keeps the page it
+# shipped with — title, description and all — and adds the one tag that stops
+# it competing with that page in search. Named rather than written inline so
+# the four views cannot disagree about what "nothing here" means.
+NOINDEX = {"noindex": True}
 
 _CREDIT = ("Source: company filings on EDINET "
            "(Financial Services Agency of Japan).")
@@ -534,12 +560,12 @@ def _join(parts):
 
 _HOLDINGS_SQL = """
 WITH l AS (
-  SELECT doc_id, period_end FROM eq_filings WHERE sec_code = ?
+  SELECT doc_id, period_end, status FROM eq_filings WHERE sec_code = ?
   ORDER BY period_end DESC NULLS LAST, filed_date DESC NULLS LAST LIMIT 1)
 SELECT l.period_end, count(h.row_no), sum(h.book_value_yen),
-       count(h.held_sec_code)
+       count(h.held_sec_code), l.status
 FROM l LEFT JOIN eq_holdings h USING (doc_id)
-GROUP BY l.period_end
+GROUP BY l.period_end, l.status
 """
 
 _AGM_SQL = """
@@ -573,6 +599,23 @@ _EXPLORER_DATASETS = {
 _EXPLORER_DEFAULT = "cpi-jp"
 
 
+def _held_by(code):
+    """How many filers name this company among their policy holdings.
+
+    Built from equity_api's own current-filings CTE rather than a count over
+    eq_holdings, because the page counts each filer once, at its latest
+    filing: a plain count includes superseded years and would print a larger
+    number than the table underneath it shows.
+    """
+    from . import equity_api
+    sql = equity_api.latest_filings() + """
+        SELECT count(*) FROM eq_holdings h JOIN current_filings f USING (doc_id)
+        WHERE h.held_sec_code = ?"""
+    row = equity_api._cur().execute(
+        sql, equity_api._year_params("") + [code]).fetchone()
+    return row[0] if row else 0
+
+
 def _yen_bn(value):
     """A book value as the tables show it: billions of yen, one decimal."""
     if not value:
@@ -582,20 +625,42 @@ def _yen_bn(value):
 
 def _holdings_view(values):
     code = (values.get("c") or "").strip()
+    if not code:
+        return None  # the market view; the page's own title stands
     base = company_meta(code)
     if not base:
-        return None
+        return NOINDEX
     facts = _cached(("holdings", code), _equity_version,
                     lambda: _one(_HOLDINGS_SQL, [code]))
+    if not facts:
+        return NOINDEX
+    period_end, held, total, listed, status = facts
+    held, listed = held or 0, listed or 0
+    period = period_end.strftime("%B %Y") if period_end else ""
     name, ident = base["name"], base["ident"]
-    held = total = listed = 0
-    period = ""
-    if facts:
-        period_end, held, total, listed = facts
-        held, listed = held or 0, listed or 0
-        period = period_end.strftime("%B %Y") if period_end else ""
     if not held:
-        return None
+        # A clean extraction that found nothing is a finding: the company
+        # disclosed no policy shareholdings. A failed or partial one is not —
+        # there, the absence is ours, and the page is kept out of the index
+        # rather than made to assert something the filing does not say.
+        if status != "clean":
+            return NOINDEX
+        sentence = ("%s discloses no cross-shareholdings of its own in its "
+                    "annual securities report%s." % (
+                        ident, " for the year to " + period if period else ""))
+        holders = _cached(("held-by", code), _equity_version,
+                          lambda: _held_by(code)) or 0
+        if holders:
+            # The page is not empty in this case: the other side of the
+            # relationship is what it shows, so that is what it says.
+            sentence += (" %d other listed compan%s name%s it among theirs."
+                         % (holders, "y" if holders == 1 else "ies",
+                            "s" if holders == 1 else ""))
+        return {"title": "%s (%s) \u2014 Cross-Shareholdings \u00b7 Plover Analytics"
+                         % (name, code),
+                "description": sentence, "h1": name,
+                "noscript": sentence + " " + _CREDIT,
+                "code": code, "name_ja": base.get("name_ja")}
     sentence = "%s holds %d cross-shareholding%s" % (
         ident, held, "" if held == 1 else "s")
     money = _yen_bn(total)
@@ -605,6 +670,12 @@ def _holdings_view(values):
         sentence += ", %d of them in companies also covered here" % listed
     sentence += ", as filed in its annual securities report%s." % (
         " for the year to " + period if period else "")
+    holders = _cached(("held-by", code), _equity_version,
+                      lambda: _held_by(code)) or 0
+    if holders:
+        sentence += (" %d other listed compan%s name%s it among theirs."
+                     % (holders, "y" if holders == 1 else "ies",
+                        "s" if holders == 1 else ""))
     return {"title": "%s (%s) \u2014 Cross-Shareholdings \u00b7 Plover Analytics"
                      % (name, code),
             "description": sentence, "h1": name,
@@ -614,13 +685,18 @@ def _holdings_view(values):
 
 def _agm_view(values):
     code = (values.get("company") or "").strip()
+    if not code:
+        return None  # the market view; the page's own title stands
     base = company_meta(code)
     if not base:
-        return None
+        return NOINDEX
     facts = _cached(("agm", code), _equity_version,
                     lambda: _one(_AGM_SQL, [code]))
     if not facts or not facts[0]:
-        return None
+        # Nothing on file says nothing about the company — only about what we
+        # hold — so this address is kept out of the index rather than given a
+        # sentence, and it no longer competes with the page it belongs to.
+        return NOINDEX
     meetings, latest, lowest, votes = facts
     name, ident = base["name"], base["ident"]
     sentence = "AGM voting results for %s: %d meeting%s on file" % (
@@ -640,13 +716,18 @@ def _agm_view(values):
 
 def _buyback_view(values):
     code = (values.get("c") or "").strip()
+    if not code:
+        return None  # the market view; the page's own title stands
     base = company_meta(code)
     if not base:
-        return None
+        return NOINDEX
     facts = _cached(("buyback", code), _equity_version,
                     lambda: _one(_BUYBACK_SQL, [code]))
     if not facts or not facts[0]:
-        return None
+        # Nothing on file says nothing about the company — only about what we
+        # hold — so this address is kept out of the index rather than given a
+        # sentence, and it no longer competes with the page it belongs to.
+        return NOINDEX
     filings, latest, authorised, progress = facts
     name, ident = base["name"], base["ident"]
     sentence = "Share buybacks by %s: %d monthly filing%s on file" % (
@@ -941,6 +1022,17 @@ def _inject(html, page_name, canonical=None, query_string=""):
     # rather than an error. Read before the canonical is written, because a
     # view that shares its subject with another address says so here.
     entity = entity_meta(page_name, query_string)
+
+    # An address with nothing behind it keeps the page it shipped with and is
+    # simply not offered to search. Said before anything else is written, so
+    # the rest of this function treats it as the plain page it is.
+    if entity and entity.get("noindex"):
+        if not _HAS_ROBOTS.search(html):
+            html = _HEAD_END.sub(
+                '<meta name="robots" content="noindex,follow">\n</head>',
+                html, count=1)
+        entity = None
+
     if entity and entity.get("canonical"):
         canonical = entity["canonical"]
 
@@ -1012,12 +1104,222 @@ def _inject(html, page_name, canonical=None, query_string=""):
         html = _HEADER_SHELL.sub(
             lambda m: m.group(1) + links + m.group(3), html, count=1)
 
-    text = ""
-    if entity:
-        text = entity["noscript"]
-    elif datasets:
-        text = summary_text(datasets[0])
-    if text:
-        block = "<noscript><p>%s</p></noscript>" % _escape(text)
-        html = _MAIN_OPEN.sub(lambda m: m.group(1) + block, html, count=1)
+    # The landing page: its four coverage counts, and what the site is.
+    if page_name == "index.html":
+        from . import readable
+        counts = readable.home_counts()
+        html = _HOME_COUNT.sub(
+            lambda m: m.group(1) + ("{:,}".format(counts[m.group(2)])
+                                    if counts.get(m.group(2)) is not None
+                                    else "\u2014") + m.group(3), html)
+        for node in site_jsonld():
+            html = _HEAD_END.sub(node + "\n</head>", html, count=1)
+        return html
+
+    # The page's own numbers, readable without a script.
+    markdown_path = markdown_path_for(page_name, query_string)
+    if markdown_path:
+        html = _HEAD_END.sub(
+            '<link rel="alternate" type="text/markdown" href="%s">\n</head>'
+            % _escape(markdown_path), html, count=1)
+    blocks = page_blocks(html, page_name, entity, datasets, query_string)
+    for block in blocks:
+        if block and block.get("csv"):
+            html = _HEAD_END.sub(
+                '<link rel="alternate" type="text/csv" href="%s">\n</head>'
+                % _escape(block["csv"]), html, count=1)
+            break
+    from . import readable
+    # An answer page: its own block is written into the page's lead, not
+    # into the collapsed disclosure, which then carries only the dataset's.
+    if _ANSWER.search(html) and blocks and blocks[0].get("cite"):
+        html = fill_answer(html, blocks[0])
+        blocks = blocks[1:]
+    rendered = readable.html(blocks, markdown_path)
+    if rendered:
+        if _PAGE_FOOT.search(html):
+            html = _PAGE_FOOT.sub(lambda m: rendered + m.group(1), html, count=1)
+        else:
+            html = _MAIN_CLOSE.sub(lambda m: rendered + m.group(1), html, count=1)
     return html
+
+
+def page_blocks(html, page_name, entity, datasets, query_string=""):
+    """The readable blocks for one served page: the entity's own sentence and
+    tables where the address names one company, otherwise one block per
+    dataset the page fronts (at most four) or the page's filings summary.
+    An answer page leads with its answer, then its dataset's block."""
+    from . import readable
+    blocks = []
+    from . import answers
+    if page_name in answers.BY_PAGE:
+        found = answers.answer(page_name)
+        if found:
+            blocks.append(dict(found, lead=found["sentence"], sentence=(
+                found["sentence"] + " " + found.get("context", "")).strip()))
+    if entity and entity.get("noscript"):
+        blocks.append({"heading": entity.get("h1") or entity["title"],
+                       "sentence": entity["noscript"], "table": None, "calc": None,
+                       "credit": "", "release": "", "links": [], "csv": None})
+        if page_name == "company.html":
+            # The company view carries no code of its own; the address does.
+            code = dict(parse_qsl(query_string, keep_blank_values=True)).get("code", "")
+            if _SEC_CODE.match(code.strip()):
+                blocks.extend(readable.company_blocks(code.strip()))
+            return blocks
+    from . import api
+    found = _DEFAULT_FLOW.search(html)
+    equity_done = False
+    for mid in (datasets or EXTRA_PAGE_DATASETS.get(page_name) or [])[:4]:
+        if mid in api.ADAPTERS:
+            blocks.append(readable.macro_block(mid, found.group(1) if found else None))
+        elif not equity_done:
+            # A filings dataset has no macro adapter; its page has one
+            # summary, however many datasets the registry maps to it.
+            blocks.append(readable.equity_block(page_name))
+            equity_done = True
+    if not datasets and not entity and not equity_done:
+        blocks.append(readable.equity_block(page_name))
+    return [b for b in blocks if b]
+
+
+# Pages the registry maps no dataset to, because the dataset's own page is
+# another one: the item explorer is a second front for the items dataset, the
+# overview page leads with three. Stated here so those pages carry figures too.
+EXTRA_PAGE_DATASETS = {
+    "explorer.html": ["cpi-jp-items"],
+    "macro.html": ["cpi-jp", "boj-assets", "jgb-yields"],
+    "lodging-regions.html": ["accommodation-jp"],
+}
+
+
+def markdown_path_for(page_name, query_string=""):
+    """Where this page is served as Markdown, or None for a page that is not
+    a page (the verification token, the console)."""
+    if not page_name.endswith(".html") or page_name not in DESCRIPTIONS:
+        return None
+    path = "/" + page_name[:-len(".html")] + ".md"
+    return path + ("?" + query_string if query_string else "")
+
+
+def markdown(page_name, query_string=""):
+    """The page as Markdown: title, description, and the same blocks the
+    HTML carries. None when the page is unknown."""
+    try:
+        with (WEB_DIR / page_name).open(encoding="utf-8", errors="replace") as handle:
+            source = handle.read()
+    except OSError:
+        return None
+    from . import readable, seo
+    entity = entity_meta(page_name, query_string)
+    if entity and entity.get("noindex"):
+        entity = None
+    canonical = (entity or {}).get("canonical") or seo.canonical_url(
+        "/" + page_name, query_string)
+    found = _TITLE_TEXT.search(source)
+    title = (entity or {}).get("title") or (found.group(1).strip() if found else page_name)
+    description = (entity or {}).get("description") or DESCRIPTIONS.get(page_name, "")
+    if entity and ENTITY_API.get(page_name) and entity.get("code"):
+        datasets = []
+    elif entity and entity.get("datasets"):
+        datasets = entity["datasets"]
+    else:
+        datasets = page_datasets(source, page_name)
+    blocks = page_blocks(source, page_name, entity, datasets, query_string)
+    if page_name == "index.html":
+        counts = readable.home_counts()
+        parts = [("%s %s" % ("{:,}".format(counts[k]), label))
+                 for k, label in (("datasets", "datasets"), ("sources", "primary sources"),
+                                  ("companies", "listed companies"),
+                                  ("filings", "filings parsed"))
+                 if counts.get(k) is not None]
+        if parts:
+            blocks = [{"heading": "Coverage", "sentence": "This server holds " +
+                       ", ".join(parts) + ".", "table": None, "calc": None,
+                       "credit": "", "release": "", "links": [("JSON", "/api/v1/catalog/coverage")],
+                       "csv": None}]
+    return readable.markdown(title, description, canonical, blocks, seo.SITE_BASE_URL)
+
+
+def site_jsonld():
+    """What the site is, for the landing page: the organisation and the site,
+    in the vocabulary search engines already parse."""
+    base = SITE_BASE_URL_FOR_JSONLD()
+    org = _jsonld([
+        ("@context", "https://schema.org"),
+        ("@type", "Organization"),
+        ("name", SITE),
+        ("url", base + "/"),
+        ("logo", base + "/assets/logo.svg"),
+        ("description", DESCRIPTIONS.get("index.html")),
+    ])
+    site = _jsonld([
+        ("@context", "https://schema.org"),
+        ("@type", "WebSite"),
+        ("name", SITE),
+        ("url", base + "/"),
+        ("description", DESCRIPTIONS.get("index.html")),
+        ("publisher", {"@type": "Organization", "name": SITE, "url": base + "/"}),
+    ])
+    return [org, site]
+
+
+# ---------------------------------------------------------------------------
+# answer pages
+# ---------------------------------------------------------------------------
+#
+# The shell carries empty elements with known ids; the answer is written into
+# them here, and each filled element is marked so answer.js leaves it alone.
+# A slot the shell lacks is simply not filled.
+
+_SLOT = dict((slot, re.compile(
+    r'(?is)(<(p|div|span|details)\b[^>]*\bid="%s"[^>]*)(>)(.*?)(</\2>)' % slot))
+    for slot in ("answer-lead", "answer-context", "answer-asof", "answer-table",
+                 "answer-calc", "answer-cite", "answer-links", "page-asof"))
+
+
+def _fill(html, slot, inner):
+    if not inner:
+        return html
+    return _SLOT[slot].sub(
+        lambda m: m.group(1) + ' data-filled="1"' + m.group(3) + inner + m.group(5),
+        html, count=1)
+
+
+def fill_answer(html, block):
+    """The answer written into the shell's slots. Never raises."""
+    try:
+        from . import readable
+        html = _fill(html, "answer-lead", _escape(block.get("lead") or block.get("sentence") or ""))
+        html = _fill(html, "answer-context", _escape(block.get("context") or ""))
+        html = _fill(html, "answer-asof", _escape(block.get("asof") or ""))
+        html = _fill(html, "page-asof", _escape(block.get("release") or ""))
+        html = _fill(html, "answer-cite", _escape(block.get("cite") or ""))
+        table = block.get("table") or {}
+        if table.get("rows"):
+            html = _fill(html, "answer-table", readable._table_html(table))
+        if block.get("calc"):
+            html = _fill(html, "answer-calc",
+                         "<summary>Show calculation</summary>"
+                         '<div class="calc-body">%s</div>' % _escape(block["calc"]))
+        else:
+            # A value stated as published has nothing to show; an empty
+            # disclosure would render as a bare "Details" toggle.
+            html = _SLOT["answer-calc"].sub("", html, count=1)
+        links = ['<a href="%s">%s</a>' % (_escape(path), _escape(label))
+                 for label, path in block.get("links") or []]
+        md = markdown_path_for(block["page"])
+        if md:
+            links.append('<a href="%s">Markdown</a>' % _escape(md))
+        html = _fill(html, "answer-links", " \u00b7 ".join(links))
+        return html
+    except Exception:  # noqa: BLE001 — the shell renders and the script fills it
+        return html
+
+
+# Every answer page is a page: its description is what the search snippet
+# and the Markdown twin carry, and its presence here is what makes
+# markdown_path_for offer the twin.
+from . import answers as _answers  # noqa: E402
+for _q in _answers.QUESTIONS:
+    DESCRIPTIONS.setdefault(_q["page"], _q["description"])

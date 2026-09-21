@@ -419,3 +419,76 @@ class TelegramTest(unittest.TestCase):
             raise OSError("network down")
         refresh._post = boom
         refresh._send_telegram("hello")          # must not raise
+
+
+class PhaseIsolationTest(unittest.TestCase):
+    """The NameError of 2026-09-21: one phase crashing took every later one down."""
+
+    def setUp(self):
+        self._saved = {n: getattr(backfill, n) for n in (
+            "backfill_macro", "stamp_cycle", "backfill_gdp_vintages",
+            "backfill_equity", "backfill_sec")}
+        self.addCleanup(lambda: [setattr(backfill, n, f) for n, f in self._saved.items()])
+        self.ran = []
+        backfill.backfill_macro = lambda ds: self.ran.append("macro")
+        backfill.stamp_cycle = lambda: self.ran.append("stamp")
+        backfill.backfill_equity = lambda d, m: self.ran.append("equity")
+        backfill.backfill_sec = lambda q: self.ran.append("sec")
+        for key in ("BACKFILL_DATASETS", "BACKFILL_GDP_VINTAGES",
+                    "BACKFILL_CATCH_UP_DAYS", "BACKFILL_SEC_QUARTERS"):
+            os.environ.pop(key, None)
+            self.addCleanup(os.environ.pop, key, None)
+        backfill._stopping = False
+
+    def test_a_crashing_phase_does_not_stop_the_rest(self):
+        def boom():
+            raise NameError("name '_release_count' is not defined")
+        backfill.backfill_gdp_vintages = boom
+        self.assertEqual(backfill.main(), 0)
+        self.assertIn("equity", self.ran)
+        self.assertIn("sec", self.ran)
+
+    def test_equity_runs_before_the_gdp_archive(self):
+        backfill.backfill_gdp_vintages = lambda: self.ran.append("gdp")
+        backfill.main()
+        self.assertLess(self.ran.index("equity"), self.ran.index("gdp"))
+
+
+class GdpVintageCountTest(unittest.TestCase):
+    """The loader's measure must see 'archived' releases, which never publish."""
+
+    def setUp(self):
+        self.dir = pathlib.Path(tempfile.mkdtemp())
+        self.db = self.dir / "observatory.duckdb"
+        con = duckdb.connect(str(self.db))
+        con.execute(SCHEMA)
+        con.close()
+        self.addCleanup(shutil.rmtree, str(self.dir), True)
+
+    def test_an_archived_release_counts(self):
+        publish(self.db, "gdp-jp", datetime.date(2026, 4, 1))
+        before = backfill._release_total(self.db, "gdp-jp")
+        con = duckdb.connect(str(self.db))
+        con.execute("INSERT INTO releases (dataset, latest_period, status) "
+                    "VALUES ('gdp-jp', DATE '2003-01-01', 'archived')")
+        con.close()
+        self.assertEqual(backfill._release_total(self.db, "gdp-jp"), before + 1)
+
+    def test_other_datasets_do_not_count(self):
+        publish(self.db, "cpi-jp", datetime.date(2026, 8, 1))
+        self.assertEqual(backfill._release_total(self.db, "gdp-jp"), 0)
+
+    def test_the_gdp_loader_runs_without_a_name_error(self):
+        """Exercise the real function end to end, with the child process stubbed.
+
+        This is the test that would have caught the rename: the function was
+        never called by any test, so a name it used could vanish unnoticed.
+        """
+        live, saved = backfill.LIVE_MACRO, backfill._run
+        self.addCleanup(setattr, backfill, "LIVE_MACRO", live)
+        self.addCleanup(setattr, backfill, "_run", saved)
+        self.addCleanup(setattr, backfill, "DATA_DIR", backfill.DATA_DIR)
+        backfill.LIVE_MACRO = self.db
+        backfill.DATA_DIR = self.dir
+        backfill._run = lambda cmd, env, cwd: 0       # loader found nothing new
+        backfill.backfill_gdp_vintages(max_slices=1)   # must not raise

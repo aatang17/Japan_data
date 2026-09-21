@@ -50,11 +50,20 @@
   <ul>
     <li>Every page URL encodes the view you are looking at — measure, date range, search,
     selected row. Copy it and a colleague sees the same numbers.</li>
-    <li>Every chart has <b>Download PNG</b> (source line embedded) and <b>Download CSV</b>.
-    CSV exports open with a metadata block: provenance, formula, source ID, release,
-    retrieval time and permalink. The same file is served directly by the API: add
-    <code>&amp;format=csv</code> to any <code>/observations</code> URL, and
-    <code>&amp;as_of=YYYY-MM-DD</code> to freeze it as a citable vintage.</li>
+    <li>Every chart has <b>Export image</b> and <b>Download CSV</b>. Export image offers
+    three sizes — a report column, a full 16:9 slide, a half slide — and either copies the
+    picture straight to the clipboard or saves it as a PNG. Charts export on the light
+    theme with the source line embedded, whichever theme you are reading in, and the size
+    you pick is remembered.</li>
+    <li>Every data table has <b>Copy table</b> and <b>Download CSV</b> above it. Copy puts
+    the rows on the clipboard twice over: as cells for a spreadsheet, and as a real table
+    for a document or a slide — editable, not a picture. Both follow what is on screen:
+    the filter you have typed, the column you have sorted by, the columns as displayed.</li>
+    <li>CSV exports open with a metadata block: provenance, formula, source ID, release,
+    retrieval time and permalink. A blank cell means not published — never zero. The same
+    file is served directly by the API: add <code>&amp;format=csv</code> to any
+    <code>/observations</code> URL, and <code>&amp;as_of=YYYY-MM-DD</code> to freeze it as
+    a citable vintage.</li>
     <li>Search the <a href="explorer.html">Item Explorer</a> in English (<i>electricity</i>),
     Japanese (<i>電気代</i>) or by code. Click a row for the full history since 1970 with its
     calculation and source.</li>
@@ -271,6 +280,7 @@
       <tr><td>Company filings (EDINET)</td><td class="muted">Continuous; extraction runs nightly</td><td class="num">7 days</td></tr>
       <tr><td>Listed-issue classification (JPX)</td><td class="muted">Republished by Japan Exchange Group</td><td class="num">45 days</td></tr>
       <tr><td>Short positions (JPX)</td><td class="muted">Every business day; JPX keeps about twelve days and deletes the rest</td><td class="num">7 days</td></tr>
+      <tr><td>Earnings releases (TDnet)</td><td class="muted">Every business day; TDnet keeps about a month and deletes the rest</td><td class="num">7 days</td></tr>
       <tr><td>Margin balances (JPX)</td><td class="muted">Weekly, by application date; the long-run file lags the weekly release</td><td class="num">21 days</td></tr>
       <tr><td>Investor-type flows (JPX)</td><td class="muted">Weekly, the Thursday after the week; only the current month stays online</td><td class="num">21 days</td></tr>
     </tbody>
@@ -1268,6 +1278,45 @@
       domestic common stocks only (no preferred shares), including ToSTNeT off-auction trades.
       It is most of the market's turnover, not all of it, and the exchange says so on the file.
       Weeks are dated by the Monday they begin.</li>
+    </ul>
+    </div>
+  </details>
+
+  <details class="ds" id="calc-earnings">
+    <summary><span>Earnings releases</span><span class="ds-note">TDnet 決算短信, results and the company's own forecast</span></summary>
+    <div class="ds-body">
+    <p>A listed company publishes its 決算短信 on TDnet, the Tokyo Stock Exchange's disclosure
+    wire, weeks before the statutory report reaches EDINET. Since the statutory first- and
+    third-quarter reports were abolished in April 2024 it is the only source for those quarters.
+    Amounts, per-share figures, the company's forecast with any upper and lower bound, and the
+    year-on-year percentages are <b>official statistics exactly as each company tagged them</b>
+    in the release's Summary. Progress against the forecast, which release is current for a
+    period, and the fiscal period are calculated here and carry their formulas.</p>
+    <ul>
+      <li><b>Progress (%)</b> = cumulative result ÷ full-year company forecast × 100, for the same
+      line and basis, both from the same release. It is not calculated when the forecast is
+      absent, a range, or zero or negative. Companies are ranked within one reporting period
+      only: three months of progress and nine months of progress do not compare.</li>
+      <li><b>Results are cumulative.</b> A second-quarter release covers six months and a
+      third-quarter release nine. A stand-alone quarter is never derived, because the difference
+      of two rounded cumulative figures is not a published number.</li>
+      <li><b>Results and forecasts never share a column.</b> They are the same element in the same
+      unit, so every table and export keeps them apart. A forecast the company did not give is
+      missing, never zero.</li>
+      <li><b>Year-on-year changes are the company's own.</b> The release tags the percentage it
+      prints; it is shown as published and not recalculated from the two amounts.</li>
+      <li><b>One period can have several releases.</b> A company re-issues its release when the
+      auditor's interim review completes, or to correct a number. Every release is kept as
+      disclosed; the newest by disclosure time is marked current and the earlier one names it.</li>
+      <li><b>Accounting standards are mapped, not equated.</b> The headline lines use the nearest
+      published element for each standard and always show which one: ordinary income under
+      Japanese GAAP and profit before tax under IFRS share a row because they sit in the same
+      place in the Summary, and they are not compared across standards.</li>
+      <li><b>The fiscal period is read from the headline.</b> 2027年3月期 becomes 2027-03, and an
+      era year is converted (令和9年 is 2027). A headline that names no month has no fiscal period.</li>
+      <li><b>The record cannot be back-filled.</b> TDnet deletes a disclosure after about a month.
+      Capture began on 10 July 2026; nothing before it can be recovered. Each package is archived
+      with the SHA-256 of its bytes before anything is parsed.</li>
     </ul>
     </div>
   </details>

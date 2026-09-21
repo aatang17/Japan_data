@@ -750,27 +750,67 @@ function obsChart(el, kind, cfg) {
     chart.setOption(optionsFor(readPalette()));
   }
 
-  function exportPNG(filename) {
-    // exports are light-theme by default: they end up in decks and documents
+  /* Draw the chart offscreen at an export preset. Light theme by default:
+     exports end up in decks and documents, which are white. */
+  function renderPNG(size) {
     const pal = paletteFor("light");
     const off = document.createElement("div");
-    off.style.cssText = "position:fixed;left:-99999px;width:1200px;height:560px";
+    off.style.cssText = "position:fixed;left:-99999px;width:" + size.w +
+      "px;height:" + size.h + "px";
     document.body.appendChild(off);
     const tmp = echarts.init(off, null, { renderer: "canvas" });
-    const opts = optionsFor(pal, 1200);
+    const opts = optionsFor(pal, size.w);
     opts.graphic = [{
       type: "text", left: 10, bottom: 6,
       style: { text: cfg.sourceLine || "", fontSize: 11, fill: pal.muted },
     }];
     opts.grid.bottom = 30;
     tmp.setOption(opts);
-    const url = tmp.getDataURL({ pixelRatio: 2, backgroundColor: pal.surface });
+    const url = tmp.getDataURL({
+      pixelRatio: size.out / size.w,
+      backgroundColor: pal.surface,
+    });
     tmp.dispose();
     off.remove();
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    a.click();
+    return url;
+  }
+
+  /* Pages still call this from their own click handler, and still own the
+     filename; what changed is that it opens the size/copy menu instead of
+     downloading one fixed file. */
+  function exportPNG(filename) {
+    obsExportMenu(filename, renderPNG, exportButton());
+  }
+
+  /* The control that opens the menu, so the menu can anchor to it and so the
+     label can stop promising a straight download.
+
+     Found by climbing from the chart to the first ancestor that contains an
+     export control, and taken only when that ancestor contains exactly one:
+     one control in scope belongs to this chart, two means the climb has
+     reached a section holding several charts and guessing would relabel the
+     wrong one. That is what makes this safe to infer rather than thread
+     through fifty call sites — and it copes with the pages whose controls row
+     is a sibling of the chart rather than its parent. */
+  function exportButton() {
+    let node = el.parentElement;
+    let btn = null;
+    while (node && node !== document.body && !btn) {
+      const hits = node.querySelectorAll('[id$="-png"]');
+      if (hits.length > 1) break;
+      if (hits.length === 1) btn = hits[0];
+      node = node.parentElement;
+    }
+    if (!btn) return null;
+    if (btn.dataset.exportMenu !== "1") {
+      if (/^\s*download png\s*$/i.test(btn.textContent || "")) {
+        btn.textContent = "Export image \u25be";
+      }
+      btn.dataset.exportMenu = "1";
+      btn.setAttribute("aria-haspopup", "menu");
+      btn.setAttribute("aria-expanded", "false");
+    }
+    return btn;
   }
 
   function exportCSV(filename, headerLines) {
@@ -834,6 +874,7 @@ function obsChart(el, kind, cfg) {
 
   window.addEventListener("resize", () => { if (chart) chart.resize(); });
   render();
+  exportButton();
   return { render, exportPNG, exportCSV, dispose: () => chart && chart.dispose() };
 }
 

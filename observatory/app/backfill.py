@@ -248,6 +248,24 @@ def _run(cmd, env, cwd):
 
 # --- macro datasets ----------------------------------------------------------
 
+def _release_total(path, dataset):
+    """Every release a dataset has ever had, in any status.
+
+    The measure for the archived-GDP loader, which adds releases with status
+    'archived': they never become the published one, so _published_mark
+    cannot see them. Releases are never deleted, so this only grows, and it
+    grows exactly when a slice loaded something.
+    """
+    con = duckdb.connect(str(path), read_only=True)
+    try:
+        return con.execute("SELECT count(*) FROM releases WHERE dataset = ?",
+                           [dataset]).fetchone()[0]
+    except duckdb.Error:
+        return 0
+    finally:
+        con.close()
+
+
 def _published_mark(path, dataset):
     """Identity of one dataset's published release, or None if it has none.
 
@@ -333,7 +351,7 @@ def backfill_gdp_vintages(max_slices=20):
             return
         if fresh_copy(LIVE_MACRO, work) is None:
             return
-        before = _release_count(work)
+        before = _release_total(work, "gdp-jp")
         env = dict(os.environ, OBSERVATORY_DB_PATH=str(work))
         started = time.time()
         rc = _run([sys.executable, "-m", "app.gdp_vintages", "load",
@@ -344,7 +362,7 @@ def backfill_gdp_vintages(max_slices=20):
                 "untouched" % (n, rc, took))
             _discard(work)
             return
-        gained = _release_count(work) - before
+        gained = _release_total(work, "gdp-jp") - before
         if gained <= 0:
             log("archived GDP releases complete (%.0fs); nothing to swap" % took)
             _discard(work)
@@ -523,17 +541,38 @@ def main():
     # day. The current data is what the stamp is about, and it is current now.
     if not _stopping:
         stamp_cycle()
-    if gdp_vintages and not _stopping:
-        backfill_gdp_vintages()
+    # Current data before history: the equity extractors carry this week's
+    # filings, the GDP archive is a one-off load of 2002-2019 releases that is
+    # already complete on the production volume.
     if days > 0 and not _stopping:
-        backfill_equity(days, max_slices)
+        _phase("equity", backfill_equity, days, max_slices)
+    if gdp_vintages and not _stopping:
+        _phase("GDP vintages", backfill_gdp_vintages)
     # The US shelf: how many quarterly SEC data sets to hold in all (each is
     # ~140MB; 12 is three years). 0 leaves the boot-time load as it is.
     sec_max = int(os.environ.get("BACKFILL_SEC_QUARTERS", "12") or 0)
     if sec_max > 0 and not _stopping:
-        backfill_sec(sec_max)
+        _phase("SEC", backfill_sec, sec_max)
     log("stopped" if _stopping else "done")
     return 0
+
+
+def _phase(name, fn, *args):
+    """Run one phase; a crash in it is logged and the next phase still runs.
+
+    Until 2026-09-21 the phases ran bare, one after another, so an exception
+    in any of them ended the process. A leftover call to a renamed function in
+    the GDP archive loader raised NameError every night, and the equity
+    refresh, which ran next, never ran at all. The phases do not depend on
+    one another, so a fault in one has no reason to cost the rest.
+    """
+    try:
+        fn(*args)
+    except Exception as exc:                                 # noqa: BLE001
+        import traceback
+        traceback.print_exc()
+        log("ATTENTION %s phase crashed (%s: %s); moving on to the next phase"
+            % (name, type(exc).__name__, exc))
 
 
 if __name__ == "__main__":

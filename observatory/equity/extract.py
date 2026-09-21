@@ -281,7 +281,7 @@ JAPANESE_RUN = re.compile(u"[぀-ゟ゠-ヺー-ヿ㐀-䶿一-鿿豈-﫿ｦ-ﾟ]"
 
 # Some filers state no English name by writing a rule of dashes rather than
 # leaving the field empty. That is "not stated", not a name.
-DASHES_ONLY = re.compile(u"^[-‐‑‒–—―─－\s]+$")
+DASHES_ONLY = re.compile(u"^[-‐‑‒–—―─－\\s]+$")
 
 
 def clean_english_name(value):

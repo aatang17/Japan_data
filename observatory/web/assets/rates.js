@@ -413,10 +413,11 @@ function renderCurve() {
       "</a> · " + CV.release.source_id);
 }
 
-function exportCurvePNG() {
+function renderCurvePNG(size) {
   const pal = paletteFor("light");
   const off = document.createElement("div");
-  off.style.cssText = "position:fixed;left:-99999px;width:1200px;height:560px";
+  off.style.cssText = "position:fixed;left:-99999px;width:" + size.w +
+    "px;height:" + size.h + "px";
   document.body.appendChild(off);
   const tmp = echarts.init(off, null, { renderer: "canvas" });
   const opts = curveOptions(pal, false, null);
@@ -426,13 +427,20 @@ function exportCurvePNG() {
   }];
   opts.grid.bottom = 30;
   tmp.setOption(opts);
-  const url = tmp.getDataURL({ pixelRatio: 2, backgroundColor: pal.surface });
+  const url = tmp.getDataURL({
+    pixelRatio: size.out / size.w,
+    backgroundColor: pal.surface,
+  });
   tmp.dispose();
   off.remove();
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "jgb-yield-curve-" + DATES[activeIdx] + ".png";
-  a.click();
+  return url;
+}
+
+/* The curve is not an obsChart, but it is the same shape of picture, so it
+   offers the same sizes and the same copy-to-clipboard. */
+function exportCurvePNG() {
+  obsExportMenu("jgb-yield-curve-" + DATES[activeIdx] + ".png", renderCurvePNG,
+    document.getElementById("curve-png"));
 }
 
 function exportCurveCSV() {

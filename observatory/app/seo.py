@@ -27,7 +27,7 @@ import threading
 from urllib.parse import parse_qsl, urlencode, urlsplit
 from xml.sax.saxutils import escape
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import PlainTextResponse, RedirectResponse, Response
 from starlette.datastructures import Headers
 
@@ -139,9 +139,24 @@ def company_urls():
 router = APIRouter()
 
 
+# The crawlers behind AI assistants, named. `User-agent: *` already admits
+# them; naming them records that the admission is deliberate, so a future
+# edit that tightens the file for some other crawler does not shut them out
+# by accident. A group with several agents and one rule set is valid robots
+# syntax, and a named group replaces `*` for that agent — so it repeats the
+# Disallow lines rather than inheriting them.
+AI_CRAWLERS = ("GPTBot", "OAI-SearchBot", "ChatGPT-User", "ClaudeBot",
+               "Claude-SearchBot", "Claude-User", "anthropic-ai", "PerplexityBot",
+               "Perplexity-User", "Google-Extended", "Applebot", "Applebot-Extended",
+               "Bingbot", "DuckAssistBot", "meta-externalagent", "CCBot")
+
+
 @router.get("/robots.txt", include_in_schema=False)
 def robots():
-    lines = ["User-agent: *", "Allow: /"]
+    lines = ["User-agent: " + agent for agent in AI_CRAWLERS]
+    lines += ["Allow: /"]
+    lines += ["Disallow: " + path for path in DISALLOWED]
+    lines += ["", "User-agent: *", "Allow: /"]
     lines += ["Disallow: " + path for path in DISALLOWED]
     lines += ["", "Sitemap: " + SITE_BASE_URL + "/sitemap.xml"]
     # Not part of the robots standard, and ignored by crawlers that do not know
@@ -151,11 +166,81 @@ def robots():
     return PlainTextResponse("\n".join(lines))
 
 
-def _urlset(urls):
+# ---------------------------------------------------------------------------
+# when a page's data last changed
+# ---------------------------------------------------------------------------
+#
+# The module docstring's objection to <lastmod> was that the only date on
+# hand was the deploy's. That is no longer so: every published release
+# records when it was published (or, failing that, when we fetched it), and a
+# page's numbers change exactly when one of its datasets publishes. So a
+# page's lastmod is the newest release date among the datasets it fronts.
+# Pages with no dataset behind them (methodology, the manual) carry none —
+# an absent field is honest; a deploy date is not.
+
+_lastmod_lock = threading.Lock()
+_lastmod_cache = {"version": object(), "dates": {}}
+
+
+def release_dates():
+    """{dataset: 'YYYY-MM-DD'} for every live release; {} when the database
+    cannot be read. Cached by the database version."""
+    from . import api, db
+    try:
+        version = db.file_version()
+    except Exception:  # noqa: BLE001
+        version = None
+    with _lastmod_lock:
+        if _lastmod_cache["version"] == version:
+            return _lastmod_cache["dates"]
+    dates = {}
+    try:
+        con = api._con()
+        try:
+            rows = con.execute(
+                "SELECT dataset, COALESCE(published_at, ingested_at) FROM releases "
+                "WHERE status='published'").fetchall()
+        finally:
+            con.close()
+        dates = dict((d, str(t)[:10]) for d, t in rows if t)
+    except Exception:  # noqa: BLE001 — a sitemap without dates beats no sitemap
+        dates = {}
+    with _lastmod_lock:
+        _lastmod_cache["version"] = version
+        _lastmod_cache["dates"] = dates
+    return dates
+
+
+def page_lastmod(page_name):
+    """The date the page's data last changed, or None."""
+    dates = release_dates()
+    if not dates:
+        return None
+    from . import answers, prerender
+    spec = answers.BY_PAGE.get(page_name)
+    if spec:
+        ids = [spec["dataset"]]
+    else:
+        try:
+            with (WEB_DIR / page_name).open("r", encoding="utf-8", errors="replace") as handle:
+                html = handle.read()
+        except OSError:
+            return None
+        ids = prerender.page_datasets(html, page_name)
+    found = [dates[d] for d in ids if d in dates]
+    return max(found) if found else None
+
+
+def _urlset(urls, lastmods=None):
     body = ["<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
             "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">"]
     for url in urls:
-        body.append("  <url><loc>%s</loc></url>" % escape(url))
+        when = (lastmods or {}).get(url)
+        if when:
+            body.append("  <url><loc>%s</loc><lastmod>%s</lastmod></url>"
+                        % (escape(url), escape(when)))
+        else:
+            body.append("  <url><loc>%s</loc></url>" % escape(url))
     body.append("</urlset>")
     body.append("")
     return Response("\n".join(body), media_type="application/xml")
@@ -185,7 +270,25 @@ def sitemap():
 
 @router.get("/sitemap-pages.xml", include_in_schema=False)
 def sitemap_pages():
-    return _urlset(page_urls())
+    urls = page_urls()
+    lastmods = {}
+    for url in urls:
+        name = url[len(SITE_BASE_URL) + 1:] or "index.html"
+        when = page_lastmod(name)
+        if when:
+            lastmods[url] = when
+    return _urlset(urls, lastmods)
+
+
+@router.get("/indexnow-key.txt", include_in_schema=False)
+def indexnow_key():
+    """Proof to IndexNow that the key it was handed is ours: the key itself,
+    served at the address the submission names. 404 until a key is set."""
+    from . import indexnow
+    value = indexnow.key()
+    if not value:
+        raise HTTPException(404, "No IndexNow key is configured")
+    return PlainTextResponse(value)
 
 
 @router.get("/sitemap-companies.xml", include_in_schema=False)
@@ -345,11 +448,33 @@ def llms_txt():
         parts.append("## Pages")
         parts.append("")
         parts.append("Every page below states its sources and lets any view be "
-                     "downloaded as CSV with those sources in the file header.")
+                     "downloaded as CSV with those sources in the file header. "
+                     "Every page is also served as Markdown at the same address "
+                     "with `.md` in place of `.html` — the latest reading, a table "
+                     "of the latest values and the credit line, with no script to "
+                     "run — and the HTML carries the same block in a "
+                     "`<details class=\"readable\">` element at the foot of the page.")
         parts.append("")
         for url in pages:
-            parts.append("- " + url)
+            md = url[:-len(".html")] + ".md" if url.endswith(".html") else url + "index.md"
+            parts.append("- %s (Markdown: %s)" % (url, md))
         parts.append("")
+
+    companies = company_urls()
+    parts.append("## Company pages")
+    parts.append("")
+    parts.append("One page per listed company with a filing behind it, at "
+                 "`/company.html?code=XXXX` where XXXX is the securities code, "
+                 "and as Markdown at `/company.md?code=XXXX`: the filer's five-year "
+                 "summary, its ten largest cross-shareholdings, and links to every "
+                 "dataset it appears in. "
+                 + ("All %s are listed in %s/sitemap-companies.xml." % (
+                     "{:,}".format(len(companies)), SITE_BASE_URL) if companies
+                    else "They are listed in %s/sitemap-companies.xml." % SITE_BASE_URL))
+    parts.append("")
+    parts.append("- %s/company.html?code=7203 — example (Markdown: "
+                 "%s/company.md?code=7203)" % (SITE_BASE_URL, SITE_BASE_URL))
+    parts.append("")
 
     parts.append("## Not part of the site")
     parts.append("")
@@ -358,6 +483,27 @@ def llms_txt():
                      "excluded in robots.txt and carrying no published data")
     parts.append("")
     return "\n".join(parts)
+
+
+@router.get("/{name}.md", include_in_schema=False)
+def page_markdown(name: str, request: Request):
+    """Any page as Markdown: `/cpi.md` for `/cpi.html`, `/index.md` for the
+    landing page, `/company.md?code=7203` for one company.
+
+    The same sentence and table the HTML carries in its readable block, with
+    nothing else around them — for a client that would rather not parse a
+    page. Unknown names 404 like any other missing file; a page that opted
+    out of the index with a robots noindex tag is not served here either.
+    """
+    from . import prerender
+    page = WEB_DIR / (name + ".html")
+    if "/" in name or not page.is_file() or not _listed(page):
+        raise HTTPException(404, "No page named %s.html" % name)
+    body = prerender.markdown(name + ".html", request.scope.get("query_string", b"")
+                              .decode("latin-1"))
+    if body is None:
+        raise HTTPException(404, "No page named %s.html" % name)
+    return PlainTextResponse(body, media_type="text/markdown; charset=utf-8")
 
 
 @router.get("/llms.txt", include_in_schema=False)

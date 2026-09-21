@@ -16,6 +16,7 @@ from fastapi.testclient import TestClient
 
 from app import api, equity_api, registry, sec_api
 from app.main import app
+from tests import _data
 
 WEB = pathlib.Path(__file__).resolve().parent.parent / "web"
 
@@ -283,11 +284,13 @@ class CatalogEndpointTest(unittest.TestCase):
         self.assertEqual(sorted(listed), sorted(registry.ids()))
         self.assertEqual(len(listed), len(set(listed)))
 
+    @unittest.skipUnless(_data.MACRO, _data.NO_MACRO)
     def test_catalog_datasets_is_untouched(self):
         r = self.client.get("/api/v1/catalog/datasets")
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.json(), api.catalog())
 
+    @unittest.skipUnless(_data.MACRO, _data.NO_MACRO)
     def test_health_carries_the_manifests_block(self):
         r = self.client.get("/api/v1/catalog/health")
         self.assertEqual(r.status_code, 200)

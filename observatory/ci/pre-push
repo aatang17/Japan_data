@@ -1,0 +1,24 @@
+#!/bin/sh
+# Tier 2 of docs/plans/PLAN-CI-CD.md: the full suite, on the machine that has
+# the data. Tier 1 runs in CI without a database, which means 99 tests skip
+# there; this is where they actually execute.
+#
+# Install:  ln -sf ../../observatory/ci/pre-push .git/hooks/pre-push
+#
+# Bypassable with `git push --no-verify`, deliberately: the gate that must not
+# be bypassable is Tier 1, and that one runs on GitHub where a push cannot
+# argue with it.
+set -e
+cd "$(git rev-parse --show-toplevel)/observatory"
+
+PY=./.venv/bin/python
+[ -x "$PY" ] || PY=python
+
+echo "pre-push: guards"
+"$PY" ci/guards.py >/dev/null || { "$PY" ci/guards.py; exit 1; }
+
+echo "pre-push: registry"
+"$PY" -m app.registry --check >/dev/null || { "$PY" -m app.registry --check; exit 1; }
+
+echo "pre-push: suite (full data)"
+"$PY" ci/suite.py --mode full

@@ -19,6 +19,27 @@
     own filings on EDINET: figures exactly as filed, aggregates calculated with the formula on each page.</p>
   </div>
 
+  <!-- A reader who arrives here usually wants one company, not a directory.
+       The search sends them straight to its profile; the datasets below are
+       for reading across every company at once. -->
+  <div class="dir-start">
+    <div class="dir-start-head">
+      <strong>Start with a company</strong>
+      <span>Everything filed on one name — statements, register, board, buybacks, property —
+      on one page. <a href="company.html">Open Company Profile</a></span>
+    </div>
+    <div class="search-rail">
+      <div class="search-field">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"
+             class="search-icon"><circle cx="7" cy="7" r="4.6"></circle><path d="M10.4 10.4 14 14"></path></svg>
+        <input type="search" id="co-q" autocomplete="off"
+               placeholder="Company name in English or Japanese, or securities code. E.g. Toyota, トヨタ, 7203"
+               aria-label="Find a company" role="combobox" aria-expanded="false" aria-controls="co-results">
+      </div>
+    </div>
+    <ul class="co-results" id="co-results" role="listbox" hidden></ul>
+  </div>
+
   <!-- One table per group. Each row is a dataset: what it holds, where it
        comes from, and one live reading from the same summary endpoint the
        product page uses (assets/equities.js). Never a value baked in. -->

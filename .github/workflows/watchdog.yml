@@ -1,0 +1,40 @@
+# Tier 3 of docs/plans/PLAN-CI-CD.md: ask production whether it is still
+# serving fresh numbers. This is the tier worth the most — the two worst
+# incidents on this platform were both a healthy-looking site serving
+# month-old data, which no test suite can see.
+#
+# A failure here emails on the workflow failure. No alerting service, no
+# token, no secrets: the site is public and so are all of these endpoints.
+name: watchdog
+
+on:
+  schedule:
+    # 22:00 UTC = 07:00 Asia/Tokyo, a few hours after the container's daily
+    # refresh (18:00 Asia/Tokyo) — late enough that a failed refresh shows up
+    # as a missed heartbeat rather than as one in progress.
+    - cron: "0 22 * * *"
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Site to check"
+        default: "https://ploveranalytics.com"
+      post_deploy:
+        description: "Treat staleness as a warning (just deployed)"
+        type: boolean
+        default: false
+
+defaults:
+  run:
+    working-directory: observatory
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Standard library only — nothing to install.
+      - name: smoke
+        run: >-
+          python ci/smoke.py
+          --base-url "${{ inputs.base_url || 'https://ploveranalytics.com' }}"
+          ${{ inputs.post_deploy && '--post-deploy' || '' }}

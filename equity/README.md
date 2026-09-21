@@ -147,6 +147,25 @@ selects the collector). Expect ~2–4GB/yr quiet months, much more in earnings
 seasons (a peak day is ~1,700 disclosures). If a run suddenly reports zero
 disclosures on a weekday, TSE likely redesigned the page — repair the parser.
 
+TDnet deployment recovery (2026-09-19): uploading the repository root left
+Railpack unable to detect an app, while the older container later crashed on
+an S3 `QuotaExceeded` response. Verify bucket writes before retrying capture.
+Deploy a clean directory containing `equity/Dockerfile` and the seven Python
+files named in its `COPY` instruction; do not upload the repository root.
+The service's Dockerfile path is `/Dockerfile`, with `/` as the root of that
+upload. Railway's API selects Dockerfile builds via `dockerfilePath`; its
+`Builder` enum does not accept `DOCKERFILE`.
+
+Keep TDnet's schedule at `30 12 * * *` (12:30 UTC), restart policy `NEVER`,
+`CAPTURE_CMD=tdnet_capture.py`, and `CAPTURE_ARGS=--days 7`. Do not copy the
+shared `equity/railway.json` into the staging directory: its noon schedule
+belongs to the EDINET job. For recovery, temporarily clear the cron and set
+the start command to `python tdnet_capture.py --days 14`, upload the clean
+directory, and verify archive writes and the final capture summary. Restore
+the cron and set the next-run start command to `python tdnet_capture.py --days 7`
+(sending `null` did not clear the override). Existing archived
+documents are skipped. Do not delete archive data to resolve a quota error.
+
 ## BOJ vintage snapshots (`boj_capture.py`)
 
 The BOJ API never deletes — but it **overwrites on revision** (money stock,

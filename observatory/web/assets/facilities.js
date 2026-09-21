@@ -187,7 +187,7 @@
 
   /* PNG export renders on the LIGHT palette regardless of the viewer's theme,
      with the source line burned in — screenshots leave the page. */
-  function exportMapPNG() {
+  function renderMapPNG() {
     var off = document.createElement("div");
     off.style.cssText = "position:fixed;left:-10000px;width:1200px;height:800px";
     document.body.appendChild(off);
@@ -203,12 +203,17 @@
       subtextStyle: { color: light.muted, fontSize: 10, width: 1100, overflow: "break" },
     };
     tmp.setOption(opt);
-    var a = document.createElement("a");
-    a.href = tmp.getDataURL({ pixelRatio: 2, backgroundColor: "#ffffff" });
-    a.download = "japan-facilities-map.png";
-    a.click();
+    var url = tmp.getDataURL({ pixelRatio: 2, backgroundColor: "#ffffff" });
     tmp.dispose();
     document.body.removeChild(off);
+    return url;
+  }
+
+  /* A map has a shape of its own, so it offers copy and download at its own
+     size rather than the slide and column presets a time series takes. */
+  function exportMapMenu() {
+    obsExportMenu("japan-facilities-map.png", renderMapPNG, $("map-png"),
+      { w: 1200, h: 800, out: 2400 });
   }
 
   /* ---- zoom buttons ---- */
@@ -417,7 +422,7 @@
       $("q").value = params.get("q");
       runSearch(params.get("q"));
     }
-    $("map-png").addEventListener("click", function (e) { e.preventDefault(); exportMapPNG(); });
+    $("map-png").addEventListener("click", function (e) { e.preventDefault(); exportMapMenu(); });
     $("map-csv").addEventListener("click", function (e) {
       e.preventDefault();
       if (!mapData) return;

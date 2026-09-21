@@ -314,6 +314,11 @@ def run(slug, from_file=None):
         print("vintage: %d new or revised values, %d withdrawn%s"
               % (len(vintage) - len(withdrawn), len(withdrawn),
                  ", %d series retired" % len(retired) if retired else ""))
+        # The pages this release changed, told to the search indexes. Sent
+        # only when INDEXNOW_KEY is set; never a reason for a non-zero exit.
+        from . import indexnow
+        if indexnow.notify_dataset(slug):
+            print("indexnow: notified for %s" % slug)
         return 0
     except adapter.ValidationError as exc:
         print("VALIDATION FAILED — nothing published: %s" % exc, file=sys.stderr)

@@ -1117,7 +1117,7 @@ function pyramidCsvRows() {
 
 /* Like the map, the pyramid is not an obsChart, so it exports itself —
    light theme, title and source burnt in. */
-function exportPyramidPng() {
+function renderPyramidPng() {
   if (!pyramidChart) return;
   var root = document.documentElement;
   var prev = root.getAttribute("data-theme");
@@ -1148,10 +1148,16 @@ function exportPyramidPng() {
   shot.dispose();
   document.body.removeChild(off);
   if (prev === null) root.removeAttribute("data-theme"); else root.setAttribute("data-theme", prev);
-  var a = document.createElement("a");
-  a.href = url;
-  a.download = "japan-" + name.toLowerCase() + "-population-pyramid.png";
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  return url;
+}
+
+function exportPyramidMenu() {
+  if (!pyramidChart) return;
+  var st = urlState();
+  var name = (GEO_BY_CODE[st.pref] || {}).name_en || st.pref;
+  obsExportMenu("japan-" + name.toLowerCase() + "-population-pyramid.png",
+    renderPyramidPng, document.getElementById("pyr-png"),
+    { w: 900, h: 720, out: 1800 });
 }
 
 /* ---------- history chart ---------- */
@@ -1861,17 +1867,17 @@ function wire() {
                  "# Residents with no recorded age or sex are in the published " +
                    "headcount but in no band"]));
   });
-  document.getElementById("pyr-png").addEventListener("click", exportPyramidPng);
+  document.getElementById("pyr-png").addEventListener("click", exportPyramidMenu);
   document.getElementById("hist-png").addEventListener("click", function () {
     var name = (GEO_BY_CODE[urlState().pref] || {}).name_en || "prefecture";
     if (histChart) histChart.exportPNG("japan-" + name.toLowerCase() + "-population.png");
   });
-  document.getElementById("map-png").addEventListener("click", exportMapPng);
+  document.getElementById("map-png").addEventListener("click", exportMapMenu);
 }
 
 /* The map is not an obsChart, so it exports itself — light theme, with the
    source line burnt in, the same contract every other export here honours. */
-function exportMapPng() {
+function renderMapPng() {
   if (!mapChart) return;
   var root = document.documentElement;
   var prev = root.getAttribute("data-theme");
@@ -1901,10 +1907,14 @@ function exportMapPng() {
   document.body.removeChild(off);
   if (prev === null) root.removeAttribute("data-theme"); else root.setAttribute("data-theme", prev);
 
-  var a = document.createElement("a");
-  a.href = url;
-  a.download = "japan-prefecture-" + st.measure + ".png";
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  return url;
+}
+
+function exportMapMenu() {
+  if (!mapChart) return;
+  obsExportMenu("japan-prefecture-" + urlState().measure + ".png",
+    renderMapPng, document.getElementById("map-png"),
+    { w: 900, h: 760, out: 1800 });
 }
 
 /* ---------- boot ---------- */

@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 
 from app import equity_api, lvh_api, mcp, registry, tools, tools_v2
 from app.main import app
+from tests import _data
 
 EQUITY = equity_api.DB_PATH.exists()
 
@@ -63,6 +64,7 @@ class ProtocolTest(Base):
         self.assertIn("resources", body["result"]["capabilities"])
         self.assertIn("calc", text)
 
+    @unittest.skipUnless(_data.MACRO and _data.EQUITY, _data.NO_BOTH)
     def test_toolset_flag_controls_the_list(self):
         counts = {}
         for ts in ("v1", "v2", "both"):
@@ -89,6 +91,7 @@ class ProtocolTest(Base):
                              "duplicate tool name advertised under %s" % ts)
         self.assertIn("list_datasets", set(counts["v1"]) & set(counts["v2"]))
 
+    @unittest.skipUnless(_data.MACRO and _data.EQUITY, _data.NO_BOTH)
     def test_superseded_v1_names_still_answer(self):
         """Dropped from the catalogue, kept on the wire.
 
@@ -103,6 +106,7 @@ class ProtocolTest(Base):
             data, is_err = call(self.client, name)
             self.assertFalse(is_err, data)
 
+    @unittest.skipUnless(_data.MACRO and _data.EQUITY, _data.NO_BOTH)
     def test_v1_tools_refused_under_v2_and_vice_versa(self):
         os.environ["MCP_TOOLSET"] = "v2"
         # A v1-only name — get_overview is a v2 tool now, generic over every
@@ -163,6 +167,7 @@ class ToolTest(Base):
         self.assertTrue(err)
         self.assertIn("prices", data["error"])
 
+    @unittest.skipUnless(_data.MACRO, _data.NO_MACRO)
     def test_describe_dataset(self):
         data, err = call(self.client, "describe_dataset", dataset="cpi-jp")
         self.assertFalse(err)
@@ -173,6 +178,7 @@ class ToolTest(Base):
         self.assertTrue(err)
         self.assertIn("cpi-jp", data["error"])
 
+    @unittest.skipUnless(_data.MACRO, _data.NO_MACRO)
     def test_get_series_matches_v1(self):
         data, err = call(self.client, "get_series", dataset="cpi-jp", series="0001",
                          measure="yoy")
@@ -187,6 +193,7 @@ class ToolTest(Base):
                          v1["series"][0]["points"][-1])
         self.assertEqual(data["vintage"]["latest_period"], v1["as_of_release"])
 
+    @unittest.skipUnless(_data.MACRO, _data.NO_MACRO)
     def test_get_series_as_of_and_refusals(self):
         data, err = call(self.client, "get_series", dataset="cpi-jp", series="0001",
                          measure="index", as_of="2026-08-20")
@@ -203,12 +210,14 @@ class ToolTest(Base):
         self.assertTrue(err)
         self.assertIn("get_company", data["error"])
 
+    @unittest.skipUnless(_data.MACRO, _data.NO_MACRO)
     def test_search_series(self):
         data, err = call(self.client, "search", query="electricity", dataset="cpi-jp")
         self.assertFalse(err)
         self.assertTrue(data["series"])
         self.assertEqual(data["series"][0]["dataset"], "cpi-jp")
 
+    @unittest.skipUnless(_data.EQUITY, _data.NO_EQUITY)
     def test_screen_rejects_unknown_sort_with_the_valid_list(self):
         # A company dataset answers with its own screen ids.
         data, err = call(self.client, "screen", dataset="cross-shareholdings",
@@ -221,6 +230,7 @@ class ToolTest(Base):
         self.assertTrue(err)
         self.assertIn("Unknown sort", data["error"])
 
+    @unittest.skipUnless(_data.MACRO, _data.NO_MACRO)
     def test_screen_ranks_a_series_dataset(self):
         data, err = call(self.client, "screen", dataset="cpi-jp", limit=5)
         self.assertFalse(err, data)
@@ -229,6 +239,7 @@ class ToolTest(Base):
         values = [r[data["data"]["sort"]] for r in data["data"]["rows"]]
         self.assertEqual(values, sorted(values, reverse=True))
 
+    @unittest.skipUnless(_data.MACRO, _data.NO_MACRO)
     def test_get_overview_is_generic_over_series_datasets(self):
         data, err = call(self.client, "get_overview", dataset="cpi-jp")
         self.assertFalse(err, data)
@@ -239,6 +250,7 @@ class ToolTest(Base):
         data, err = call(self.client, "get_overview", dataset="boj-assets")
         self.assertFalse(err, data)
 
+    @unittest.skipUnless(_data.MACRO, _data.NO_MACRO)
     def test_get_vintages_lists_releases_and_revisions(self):
         data, err = call(self.client, "get_vintages", dataset="cpi-jp")
         self.assertFalse(err, data)
@@ -248,6 +260,7 @@ class ToolTest(Base):
         self.assertFalse(err, data)
         self.assertEqual(data["data"]["mode"], "revisions")
 
+    @unittest.skipUnless(_data.MACRO, _data.NO_MACRO)
     def test_get_breakdown_lists_its_cuts_then_serves_one(self):
         data, err = call(self.client, "get_breakdown", dataset="cpi-jp")
         self.assertFalse(err, data)
@@ -263,6 +276,7 @@ class ToolTest(Base):
         self.assertTrue(err)
         self.assertIn("area", data["error"])
 
+    @unittest.skipUnless(_data.MACRO, _data.NO_MACRO)
     def test_get_series_cites_the_dataset_page_not_the_cpi_explorer(self):
         data, err = call(self.client, "get_series", dataset="jgb-yields", series="10Y")
         self.assertFalse(err, data)

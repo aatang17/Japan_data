@@ -21,6 +21,7 @@ env.load()
 
 from . import api  # noqa: E402 — must follow env.load()
 from .admin_api import router as admin_router  # noqa: E402
+from . import accounts  # noqa: E402
 from .api import router  # noqa: E402
 from .buyback_api import router as buyback_router  # noqa: E402
 from .cohorts_api import router as cohorts_router  # noqa: E402
@@ -31,6 +32,7 @@ from .financials_api import router as financials_router  # noqa: E402
 from .governance_api import router as governance_router  # noqa: E402
 from .lvh_api import router as lvh_router  # noqa: E402
 from .short_api import router as short_router  # noqa: E402
+from .earnings_api import router as earnings_router  # noqa: E402
 from .agm_api import router as agm_router  # noqa: E402
 from .segments_api import router as segments_router  # noqa: E402
 from . import sec_api  # noqa: E402
@@ -44,6 +46,7 @@ from . import refresh  # noqa: E402
 from .mcp import router as mcp_router  # noqa: E402
 from . import seo  # noqa: E402
 from .seo import router as seo_router  # noqa: E402
+from .answers import router as answers_router  # noqa: E402
 from .visits_api import router as visits_router  # noqa: E402
 
 WEB_DIR = pathlib.Path(__file__).resolve().parent.parent / "web"
@@ -185,6 +188,7 @@ app.include_router(governance_router)
 app.include_router(ownership_router)
 app.include_router(lvh_router)
 app.include_router(short_router)
+app.include_router(earnings_router)
 app.include_router(agm_router)
 app.include_router(facility_router)
 app.include_router(financials_router)
@@ -213,8 +217,15 @@ app.include_router(mcp_router)
 # /admin/api also sits outside /api/v1: authenticated responses must never be
 # served from (or into) the shared response cache.
 app.include_router(admin_router)
+# Accounts only exist where ACCOUNTS_ENABLED says so. Absent, every
+# /api/v1/account/… path 404s, and the sign-in page reads that as "not switched
+# on" rather than showing a form that cannot work. Its responses are per-reader
+# and are excluded from the response cache by prefix (app/cache.py).
+if accounts.enabled():
+    app.include_router(accounts.router)
 # robots.txt and sitemap.xml are generated from the pages in web/, so they
 # have to be registered ahead of the static mount that serves those pages —
 # the mount answers every remaining path and would 404 both.
 app.include_router(seo_router)
+app.include_router(answers_router)
 app.mount("/", RevalidatedStatic(directory=str(WEB_DIR), html=True), name="web")

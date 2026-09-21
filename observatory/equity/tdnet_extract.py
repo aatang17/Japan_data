@@ -74,7 +74,7 @@ import duckdb
 from extract import DB_PATH, record_run, compact
 from edinet_honbun import norm
 
-PARSER_VERSION = "td-1"
+PARSER_VERSION = "td-2"
 EXTRACTOR = "tdnet"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -105,6 +105,17 @@ class LocalTdnet(object):
     def doc(self, day, name):
         with open(os.path.join(LOCAL_ROOT, "docs", day, name), "rb") as f:
             return f.read()
+
+    def raw_pages(self, day):
+        d = os.path.join(LOCAL_ROOT, "lists", "raw")
+        if not os.path.isdir(d):
+            return []
+        out = []
+        for n in sorted(os.listdir(d)):
+            if n.startswith(day + "_p") and n.endswith(".html"):
+                with open(os.path.join(d, n), "rb") as f:
+                    out.append(f.read().decode("utf-8", "replace"))
+        return out
 
 
 class S3Tdnet(object):
@@ -143,6 +154,47 @@ class S3Tdnet(object):
     def doc(self, day, name):
         return self.c.get_object(Bucket=self.bucket,
                                  Key="tdnet/docs/%s/%s" % (day, name))["Body"].read()
+
+    def raw_pages(self, day):
+        r = self.c.list_objects_v2(Bucket=self.bucket,
+                                   Prefix="tdnet/lists/raw/%s_p" % day)
+        keys = sorted(o["Key"] for o in r.get("Contents") or []
+                      if o["Key"].endswith(".html"))
+        return [self.c.get_object(Bucket=self.bucket, Key=k)["Body"]
+                .read().decode("utf-8", "replace") for k in keys]
+
+
+# ------------------------------------------------- the list page, as archived
+
+# THE JSON LISTING LOST THINGS THE PAGE HAD. Until September 2026 the capture
+# job matched the code cell with a digits-only pattern, so every company on a
+# post-2024 alphanumeric code (137A0, 588A0) was listed with no code at all —
+# 9% of the wire — and it never kept the company name or the exchange. The
+# page itself was archived beside the listing, so nothing is gone: the cells
+# are read back from it here, keyed by the PDF name both share, and the JSON
+# is only the fallback for a day whose pages are missing.
+RAW_TR = re.compile(r"<tr[^>]*>(.*?)</tr>", re.S)
+RAW_CELL = lambda cls: re.compile(                               # noqa: E731
+    r'<td[^>]*\b%s\b[^>]*>(.*?)</td>' % cls, re.S)
+RAW_CODE, RAW_NAME, RAW_PLACE = (RAW_CELL("kjCode"), RAW_CELL("kjName"),
+                                 RAW_CELL("kjPlace"))
+RAW_PDF = re.compile(r'href="([^"]+\.pdf)"')
+
+
+def raw_rows(pages):
+    u"""{pdf_name: (code, company_name, exchange)} from archived list pages."""
+    cell = lambda rx, tr: (                                      # noqa: E731
+        norm(re.sub(r"<[^>]+>", " ", rx.search(tr).group(1))) if rx.search(tr)
+        else None) or None
+    out = {}
+    for html in pages:
+        for tr in RAW_TR.findall(html):
+            pdf = RAW_PDF.search(tr)
+            if not pdf:
+                continue
+            out[pdf.group(1).rsplit("/", 1)[-1]] = (
+                cell(RAW_CODE, tr), cell(RAW_NAME, tr), cell(RAW_PLACE, tr))
+    return out
 
 
 # ------------------------------------------------------------- the wire index
@@ -297,6 +349,32 @@ def doc_period(document_name, title):
     return "full-year" if u"決算短信" in t else None
 
 
+# The fiscal period a release belongs to is printed only in its headline
+# ("2027年3月期 第1四半期決算短信"); the Summary's contexts say CurrentYear and
+# never which year. Without it two years of first-quarter releases from one
+# company are indistinguishable, so it is read once, here.
+FISCAL_RE = re.compile(u"(\\d{4})\\s*年度?\\s*(\\d{1,2})\\s*月期")
+# About one headline in seventy counts the year in the era: 令和9年2月期 is the
+# year to February 2027. Reiwa 1 is 2019, and the first year is written 元.
+REIWA_RE = re.compile(u"令和\\s*(\\d{1,2}|元)\\s*年\\s*(\\d{1,2})\\s*月期")
+
+
+def fiscal_period(title):
+    u"""'2027-03' from a 決算短信 headline, or None."""
+    t = norm(title or "")
+    m = FISCAL_RE.search(t)
+    if m:
+        year = int(m.group(1))
+    else:
+        m = REIWA_RE.search(t)
+        if not m:
+            return None
+        year = 2018 + (1 if m.group(1) == u"元" else int(m.group(1)))
+    if not 1 <= int(m.group(2)) <= 12:
+        return None
+    return "%d-%02d" % (year, int(m.group(2)))
+
+
 # -------------------------------------------------------------------- gates
 
 def gates(facts):
@@ -329,20 +407,26 @@ CREATE TABLE IF NOT EXISTS eq_tdnet_items (
     disclosed_on DATE, disclosed_at VARCHAR, ord INTEGER,
     sec_code VARCHAR, title VARCHAR, kind VARCHAR,
     pdf_name VARCHAR, xbrl_name VARCHAR,
+    company_name VARCHAR, exchange VARCHAR,
     PRIMARY KEY (disclosed_on, ord));
 CREATE TABLE IF NOT EXISTS eq_tdnet_filings (
     doc_key VARCHAR PRIMARY KEY, disclosed_on DATE, disclosed_at VARCHAR,
     sec_code VARCHAR, company_name VARCHAR, title VARCHAR,
     document_name VARCHAR, period VARCHAR,
     sha256 VARCHAR, parser_version VARCHAR, status VARCHAR, detail VARCHAR,
-    facts INTEGER, gate_checked INTEGER, gate_passed INTEGER);
+    facts INTEGER, gate_checked INTEGER, gate_passed INTEGER,
+    fiscal_period VARCHAR);
+ALTER TABLE eq_tdnet_items ADD COLUMN IF NOT EXISTS company_name VARCHAR;
+ALTER TABLE eq_tdnet_items ADD COLUMN IF NOT EXISTS exchange VARCHAR;
+ALTER TABLE eq_tdnet_filings ADD COLUMN IF NOT EXISTS fiscal_period VARCHAR;
 CREATE TABLE IF NOT EXISTS eq_tdnet_facts (
     doc_key VARCHAR, ord INTEGER, element VARCHAR, context VARCHAR,
     period VARCHAR, period_kind VARCHAR, nature VARCHAR, basis VARCHAR,
     sub_period VARCHAR, unit VARCHAR, value DOUBLE);
 """
 
-FILING_COLS = 15
+FILING_COLS = 16
+FILING_NAMES = ("doc_key, disclosed_on, disclosed_at, sec_code, company_name, title, document_name, period, sha256, parser_version, status, detail, facts, gate_checked, gate_passed, fiscal_period")
 
 
 def entries_of(payload):
@@ -396,16 +480,29 @@ def main():
             stats["day-unreadable"] += 1
             continue
         entries = entries_of(payload)
+        try:
+            raw = raw_rows(src.raw_pages(day))
+        except Exception as e:                                    # noqa: BLE001
+            print("  %s raw pages unreadable: %s" % (day, str(e)[:90]))
+            raw = {}
+        for it in entries:
+            code, name, place = raw.get(it.get("pdf")) or (None, None, None)
+            it["_code"] = sec4(code or it.get("sec_code"))
+            it["_name"] = name or it.get("name")
+            it["_place"] = place
         con.execute("DELETE FROM eq_tdnet_items WHERE disclosed_on = ?", [day])
         rows = []
         for i, it in enumerate(entries):
-            rows.append((day, it.get("time"), i, sec4(it.get("sec_code")),
+            rows.append((day, it.get("time"), i, it["_code"],
                          (it.get("title") or "")[:300], kind_of(it.get("title")),
-                         it.get("pdf"), it.get("xbrl")))
+                         it.get("pdf"), it.get("xbrl"), it["_name"], it["_place"]))
         if rows:
             con.executemany(
-                "INSERT INTO eq_tdnet_items VALUES (?,?,?,?,?,?,?,?)", rows)
+                "INSERT INTO eq_tdnet_items (disclosed_on, disclosed_at, ord, "
+                "sec_code, title, kind, pdf_name, xbrl_name, company_name, "
+                "exchange) VALUES (?,?,?,?,?,?,?,?,?,?)", rows)
             n_items += len(rows)
+            stats["items-without-code"] += sum(1 for r in rows if not r[3])
 
         # Only earnings releases carry a Summary worth parsing; the rest of the
         # XBRL on the wire is dividend and buyback boilerplate whose numbers are
@@ -430,31 +527,36 @@ def main():
                 doc_key = it["xbrl"].rsplit(".", 1)[0]
                 con.execute("DELETE FROM eq_tdnet_filings WHERE doc_key = ?", [doc_key])
                 con.execute("DELETE FROM eq_tdnet_facts WHERE doc_key = ?", [doc_key])
-                base = [doc_key, day, it.get("time"), sec4(it.get("sec_code"))]
+                fiscal = fiscal_period(it.get("title"))
                 if err:
                     stats["failed"] += 1
-                    con.execute("INSERT INTO eq_tdnet_filings VALUES (%s)"
-                                % ",".join(["?"] * FILING_COLS),
-                                base + [None, (it.get("title") or "")[:300], None,
-                                        None, sha, PARSER_VERSION, "failed",
-                                        err, 0, 0, 0])
+                    con.execute("INSERT INTO eq_tdnet_filings (%s) VALUES (%s)"
+                                % (FILING_NAMES, ",".join(["?"] * FILING_COLS)),
+                                [doc_key, day, it.get("time"), it["_code"],
+                                 it["_name"], (it.get("title") or "")[:300], None,
+                                 None, sha, PARSER_VERSION, "failed",
+                                 err, 0, 0, 0, fiscal])
                     continue
                 facts, header = parsed
+                # The release states its own code; the list row is only the
+                # fallback, and the two are never expected to disagree.
+                base = [doc_key, day, it.get("time"),
+                        sec4(header.get("SecuritiesCode")) or it["_code"]]
                 problems, checked, passed = gates(facts)
                 g_checked += checked
                 g_passed += passed
                 status = "partial" if problems else "clean"
                 stats[status] += 1
                 con.execute(
-                    "INSERT INTO eq_tdnet_filings VALUES (%s)"
-                    % ",".join(["?"] * FILING_COLS),
-                    base + [header.get("CompanyName"),
+                    "INSERT INTO eq_tdnet_filings (%s) VALUES (%s)"
+                    % (FILING_NAMES, ",".join(["?"] * FILING_COLS)),
+                    base + [header.get("CompanyName") or it["_name"],
                             (it.get("title") or "")[:300],
                             header.get("DocumentName"),
                             doc_period(header.get("DocumentName"), it.get("title")),
                             sha, PARSER_VERSION, status,
                             "; ".join(problems[:3]) or None,
-                            len(facts), checked, passed])
+                            len(facts), checked, passed, fiscal])
                 if facts:
                     con.executemany(
                         "INSERT INTO eq_tdnet_facts VALUES (?,?,?,?,?,?,?,?,?,?,?)",

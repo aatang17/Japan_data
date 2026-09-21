@@ -51,6 +51,10 @@ STALE_WHILE_REVALIDATE = 600
 # next deploy. The endpoint meant to reveal staleness was the one thing that
 # could not go stale.
 NEVER_CACHE = ("/api/v1/catalog/health",)
+# Whole namespaces that are per-reader rather than per-dataset. Excluded by
+# prefix, not by exact path, so that adding a second account endpoint cannot
+# accidentally put one reader's answer in a cache everybody is served from.
+NEVER_CACHE_PREFIXES = ("/api/v1/account/",)
 
 
 async def warm(app, paths):
@@ -120,7 +124,8 @@ class ResponseCache(object):
         # no body, and one key must not hold both.
         if (scope["type"] != "http" or scope.get("method") != "GET"
                 or not scope["path"].startswith(self.prefix)
-                or scope["path"] in NEVER_CACHE):
+                or scope["path"] in NEVER_CACHE
+                or scope["path"].startswith(NEVER_CACHE_PREFIXES)):
             await self.app(scope, receive, send)
             return
 

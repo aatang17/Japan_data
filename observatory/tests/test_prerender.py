@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""What a crawler without JavaScript receives: links, figures, a description.
+"""What a crawler without JavaScript receives: links, figures, a table, a description.
 
 Run from observatory/:  ./.venv/bin/python -m unittest tests.test_prerender
 """
@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 
 from app import prerender
 from app.main import app
+from tests import _data
 
 WEB = pathlib.Path(__file__).resolve().parent.parent / "web"
 LINK = re.compile(r'(?is)<a\b[^>]*href=["\']([^"\'#]+\.html)')
@@ -40,28 +41,88 @@ class PrerenderTest(unittest.TestCase):
         self.assertIsNotNone(header)
         self.assertIn("<a href=", header.group(1))
 
+    @unittest.skipUnless(_data.MACRO, _data.NO_MACRO)
     def test_a_dataset_page_serves_its_headline_figures(self):
-        block = re.search(r"(?is)<noscript>(.*?)</noscript>", self.cpi)
+        block = re.search(r'(?is)<details class="calc readable".*?</details>', self.cpi)
         self.assertIsNotNone(block, "no figures served for a dataset page")
-        self.assertIn("Latest reading", block.group(1))
-        self.assertRegex(block.group(1), r"\d+\.\d")
+        self.assertIn("Latest reading", block.group(0))
+        self.assertRegex(block.group(0), r"\d+\.\d")
 
-    def test_the_figures_cannot_flash_or_shift_the_layout(self):
-        # <noscript> is never rendered by a browser that runs scripts, so the
-        # sentence cannot appear while the page script waits on its fetch.
-        self.assertNotIn("Latest reading",
-                         re.sub(r"(?is)<noscript>.*?</noscript>", "", self.cpi))
+    @unittest.skipUnless(_data.MACRO, _data.NO_MACRO)
+    def test_a_dataset_page_serves_a_table_of_latest_values(self):
+        # Crawlers that strip <noscript> — several of the ones behind AI
+        # assistants — must still get the numbers: a real <table>, in the
+        # page, with the period, the level and the unit.
+        block = re.search(r'(?is)<details class="calc readable".*?</details>', self.cpi)
+        self.assertIn("<table", block.group(0))
+        self.assertIn("Headline CPI (index)", block.group(0))
+        self.assertGreater(block.group(0).count("<tr>"), 6)
+        self.assertNotIn("<noscript>", self.cpi)
+
+    def test_the_figures_sit_where_no_script_repaints(self):
+        # The block is written after the page's last section, inside <main>,
+        # where no page script assigns innerHTML: it can neither flash nor
+        # move the layout when the data lands.
+        main = re.search(r"(?is)<main\b.*?</main>", self.cpi).group(0)
+        self.assertIn('<details class="calc readable"', main)
+        self.assertLess(main.rfind("<section"), main.find('class="calc readable"'))
+
+    @unittest.skipUnless(_data.MACRO, _data.NO_MACRO)
+    def test_the_same_figures_are_served_as_markdown(self):
+        got = self.client.get("/cpi.md")
+        self.assertEqual(got.status_code, 200)
+        self.assertTrue(got.headers["content-type"].startswith("text/markdown"))
+        self.assertIn("# ", got.text)
+        self.assertIn("Latest reading", got.text)
+        self.assertIn("| Period |", got.text)
+        self.assertIn('type="text/markdown" href="/cpi.md"', self.cpi)
+        self.assertEqual(self.client.get("/no-such-page.md").status_code, 404)
+        self.assertEqual(self.client.get("/admin.md").status_code, 404)
+
+    @unittest.skipUnless(_data.MACRO, _data.NO_MACRO)
+    def test_the_landing_page_counts_are_served_not_dashes(self):
+        home = self.client.get("/").text
+        self.assertRegex(home, r'id="n-datasets">\d')
+        self.assertRegex(home, r'id="n-sources">\d')
+        self.assertIn('"@type":"Organization"', home)
+
+    @unittest.skipUnless(_data.EQUITY, _data.NO_EQUITY)
+    def test_a_company_page_serves_its_own_tables(self):
+        page = self.client.get("/company.html?code=7203").text
+        block = re.search(r'(?is)<details class="calc readable".*?</details>', page)
+        self.assertIsNotNone(block)
+        self.assertIn("Five-year summary", block.group(0))
+        self.assertIn("Cross-shareholdings", block.group(0))
+        md = self.client.get("/company.md?code=7203").text
+        self.assertIn("| Fiscal year end |", md)
+
+    @unittest.skipUnless(_data.EQUITY, _data.NO_EQUITY)
+    def test_a_filings_page_serves_its_summary(self):
+        page = self.client.get("/holdings.html").text
+        block = re.search(r'(?is)<details class="calc readable".*?</details>', page)
+        self.assertIsNotNone(block, "no figures served for a filings page")
+        self.assertIn("filers disclosing", block.group(0))
 
     def test_rates_keep_a_decimal_and_large_numbers_get_separators(self):
         self.assertEqual(prerender._format(2.0, "%"), "2.0%")
-        self.assertEqual(prerender._format(-0.35, "pp"), "-0.3pp")
+        # A true minus: the sentence is on the page now, not in <noscript>.
+        self.assertEqual(prerender._format(-0.35, "pp"), "\u22120.3pp")
         self.assertEqual(prerender._format(5193819.0, "¥100mn"),
                          "5,193,819 ¥100mn")
 
     def test_every_served_page_has_a_description(self):
+        # Read the child sitemaps, not the /sitemap.xml index: the index
+        # lists sitemaps, so a loop over it checks two XML files for a meta
+        # tag, finds none missing and passes while every page goes
+        # undescribed. One company page stands in for the four thousand that
+        # share its template.
+        urls = re.findall(r"<loc>([^<]+)</loc>",
+                          self.client.get("/sitemap-pages.xml").text)
+        urls += re.findall(r"<loc>([^<]+)</loc>",
+                           self.client.get("/sitemap-companies.xml").text)[:1]
+        self.assertTrue(urls, "no pages listed to check")
         missing = []
-        for url in re.findall(r"<loc>([^<]+)</loc>",
-                              self.client.get("/sitemap.xml").text):
+        for url in urls:
             path = url.split("ploveranalytics.com")[-1] or "/"
             body = self.client.get(path).text
             if not re.search(r'(?is)<meta[^>]+name=["\']description["\']', body):

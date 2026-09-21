@@ -1,0 +1,48 @@
+# Tier 1 of docs/plans/PLAN-CI-CD.md: what must be true of the code before it
+# can reach Railway. No data, no secrets, no network calls to e-Stat, the BOJ
+# or the MoF — about two minutes.
+#
+# Railway deploys from main. Turn on "wait for CI" in the service settings or
+# this workflow is advisory: a red commit will deploy anyway.
+name: checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: observatory
+
+jobs:
+  suite:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The laptop runs 3.9 and the container runs 3.12. Code must run on
+        # both, and only the matrix catches a `match` statement or an `X | Y`
+        # annotation that the other interpreter rejects.
+        python-version: ["3.9", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: observatory/requirements.txt
+
+      - name: install the pinned stack
+        run: pip install -r requirements.txt
+
+      - name: guards — the static P0 checks
+        run: python ci/guards.py
+
+      - name: registry — every manifest sound, every endpoint resolving
+        run: python -m app.registry --check
+
+      - name: suite — green with no database present
+        run: python ci/suite.py --mode ci

@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Earnings Releases · Plover Analytics</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/app.css">
+<style>
+/* page-local layout only — tokens and components come from app.css */
+.co-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 14px; margin: 18px 0 4px; }
+.co-head h1 { margin: 0; }
+.co-code { font-family: var(--obs-mono, monospace); color: var(--obs-text-muted); font-size: 15px; }
+.co-name-ja { font-size: 14px; color: var(--obs-text-muted); margin: 2px 0 0; }
+.filing-meta { font-size: 12.5px; color: var(--obs-text-muted); margin: 2px 0 0; }
+
+.tbl-stk { width: 100%; border-collapse: collapse; min-width: 680px; }
+.tbl-stk.wide { min-width: 1040px; }
+.tbl-stk th, .tbl-stk td { padding: 9px 12px; font-size: 13.5px; border-bottom: 1px solid var(--obs-grid); }
+.tbl-stk thead th { font-size: 12px; font-weight: 600; color: var(--obs-text-muted);
+  text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid var(--obs-border); }
+.tbl-stk th { text-align: left; }
+.tbl-stk .r, .tbl-stk th.r { text-align: right; font-variant-numeric: tabular-nums; }
+.tbl-stk tbody tr:hover td { background: var(--obs-surface-subtle); }
+.tbl-stk a { color: var(--obs-primary); text-decoration: none; }
+.tbl-stk a:hover { text-decoration: underline; }
+.tbl-stk .cell-item { max-width: 320px; text-wrap: pretty; }
+.tbl-stk .cell-item.headline { max-width: 520px; }
+.tbl-stk .cell-item .ja { margin-top: 1px; line-height: 1.35; font-size: 12px; color: var(--obs-text-muted); }
+.tbl-stk .sub { display: block; font-size: 11px; color: var(--obs-text-muted); margin-top: 1px; }
+/* a date and a signed change are single tokens — they must never break in two */
+.tbl-stk .nowrap { white-space: nowrap; }
+/* a release that a later one replaced stays on the page, quieter */
+.tbl-stk tr.is-replaced td { color: var(--obs-text-muted); }
+
+.badge-note { color: var(--obs-text-muted); border-color: var(--obs-border);
+  text-transform: none; letter-spacing: 0; font-weight: 500; }
+
+.sec-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline; }
+/* on a phone the note keeps a readable measure and the button drops below it */
+.sec-actions .sec-note { min-width: 280px; }
+.sec-note { font-size: 12.5px; line-height: 1.6; color: var(--obs-text-muted);
+  margin: 0 0 8px; text-wrap: pretty; }
+.sec-note b { color: var(--obs-ink); font-weight: 600; }
+.tbl-formula { font-size: 12px; line-height: 1.55; color: var(--obs-text-muted);
+  margin: 10px 0 0; text-wrap: pretty; }
+
+.fact-row { display: flex; flex-wrap: wrap; gap: 10px 44px; margin: 14px 0 4px;
+  padding-left: 14px; border-left: 2px solid var(--obs-border); }
+.fact-row div { margin: 0; }
+.fact-row dt { font-size: 12px; font-weight: 600; color: var(--obs-text-muted);
+  text-transform: uppercase; letter-spacing: 0.04em; margin: 0 0 3px; }
+.fact-row dd { margin: 0; font-size: 21px; font-weight: 600; color: var(--obs-ink);
+  font-variant-numeric: tabular-nums; line-height: 1.15; }
+.fact-row dd .unit { font-size: 13px; font-weight: 400; color: var(--obs-text-muted); }
+.page-foot { margin: 28px 0 0; padding-top: 12px; border-top: 1px solid var(--obs-border); }
+.page-foot p { font-size: 12.5px; line-height: 1.6; color: var(--obs-text-muted);
+  margin: 0; text-wrap: pretty; }
+.fact-row .qual { display: block; font-size: 12px; font-weight: 400;
+  color: var(--obs-text-muted); margin-top: 2px; }
+</style>
+</head>
+<body class="page-wide">
+
+<header class="site-header" data-section="equities" data-page="earnings"></header>
+<script src="assets/nav.js"></script>
+
+<main class="container">
+  <!-- Filled by assets/nav.js from this page's group in the Equities strip. -->
+  <div class="page-tabs" data-page-tabs></div>
+
+  <!-- market view -->
+  <section id="market-view">
+    <div class="page-head">
+      <h1>Earnings Releases</h1>
+      <p class="page-sub">Quarterly and full-year results as each company disclosed them on the
+      Tokyo Stock Exchange's wire, with the company's own forecast for the year and how far the
+      results have progressed against it. Since the statutory quarterly reports were abolished in
+      2024 this is the only source for first- and third-quarter results — and the exchange deletes
+      each disclosure after about a month.</p>
+    </div>
+
+    <div class="explorer-controls">
+      <div class="search-rail">
+        <div class="search-field">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"
+               class="search-icon"><circle cx="7" cy="7" r="4.6"></circle><path d="M10.4 10.4 14 14"></path></svg>
+          <input type="search" id="q" placeholder="Company name in English or Japanese, or securities code. E.g. Toyota, トヨタ, 7203"
+                 aria-label="Search companies" autocomplete="off">
+        </div>
+      </div>
+    </div>
+    <div id="search-results"></div>
+
+    <p class="coverage-bar" id="coverage"></p>
+    <div class="strip" id="stat-strip"></div>
+
+    <h2>Progress Against Company Forecast <span class="h2-note" id="pr-count"></span></h2>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Reporting period" id="pr-period">
+        <button type="button" data-period="q1" aria-pressed="true">First quarter</button>
+        <button type="button" data-period="q2">Second quarter</button>
+        <button type="button" data-period="q3">Third quarter</button>
+      </div>
+      <div class="seg" role="group" aria-label="Line" id="pr-line">
+        <button type="button" data-line="operating_income" aria-pressed="true">Operating income</button>
+        <button type="button" data-line="revenue">Revenue</button>
+        <button type="button" data-line="profit">Profit</button>
+      </div>
+      <div class="seg" role="group" aria-label="Order" id="pr-order">
+        <button type="button" data-order="desc" aria-pressed="true">Furthest ahead</button>
+        <button type="button" data-order="asc">Furthest behind</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="pr-csv">Download CSV</button>
+    </div>
+    <p class="sec-note" id="pr-meta"></p>
+    <div class="table-wrap"><table class="tbl-stk wide" id="pr-table"></table></div>
+    <p class="tbl-formula" id="pr-formula"></p>
+
+    <h2>Recent Releases <span class="h2-note" id="re-count"></span></h2>
+    <div class="sec-actions">
+      <p class="sec-note" style="flex:1">The newest release per company and period. Amounts and
+      year-on-year changes are <b>official</b>, exactly as the company published them; results
+      are cumulative from the start of the fiscal year. Progress is calculated and carries its
+      formula.</p>
+      <button type="button" class="btn" id="re-csv">Download CSV</button>
+    </div>
+    <div class="table-wrap"><table class="tbl-stk wide" id="re-table"></table></div>
+
+    <h2>Disclosure Wire <span class="h2-note" id="wi-count"></span></h2>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Kind" id="wi-seg">
+        <button type="button" data-kind="forecast-revision" aria-pressed="true">Forecast revisions</button>
+        <button type="button" data-kind="dividend-forecast">Dividend forecasts</button>
+        <button type="button" data-kind="buyback">Buybacks</button>
+        <button type="button" data-kind="tender-offer">Tender offers</button>
+        <button type="button" data-kind="">Everything</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="wi-csv">Download CSV</button>
+    </div>
+    <p class="sec-note" id="wi-meta"></p>
+    <div class="table-wrap"><table class="tbl-stk" id="wi-table"></table></div>
+  </section>
+
+  <!-- company view -->
+  <section id="company-view" hidden>
+    <p style="margin:16px 0 0"><a href="earnings.html">← All earnings releases</a></p>
+    <div class="co-head"><h1 id="c-name"></h1><span class="co-code" id="c-code"></span></div>
+    <p class="co-name-ja" id="c-name-ja" hidden></p>
+    <p class="filing-meta" id="c-meta"></p>
+    <dl class="fact-row" id="c-facts"></dl>
+
+    <h2>Results <span class="h2-note" id="c-res-note"></span></h2>
+    <div class="sec-actions">
+      <p class="sec-note" style="flex:1" id="c-res-meta"></p>
+      <button type="button" class="btn btn-primary" id="c-csv">Download CSV</button>
+    </div>
+    <div class="table-wrap"><table class="tbl-stk" id="c-res-table"></table></div>
+
+    <h2>Company Forecast <span class="h2-note" id="c-fc-note"></span></h2>
+    <p class="sec-note" id="c-fc-meta"></p>
+    <div class="table-wrap"><table class="tbl-stk" id="c-fc-table"></table></div>
+    <p class="tbl-formula" id="c-formula"></p>
+
+    <h2>Dividends per Share</h2>
+    <p class="sec-note">Paid and forecast, as published in this release. A dividend the company
+    has not decided is shown as —, never as zero.</p>
+    <div class="table-wrap"><table class="tbl-stk" id="c-div-table"></table></div>
+
+    <h2>Releases Held <span class="h2-note" id="c-rel-count"></span></h2>
+    <p class="sec-note">Every release archived for this company, newest first. A release that a
+    later one replaced — a re-issue after the auditor's review, or a correction — stays here as
+    disclosed.</p>
+    <div class="table-wrap"><table class="tbl-stk" id="c-rel-table"></table></div>
+
+    <h2>Other Disclosures <span class="h2-note" id="c-wire-count"></span></h2>
+    <div class="table-wrap"><table class="tbl-stk" id="c-wire-table"></table></div>
+  </section>
+
+  <footer class="page-foot">
+    <p>Source: company disclosures on TDnet, the Tokyo Stock Exchange's Timely Disclosure network —
+    the Summary of each 決算短信 (earnings release). Amounts, per-share figures and year-on-year
+    changes are official, exactly as each company tagged them; results are cumulative from the
+    start of the fiscal year. Progress against the company's forecast, which release is current
+    for a period, and the fiscal period read from the headline are calculated here and carry
+    their formula. Each package is archived with its SHA-256 before parsing. TDnet keeps a
+    disclosure public for about a month, so this record begins on 10 July 2026 and cannot be
+    back-filled.</p>
+  </footer>
+</main>
+
+<script src="assets/format.js"></script>
+<script src="assets/sortable.js"></script>
+<script src="assets/earnings.js"></script>
+</body>
+</html>

@@ -191,6 +191,16 @@ def _screen_agm(sort, f, limit):
                        year=int(f.get("year", 0) or 0), kind=kind, include_unverified="")
 
 
+def _screen_earnings(sort, f, limit):
+    # One reporting period at a time: progress after three months and after
+    # nine do not compare, so the period is a required part of the question.
+    return _eq("earnings_api").screen(
+        sort=sort, line=str(f.get("line", "operating_income") or "operating_income"),
+        period=str(f.get("period", "q1") or "q1"),
+        fiscal_period=str(f.get("fiscal_period", "") or ""),
+        order=str(f.get("order", "desc") or "desc"), limit=limit)
+
+
 def _screen_segments(sort, f, limit):
     m = _eq("segments_api")
     # One payload carries both views: filers ranked by their dependence on a
@@ -216,6 +226,7 @@ def _screen_fns():
         "buybacks": _screen_buybacks,
         "facilities": _screen_facilities,
         "financials": _screen_financials,
+        "earnings-releases": _screen_earnings,
         "agm-votes": _screen_agm,
     }
 
