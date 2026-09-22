@@ -45,6 +45,7 @@ from .adapters import (boj_assets, cpi_jp, cpi_jp_goods_services, cpi_jp_items,
                        ust_real_yields, ust_yields,
                        estat_gdp, estat_gfs, mof_hojin,
                        fsa_npl, fsa_bank_results, jba_banks,
+                       boj_loan_rates, boj_deposit_rates, fsa_fi_list,
                        jpx_margin, jpx_investor_type)
 
 ADAPTERS = {"cpi-jp": cpi_jp, "cpi-jp-items": cpi_jp_items, "boj-assets": boj_assets,
@@ -79,6 +80,9 @@ ADAPTERS = {"cpi-jp": cpi_jp, "cpi-jp-items": cpi_jp_items, "boj-assets": boj_as
             "ja-statistics": maff_ja_coops,
             "fsa-npl": fsa_npl, "fsa-bank-results": fsa_bank_results,
             "jba-banks": jba_banks,
+            "boj-loan-rates": boj_loan_rates,
+            "boj-deposit-rates": boj_deposit_rates,
+            "fsa-regional-fi": fsa_fi_list,
             "margin-jp": jpx_margin,
             "investor-flows-jp": jpx_investor_type}
 

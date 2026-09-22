@@ -197,7 +197,12 @@ while true; do
         #
         # --seed installs the shipped database only if it reads further than
         # the volume's, so a redeploy never discards accumulated nights.
+        # --skip bank-irrbb: that collector crawls ~100 bank websites for the
+        # Basel rate-risk tables, which are published nowhere else. Its time
+        # depends on other people's servers, so it must never sit in front of
+        # the healthcheck. app/backfill.py runs it once the port is open.
         python equity/refresh_equity.py --seed seed/equity.duckdb \
+            --skip bank-irrbb \
             || echo "equity refresh did not complete; last good equity data stays live"
 
         # The US comparison shelf: the SEC's quarterly Financial Statement

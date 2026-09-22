@@ -2442,3 +2442,6 @@ details.readable .source-line a { color: var(--obs-primary); }
   padding: 12px 14px; border: 1px solid var(--obs-border); border-radius: 3px;
   background: var(--obs-surface-subtle); font-variant-numeric: tabular-nums;
 }
+
+/* A label cell that must not break mid-word when a wide table scrolls. */
+.nowrap { white-space: nowrap; }

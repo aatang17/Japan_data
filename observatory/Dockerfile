@@ -2,6 +2,11 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
+# pdftotext, for the banks' Basel III rate-risk tables: those exist only
+# inside each bank's own disclosure PDF (equity/irrbb_collect.py).
+RUN apt-get update && apt-get install -y --no-install-recommends poppler-utils \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 

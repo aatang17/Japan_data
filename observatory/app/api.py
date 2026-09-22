@@ -41,6 +41,7 @@ from .adapters import (boj_assets, cpi_jp, cpi_jp_goods_services, cpi_jp_items,
                        ust_real_yields, ust_yields,
                        estat_gdp, estat_gfs, mof_hojin,
                        fsa_npl, fsa_bank_results, jba_banks,
+                       boj_loan_rates, boj_deposit_rates, fsa_fi_list,
                        jpx_margin, jpx_investor_type)
 
 # The agent is optional: without the openai package installed the data API
@@ -91,6 +92,9 @@ ADAPTERS = {"cpi-jp": cpi_jp, "cpi-jp-items": cpi_jp_items, "boj-assets": boj_as
             "ja-statistics": maff_ja_coops,
             "fsa-npl": fsa_npl, "fsa-bank-results": fsa_bank_results,
             "jba-banks": jba_banks,
+            "boj-loan-rates": boj_loan_rates,
+            "boj-deposit-rates": boj_deposit_rates,
+            "fsa-regional-fi": fsa_fi_list,
             "margin-jp": jpx_margin,
             "investor-flows-jp": jpx_investor_type}
 
@@ -1812,6 +1816,15 @@ def observations(dataset,
                 raise HTTPException(
                     400, "'%s' is a flow series and crosses zero; percentage "
                          "changes are not meaningful. Request measure=index." % code)
+            # A rate is already a percentage. A percentage change OF a
+            # percentage (a loan rate going from 1% to 2% is "+100%") is the
+            # unit confusion the trust contract exists to prevent: the change
+            # in a rate is in percentage points, and the tiles carry that.
+            if measure != "index" and kinds.get(code) == "rate":
+                raise HTTPException(
+                    400, "'%s' is a rate in percent; a percentage change of a "
+                         "rate is not meaningful. Request measure=index and "
+                         "difference the values in percentage points." % code)
             raw = (as_of_values.get(code, {}) if as_of_values is not None
                    else _values(con, s["series_id"]))
             pts = _measure_points(raw, measure)

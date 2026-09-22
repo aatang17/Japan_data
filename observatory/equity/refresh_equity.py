@@ -98,6 +98,14 @@ EXTRACTORS = [
     # record that nobody can recover. Cheap — one page and the days we are
     # missing from it, usually one.
     ("short_extract.py",      "short-positions",      []),
+    # Bank balance-sheet notes: bond maturities, unrealised gains, deposits by
+    # term. Reads only the bank-industry filers extract.py has registered, so
+    # it is cheap, and runs after extract.py for that reason.
+    ("bank_extract.py",       "bank-balance",         []),
+    # Each bank's Basel III rate-risk table, from its own disclosure PDF.
+    # Skips institutions already read cleanly by this parser version, so a
+    # night costs only the ones still missing; needs pdftotext (Dockerfile).
+    ("irrbb_collect.py",      "bank-irrbb",           []),
 ]
 
 # buyback.py takes neither --db nor --no-compact; it reads EQUITY_DB_PATH and
@@ -208,6 +216,12 @@ def main():
                     help="re-extract the whole archive instead of resuming "
                          "from each extractor's watermark (hours, not minutes)")
     ap.add_argument("--only", help="comma-separated labels to run")
+    ap.add_argument("--skip", help="comma-separated labels NOT to run. start.sh "
+                                   "passes the bank rate-risk collector here: it "
+                                   "reads bank WEBSITES, not the archive, so its "
+                                   "time is not ours to predict and it has no place "
+                                   "in the window before the port opens. "
+                                   "app/backfill.py runs the full list after.")
     ap.add_argument("--seed", help="shipped seed database to install first, but "
                                    "only if it reads further than the live one")
     ap.add_argument("--no-compact", action="store_true")
@@ -232,6 +246,10 @@ def main():
                    os.path.join(os.path.dirname(args.db), "listing-cache"))
 
     todo = EXTRACTORS
+    if args.skip:
+        drop = {x.strip() for x in args.skip.split(",") if x.strip()}
+        todo = [e for e in todo if e[1] not in drop]
+        print("skipping: %s" % ", ".join(sorted(drop)), flush=True)
     if args.only:
         want = {x.strip() for x in args.only.split(",") if x.strip()}
         todo = [e for e in EXTRACTORS if e[1] in want]

@@ -209,6 +209,14 @@ def _screen_segments(sort, f, limit):
     return m.concentration(min_share=float(f.get("min_share", 0) or 0))
 
 
+def _screen_banks(sort, f, limit):
+    m = _eq("bank_api")
+    if sort == "irrbb":
+        return m.irrbb(fi_type=str(f.get("fi_type", "") or ""),
+                       basis=str(f.get("basis", "consolidated") or "consolidated"), limit=limit)
+    return m.ranking(metric=sort, year=f.get("year", ""), limit=limit)
+
+
 def _screen_sec(sort, f, limit):
     return _eq("sec_api").screen(metric=sort, fy=str(f.get("fy", "") or ""),
                                  order=str(f.get("order", "desc") or "desc"),
@@ -229,6 +237,7 @@ def _screen_fns():
         "financials": _screen_financials,
         "earnings-releases": _screen_earnings,
         "agm-votes": _screen_agm,
+        "bank-balance": _screen_banks,
     }
 
 

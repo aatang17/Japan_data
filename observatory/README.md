@@ -48,6 +48,19 @@ three banking datasets:
 
 and six trade datasets, all from the same Ministry of Finance table and served by one page script:
 
+- **boj-loan-rates** — the BOJ's average contract interest rates on loans by lender (city, regional,
+  regional II, shinkin): new loans made in the month from 1993 and the outstanding book from 1976,
+  % per year, monthly.
+- **boj-deposit-rates** — the BOJ's average rates posted on ordinary and time deposits by term and
+  size, monthly from April 2022.
+- **fsa-regional-fi** — the FSA's annual list of every regional bank, shinkin bank and credit
+  co-operative (~500) with deposits, loans, capital and bad-loan ratios, branches and SME lending;
+  one point in time per edition, and the source of each institution's disclosure-page URL.
+- **bank-balance** (equity, `equity/bank_extract.py` + `equity/irrbb_collect.py`) — per bank: securities
+  and loans by remaining term, deposits by term, unrealised gains and losses by type and the bank's
+  own VaR from the securities report; and each bank's Basel III IRRBB1 table (ΔEVE, ΔNII, Tier 1)
+  read from its own Pillar 3 disclosure PDF (needs `pdftotext`). Served at
+  `/api/v1/equity/banks/…` and on the Banks page.
 - **trade-semis** — Japan's semiconductor trade by partner country: monthly customs value
   (¥1,000) and quantity for integrated circuits, discrete semiconductors, thermionic tubes,
   the published component group, and semiconductor manufacturing equipment, in **both
@@ -227,6 +240,11 @@ python3 -m venv .venv
 ./.venv/bin/python -m app.ingest fsa-npl                 # 40 small FSA workbooks
 ./.venv/bin/python -m app.ingest fsa-bank-results
 ./.venv/bin/python -m app.ingest jba-banks               # ~72MB of JBA workbooks, ~8 min
+./.venv/bin/python -m app.ingest boj-loan-rates
+./.venv/bin/python -m app.ingest boj-deposit-rates
+./.venv/bin/python -m app.ingest fsa-regional-fi
+(cd equity && ../.venv/bin/python bank_extract.py --source api --all)      # EDINET_API_KEY; or --source s3
+(cd equity && ../.venv/bin/python irrbb_collect.py --types regional-1,regional-2)   # bank websites, pdftotext
 
 # segment notes (revenue by region, named customers, reportable segments) from the
 # annual reports already archived — the company side of the Company Lens
@@ -376,6 +394,102 @@ Seed the group structure once from the already-curated group map:
 **Back it up.** The live store is on the mounted volume; `Export To Repo` copies it to
 `curation/parties.json`, which seeds an *absent* store on boot and is meant to be committed.
 An unreadable live store is never silently replaced by the seed.
+
+## Investment Assistant (`/assistant.html`)
+
+A signed-in reader's desk of specialists: named, versioned analyst-agents that run on the
+**customer's own model key** against the same tools the MCP endpoint serves, post what
+they find with the filing attached, and ask a person before anything goes outward. The
+plan is `docs/plans/PLAN-INVESTMENT-ASSISTANT.md`; how one run works is
+`docs/plans/ARCH-INVESTMENT-ASSISTANT-AGENT.md`. Code lives in `app/assistant/`, its own
+namespace — the golden rule for datasets does not apply and nothing here writes a dataset
+file.
+
+- **Switches.** Off unless both `ACCOUNTS_ENABLED` and `ASSISTANT_ENABLED` are truthy.
+  `ASSISTANT_SECRET` (a long random string) seals each desk's model key and Slack
+  webhook before they are stored; without it a desk can be browsed but no key can be
+  stored and no run starts. `ASK_ENABLED` is unrelated and stays off: the assistant never
+  spends our key.
+- **Store.** The `ia_*` tables in `data/workspace.db`, beside the account tables
+  (`app/assistant/store.py`): desks, hires, coverage, runs, tool calls, posts, approvals,
+  threads, messages, files. SQLite, WAL mode; never the DuckDB files.
+- **A run** (`app/assistant/runner.py`): the specialist's brief plus fixed trust rules,
+  the desk's coverage list and its last summary, then a tool loop on the customer's key
+  through `app/assistant/gateway.py` (Anthropic and OpenAI-compatible endpoints, urllib,
+  no SDK). Read tools are `tools_v2.run_tool`; the only action tools are `post_to_desk`,
+  `request_approval`, `write_workspace_file` and `my_coverage`, and a note without a
+  source is refused. The allowlist in `app/assistant/specialists.py` is enforced by the
+  runner, not the prompt. Budgets: 30 tool calls, 60k tokens, 5 minutes. Every call is
+  recorded with its latency and a hash of its result.
+- **Monitors do their bookkeeping in code** (`app/assistant/digest.py`). A specialist
+  whose manifest says `prepare: coverage` does not loop the model over raw filings: the
+  runner fetches each covered company's latest earnings and buyback state through the
+  same tools, diffs it against the hire's `state/coverage.json`, and hands the model a
+  short digest with every document id attached. One model call writes the note; sources
+  on the post come from the code, not the model; a scheduled run with nothing new posts
+  "no new filings" without calling a model at all. Tool results in the ordinary loop are
+  compacted for the model (`runner.compact_result`: explanatory notes, vintage and
+  truncation metadata, raw facts and repeated row columns removed; numbers never
+  touched). Manifests carry a `tier`: `monitor` specialists run on the desk's optional
+  monitor model (a cheaper one is enough), research specialists on the main model.
+- **Approval is the only outward path.** `request_approval` writes a pending row and the
+  Inbox shows it; `POST /approvals/{id}/approve` is what posts to Slack
+  (`app/assistant/delivery.py`). A run cannot send anything itself.
+- **Triggers today.** An `@mention` in the `#desk` feed, a thread question, and "Run now"
+  on a specialist's page, each executed in a worker thread while the request waits.
+  Scheduled runs: `python -m app.assistant.runner --all` (every enabled hire on every
+  desk with its default task) from cron or the nightly loop — not wired into `start.sh`
+  yet, because it spends customers' keys and should be switched on per desk.
+- **API** under `/api/v1/assistant/…` (`app/assistant/api.py`): `status`, `desk`,
+  `specialists` and `…/{slug}/hire`, `hires/{id}/run|update`, `coverage`, `feed`,
+  `inbox`, `approvals/{id}/approve|decline`, `threads`, `runs`, `audit`, `files`,
+  `settings` and `settings/test`. Every route reads the sign-in cookie and answers 401
+  without one; the namespace is excluded from the shared response cache by prefix.
+- **Outside agents** (`app/assistant/desk_mcp.py`). A reader can connect their own
+  Claude Code, Codex or any MCP client to their desk at `POST /mcp/desk`, with a personal
+  key made under Settings › Connections (`/api/v1/assistant/connections`; only the key's
+  SHA-256 is stored, shown once, revocable). It serves the same read tools as `/mcp`
+  plus the desk: `desk_overview`, `read_feed`, `list_threads`, `read_thread`,
+  `add_to_coverage`, `post_to_desk`, `request_approval`, `ask_specialist`. There is no
+  send tool; `request_approval` lands in the Inbox. Reading tools carry
+  `readOnlyHint` so Codex runs them without asking and asks before any write. Calls are
+  audited under one run per connection per day. Setup, as the Settings page prints it:
+  `claude mcp add --transport http plover-desk <url>/mcp/desk --header "Authorization:
+  Bearer <key>"`; for Codex, `[mcp_servers.plover-desk] url = ".../mcp/desk"` and
+  `bearer_token_env_var = "PLOVER_DESK_KEY"` in `~/.codex/config.toml`. Both verified
+  end to end on 23 Sep 2026 (Claude Code 2.1.278, codex-cli 0.144.3).
+- **Coverage lists.** A desk keeps named lists (`ia_lists`, `ia_list_items`): the main
+  "Coverage" list, which cannot be deleted, and any the PM creates. The first desks' single
+  list (`ia_coverage`) moves into the main list the first time lists are read. A specialist
+  watches the main list unless its hire's config names another (`POST
+  /hires/{id}/config`); deleting a watched list sends it back to the main one. Routes:
+  `GET|POST /lists`, `PATCH|DELETE /lists/{id}`, and `list_id` on `/coverage` and
+  `/companies`. The page (`#/coverage`) removes a company in two steps (Remove, Confirm).
+- **Coverage search.** `GET /api/v1/assistant/companies?q=` feeds the coverage box as a
+  type-ahead: a code, an English or Japanese name, or a market nickname (MUFG), ranked
+  exact code › code prefix › name prefix (company-type words such as 株式会社 and filing
+  footnote marks ignored), each marked if already covered. Backed by the equity company
+  index (~20 ms), falling back to the all-dataset search (~1.6 s) where that index is
+  absent. The desk MCP's `add_to_coverage` takes a name too, and answers with the
+  candidates when a name matches more than one company.
+- **The desk's own MCP servers** (`app/assistant/mcp_client.py`, page `#/tools`). A PM
+  registers their firm's or a vendor's MCP server once; its tools are then offered to
+  every specialist on that desk, named `ext_<server><id>_<tool>` so they cannot collide
+  with ours, and every call is audited like any other. The tool list is cached on the
+  server record by the connection check, so a run never waits on `tools/list`. **The URL
+  is checked before any request**: https only, every address the host resolves to must be
+  public (no loopback, private, link-local or metadata address), no redirects, 30-second
+  timeout, 2 MB cap — otherwise a stored server would be a way to read whatever the
+  container can reach. `ASSISTANT_MCP_ALLOW_HOSTS` exempts named hosts for local work.
+- **Stored keys** (page `#/keys`). Named secrets (`ia_secrets`), sealed by the keychain,
+  referred to by an MCP server rather than pasted into it. No route returns a key: reads
+  give the name, the last four characters and what uses it. A key in use cannot be
+  deleted until the server using it is changed. The model key and Slack webhook stay in
+  Settings and are listed on the page for completeness.
+- **Health.** `/api/v1/catalog/health` carries an `assistant` row with the last
+  successful run when the feature is on, so a stalled runner is visible.
+- **Tests.** `tests/test_assistant.py` drives the whole loop with a scripted model and
+  canned tools: no key, no network, no data.
 
 ## Deploy
 

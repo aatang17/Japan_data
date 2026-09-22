@@ -106,6 +106,60 @@
     </div>
   </section>
 
+  <section aria-labelledby="h-rates">
+    <h2 id="h-rates">Loan and Deposit Rates by Lender <span class="h2-note" id="rates-note"></span></h2>
+    <p class="section-sub">The average rate on loans made in the month, by type of lender, and the average
+      rate posted on ordinary deposits — the two ends of a bank's margin, as the Bank of Japan publishes them.</p>
+    <div class="chart-panel">
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Date range" id="rates-range">
+        <button type="button" data-range="10" aria-pressed="false">10 years</button>
+        <button type="button" data-range="max" aria-pressed="true">All</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="rates-png">Download PNG</button>
+      <button type="button" class="btn" id="rates-csv">Download CSV</button>
+    </div>
+    <div class="chart" id="rates-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="rates-source"></p>
+    <details class="calc" id="rates-calc"></details>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-book">
+    <h2 id="h-book">Bond Book by Remaining Term <span class="h2-note" id="book-note"></span></h2>
+    <p class="section-sub">The bank selected above: its securities and loans by remaining term, its deposits
+      by term, and the unrealised gain or loss on its securities by type — from the notes to its annual
+      securities report. Principal amounts by term, as the note states; book value and cost for the gains.</p>
+    <div class="table-wrap" id="book-table"><div class="skeleton" style="width:100%;height:240px"></div></div>
+    <p class="table-foot" id="book-foot"></p>
+    <h3 id="afs-title">Unrealised Gains and Losses on Securities</h3>
+    <div class="table-wrap" id="afs-table"></div>
+    <p class="table-foot" id="afs-foot"></p>
+    <h3 id="irr-title">Rate Risk Disclosed Under Basel III</h3>
+    <div class="table-wrap" id="irr-table"></div>
+    <p class="table-foot" id="irr-foot"></p>
+    <div class="controls">
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="book-csv">Download CSV</button>
+    </div>
+    <details class="calc" id="book-calc"></details>
+  </section>
+
+  <section aria-labelledby="h-irrbb">
+    <h2 id="h-irrbb">Rate Risk by Bank <span class="h2-note" id="irrbb-note"></span></h2>
+    <p class="section-sub">Every regional bank's own Basel III figure: the fall in the economic value of its
+      banking book under the worst of six prescribed rate shocks (ΔEVE), against its Tier 1 capital, as
+      each bank printed it in its Pillar 3 disclosure. The supervisor's yardstick is 15% of Tier 1.</p>
+    <div class="table-wrap" id="irrbb-table"><div class="skeleton" style="width:100%;height:300px"></div></div>
+    <p class="table-foot" id="irrbb-foot"></p>
+    <div class="controls">
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="irrbb-csv">Download CSV</button>
+    </div>
+    <details class="calc" id="irrbb-calc"></details>
+  </section>
+
   <section aria-label="Data sources and provenance" class="prov">
     <div id="prov-cards"></div>
   </section>
@@ -114,7 +168,7 @@
 
 <footer class="site-footer">
   <div class="inner">
-    <span id="credit-line">Source: Financial Services Agency (金融再生法開示債権の状況等; 主要行等・地域銀行の決算の概要) and Japanese Bankers Association (全国銀行財務諸表分析).</span>
+    <span id="credit-line">Source: Financial Services Agency (金融再生法開示債権の状況等; 主要行等・地域銀行の決算の概要), Japanese Bankers Association (全国銀行財務諸表分析), company filings on EDINET and each bank's Basel III Pillar 3 disclosure. This service uses the API provided by the 'Bank of Japan Time-Series Data Search.' The Bank of Japan does not guarantee the content of the service.</span>
     Amounts and ratios are official figures as published; changes are calculated from them.
     <a href="methodology.html#calc-jba-banks">Methodology</a>
   </div>

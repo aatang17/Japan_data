@@ -28,6 +28,7 @@ from .cohorts_api import router as cohorts_router  # noqa: E402
 from . import equity_api  # noqa: E402
 from .equity_api import router as equity_router  # noqa: E402
 from .facility_api import router as facility_router  # noqa: E402
+from .bank_api import router as bank_router  # noqa: E402
 from .financials_api import router as financials_router  # noqa: E402
 from .governance_api import router as governance_router  # noqa: E402
 from .lvh_api import router as lvh_router  # noqa: E402
@@ -192,6 +193,7 @@ app.include_router(short_router)
 app.include_router(earnings_router)
 app.include_router(agm_router)
 app.include_router(facility_router)
+app.include_router(bank_router)
 app.include_router(financials_router)
 app.include_router(segments_router)
 app.include_router(risk_router)

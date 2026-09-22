@@ -475,6 +475,96 @@
     </div>
   </details>
 
+  <details class="ds" id="calc-boj-rates">
+    <summary><span>Loan and deposit rates (Bank of Japan)</span><span class="ds-note">By lender, % per year, monthly</span></summary>
+    <div class="ds-body">
+    <ul>
+      <li><strong>boj-loan-rates</strong>: the average contracted interest rate on loans and discounts
+      (貸出約定平均金利, database IR04) by type of lender — domestically licensed banks, city banks,
+      regional banks, second-tier regional banks and shinkin banks — on new loans made in the month
+      (total, short-term, long-term; from October 1993) and on the outstanding loan book at month-end
+      (total, short, long, overdrafts; loans on deeds and discounted bills; from 1976). Sixty-three
+      series, every code checked against the BOJ's own catalogue.</li>
+      <li><strong>boj-deposit-rates</strong>: the average of the rates financial institutions post on
+      ordinary deposits and on time deposits by term (1 month to 10 years) and by size of deposit
+      (under ¥3 million, ¥3–10 million, ¥10 million and over), monthly from April 2022 (database
+      IR02). The BOJ's earlier weekly regimes of the same survey carry different codes and are not
+      spliced on.</li>
+      <li>A rate is a level in percent per year. The change in a rate is in percentage points and is
+      shown as <code>value[t] − value[t−1 month]</code> or <code>value[t] − value[t−12 months]</code>.
+      The API refuses the ratio measures (year over year, month over month, annualised) on a rate: a
+      loan rate going from 1% to 2% is not "+100%".</li>
+      <li>The lender groups were re-based at March 2002: the trust-bank, long-term-credit-bank and
+      sub-total lines end there and are kept as their own series. Shinkin banks' outstanding-rate
+      series have 32 unpublished months in 1976–1978; the gaps are the BOJ's.</li>
+      <li>Both datasets carry the BOJ's mandatory credit line wherever they are shown or exported.</li>
+    </ul>
+    </div>
+  </details>
+
+  <details class="ds" id="calc-fsa-regional-fi">
+    <summary><span>Regional banks, shinkin banks and credit co-operatives (FSA list)</span><span class="ds-note">~500 institutions, one point in time per edition</span></summary>
+    <div class="ds-body">
+    <ul>
+      <li>The FSA's annual 中小・地域金融機関情報一覧: every regional bank, second-tier regional bank,
+      shinkin bank and credit co-operative with deposits, loans, the capital ratio, the bad-loan
+      ratio, branches, loans to SMEs and the number of SME borrowers for two year-ends, compiled by
+      the FSA from each institution's own disclosure. Series are <code>{金融機関コード}.{line}</code>
+      (0134 Chiba Bank, 1001 Hokkaido Shinkin).</li>
+      <li>The bank file is in 億円 and the co-operative file in 百万円; the bank figures are multiplied
+      by 100 — an exact change of unit — so every amount is in 百万円 and one loan-to-deposit ranking
+      can run across all five hundred. Ratios are in percent as published.</li>
+      <li>The FSA overwrites the same file each year, so the history is only the editions ingested
+      here. Loans to SMEs and SME borrowers carry two year-ends per edition; every other figure is
+      dated to the later one. An institution listed with no figures (one being wound up) is a gap,
+      never zero.</li>
+    </ul>
+    </div>
+  </details>
+
+  <details class="ds" id="calc-bank-balance">
+    <summary><span>Bank bond maturities, unrealised losses and rate risk</span><span class="ds-note">Per bank, from the securities report and the Pillar 3 disclosure</span></summary>
+    <div class="ds-body">
+    <ul>
+      <li><strong>Maturity ladder</strong> (金銭債権及び満期のある有価証券の連結決算日後の償還予定額):
+      securities and loans by remaining term in six buckets — within 1 year, 1–3, 3–5, 5–7, 7–10 and
+      over 10 years — with the securities split into held-to-maturity and available-for-sale and each
+      into JGBs, municipal, corporate, foreign and other; and deposits, CDs, borrowings and bonds by
+      the same terms. Read from the HTML tables of the financial-instruments note in each bank's
+      有価証券報告書 on EDINET; nothing in it is tagged as a number. Amounts are principal, as the
+      note states, not book value. A few filers print five buckets with an open-ended 7年超; that
+      column is stored as such (<code>bucket_scheme = 5_open7</code>) and never read as 7–10.</li>
+      <li><strong>Unrealised gains and losses</strong> (（有価証券関係） その他有価証券): book value, cost
+      and the difference by type — equities, bonds (JGBs, municipal, corporate), other (foreign
+      bonds, investment trusts) — in the note's own two blocks (above cost, below cost) and the total;
+      held-to-maturity bonds' book value, fair value and difference from the neighbouring table.</li>
+      <li><strong>Gates.</strong> The current-year ladder's 合計 must equal the sum of its top-level
+      rows in every bucket (a 有価証券 line the filer leaves blank takes the sum of its printed parts,
+      which is what the 合計 adds); the available-for-sale table's 合計 must equal its two blocks and its
+      difference must equal book value less cost. A filing that fails is <em>partial</em>: shown as
+      printed on its own page, excluded from rankings and group sums.</li>
+      <li><strong>Rate risk (IRRBB1).</strong> ΔEVE and ΔNII under the six Basel rate shocks, the
+      largest of them and Tier 1 capital, exactly as each bank printed them in its own Pillar 3
+      disclosure (自己資本の充実の状況 → 金利リスク). That table is not on EDINET: it is found by
+      starting from the disclosure page the FSA records for the institution, walking that site at
+      most two pages deep, converting candidate PDFs to text and accepting a document only when its
+      text carries the IRRBB1 template. The source URL, the PDF's SHA-256 and the page are stored and
+      the table's text is archived. Gates: 最大値 must equal the largest of the six ΔEVE values;
+      Tier 1 must be positive and larger than the largest ΔEVE. An as-of date read from the document
+      rather than the table is recorded as such.</li>
+      <li><strong>Derived, with formula:</strong> unrealised bond loss as a share of net assets =
+      available-for-sale bond difference ÷ consolidated net assets (純資産, from the same report) ×
+      100; share beyond ten years = over-10-year securities ÷ the sum of all six buckets × 100;
+      ΔEVE ÷ Tier 1 = 最大値 ΔEVE ÷ Tier 1 × 100, both from the same table. Group sums add only
+      filings that passed every gate.</li>
+      <li><strong>Keys.</strong> The report data is by EDINET filer (securities code); the rate-risk
+      table by the FSA's 金融機関コード, because the bank publishes it, not its holding company. The two
+      are linked by name plus a fixed table for banks whose report is filed by a listed holding
+      company (Yokohama Bank → Yokohama FG); <code>fi:0138</code> addresses a bank by its FSA code.</li>
+    </ul>
+    </div>
+  </details>
+
   <details class="ds" id="calc-fiscal-jp">
     <summary><span>Public finances</span><span class="ds-note">MOF, Cabinet Office and MIC, fiscal-year and quarterly</span></summary>
     <div class="ds-body">
