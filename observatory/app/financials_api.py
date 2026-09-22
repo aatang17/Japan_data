@@ -987,6 +987,7 @@ def screener(industry: str = Query("", description="EDINET industry (Japanese), 
              equity_ratio_min: str = Query(""), equity_ratio_max: str = Query(""),
              revenue_growth_min: str = Query(""), pbr_implied_max: str = Query(""),
              dividend_yield_min: str = Query(""), cash_to_assets_min: str = Query(""),
+             net_cash_to_assets_min: str = Query(""),
              cohort: str = Query("", description="restrict to a cohort, e.g. size:core30, "
                                                  "ind33:3650 or codes:7203,6758 — "
                                                  "see /api/v1/equity/cohorts"),
@@ -1013,7 +1014,8 @@ def screener(industry: str = Query("", description="EDINET industry (Japanese), 
         ("operating_margin_min", operating_margin_min), ("equity_ratio_min", equity_ratio_min),
         ("equity_ratio_max", equity_ratio_max), ("revenue_growth_min", revenue_growth_min),
         ("pbr_implied_max", pbr_implied_max), ("dividend_yield_min", dividend_yield_min),
-        ("cash_to_assets_min", cash_to_assets_min))}
+        ("cash_to_assets_min", cash_to_assets_min),
+        ("net_cash_to_assets_min", net_cash_to_assets_min))}
 
     def ge(val, floor):
         return floor is None or (val is not None and val >= floor)
@@ -1037,7 +1039,8 @@ def screener(industry: str = Query("", description="EDINET industry (Japanese), 
                 and ge(m["revenue_growth_pct"], f["revenue_growth_min"])
                 and le(m["pbr_implied_x"], f["pbr_implied_max"])
                 and ge(m["dividend_yield_implied_pct"], f["dividend_yield_min"])
-                and ge(m["cash_to_assets_pct"], f["cash_to_assets_min"])):
+                and ge(m["cash_to_assets_pct"], f["cash_to_assets_min"])
+                and ge(m["net_cash_to_assets_pct"], f["net_cash_to_assets_min"])):
             continue
         kept.append(r)
 

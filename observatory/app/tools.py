@@ -895,7 +895,8 @@ def screen_financial_metrics(sort="roe_pct", order="desc", industry="", standard
                              min_revenue_yen="", min_assets_yen="", roe_min="", roe_max="",
                              roa_min="", operating_margin_min="", equity_ratio_min="",
                              equity_ratio_max="", revenue_growth_min="", pbr_implied_max="",
-                             dividend_yield_min="", cash_to_assets_min="", limit=25):
+                             dividend_yield_min="", cash_to_assets_min="",
+                             net_cash_to_assets_min="", limit=25):
     """Filtered, ranked cross-section on platform-calculated ratios."""
     raw, err = _fin_guard(lambda: call_api(financials_api.screener,
         industry=industry or "", standard=standard or "",
@@ -905,6 +906,7 @@ def screen_financial_metrics(sort="roe_pct", order="desc", industry="", standard
         equity_ratio_min=str(equity_ratio_min or ""), equity_ratio_max=str(equity_ratio_max or ""),
         revenue_growth_min=str(revenue_growth_min or ""), pbr_implied_max=str(pbr_implied_max or ""),
         dividend_yield_min=str(dividend_yield_min or ""), cash_to_assets_min=str(cash_to_assets_min or ""),
+        net_cash_to_assets_min=str(net_cash_to_assets_min or ""),
         sort=sort or "roe_pct", order=order or "desc",
         limit=max(1, min(int(limit or 25), 200)), offset=0))
     if err:
@@ -1426,7 +1428,9 @@ EQUITY_TOOL_SCHEMAS = [
                 "platform-calculated ratio, with optional filters. sort: roe_pct, "
                 "roa_pct, operating_margin_pct, net_margin_pct, equity_ratio_pct, "
                 "asset_turnover_x, revenue_growth_pct, profit_growth_pct, "
-                "cash_conversion_x, fcf_yen, fcf_margin_pct, cash_to_assets_pct, "
+                "cash_conversion_x, fcf_yen, fcf_margin_pct, liquid_cash_yen, "
+                "net_cash_yen, investment_securities_yen, cash_to_assets_pct, "
+                "net_cash_to_assets_pct, investment_securities_to_assets_pct, "
                 "pbr_implied_x, dividend_yield_implied_pct, or a size field "
                 "(revenue_yen, profit_yen, total_assets_yen, equity_owners_yen, "
                 "cf_operating_yen). Filters are floors/caps in the metric's own unit "
@@ -1452,6 +1456,7 @@ EQUITY_TOOL_SCHEMAS = [
                     "equity_ratio_min": {"type": "number"}, "equity_ratio_max": {"type": "number"},
                     "revenue_growth_min": {"type": "number"}, "pbr_implied_max": {"type": "number"},
                     "dividend_yield_min": {"type": "number"}, "cash_to_assets_min": {"type": "number"},
+                    "net_cash_to_assets_min": {"type": "number"},
                     "limit": {"type": "integer", "description": "Rows to return, default 25, max 200."},
                 },
                 "required": [],

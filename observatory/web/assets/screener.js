@@ -14,7 +14,10 @@
     ["operating_margin_pct", "Op. margin (%)", pct], ["net_margin_pct", "Net margin (%)", pct],
     ["equity_ratio_pct", "Equity ratio (%)", pct], ["revenue_growth_pct", "Rev. growth (%)", pct],
     ["cash_conversion_x", "Cash conv. (×)", times], ["fcf_margin_pct", "FCF margin (%)", pct],
-    ["cash_to_assets_pct", "Cash/assets (%)", pct], ["pbr_implied_x", "PBR impl. (×)", times],
+    ["cash_to_assets_pct", "Liquid cash/assets (%)", pct],
+    ["net_cash_to_assets_pct", "Net cash/assets (%)", pct],
+    ["investment_securities_to_assets_pct", "Inv. securities/assets (%)", pct],
+    ["pbr_implied_x", "PBR impl. (×)", times],
     ["dividend_yield_implied_pct", "Yield impl. (%)", pct],
   ];
   var SIZE_LABEL = { revenue_yen: "Revenue (¥bn)", profit_yen: "Profit (¥bn)",
@@ -24,7 +27,8 @@
     min_assets_yen: "f-min-assets", roe_min: "f-roe-min", roa_min: "f-roa-min",
     operating_margin_min: "f-opm-min", equity_ratio_min: "f-eqr-min", equity_ratio_max: "f-eqr-max",
     revenue_growth_min: "f-growth-min", pbr_implied_max: "f-pbr-max",
-    dividend_yield_min: "f-yield-min", cash_to_assets_min: "f-cash-min" };
+    dividend_yield_min: "f-yield-min", cash_to_assets_min: "f-cash-min",
+    net_cash_to_assets_min: "f-netcash-min" };
   var YEN_BN = { min_revenue_yen: true, min_assets_yen: true };   // page shows ¥bn, API wants yen
 
   var FLAG_LABEL = { negative_equity: "negative equity",

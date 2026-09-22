@@ -64,7 +64,6 @@ BS_ELEMENTS = {
     "nci": ["jppfs_cor:NonControllingInterests"],
     "subscription_rights": ["jppfs_cor:SubscriptionRightsToShares"],
     "operating_income_stmt": ["jpigp_cor:OperatingProfitLossIFRS", "jppfs_cor:OperatingIncome"],
-    "cash_bs": ["jpigp_cor:CashAndCashEquivalentsIFRS", "jppfs_cor:CashAndDeposits"],
 }
 # Capital expenditure, from the cash flow statement. A filer tags either one
 # combined line or property-plant-and-equipment and intangibles separately;
@@ -99,6 +98,69 @@ def ext_capex_elements(element):
     return "combined" if _EXT_COMBINED.search(local) else "part"
 
 
+# Cash position, read from the lines printed on the face of the balance
+# sheet. Liquid cash is cash and deposits plus short-term securities (有価証券
+# in current assets) under Japan GAAP. Under IFRS it is cash and cash
+# equivalents alone: IFRS balance sheets fold time deposits and short-term
+# investments into "other financial assets" beside derivatives and loans, so
+# there is no clean line to add. Investment securities (投資有価証券, mostly
+# cross-shareholdings) are shown on their own and never counted as cash.
+CASH_IFRS = "jpigp_cor:CashAndCashEquivalentsIFRS"
+CASH_JGAAP = "jppfs_cor:CashAndDeposits"
+ST_SECURITIES = "jppfs_cor:ShortTermInvestmentSecurities"
+INV_SECURITIES = "jppfs_cor:InvestmentSecurities"
+# Interest-bearing debt: borrowings, bonds, convertibles and commercial paper.
+# Lease liabilities are left out — under IFRS nearly every lease is on the
+# balance sheet and under Japan GAAP most are not, so counting them would make
+# an IFRS filer look more indebted for an accounting reason. No filer prints a
+# borrowing total beside its own parts, so the lines present are summed; a line
+# the balance sheet does not print is a debt the company does not have.
+DEBT_ELEMENTS = [
+    "jppfs_cor:ShortTermLoansPayable", "jppfs_cor:ShortTermBondsPayable",
+    "jppfs_cor:CommercialPapersLiabilities", "jppfs_cor:CurrentPortionOfLongTermLoansPayable",
+    "jppfs_cor:CurrentPortionOfBonds", "jppfs_cor:CurrentPortionOfBondsWithSubscriptionRightsToShares",
+    "jppfs_cor:CurrentPortionOfConvertibleBonds", "jppfs_cor:BondsPayable",
+    "jppfs_cor:LongTermLoansPayable", "jppfs_cor:ConvertibleBondTypeBondsWithSubscriptionRightsToShares",
+    "jppfs_cor:BondsWithSubscriptionRightsToSharesNCL", "jppfs_cor:ConvertibleBonds",
+    "jppfs_cor:ShortTermLoansPayableToSubsidiariesAndAffiliates",
+    "jppfs_cor:LongTermLoansPayableToSubsidiariesAndAffiliates",
+    "jppfs_cor:CurrentPortionOfLongTermLoansPayableToSubsidiariesAndAffiliates",
+    "jpigp_cor:BondsAndBorrowingsCLIFRS", "jpigp_cor:BondsAndBorrowingsNCLIFRS",
+    "jpigp_cor:BondsAndBorrowingsLiabilitiesIFRS", "jpigp_cor:BorrowingsCLIFRS",
+    "jpigp_cor:BorrowingsNCLIFRS", "jpigp_cor:BorrowingsLiabilitiesIFRS",
+    "jpigp_cor:CurrentPortionOfLongTermBorrowingsCLIFRS", "jpigp_cor:BondsPayableCLIFRS",
+    "jpigp_cor:BondsPayableNCLIFRS", "jpigp_cor:BondsPayableLiabilitiesIFRS",
+    "jpigp_cor:LongTermDebtNCLIFRS", "jpigp_cor:InterestBearingLiabilitiesCLIFRS",
+    "jpigp_cor:InterestBearingLiabilitiesNCLIFRS", "jpigp_cor:InterestBearingLiabilitiesLiabilitiesIFRS",
+]
+# A borrowing-like liability line outside that list — usually one the filer
+# named itself — is debt when its name is borrowing alone (Sony's and
+# Hitachi's CurrentPortionOfLongTermDebt, a non-recourse loan, a convertible's
+# current portion). One whose name mixes in leases or "other financial
+# liabilities" cannot be split, so net cash is withheld rather than computed
+# with a lease left in or a debt left out.
+_MIXED = re.compile(r"Lease|OtherFinancial")
+_DEBT_LIKE = re.compile(r"Loan|Borrowing|Bond|CommercialPaper|Debt")
+_LIABILITY = re.compile(r"(CL|NCL|Liabilities)(IFRS)?$|Payable|Borrowing")
+_NOT_DEBT = re.compile(r"Receivable|Assets?(IFRS)?$|N?CA(IFRS)?$|IOA$|DA$|BadDebt|Allowance|"
+                       r"Provision|Reserve|InterestPayable|Guarantee|Deposit")
+
+
+_IB_PREFIX = "jpigp_cor:InterestBearingLiabilities"
+_LEASE_LINE = re.compile(r"Lease(Liabilit|Obligation)")
+
+
+def other_debt_line(element):
+    """For a liability line outside DEBT_ELEMENTS: "debt" when its name is
+    borrowing alone, "mixed" when it folds in leases or other liabilities,
+    None when it is not a borrowing line."""
+    local = element.split(":")[-1]
+    if (element in DEBT_ELEMENTS or not _DEBT_LIKE.search(local)
+            or not _LIABILITY.search(local) or _NOT_DEBT.search(local)):
+        return None
+    return "mixed" if _MIXED.search(local) else "debt"
+
+
 # Sectors where free cash flow is not a meaningful figure (TSE 33 names).
 NO_FCF_INDUSTRIES = ("銀行業", "保険業", "証券、商品先物取引業", "その他金融業")
 ALL_BS_ELEMENTS = sorted({e for lst in BS_ELEMENTS.values() for e in lst} |
@@ -116,7 +178,12 @@ FORMULAS = {
     "cash_conversion_x": "operating cash flow ÷ profit attributable to owners; not computed for a loss",
     "fcf_yen": "operating cash flow − capital expenditure (purchases of property, plant and equipment and of intangible assets, from the cash flow statement); not computed where no capex line is tagged, or for banks, insurers and brokers",
     "fcf_margin_pct": "free cash flow ÷ revenue × 100",
-    "cash_to_assets_pct": "cash and equivalents ÷ total assets × 100, closing balances",
+    "liquid_cash_yen": "Japan GAAP: cash and deposits + short-term securities (有価証券, current assets; nil where the balance sheet prints none). IFRS: cash and cash equivalents only — IFRS balance sheets put short-term investments in 'other financial assets' with derivatives and loans. Closing balances; not computed for banks, insurers and brokers",
+    "net_cash_yen": "liquid cash − interest-bearing debt (short- and long-term borrowings, bonds, convertible bonds and commercial paper, current and non-current, including non-recourse loans; lease liabilities excluded). Negative means net debt. Consolidated, so a captive finance arm's borrowing counts as debt (carmakers' auto-loan funding). Not computed where the balance sheet folds borrowings and leases into one line — including an IFRS interest-bearing liabilities line with no separate lease line — or for banks, insurers and brokers",
+    "investment_securities_yen": "investment securities (投資有価証券, non-current assets) as printed on the Japan GAAP balance sheet — shareholdings in other companies, cross-shareholdings among them, and bonds held for over a year; not included in liquid or net cash. Not available under IFRS, which has no equivalent line",
+    "cash_to_assets_pct": "liquid cash ÷ total assets × 100, closing balances",
+    "net_cash_to_assets_pct": "net cash ÷ total assets × 100, closing balances",
+    "investment_securities_to_assets_pct": "investment securities ÷ total assets × 100, closing balances",
     "pbr_implied_x": "(filer's year-end PER × EPS) ÷ book value per share — a price implied from the filer's own PER, not a market quote",
     "dividend_yield_implied_pct": "dividend per share ÷ (year-end PER × EPS, all three from the same summary table — the reporting company's, where filers print dividends) × 100 — implied, not a market quote; withheld where the filer's own payout ratio disagrees with DPS ÷ EPS by over 25 pp",
     "equity_owners_yen": "IFRS: equity attributable to owners of parent as tagged; Japan GAAP: net assets − non-controlling interests − subscription rights to shares (absent lines nil); US GAAP (statements filed as text): the equity attributable to owners of parent line of the filer's own five-year summary",
@@ -127,12 +194,19 @@ METRIC_LABELS = {
     "equity_ratio_pct": ("Equity ratio", "%"), "asset_turnover_x": ("Asset turnover", "×"),
     "revenue_growth_pct": ("Revenue growth", "%"), "profit_growth_pct": ("Profit growth", "%"),
     "cash_conversion_x": ("Cash conversion", "×"), "fcf_yen": ("Free cash flow", "¥"),
-    "fcf_margin_pct": ("FCF margin", "%"), "cash_to_assets_pct": ("Cash / assets", "%"),
+    "fcf_margin_pct": ("FCF margin", "%"),
+    "liquid_cash_yen": ("Liquid cash", "¥"), "net_cash_yen": ("Net cash", "¥"),
+    "investment_securities_yen": ("Investment securities", "¥"),
+    "cash_to_assets_pct": ("Liquid cash / assets", "%"),
+    "net_cash_to_assets_pct": ("Net cash / assets", "%"),
+    "investment_securities_to_assets_pct": ("Investment securities / assets", "%"),
     "pbr_implied_x": ("PBR (implied)", "×"), "dividend_yield_implied_pct": ("Dividend yield (implied)", "%"),
 }
 METRIC_ORDER = ["roe_pct", "roa_pct", "operating_margin_pct", "net_margin_pct", "equity_ratio_pct",
                 "asset_turnover_x", "revenue_growth_pct", "profit_growth_pct", "cash_conversion_x",
-                "fcf_yen", "fcf_margin_pct", "cash_to_assets_pct", "pbr_implied_x",
+                "fcf_yen", "fcf_margin_pct", "liquid_cash_yen", "net_cash_yen",
+                "investment_securities_yen", "cash_to_assets_pct", "net_cash_to_assets_pct",
+                "investment_securities_to_assets_pct", "pbr_implied_x",
                 "dividend_yield_implied_pct"]
 # Size / identity fields a screen filters and sorts on besides the ratios.
 SIZE_FIELDS = ["revenue_yen", "profit_yen", "total_assets_yen", "equity_owners_yen", "cf_operating_yen"]
@@ -166,6 +240,16 @@ EXT_CAPEX_SQL = """
     FROM eq_fin_facts f JOIN latest g USING (doc_id)
     WHERE f.year_offset = 0 AND f.element LIKE '%%InvCF%%'
       AND f.element NOT LIKE 'jppfs_cor:%%' AND f.element NOT LIKE 'jpigp_cor:%%'
+""" % LATEST_SQL
+# Every line on the face of the balance sheet, with its current-year value:
+# the cash position is summed from what the statement prints, not from notes.
+BS_LINES_SQL = """
+    WITH latest AS (%s)
+    SELECT l.doc_id, l.basis, l.element, f.value
+    FROM eq_fin_lines l JOIN latest g USING (doc_id)
+    LEFT JOIN eq_fin_facts f ON f.doc_id = l.doc_id AND f.element = l.element AND f.basis = l.basis
+         AND f.year_offset = 0 AND f.period_kind = 'instant'
+    WHERE l.statement = 'bs'
 """ % LATEST_SQL
 NAMES_SQL = "WITH x AS (SELECT 1)" + equity_api.NAME_CTES + """
     SELECT e.edinet_code, e.sec_code, e.industry, coalesce(n.name_en, s.name_en) AS name_en
@@ -270,11 +354,60 @@ def _capex(facts):
     return ppe + intang, ppe_el + " + " + int_el
 
 
-def compute_row(head, summary_rows, bs_facts_by_basis):
+def cash_position(face, financial):
+    """Liquid cash, interest-bearing debt and investment securities from the
+    face of one balance sheet ({element: current-year value}).
+
+    Returns {name: (value, element description)} and {check: note}."""
+    out, notes = {}, {}
+    if financial:
+        notes["cash_position_withheld"] = ("a bank, insurer or broker: cash and securities are "
+                                           "its operating assets, so a cash position is not a "
+                                           "meaningful figure")
+        return out, notes
+    if not face:
+        return out, notes
+    if face.get(CASH_IFRS) is not None:
+        out["liquid_cash"] = (face[CASH_IFRS], CASH_IFRS)
+    elif face.get(CASH_JGAAP) is not None:
+        st = face.get(ST_SECURITIES)
+        if st is None:
+            out["liquid_cash"] = (face[CASH_JGAAP], CASH_JGAAP)
+        else:
+            out["liquid_cash"] = (face[CASH_JGAAP] + st, CASH_JGAAP + " + " + ST_SECURITIES)
+    if face.get(INV_SECURITIES) is not None:
+        out["investment_securities"] = (face[INV_SECURITIES], INV_SECURITIES)
+    mixed = sorted(el for el in face if other_debt_line(el) == "mixed")
+    ib_with_leases = []
+    # IFRS "interest-bearing liabilities" includes lease liabilities unless
+    # the balance sheet prints leases on a line of their own: under IFRS 16
+    # nearly every company has them, so a sheet with no lease line has put
+    # them inside (Toyota, JAL, SoftBank Corp).
+    if not any(_LEASE_LINE.search(el) for el in face):
+        ib_with_leases = sorted(el for el in face if el.startswith(_IB_PREFIX))
+    if mixed or ib_with_leases:
+        notes["net_cash_withheld"] = (
+            "the balance sheet puts borrowings and leases in one line, so debt cannot be separated"
+            if mixed else
+            "the balance sheet's interest-bearing liabilities have no separate lease line beside "
+            "them, so they most likely include leases")
+        notes["net_cash_withheld_lines"] = ", ".join(mixed + ib_with_leases)
+    else:
+        debt = [(el, face[el]) for el in DEBT_ELEMENTS if face.get(el) is not None]
+        debt += sorted((el, v) for el, v in face.items()
+                       if v is not None and other_debt_line(el) == "debt")
+        out["interest_bearing_debt"] = (sum(v for _, v in debt),
+                                        " + ".join(el for el, _ in debt) or "no borrowing line printed")
+    return out, notes
+
+
+def compute_row(head, summary_rows, bs_facts_by_basis, bs_face_by_basis=None):
     """One company's metrics from its latest filing.
 
     summary_rows: rows of SUMMARY_SQL for the doc (both bases).
     bs_facts_by_basis: {basis: {(element, offset): value}}.
+    bs_face_by_basis: {basis: {element: current-year value}}, the lines
+    printed on the face of the balance sheet.
     """
     bases_with_summary = {r["basis"] for r in summary_rows}
     basis = "consolidated" if "consolidated" in bases_with_summary else "parent"
@@ -311,10 +444,12 @@ def compute_row(head, summary_rows, bs_facts_by_basis):
         op = _bs(B, "operating_income_stmt", 0)
     operating_income = take("operating_income", op, 0)
     cfo = take("cf_operating", s0.get("cf_operating", (None, None)), 0)
-    cash = s0.get("cash", (None, None))
-    if cash[0] is None:
-        cash = _bs(B, "cash_bs", 0)
-    cash = take("cash", cash, 0)
+    financial = (head.get("industry") or "") in NO_FCF_INDUSTRIES
+    pos, pos_notes = cash_position((bs_face_by_basis or {}).get(basis, {}), financial)
+    liquid = take("liquid_cash", pos.get("liquid_cash", (None, None)), 0)
+    debt = take("interest_bearing_debt", pos.get("interest_bearing_debt", (None, None)), 0)
+    inv_sec = take("investment_securities", pos.get("investment_securities", (None, None)), 0)
+    net_cash = liquid - debt if (liquid is not None and debt is not None) else None
 
     ta = _bs(B, "total_assets", 0)
     if ta[0] is None:
@@ -394,7 +529,7 @@ def compute_row(head, summary_rows, bs_facts_by_basis):
         dps_note = "the table carrying the dividend prints no PER or EPS to imply a price from"
     capex = take("capex", _capex(B), 0)
     fcf_note = None
-    if (head.get("industry") or "") in NO_FCF_INDUSTRIES:
+    if financial:
         fcf_note = ("a bank, insurer or broker: its operating cash flow is its balance "
                     "sheet moving, so free cash flow is not a meaningful figure")
     elif capex is None:
@@ -412,7 +547,12 @@ def compute_row(head, summary_rows, bs_facts_by_basis):
         "cash_conversion_x": _r(_div(cfo, profit)) if (profit and profit > 0) else None,
         "fcf_yen": fcf,
         "fcf_margin_pct": _pct(_div(fcf, revenue)) if revenue and revenue > 0 else None,
-        "cash_to_assets_pct": _pct(_div(cash, total_assets)),
+        "liquid_cash_yen": liquid,
+        "net_cash_yen": net_cash,
+        "investment_securities_yen": inv_sec,
+        "cash_to_assets_pct": _pct(_div(liquid, total_assets)),
+        "net_cash_to_assets_pct": _pct(_div(net_cash, total_assets)),
+        "investment_securities_to_assets_pct": _pct(_div(inv_sec, total_assets)),
         "pbr_implied_x": _r(_div(implied_price, bps)) if (bps and bps > 0) else None,
         "dividend_yield_implied_pct": _pct(_div(dps, yield_price)) if dps_note is None else None,
     }
@@ -425,6 +565,7 @@ def compute_row(head, summary_rows, bs_facts_by_basis):
         checks["dividend_yield_withheld"] = dps_note
     if fcf_note and cfo is not None:
         checks["fcf_yen_withheld"] = checks["fcf_margin_withheld"] = fcf_note
+    checks.update(pos_notes)
     # Negative book equity is a finding in itself, not an absence: the screener
     # shows it in place of the blank ROE so a reader sees why there is none.
     flags = []
@@ -467,6 +608,9 @@ def all_rows(cur):
     for r in equity_api._rows(cur, EXT_CAPEX_SQL):
         if ext_capex_elements(r["element"]):
             bs.setdefault(r["doc_id"], {}).setdefault(r["basis"], {})[(r["element"], 0)] = r["value"]
+    face = {}
+    for r in equity_api._rows(cur, BS_LINES_SQL):
+        face.setdefault(r["doc_id"], {}).setdefault(r["basis"], {})[r["element"]] = r["value"]
     names = {}
     for r in equity_api._rows(cur, NAMES_SQL):
         names[r["edinet_code"]] = r
@@ -474,7 +618,7 @@ def all_rows(cur):
     for doc_id, head in heads.items():
         n = names.get(head["edinet_code"]) or {}
         head = dict(head, industry=n.get("industry"))
-        row = compute_row(head, summary.get(doc_id, []), bs.get(doc_id, {}))
+        row = compute_row(head, summary.get(doc_id, []), bs.get(doc_id, {}), face.get(doc_id, {}))
         row["filer_name_en"] = n.get("name_en")
         row["industry"] = n.get("industry")
         rows.append(row)

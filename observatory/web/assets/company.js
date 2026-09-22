@@ -440,6 +440,12 @@ function statementTable(st) {
       "the cell is a dash rather than a rate nobody can defend."));
 }
 
+// The reason a platform figure is withheld, in place of its formula.
+function withheld(m, key, basis) {
+  const why = (m.checks || {})[key];
+  return why ? "not shown: " + why : basis;
+}
+
 function ratiosTable() {
   const m = METRICS;
   if (!m) return '<div class="skeleton" style="width:100%;height:200px"></div>';
@@ -456,7 +462,15 @@ function ratiosTable() {
     ["Free cash flow", met.fcf_yen, null, "yen", met.fcf_yen == null && (m.checks || {}).fcf_yen_withheld
       ? "not shown: " + m.checks.fcf_yen_withheld
       : "operating cash flow − capex (plant, equipment and intangibles bought)"],
-    ["Cash to assets", met.cash_to_assets_pct, null, "%", "cash ÷ total assets"],
+    ["Liquid cash", met.liquid_cash_yen, null, "yen", withheld(m, "cash_position_withheld",
+      "cash and deposits + short-term securities (IFRS: cash and equivalents)")],
+    ["Net cash", met.net_cash_yen, null, "yen", withheld(m, "cash_position_withheld",
+      withheld(m, "net_cash_withheld", "liquid cash − borrowings, bonds and CP; leases excluded; negative is net debt"))],
+    ["Investment securities", met.investment_securities_yen, null, "yen", withheld(m, "cash_position_withheld",
+      m.accounting_standard === "IFRS" ? "not shown: IFRS balance sheets have no investment-securities line"
+        : "投資有価証券 — shareholdings and long-held bonds; not counted as cash")],
+    ["Liquid cash to assets", met.cash_to_assets_pct, null, "%", "liquid cash ÷ total assets"],
+    ["Net cash to assets", met.net_cash_to_assets_pct, null, "%", "net cash ÷ total assets"],
     ["Earnings per share", null, filed.eps, "yen2", "filed; we do not recompute it"],
     ["Book value per share", null, filed.bps, "yen2", "filed"],
     ["Dividend per share", null, filed.dps, "yen2", "filed"],
@@ -466,7 +480,7 @@ function ratiosTable() {
     if (v === null || v === undefined) return MISSING;
     if (unit === "%") return fmtNum(v, 2) + "%";
     if (unit === "×") return fmtNum(v, 2) + "×";
-    if (unit === "yen") return "¥" + fmtNum(v / 1e6, 0) + " mn";
+    if (unit === "yen") return (v < 0 ? MINUS : "") + "¥" + fmtNum(Math.abs(v) / 1e6, 0) + " mn";
     return "¥" + fmtNum(v, 2);
   };
   return table('<th>Ratio</th><th class="num">Ours</th>' +

@@ -165,7 +165,8 @@ def _screen_facilities(sort, f, limit):
 _SCREENER_FILTERS = ("industry", "standard", "min_revenue_yen", "min_assets_yen",
                      "roe_min", "roe_max", "roa_min", "operating_margin_min",
                      "equity_ratio_min", "equity_ratio_max", "revenue_growth_min",
-                     "pbr_implied_max", "dividend_yield_min", "cash_to_assets_min")
+                     "pbr_implied_max", "dividend_yield_min", "cash_to_assets_min",
+                     "net_cash_to_assets_min")
 
 
 def _screen_financials(sort, f, limit):
