@@ -1105,9 +1105,29 @@
       <li><b>Restatements are kept.</b> Each filing restates five fiscal years. The company panel
       takes each fiscal year from the latest accepted filing that covers it and names that filing
       on the row; <code>?as_filed_in=YYYY</code> serves one filing's five years exactly as first
-      published, which is the point-in-time view. <b>Fiscal-year labels</b> are the filing's period
-      end shifted by whole years, so a filer that changed its year-end inside the window is
-      labelled by that arithmetic, not by its old year-end.</li>
+      published, which is the point-in-time view. <b>Fiscal-year labels</b> name the month and year
+      the company's year ends — <i>FY Aug-2025</i> for Fast Retailing's year to 31 August 2025 —
+      as the company itself does (2025年8月期), on every company page, segment table and customs
+      lens. They are the filing's period end shifted by whole years, so a filer that changed its
+      year-end inside the window is labelled by that arithmetic, not by its old year-end. (The
+      government's April–March year keeps its own convention on the fiscal pages: FY2024 is April
+      2024 to March 2025.)</li>
+      <li><b>Split-adjusted per-share figures</b> are calculated, and sit beside the filed figures,
+      never in place of them. Filers restate EPS and book value per share for a stock split only as
+      far back as they choose, and often print dividends as paid: Fast Retailing's report for the
+      year to August 2025 shows FY Aug-2021 EPS of ¥1,663 on the pre-split share count beside
+      FY Aug-2022 EPS of ¥892 after its 3-for-1 split. The adjusted figure puts every year on the
+      latest year's share count: <code>split-adjusted = filed ÷ the split ratios between that year
+      and the latest</code>. Which share count a filed figure used is read from the figures
+      themselves — <code>profit ÷ EPS</code> (else <code>net assets ÷ BPS</code>) from one year to
+      the next — and a jump counts as a split only when a split of the same ratio also shows in
+      the issued-share count, or in the filer restating its own earlier EPS by that ratio between
+      two reports. A move no split explains (a buyback, a share issue) is left as a real change.
+      Dividends per share get their own test, because a filer may restate EPS and not dividends:
+      <code>dividend ÷ EPS</code> is compared with the filer's payout ratio, and a clean multiple
+      of it shows the dividend is on an older count. Where a year's share count cannot be read
+      this way — no payout ratio, a loss year, a dividend paid half before and half after a split —
+      the adjusted figure is — rather than a guess.</li>
       <li><b>The only derived numbers</b> on a statement are the change columns:
       <code>change = current − prior</code> on the tagged values and
       <code>change % = change ÷ |prior| × 100</code>, shown as — where the prior value is missing
@@ -1172,8 +1192,15 @@
       <li><b>Margins</b>: operating income ÷ revenue, profit ÷ revenue. <b>Asset turnover</b>:
       revenue ÷ average total assets. <b>Growth</b>: current ÷ prior − 1 from the same filing;
       profit growth is not computed off a prior-year loss. <b>Cash conversion</b>: operating cash
-      flow ÷ profit, not computed for a loss. <b>Free cash flow</b> is the simple definition,
-      operating plus investing cash flow, and is labelled as such. <b>Cash / assets</b>: cash and
+      flow ÷ profit, not computed for a loss. <b>Free cash flow</b> is operating cash flow less
+      capital expenditure: the cash flow statement's purchases of property, plant and equipment
+      and of intangible assets (or the filer's one combined line, never both). A filer's own
+      element for the same payment is read by its name; retirements, equipment leased out to
+      customers and "other" fixed assets are not counted. Until September 2026 it was operating
+      plus <i>all</i> investing cash flow, which counted securities bought with spare cash as
+      spending and a cross-shareholding sale as free cash — Sony read −¥25bn against ¥1.49tn on
+      capex, Denso +¥494bn against ¥77bn. No capex line tagged, no figure; banks, insurers and
+      brokers get none, because their operating cash flow is the balance sheet moving. <b>Cash / assets</b>: cash and
       equivalents ÷ total assets.</li>
       <li><b>Implied valuation.</b> This platform holds no prices. Where the filer prints its own
       year-end PER, an implied price = PER × EPS gives an implied PBR (÷ book value per share) and

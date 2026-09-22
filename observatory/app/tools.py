@@ -1401,7 +1401,7 @@ EQUITY_TOOL_SCHEMAS = [
                 "One company's ratios CALCULATED BY THIS PLATFORM from its latest "
                 "annual securities report: ROE and ROA on average balances, operating "
                 "and net margin, equity ratio, asset turnover, revenue and profit "
-                "growth, cash conversion, simple free cash flow and FCF margin, cash "
+                "growth, cash conversion, free cash flow (operating cash flow − capex) and FCF margin, cash "
                 "to assets, and implied PBR / dividend yield from the filer's own "
                 "year-end PER (no market data exists here). Every metric carries its "
                 "formula and the inputs used (value, XBRL element, fiscal-year offset), "

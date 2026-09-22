@@ -27,6 +27,7 @@ Same DuckDB file and reader as the equity APIs next door; registered before
 them so the literal /equity/financials/ paths win.
 """
 import datetime
+import math
 import re
 
 from fastapi import APIRouter, HTTPException, Query
@@ -64,6 +65,17 @@ CALC = {
               "that covers it (its source is on the row). Pass "
               "?as_filed_in=YYYY to read one filing's five years as first "
               "published."),
+    "split_adjusted": ("Split-adjusted per-share figure = filed figure ÷ the "
+                       "split ratios between that year and the latest, so every "
+                       "year is on the latest year's share count. Each year's "
+                       "share basis is read from its own figures (profit ÷ EPS, "
+                       "else net assets ÷ BPS); a jump in it between two years "
+                       "counts as a split only when the issued-share count shows "
+                       "a split of the same ratio. A year whose basis cannot be "
+                       "read that way is left blank. Dividends per share are "
+                       "often printed as paid, on the old count, even where "
+                       "EPS was restated; their divisor is read separately, "
+                       "from the filer's payout ratio (dps ÷ eps against it)."),
     "revenue_fallback": ("Where no standard revenue element is tagged, "
                          "revenue is the first yen line of the filer's own "
                          "summary table (revenue_source = first_line)."),
@@ -372,8 +384,12 @@ def _panel_rows(cur, filing):
     return rows
 
 
-def build_panel(cur, filings, basis=None, as_filed_in=None):
-    """Fiscal-year rows across filings, latest filing winning each year."""
+def build_panel(cur, filings, basis=None, as_filed_in=None, restated=None):
+    """Fiscal-year rows across filings, latest filing winning each year.
+
+    Pass a list as `restated` to collect, for every fiscal year two filings
+    both print, the ratio of the older filing's EPS to the newer's — a
+    filer's own record of a split it restated for."""
     chosen = filings
     if as_filed_in:
         chosen = [f for f in filings if str(f["period_end"].year) == str(as_filed_in)]
@@ -389,6 +405,10 @@ def build_panel(cur, filings, basis=None, as_filed_in=None):
             key = (row["fiscal_year_end"], b)
             if key not in panel:                 # latest filing already there
                 panel[key] = row
+            elif restated is not None:
+                newer, older = panel[key]["values"].get("eps"), row["values"].get("eps")
+                if newer and older and abs(newer) >= 1 and older / newer > 0:
+                    restated.append(older / newer)
     # Per-share dividends are printed in the reporting company's own summary
     # table, not the group's; a consolidated row takes them from the parent
     # row of the same fiscal year and says so.
@@ -404,6 +424,176 @@ def build_panel(cur, filings, basis=None, as_filed_in=None):
                 row["elements"][f] = parent["elements"][f] + " (parent table)"
     rows = sorted(panel.values(), key=lambda r: (r["basis"], r["fiscal_year_end"]))
     return rows
+
+
+# ---- split-adjusted per-share figures ----------------------------------------
+# A filer restates per-share figures for a stock split only as far back as it
+# chooses: Fast Retailing's 3-for-1 left FY2021 EPS on the old share count
+# (¥1,663) beside FY2022 on the new (¥892), so the filed row reads as a 46%
+# fall that never happened. The adjusted figures sit beside the filed ones,
+# never in place of them.
+PER_SHARE_FIELDS = ("eps", "eps_diluted", "bps", "dps", "dps_interim")
+
+
+# Ratios Japanese companies actually split or consolidate by.
+SPLIT_RATIOS = sorted(
+    [float(n) for n in range(2, 11)] +
+    [20.0, 25.0, 30.0, 40.0, 50.0, 100.0, 200.0, 250.0, 300.0, 400.0, 500.0, 1000.0] +
+    [1.1, 1.2, 1.25, 4.0 / 3, 1.5, 2.5] +
+    [1.0 / n for n in (2, 3, 4, 5, 10, 20, 50, 100)])
+
+
+def _split_ratio(r):
+    """The split or consolidation ratio issued shares moved by between two
+    year ends, or None. A big ratio may carry a same-year cancellation or
+    option exercise (Nippon Soda's 2-for-1 shows as 1.975), so 3% slack; a
+    small one (1.1 to 1.5) must be exact to 0.2%, or a share issue would pass
+    for a split (Demae-can's raises moved issued shares by 1.541)."""
+    if r is None or r <= 0:
+        return None
+    for c in SPLIT_RATIOS:
+        tol = 0.03 if (c >= 2 or c <= 0.5) else 0.002
+        if abs(r - c) / c < tol:
+            return c
+    return None
+
+
+def _split_ratio_exact(r):
+    for c in SPLIT_RATIOS:
+        if r and abs(r - c) / c < 0.01:
+            return c
+    return None
+
+
+def _implied_shares(v):
+    """The share count the filer divided by for this row: profit ÷ EPS, or
+    net assets ÷ BPS where EPS is not usable."""
+    for num, den in (("profit", "eps"), ("net_assets", "bps")):
+        a, b = v.get(num), v.get(den)
+        if a is not None and b and abs(b) >= 0.5 and a / b > 0:
+            return a / b
+    return None
+
+
+def _products(ratios):
+    out = {1.0}
+    for r in ratios:
+        out |= {round(c * r, 9) for c in out}
+    return sorted(out)
+
+
+def split_adjust(rows, restated=()):
+    """Put split-adjusted per-share figures on every row, all on the share
+    basis of the latest year. Returns the share-basis breaks found.
+
+    Which share count a filed per-share figure uses depends on the filing it
+    came from and how far back that filer chose to restate, so the basis is
+    read from the figures themselves: the share count each row implies
+    (profit ÷ EPS) is compared with the next year's. A jump between two years
+    is a split only if it matches (within 12%) a split the issued-share count
+    also shows at some point — two independent records of the same event. A
+    jump that matches neither a split nor "no change" leaves every earlier
+    year without an adjusted figure (null), never a guess."""
+    shares = {}
+    for r in rows:
+        n = r["values"].get("issued_shares")
+        if n:
+            shares.setdefault(r["fiscal_year_end"], n)
+    years = sorted(shares)
+    events = []
+    for a, b in zip(years, years[1:]):
+        ratio = _split_ratio(shares[b] / shares[a])
+        if ratio:
+            events.append({"fiscal_year_end": b, "ratio": ratio,
+                           "shares_before": shares[a], "shares_after": shares[b]})
+    # The same fiscal year's EPS in an older and a newer filing: a clean
+    # ratio between them (to 1% — both are the filer's own rounding of one
+    # profit over one share count) is the filer restating for a split.
+    restatements = sorted({c for c in (_split_ratio_exact(q) for q in restated) if c})
+    if not events and not restatements:
+        return []
+    cands = _products(sorted({e["ratio"] for e in events} | set(restatements)))
+    breaks = []
+    for basis in sorted({r["basis"] for r in rows}):
+        brows = sorted((r for r in rows if r["basis"] == basis), key=lambda r: r["fiscal_year_end"])
+        implied = [(i, _implied_shares(r["values"])) for i, r in enumerate(brows)]
+        implied = [(i, s) for i, s in implied if s]
+        step = {}                      # index of the later row -> ratio, or None if unreadable
+        for (i, s0), (j, s1) in zip(implied, implied[1:]):
+            q = math.log(s1 / s0)
+            dist = sorted((abs(q - math.log(c)), c) for c in cands)
+            best = dist[0][1]
+            gap = min(abs(math.log(c / best)) for c in cands if c != best) if len(cands) > 1 else 1.0
+            ok = dist[0][0] < min(0.4 * gap, math.log(1.12))
+            if not ok and abs(q) < math.log(1.5) and \
+                    all(abs(q - math.log(c)) >= math.log(1.12) for c in cands if c != 1.0):
+                # a buyback, a cancellation or a share issue: the count really
+                # moved, and no split of that size is on record
+                best, ok = 1.0, True
+            if best != 1.0 or not ok:
+                step[j] = best if ok else None
+                breaks.append({"basis": basis, "from": brows[i]["fiscal_year_end"],
+                               "to": brows[j]["fiscal_year_end"],
+                               "implied_share_ratio": round(s1 / s0, 4),
+                               "ratio": best if ok else None})
+        first = implied[0][0] if implied else len(brows)
+        last = implied[-1][0] if implied else -1
+        for i, r in enumerate(brows):
+            divisor = 1.0
+            for j, ratio in step.items():
+                if j > i:
+                    divisor = None if (divisor is None or ratio is None) else divisor * ratio
+            # a row after the last readable one has no evidence either way
+            # rows outside the readable run have no evidence of their own;
+            # a restatement ratio carries no date, so it could fall anywhere
+            if i > last and (restatements or any(e["fiscal_year_end"] > r["fiscal_year_end"]
+                                                 for e in events)):
+                divisor = None
+            if i < first and (restatements or any(
+                    r["fiscal_year_end"] < e["fiscal_year_end"] <= brows[first]["fiscal_year_end"]
+                    for e in events)):
+                divisor = None
+            r["split_adjusted"] = {"divisor": divisor}
+    # Dividends per share are often printed as paid, on the share count of
+    # the day, even where the filer restated EPS beside them. Their basis is
+    # read from the filer's own payout ratio: dps ÷ eps equals the payout
+    # ratio when both sit on one share count and is off by the split ratio
+    # when they do not.
+    by_key = dict(((r["basis"], r["fiscal_year_end"]), r) for r in rows)
+    for r in rows:
+        adj = r["split_adjusted"]
+        fy = r["fiscal_year_end"]
+        src = r
+        if (r["elements"].get("dps") or "").endswith("(parent table)"):
+            src = by_key.get(("parent", fy), r)
+        latest = fy == max(x["fiscal_year_end"] for x in rows)
+        if not restatements and not any(e["fiscal_year_end"] > fy for e in events):
+            dps_div = 1.0
+        else:
+            v, eps_div = src["values"], src["split_adjusted"]["divisor"]
+            dps, eps, pay = v.get("dps"), v.get("eps"), v.get("payout_ratio_pct")
+            m = None
+            if dps and eps and pay and eps > 0 and pay > 0:
+                raw = (dps / eps) / (pay / 100.0)
+                best = min(cands + [1.0], key=lambda c: abs(math.log(raw / c)))
+                if abs(math.log(raw / best)) < math.log(1.05):
+                    m = best
+            if m is None and latest:
+                m = 1.0                    # the latest year is the reference basis
+            dps_div = None if (m is None or eps_div is None) else eps_div * m
+        adj["dps_divisor"] = dps_div
+        d = adj["divisor"]
+        vals = {}
+        for f in PER_SHARE_FIELDS:
+            div = dps_div if f in ("dps", "dps_interim") else d
+            x = r["values"].get(f)
+            vals[f] = None if (x is None or div is None) else round(x / div, 4)
+        adj["values"] = vals
+        divs = [x for x in (d, dps_div) if x is not None]
+        adj["status"] = ("undetermined" if d is None or dps_div is None and r["values"].get("dps")
+                         else "adjusted" if any(x != 1.0 for x in divs) else "unchanged")
+    return {"issued_share_splits": events, "restated_ratios": restatements,
+            "basis_breaks": breaks}
 
 
 @router.get("/company/{sec_code}")
@@ -429,7 +619,9 @@ def company(sec_code: str,
         "filed_date": f["filed_date"].isoformat(), "status": f["status"],
         "detail": f["detail"], "accounting_standard": f["accounting_standard"],
     } for f in filings]
-    out["panel"] = build_panel(cur, filings, b, as_filed_in.strip() or None)
+    restated = []
+    out["panel"] = build_panel(cur, filings, b, as_filed_in.strip() or None, restated)
+    out["splits"] = split_adjust(out["panel"], restated) or None
     out["fields"] = [{"field": f, "label": FIELD_LABELS[f], "unit": FIELD_UNITS.get(f, "yen")}
                      for f in FIELD_ORDER]
     out["calc"] = CALC

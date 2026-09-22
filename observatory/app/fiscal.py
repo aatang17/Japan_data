@@ -107,6 +107,32 @@ def roll_up(points, unit, fy_end_month, granularity):
     return rolled, sorted(dropped)
 
 
+MONTH_ABBR = ("Jan", "Feb", "Mar", "Apr", "May", "Jun",
+              "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+
+def company_year_label(period_end):
+    """'FY Aug-2025' for a company's fiscal year ending August 2025.
+
+    A company year is named by the month it ends, as the company itself does
+    (2025年8月期). The start-year convention above is right for the
+    government's April–March year but reads a year behind for a company that
+    closes in August or December, and two pages of ours disagreed over it."""
+    if period_end is None:
+        return None
+    return "FY %s-%d" % (MONTH_ABBR[period_end.month - 1], period_end.year)
+
+
+def company_period_label(period, fy_end_month, granularity):
+    """company_year_label for a rolled-up period dated by its last month:
+    'FY Aug-2025' for a year, 'FY Aug-2025 Q1' for a quarter of it."""
+    ahead = (int(fy_end_month) - period.month) % 12
+    label = company_year_label(_add_months(period, ahead))
+    if granularity == "fiscal_year":
+        return label
+    return "%s Q%d" % (label, 4 - ahead // 3)
+
+
 def _add_months(d, n):
     y, m = d.year, d.month + n
     while m > 12:
@@ -137,4 +163,9 @@ if __name__ == "__main__":     # a few checks, runnable on their own
         raise AssertionError("an index must not be summed")
     except NotAFlow:
         pass
+    assert company_year_label(D(2025, 8, 31)) == "FY Aug-2025"
+    assert company_period_label(D(2025, 8, 1), 8, "fiscal_year") == "FY Aug-2025"
+    assert company_period_label(D(2024, 11, 1), 8, "fiscal_quarter") == "FY Aug-2025 Q1"
+    assert company_period_label(D(2025, 3, 1), 3, "fiscal_quarter") == "FY Mar-2025 Q4"
+    assert company_period_label(D(2025, 12, 1), 3, "fiscal_quarter") == "FY Mar-2026 Q3"
     print("fiscal.py checks pass")

@@ -33,8 +33,15 @@ compute these, and stated on the Methodology page:
     a filer with a custom revenue element is taken at its first summary
     line). Operating income is the summary's where printed, else the income
     statement's.
-  * Free cash flow is operating cash flow plus investing cash flow — the
-    simple definition, stated as such; no capex split is attempted.
+  * Free cash flow is operating cash flow less capital expenditure — the
+    cash-flow statement's purchases of property, plant and equipment and of
+    intangible assets. It was once operating plus *all* investing cash flow,
+    which counts a treasury desk's securities buying as spending and a
+    cross-shareholding sale as free cash: Sony read −¥25bn against ¥1.49tn
+    on capex, Denso +¥494bn against ¥77bn, and one non-financial company in
+    five was off by more than half. No capex line tagged, no free cash flow.
+    Banks, insurers and brokers get none: their operating cash flow is the
+    balance sheet moving, and "free" cash is not a meaningful figure there.
   * Valuation ratios exist only where the filer prints its year-end PER:
     implied price = PER × EPS, and everything with a price in it is
     labelled implied. This platform has no price feed.
@@ -42,6 +49,7 @@ compute these, and stated on the Methodology page:
 Consolidated where the filing has consolidated statements, parent-only
 otherwise; the row says which.
 """
+import re
 import threading
 
 from . import equity_api
@@ -58,7 +66,43 @@ BS_ELEMENTS = {
     "operating_income_stmt": ["jpigp_cor:OperatingProfitLossIFRS", "jppfs_cor:OperatingIncome"],
     "cash_bs": ["jpigp_cor:CashAndCashEquivalentsIFRS", "jppfs_cor:CashAndDeposits"],
 }
-ALL_BS_ELEMENTS = sorted({e for lst in BS_ELEMENTS.values() for e in lst})
+# Capital expenditure, from the cash flow statement. A filer tags either one
+# combined line or property-plant-and-equipment and intangibles separately;
+# the combined forms are taken first so nothing is counted twice.
+CAPEX_COMBINED = ["jpigp_cor:PurchaseOfPropertyPlantAndEquipmentAndIntangibleAssetsInvCFIFRS",
+                  "jppfs_cor:PurchaseOfPropertyPlantAndEquipmentAndIntangibleAssetsInvCF",
+                  "jppfs_cor:PurchaseOfNoncurrentAssetsInvCF"]
+CAPEX_PPE = ["jpigp_cor:PurchaseOfPropertyPlantAndEquipmentInvCFIFRS",
+             "jppfs_cor:PurchaseOfPropertyPlantAndEquipmentInvCF"]
+CAPEX_INTANGIBLE = ["jpigp_cor:PurchaseOfIntangibleAssetsInvCFIFRS",
+                    "jppfs_cor:PurchaseOfIntangibleAssetsInvCF"]
+# A filer with its own capex elements (Toyota's AdditionsToFixedAssets…,
+# NTT's PurchaseOfPropertyPlantAndEquipmentIntangibleAssetsAndInvestment…)
+# is read by name: a payment for fixed or intangible assets on the investing
+# side. Retirements, equipment leased out to customers (a finance arm's
+# lending, not the company's own plant) and "other" fixed assets (a remainder
+# beside a line we cannot see) are not capex of this kind.
+_EXT_CAPEX = re.compile(
+    r"^CapitalExpenditures?InvCF(IFRS)?$|"
+    r"^(PurchaseOf|PurchasesOf|AdditionsTo|AcquisitionOf|AcquisitionsOf|PaymentsForPurchaseOf|"
+    r"PaymentsForAcquisitionOf)\w*?(NonCurrentAssets|NoncurrentAssets|FixedAssets|PropertyPlant|"
+    r"PropertyEquipment|TangibleAndIntangible|TangibleAssets|IntangibleAssets)\w*InvCF(IFRS)?$")
+_EXT_EXCLUDE = re.compile(r"Retirement|^AdditionsToEquipmentLeasedToOthers|(Of|To)Other(?!s)")
+_EXT_COMBINED = re.compile(r"^CapitalExpenditure|NonCurrentAssets|NoncurrentAssets|TangibleAndIntangible|"
+                           r"AndIntangible|IntangibleAssetsAnd")
+
+
+def ext_capex_elements(element):
+    local = element.split(":")[-1]
+    if not _EXT_CAPEX.match(local) or _EXT_EXCLUDE.search(local):
+        return None
+    return "combined" if _EXT_COMBINED.search(local) else "part"
+
+
+# Sectors where free cash flow is not a meaningful figure (TSE 33 names).
+NO_FCF_INDUSTRIES = ("銀行業", "保険業", "証券、商品先物取引業", "その他金融業")
+ALL_BS_ELEMENTS = sorted({e for lst in BS_ELEMENTS.values() for e in lst} |
+                         set(CAPEX_COMBINED + CAPEX_PPE + CAPEX_INTANGIBLE))
 
 FORMULAS = {
     "roe_pct": "profit attributable to owners ÷ average(equity attributable to owners, opening and closing) × 100; not computed when that average is not positive, because a return on a negative base inverts its own sign",
@@ -70,7 +114,7 @@ FORMULAS = {
     "revenue_growth_pct": "(revenue ÷ prior-year revenue − 1) × 100, both from the same filing",
     "profit_growth_pct": "(profit ÷ prior-year profit − 1) × 100; not computed when the prior year was a loss",
     "cash_conversion_x": "operating cash flow ÷ profit attributable to owners; not computed for a loss",
-    "fcf_yen": "operating cash flow + investing cash flow (simple free cash flow)",
+    "fcf_yen": "operating cash flow − capital expenditure (purchases of property, plant and equipment and of intangible assets, from the cash flow statement); not computed where no capex line is tagged, or for banks, insurers and brokers",
     "fcf_margin_pct": "free cash flow ÷ revenue × 100",
     "cash_to_assets_pct": "cash and equivalents ÷ total assets × 100, closing balances",
     "pbr_implied_x": "(filer's year-end PER × EPS) ÷ book value per share — a price implied from the filer's own PER, not a market quote",
@@ -116,6 +160,13 @@ BS_SQL = """
     FROM eq_fin_facts f JOIN latest g USING (doc_id)
     WHERE f.element IN (%s) AND f.year_offset IN (0, -1) AND f.period_kind IN ('instant', 'duration')
 """ % (LATEST_SQL, ",".join("'%s'" % e for e in ALL_BS_ELEMENTS))
+EXT_CAPEX_SQL = """
+    WITH latest AS (%s)
+    SELECT f.doc_id, f.basis, f.element, f.value
+    FROM eq_fin_facts f JOIN latest g USING (doc_id)
+    WHERE f.year_offset = 0 AND f.element LIKE '%%InvCF%%'
+      AND f.element NOT LIKE 'jppfs_cor:%%' AND f.element NOT LIKE 'jpigp_cor:%%'
+""" % LATEST_SQL
 NAMES_SQL = "WITH x AS (SELECT 1)" + equity_api.NAME_CTES + """
     SELECT e.edinet_code, e.sec_code, e.industry, coalesce(n.name_en, s.name_en) AS name_en
     FROM eq_entities e
@@ -188,6 +239,37 @@ def _bs(facts, concept, off):
     return None, None
 
 
+def _capex(facts):
+    """(capex as a positive yen amount, element description) for the
+    current year, or (None, None) where the filer tags no capex line."""
+    def first(els):
+        for el in els:
+            v = facts.get((el, 0))
+            if v is not None:
+                return abs(v), el
+        return None, None
+    v, el = first(CAPEX_COMBINED)
+    if v is not None:
+        return v, el
+    ppe, ppe_el = first(CAPEX_PPE)
+    if ppe is None:
+        # the filer's own elements: one combined line, else the sum of parts
+        ext = [(el, abs(v)) for (el, off), v in facts.items()
+               if off == 0 and v is not None and not el.startswith(("jppfs_cor:", "jpigp_cor:"))
+               and ext_capex_elements(el)]
+        comb = [x for x in ext if ext_capex_elements(x[0]) == "combined"]
+        use = comb[:1] if comb else ext
+        if not use:
+            # a filer that bought only software tags intangibles and no plant
+            return first(CAPEX_INTANGIBLE)
+        return sum(v for _, v in use), " + ".join(el for el, _ in use)
+    # intangibles sit below a PP&E line that is present: absent means none
+    intang, int_el = first(CAPEX_INTANGIBLE)
+    if intang is None:
+        return ppe, ppe_el
+    return ppe + intang, ppe_el + " + " + int_el
+
+
 def compute_row(head, summary_rows, bs_facts_by_basis):
     """One company's metrics from its latest filing.
 
@@ -229,7 +311,6 @@ def compute_row(head, summary_rows, bs_facts_by_basis):
         op = _bs(B, "operating_income_stmt", 0)
     operating_income = take("operating_income", op, 0)
     cfo = take("cf_operating", s0.get("cf_operating", (None, None)), 0)
-    cfi = take("cf_investing", s0.get("cf_investing", (None, None)), 0)
     cash = s0.get("cash", (None, None))
     if cash[0] is None:
         cash = _bs(B, "cash_bs", 0)
@@ -311,7 +392,14 @@ def compute_row(head, summary_rows, bs_facts_by_basis):
                         "filer prints a payout ratio of %.1f%%" % (implied_payout, payout_filed))
     elif dps is not None and yield_price is None:
         dps_note = "the table carrying the dividend prints no PER or EPS to imply a price from"
-    fcf = (cfo + cfi) if (cfo is not None and cfi is not None) else None
+    capex = take("capex", _capex(B), 0)
+    fcf_note = None
+    if (head.get("industry") or "") in NO_FCF_INDUSTRIES:
+        fcf_note = ("a bank, insurer or broker: its operating cash flow is its balance "
+                    "sheet moving, so free cash flow is not a meaningful figure")
+    elif capex is None:
+        fcf_note = "the cash flow statement tags no capital-expenditure line"
+    fcf = (cfo - capex) if (fcf_note is None and cfo is not None) else None
     m = {
         "roe_pct": _pct(_div(profit, avg_equity)) if roe_note is None else None,
         "roa_pct": _pct(_div(profit, avg_assets)) if roa_note is None else None,
@@ -335,6 +423,8 @@ def compute_row(head, summary_rows, bs_facts_by_basis):
         checks["roa_withheld"] = roa_note
     if dps_note:
         checks["dividend_yield_withheld"] = dps_note
+    if fcf_note and cfo is not None:
+        checks["fcf_yen_withheld"] = checks["fcf_margin_withheld"] = fcf_note
     # Negative book equity is a finding in itself, not an absence: the screener
     # shows it in place of the blank ROE so a reader sees why there is none.
     flags = []
@@ -374,13 +464,17 @@ def all_rows(cur):
     bs = {}
     for r in equity_api._rows(cur, BS_SQL):
         bs.setdefault(r["doc_id"], {}).setdefault(r["basis"], {})[(r["element"], r["year_offset"])] = r["value"]
+    for r in equity_api._rows(cur, EXT_CAPEX_SQL):
+        if ext_capex_elements(r["element"]):
+            bs.setdefault(r["doc_id"], {}).setdefault(r["basis"], {})[(r["element"], 0)] = r["value"]
     names = {}
     for r in equity_api._rows(cur, NAMES_SQL):
         names[r["edinet_code"]] = r
     rows = []
     for doc_id, head in heads.items():
-        row = compute_row(head, summary.get(doc_id, []), bs.get(doc_id, {}))
         n = names.get(head["edinet_code"]) or {}
+        head = dict(head, industry=n.get("industry"))
+        row = compute_row(head, summary.get(doc_id, []), bs.get(doc_id, {}))
         row["filer_name_en"] = n.get("name_en")
         row["industry"] = n.get("industry")
         rows.append(row)

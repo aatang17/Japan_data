@@ -51,6 +51,26 @@ function fmtPeriodLong(iso) {
   return MONTHS[m - 1] + " " + iso.slice(0, 4);
 }
 
+/* A company's fiscal year, named by the month it ends as the company does:
+   "2025-08-31" -> "FY Aug-2025". Same rule as fiscal.company_year_label. */
+function fmtFiscalYear(iso) {
+  if (!iso) return MISSING;
+  return "FY " + MONTHS[Number(iso.slice(5, 7)) - 1].slice(0, 3) + "-" + iso.slice(0, 4);
+}
+
+/* Sort order for fmtFiscalYear labels ("FY Aug-2025", "FY Aug-2025 Q1"): by
+   year, then month, then quarter — not alphabetically, which would put
+   "FY Dec-2024" before "FY Mar-2024" for a company that changed its year end. */
+function cmpFiscalLabel(a, b) {
+  const key = l => {
+    const m = /^FY (\w{3})-(\d{4})(?: Q(\d))?/.exec(l || "");
+    if (!m) return [0, 0, 0];
+    return [Number(m[2]), MONTHS.findIndex(x => x.slice(0, 3) === m[1]), Number(m[3] || 0)];
+  };
+  const ka = key(a), kb = key(b);
+  return ka[0] - kb[0] || ka[1] - kb[1] || ka[2] - kb[2];
+}
+
 /* ISO timestamp -> "2026-08-05 12:04 UTC" */
 function fmtStamp(iso) {
   if (!iso) return MISSING;

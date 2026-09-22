@@ -31,7 +31,7 @@
   function pct(v) { return v == null ? MISSING : fmtRate(v, 1); }
   function count(v) { return v == null ? MISSING : fmtNum(v, 0); }
   function times(v) { return v == null ? MISSING : fmtNum(v, 1) + "×"; }
-  function fyLabel(iso) { return iso ? "FY" + iso.slice(0, 4) + " (" + iso.slice(0, 7) + ")" : MISSING; }
+  function fyLabel(iso) { return fmtFiscalYear(iso); }
   function fyShort(iso) { return iso ? iso.slice(0, 7) : MISSING; }
 
   /* One formatter per standardised field; the unit lives in the row label. */
@@ -260,7 +260,7 @@
     if (!rows.length) { $("co-facts").innerHTML = ""; return; }
     var cur = rows[rows.length - 1];
     var v = cur.values;
-    var q = "FY" + cur.fiscal_year_end.slice(0, 4) + " · " +
+    var q = fmtFiscalYear(cur.fiscal_year_end) + " · " +
       (state.basis === "parent" ? "parent only" : "consolidated") + " · as filed";
     function fact(label, value, unit) {
       return "<div><dt>" + esc(label) + "</dt><dd>" + value +
@@ -274,6 +274,42 @@
       fact("Equity ratio", pct(v.equity_ratio_pct)) +
       fact("Dividend per share", yenUnit(v.dps)) +
       fact("Operating cash flow", yenBn(v.cf_operating));
+  }
+
+  /* Split-adjusted per-share rows: shown only where a split sits inside the
+     record, directly under the filed row they restate. */
+  var PER_SHARE = ["eps", "eps_diluted", "bps", "dps", "dps_interim"];
+  function hasSplits(rows) {
+    return !!(company.splits && rows.some(function (r) {
+      var a = r.split_adjusted;
+      return a && (a.status !== "unchanged");
+    }));
+  }
+  function adjustedRow(f, rows) {
+    if (PER_SHARE.indexOf(f.field) < 0 || !hasSplits(rows)) return "";
+    return "<tr class='adj'><td class='lbl' data-depth='1'>Split-adjusted" +
+      " <span class='unit'>(¥)</span></td>" + rows.map(function (r) {
+        var a = r.split_adjusted || {};
+        var v = (a.values || {})[f.field];
+        if (v == null && r.values[f.field] != null) {
+          return "<td class=r title='This year&#39;s share basis could not be read from the filing, " +
+            "so no adjusted figure is shown'>" + MISSING + "</td>";
+        }
+        return "<td class=r>" + yenUnit(v) + "</td>";
+      }).join("") + "</tr>";
+  }
+  function splitSummary(rows) {
+    var ev = (company.splits.issued_share_splits || []).map(function (e) {
+      return fmtRatio(e.ratio) + " in " + fmtFiscalYear(e.fiscal_year_end) +
+        " (issued shares " + count(e.shares_before) + " → " + count(e.shares_after) + ")";
+    });
+    var rs = (company.splits.restated_ratios || []).map(fmtRatio);
+    return (ev.length ? "Splits in the issued-share count: " + esc(ev.join("; ")) + ". " : "") +
+      (rs.length ? "Splits the filer restated its own earlier figures for: " + esc(rs.join(", ")) + "." : "");
+  }
+  function fmtRatio(r) {
+    if (r >= 1) return fmtNum(r, r % 1 ? 2 : 0) + "-for-1 split";
+    return "1-for-" + fmtNum(1 / r, 0) + " consolidation";
   }
 
   function renderPanel() {
@@ -296,7 +332,7 @@
       return "<tr><td class='lbl' title='" + esc(el ? "XBRL element: " + el : "") + "'>" + esc(f.label) +
         " <span class='unit'>(" + esc(unitLabel(f)) + ")</span></td>" + rows.map(function (r) {
           return "<td class=r>" + fmt(r.values[f.field]) + "</td>";
-        }).join("") + "</tr>";
+        }).join("") + "</tr>" + adjustedRow(f, rows);
     }).join("");
     var src = "<tr><td class='lbl'>Filing</td>" + rows.map(function (r) {
       return "<td class='r src'>" + edinetLink(r.source.doc_id) + "<span class='sub'>filed " +
@@ -304,7 +340,11 @@
         "</span></td>";
     }).join("") + "</tr>";
     $("ki-table").innerHTML = head + "<tbody>" + body + src + "</tbody>";
-    $("ki-calc").innerHTML = "<b>Nothing is recomputed.</b> " + esc(company.calc.percent_fields) +
+    $("ki-calc").innerHTML = (hasSplits(rows)
+        ? "<b>Split-adjusted rows are calculated; every other row is as filed.</b> " +
+          esc(company.calc.split_adjusted) + " " + splitSummary(rows) + " "
+        : "<b>Nothing is recomputed.</b> ") +
+      esc(company.calc.percent_fields) +
       " " + esc(company.calc.panel) + " " + esc(company.calc.fiscal_year_end) +
       (rows.some(function (r) { return r.revenue_source === "first_line"; })
         ? " " + esc(company.calc.revenue_fallback) : "");
@@ -328,7 +368,7 @@
     var el = $("ki-chart");
     if (kiChart) { kiChart.dispose(); kiChart = null; }
     if (!rows.length) { el.innerHTML = ""; return; }
-    var cats = rows.map(function (r) { return "FY" + r.fiscal_year_end.slice(0, 4); });
+    var cats = rows.map(function (r) { return fmtFiscalYear(r.fiscal_year_end); });
     var anyNeg = false;
     var series = spec.fields.map(function (f, i) {
       var pts = rows.map(function (r) {
@@ -377,11 +417,17 @@
       "basis: " + state.basis + " · trust: official (as filed) · source: EDINET, Financial Services Agency of Japan",
       "yen values exact as tagged; *_pct = filed fraction × 100; per-share values in yen; per = filer's own PER at year end",
       "each fiscal year from the latest accepted filing covering it (doc_id, filed_date on the row)",
-    ], ["fiscal_year_end", "basis", "doc_id", "filed_date", "year_offset"].concat(
-         fields.map(function (f) { return f.field; })),
+    ].concat(hasSplits(rows) ? ["*_split_adjusted columns are calculated, not filed: " +
+      company.calc.split_adjusted + " Blank = share basis not readable."] : []),
+      ["fiscal_year", "fiscal_year_end", "basis", "doc_id", "filed_date", "year_offset"].concat(
+         fields.map(function (f) { return f.field; }),
+         hasSplits(rows) ? PER_SHARE.map(function (f) { return f + "_split_adjusted"; }) : []),
       rows.map(function (r) {
-        return [r.fiscal_year_end, r.basis, r.source.doc_id, r.source.filed_date, r.source.year_offset]
-          .concat(fields.map(function (f) { return r.values[f.field]; }));
+        var a = (r.split_adjusted || {}).values || {};
+        return [fmtFiscalYear(r.fiscal_year_end), r.fiscal_year_end, r.basis, r.source.doc_id,
+                r.source.filed_date, r.source.year_offset]
+          .concat(fields.map(function (f) { return r.values[f.field]; }),
+                  hasSplits(rows) ? PER_SHARE.map(function (f) { return a[f]; }) : []);
       }));
   }
 

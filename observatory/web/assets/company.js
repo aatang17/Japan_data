@@ -245,11 +245,11 @@ function datasetAsOf(id) {
   if (id === "financials") {
     const filings = rows(id, "filings");
     const end = f["latest_filing.period_end"];
-    return (end ? "FY " + String(end).slice(0, 7) : MISSING) +
+    return (end ? fmtFiscalYear(String(end)) : MISSING) +
       (filings.length > 1 ? " · " + filings.length + " years" : "");
   }
   const end = f["filing.period_end"] || f.period_end || f["latest_filing.period_end"];
-  return end ? "FY " + String(end).slice(0, 7) : MISSING;
+  return end ? fmtFiscalYear(String(end)) : MISSING;
 }
 
 /* The annual report every parsed-from-the-report dataset shares. */
@@ -398,7 +398,7 @@ function renderFinTiles() {
     cell("Total assets", yenScale(size.total_assets_yen),
          met.equity_ratio_pct === undefined ? "" : "equity ratio " + pct(met.equity_ratio_pct)) +
     cell("Operating cash flow", yenScale(size.cf_operating_yen),
-         met.fcf_yen === undefined ? "" : "free cash flow " + yenScale(met.fcf_yen).replace(/<[^>]+>/g, "")) +
+         met.fcf_yen == null ? "" : "free cash flow " + yenScale(met.fcf_yen).replace(/<[^>]+>/g, "")) +
     cell("Earnings per share", filed.eps === undefined ? MISSING : "¥" + fmtNum(filed.eps, 2),
          filed.dps === undefined ? "as filed" : "dividend ¥" + fmtNum(filed.dps, 2) + " · as filed") +
     cell("Years held", count(panel.length ? rows("financials", "filings").length : null),
@@ -453,7 +453,9 @@ function ratiosTable() {
     ["Asset turnover", met.asset_turnover_x, null, "×", "revenue ÷ total assets"],
     ["Revenue growth", met.revenue_growth_pct, null, "%", "against the prior filed year"],
     ["Profit growth", met.profit_growth_pct, null, "%", "against the prior filed year"],
-    ["Free cash flow", met.fcf_yen, null, "yen", "operating cash flow − additions to fixed assets"],
+    ["Free cash flow", met.fcf_yen, null, "yen", met.fcf_yen == null && (m.checks || {}).fcf_yen_withheld
+      ? "not shown: " + m.checks.fcf_yen_withheld
+      : "operating cash flow − capex (plant, equipment and intangibles bought)"],
     ["Cash to assets", met.cash_to_assets_pct, null, "%", "cash ÷ total assets"],
     ["Earnings per share", null, filed.eps, "yen2", "filed; we do not recompute it"],
     ["Book value per share", null, filed.bps, "yen2", "filed"],
@@ -493,7 +495,7 @@ function segmentsPane() {
   regions.forEach(function (r) {
     if (r.fiscal_label && years.indexOf(r.fiscal_label) < 0) years.push(r.fiscal_label);
   });
-  years.sort();
+  years.sort(cmpFiscalLabel);
   const latest = years[years.length - 1], prior = years[years.length - 2];
   const measures = [["revenue", "Revenue by region"], ["noncurrent", "Non-current assets by region"]];
   let html = "";

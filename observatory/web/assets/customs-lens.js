@@ -230,7 +230,7 @@ function renderRegions() {
   const rows = L.filed.regions;
   const years = [];
   rows.forEach(r => { if (years.indexOf(r.fiscal_label) === -1) years.push(r.fiscal_label); });
-  years.sort();
+  years.sort(cmpFiscalLabel);
   const labels = [];
   rows.forEach(r => {
     const key = r.label_ja + "|" + (r.is_subnote ? "sub" : "");
@@ -311,7 +311,7 @@ function renderCustoms() {
   const rel = L.relationship.rows.filter(r => r.commodity_key === block.key);
   const years = [];
   rel.forEach(r => { if (years.indexOf(r.fiscal_label) === -1) years.push(r.fiscal_label); });
-  years.sort();
+  years.sort(cmpFiscalLabel);
   const order = ["CN", "TW", "KR", "NA", "US", "EU", "HK", "SG"];
   const regions = [];
   rel.forEach(r => { if (regions.indexOf(r.region_key) === -1) regions.push(r.region_key); });
@@ -356,8 +356,8 @@ function renderCustoms() {
   let html = '<table class="data"><thead><tr><th>Region (filed)</th><th>Fiscal year</th>' +
     '<th class="num">Filed revenue (¥bn)</th><th class="num">Customs exports (¥bn)</th>' +
     '<th class="num">Implied share (%)</th><th>Customs partners counted</th></tr></thead><tbody>';
-  rel.slice().sort((a, b) => a.fiscal_label < b.fiscal_label ? 1 : a.fiscal_label > b.fiscal_label ? -1
-      : regions.indexOf(a.region_key) - regions.indexOf(b.region_key)).forEach(r => {
+  rel.slice().sort((a, b) => cmpFiscalLabel(b.fiscal_label, a.fiscal_label)
+      || regions.indexOf(a.region_key) - regions.indexOf(b.region_key)).forEach(r => {
     html += "<tr><td>" + escapeHtml(REGION_LABEL_EN[r.region_key] || r.region_key) + "</td><td>" + escapeHtml(r.fiscal_label) + "</td>" +
       '<td class="num">' + fmtBn(r.filed_revenue_yen) + '</td><td class="num">' + fmtBn(r.customs_value_yen) + "</td>" +
       '<td class="num">' + (r.upper_bound ? "≤ " : "") + fmtNum(r.implied_share_pct, 1) + "</td><td>" +

@@ -227,13 +227,27 @@ def _latest_filing(cur, sec_code):
     return rows[0] if rows else None
 
 
-def _fy_label(period_end, year_offset):
-    """FY label the Japanese way: the calendar year the fiscal year began in."""
-    if period_end is None:
+def _fy_end(period_end, year_offset):
+    """The filing's period end moved back `year_offset` whole years (a
+    365-day step lands on 1 September across a leap day)."""
+    if period_end is None or year_offset is None:
         return None
-    end = period_end - datetime.timedelta(days=365 * year_offset)
-    start_year = end.year - 1 if end.month != 12 else end.year
-    return "FY%d" % start_year
+    try:
+        return period_end.replace(year=period_end.year - year_offset)
+    except ValueError:                      # 29 Feb
+        return period_end.replace(year=period_end.year - year_offset, day=28)
+
+
+def _fy_label(period_end, year_offset):
+    """'FY Aug-2025': the company year named by the month it ends."""
+    return fiscal.company_year_label(_fy_end(period_end, year_offset))
+
+
+def _label_rows(rows, period_end):
+    for r in rows:
+        end = _fy_end(period_end, r["year_offset"])
+        r["fiscal_label"] = fiscal.company_year_label(end)
+        r["fiscal_year_end"] = end.isoformat() if end else None
 
 
 def _iso(v):
@@ -264,9 +278,7 @@ def company(sec_code: str):
             FROM eq_seg_products WHERE doc_id = ? ORDER BY year_offset DESC, ord""", [doc])
         for r in regions:
             r["region_label_en"] = REGION_LABEL.get(r["region_key"])
-            r["fiscal_label"] = _fy_label(filing["period_end"], r["year_offset"])
-        for r in customers + products:
-            r["fiscal_label"] = _fy_label(filing["period_end"], r["year_offset"])
+        _label_rows(regions + customers + products, filing["period_end"])
         filing = dict((k, _iso(v)) for k, v in filing.items())
         return {
             "company": ent, "filing": filing, "trust": "official", "calc": CALC["filed"],
@@ -442,8 +454,10 @@ def _customs_by_fiscal(fy_end_month, flow, commodity, partners, granularity, dat
                 monthly[period] = monthly.get(period, 0.0) + v
         pts = sorted(monthly.items())
         rolled, dropped = fiscal.roll_up(pts, "jpy_1000", fy_end_month, granularity)
-        # published in thousands of yen; the lens speaks yen throughout
-        return [(p, v * 1000.0, l) for p, v, l in rolled], dropped
+        # published in thousands of yen; the lens speaks yen throughout. Labels
+        # are the company's own year names, so they match the filed rows.
+        return [(p, v * 1000.0, fiscal.company_period_label(p, fy_end_month, granularity))
+                for p, v, _l in rolled], dropped
     finally:
         con.close()
 
@@ -473,9 +487,7 @@ def _lens(sec_code):
 
     for r in regions:
         r["region_label_en"] = REGION_LABEL.get(r["region_key"])
-        r["fiscal_label"] = _fy_label(filing["period_end"], r["year_offset"])
-    for r in customers_ + products:
-        r["fiscal_label"] = _fy_label(filing["period_end"], r["year_offset"])
+    _label_rows(regions + customers_ + products, filing["period_end"])
     cur2 = _cur()
     try:
         index, curated = _registry_index(cur2), _curated_names()
@@ -585,6 +597,14 @@ def _lens(sec_code):
     }
 
 
+def _label_order(label):
+    """'FY Aug-2025' sorts by year then month, not alphabetically."""
+    m = re.match(r"FY (\w{3})-(\d{4})", label or "")
+    if not m:
+        return (0, 0)
+    return (int(m.group(2)), fiscal.MONTH_ABBR.index(m.group(1)))
+
+
 @router.get("/lens/{sec_code}.csv", response_class=PlainTextResponse,
             openapi_extra={"x-example": "/api/v1/equity/segments/lens/8035.csv"})
 def lens_csv(sec_code: str):
@@ -609,7 +629,7 @@ def lens_csv(sec_code: str):
             for fy in block["fiscal_years"]:
                 if fy["label"] not in years:
                     years.append(fy["label"])
-    years.sort()
+    years.sort(key=_label_order)
     out = io.StringIO()
     w = lambda line: out.write(line + "\n")
     w("# Plover Analytics — Company Profile: %s (%s)" % (name, sec_code))
@@ -621,7 +641,7 @@ def lens_csv(sec_code: str):
       % (d["filing"]["doc_id"], d["filing"]["period_end"], d["filing"]["filed_date"],
          d["filing"]["status"], (" — " + d["filing"]["detail"]) if d["filing"].get("detail") else ""))
     w("# Region basis as filed: %s" % (d["filing"].get("basis_text") or "not stated"))
-    w("# Fiscal year ends in month %d; FY labels name the calendar year the year began in" % d["fy_end_month"])
+    w("# Fiscal year ends in month %d; FY labels name the month and year the fiscal year ends" % d["fy_end_month"])
     w("# filed_* columns: %s" % CALC["filed"])
     w("# customs_* columns: %s" % CALC["customs_fy"])
     w("# Region -> customs partners: %s" % json.dumps(
