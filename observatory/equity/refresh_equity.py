@@ -78,6 +78,10 @@ EXTRACTORS = [
     ("event_extract.py",      "corporate-events",     []),
     # Segment notes (revenue by region, named customers, product segments).
     ("seg_extract.py",        "segments",             ["--all"]),
+    # Business risks (事業等のリスク): the section's text, cut into the filer's
+    # own items. Same t1 package and cold-start budget as the extractors
+    # above; companies with a securities code only (see the module docstring).
+    ("risk_extract.py",       "business-risks",       []),
     ("buyback.py",            "buybacks",             []),
     # Not an EDINET extractor at all: two small files fetched straight from
     # JPX and Nikkei. It sits at the end because nothing else reads what it

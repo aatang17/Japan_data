@@ -55,15 +55,16 @@ def sections():
 # with the breakdown that reconciles it.
 # ---------------------------------------------------------------------------
 
-# One row per document, by family. The annual-report family is six extractors
+# One row per document, by family. The annual-report family is seven extractors
 # reading the SAME 有価証券報告書, so its members are counted as one set of
-# documents, not six.
+# documents, not seven.
 FILING_FAMILIES = [
     ("large_shareholding", "5% large-shareholding filings", ["eq_lvh_filings"]),
     ("agm", "AGM voting results", ["eq_agm_meetings"]),
     ("annual_report", "Annual securities reports", [
         "eq_filings", "eq_own_filings", "eq_fin_filings",
-        "eq_seg_filings", "eq_fac_filings", "eq_rental_filings"]),
+        "eq_seg_filings", "eq_fac_filings", "eq_rental_filings",
+        "eq_risk_filings"]),
     ("buyback", "Buyback filings", ["eq_buyback_filings"]),
 ]
 
@@ -102,7 +103,7 @@ def coverage():
     listed companies and documents parsed.
 
     `filings` counts distinct EDINET documents, so an annual report read by
-    six extractors counts once rather than six times. `filings_by_family`
+    seven extractors counts once rather than seven times. `filings_by_family`
     breaks that total down by document type, which is how a reader checks it.
 
     The company and filing counts are `null` — never 0 — when the filings

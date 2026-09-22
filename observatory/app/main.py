@@ -35,6 +35,7 @@ from .short_api import router as short_router  # noqa: E402
 from .earnings_api import router as earnings_router  # noqa: E402
 from .agm_api import router as agm_router  # noqa: E402
 from .segments_api import router as segments_router  # noqa: E402
+from .risk_api import router as risk_router  # noqa: E402
 from . import sec_api  # noqa: E402
 from .sec_api import router as sec_router  # noqa: E402
 from .catalog_api import router as catalog_router  # noqa: E402
@@ -193,6 +194,7 @@ app.include_router(agm_router)
 app.include_router(facility_router)
 app.include_router(financials_router)
 app.include_router(segments_router)
+app.include_router(risk_router)
 app.include_router(buyback_router)
 app.include_router(equity_router)
 # The US shelf's literal /api/v1/us/financials/… paths, ahead of the core

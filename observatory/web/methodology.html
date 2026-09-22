@@ -1368,6 +1368,34 @@
     </div>
   </details>
 
+  <details class="ds" id="calc-risks">
+    <summary><span>Business risks</span><span class="ds-note">事業等のリスク, the company's own words, itemised</span></summary>
+    <div class="ds-body">
+    <p>Every annual securities report carries a section, 事業等のリスク, where management lists the
+    risks it believes could materially affect the business. The text is an <b>official
+    disclosure exactly as filed</b>: spacing is tidied and any table inside the section is shown one
+    row per line, but no word is changed, summarised, scored or translated. Two things are
+    calculated here and say so.</p>
+    <ul>
+      <li><b>Items.</b> The section is cut at the company's own numbered headings — (1), ①, 1.,
+      (ア), (a). A line starts a new item only if it carries the next number in its sequence, so a
+      numbered list inside a risk never splits it. A second numbering style inside the first becomes
+      sub-items. A section with no numbers is cut at short bracketed headings, such as
+      （為替変動について）, when at least two occur and none repeats. A section with neither is shown
+      whole. The text before the first item is kept as the preamble. The preamble and the items
+      together reproduce the full section line for line; a filing where they do not is flagged.</li>
+      <li><b>New and dropped.</b> An item is marked new when its heading, with the numbering
+      removed, is not among the headings of the same company's previous annual report on file.
+      The comparison is of exact text, not meaning: a reworded heading shows as one new item and
+      one dropped heading.</li>
+      <li><b>Text search is exact.</b> It matches the filed Japanese character for character. 為替
+      finds 為替レート, but サイバー does not find 情報セキュリティ.</li>
+      <li><b>Companies, not survivors.</b> Every annual report carrying a securities code is read,
+      including companies since delisted. Each filing is archived with its SHA-256 before parsing.</li>
+    </ul>
+    </div>
+  </details>
+
   <details class="ds" id="calc-shorts">
     <summary><span>Short positions</span><span class="ds-note">JPX daily disclosure, a tape not a snapshot</span></summary>
     <div class="ds-body">

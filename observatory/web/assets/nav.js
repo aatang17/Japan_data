@@ -156,6 +156,7 @@ var NAV_SECTIONS = [
           { id: "governance", label: "Boards & Pay", href: "governance.html" },
           { id: "agm", label: "AGM Votes", href: "agm.html" },
           { id: "buyback", label: "Buybacks", href: "buyback.html" },
+          { id: "risks", label: "Business Risks", href: "risks.html" },
         ] },
       { id: "financials", label: "Financials", href: "financials.html",
         tabs: [
