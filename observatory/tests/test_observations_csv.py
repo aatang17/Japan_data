@@ -48,3 +48,29 @@ class ObservationsCsv(unittest.TestCase):
     def test_bad_format(self):
         r = self.client.get("/api/v1/cpi-jp/observations?series=0001&format=xlsx")
         self.assertEqual(r.status_code, 400)
+
+    def test_daily_bounds(self):
+        # A full date is accepted as a start, and a month as an end covers the
+        # whole month — a daily series is not cut at the 1st.
+        r = self.client.get("/api/v1/jgb-yields/observations?series=10Y"
+                            "&start=2026-08-10&end=2026-08")
+        self.assertEqual(r.status_code, 200)
+        days = [p[0] for p in r.json()["series"][0]["points"]]
+        self.assertTrue(days)
+        self.assertGreaterEqual(days[0], "2026-08-10")
+        self.assertTrue(all(d[:7] == "2026-08" for d in days))
+        self.assertGreater(days[-1], "2026-08-20")
+
+    def test_monthly_accepts_full_date(self):
+        r = self.client.get("/api/v1/cpi-jp/observations?series=0001"
+                            "&start=2026-01-01&end=2026-03")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual([p[0] for p in r.json()["series"][0]["points"]],
+                         ["2026-01-01", "2026-02-01", "2026-03-01"])
+
+    def test_bad_date_is_400(self):
+        for q in ("start=2026-13", "end=2026-09-31", "start=last-year"):
+            r = self.client.get("/api/v1/cpi-jp/observations?series=0001&" + q)
+            self.assertEqual(r.status_code, 400, q)
+        r = self.client.get("/api/v1/cpi-jp/contributions?start=2026-13")
+        self.assertEqual(r.status_code, 400)

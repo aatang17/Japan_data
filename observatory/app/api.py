@@ -187,6 +187,28 @@ def _dataset_or_404(slug):
     return ADAPTERS[slug]
 
 
+def _period_bound(value, name, end=False):
+    """A start/end query value as a date: YYYY-MM or YYYY-MM-DD.
+
+    A month as an ``end`` covers the whole month (its last day), so a daily
+    series asked for through 2026-09 is not silently cut at 1 September;
+    monthly, quarterly and annual periods are dated to their first day and
+    fall inside it either way. Anything else is a 400, not a crash.
+    """
+    if not value:
+        return None
+    try:
+        if len(value) == 7:
+            first = datetime.date.fromisoformat(value + "-01")
+            if not end:
+                return first
+            return (first.replace(day=28) + datetime.timedelta(days=4)).replace(day=1) \
+                - datetime.timedelta(days=1)
+        return datetime.date.fromisoformat(value)
+    except ValueError:
+        raise HTTPException(400, "%s must be YYYY-MM or YYYY-MM-DD (got '%s')" % (name, value))
+
+
 def _months_ago(period, n):
     y, m = period.year, period.month - n
     while m <= 0:
@@ -1034,8 +1056,8 @@ def contributions(dataset,
     pres = adapter.PRESENTATION
     if not pres.get("groups_ja") or not pres.get("main_series"):
         raise HTTPException(404, "Dataset '%s' has no group decomposition" % dataset)
-    p_start = datetime.date.fromisoformat(start + "-01") if start else None
-    p_end = datetime.date.fromisoformat(end + "-01") if end else None
+    p_start = _period_bound(start, "start")
+    p_end = _period_bound(end, "end", end=True)
     con = _con()
     try:
         rel = _release(con, dataset)
@@ -1762,8 +1784,8 @@ def observations(dataset,
     codes = [c.strip() for c in series.split(",") if c.strip()][:8]
     if not codes:
         raise HTTPException(400, "No series codes given")
-    p_start = datetime.date.fromisoformat(start + "-01") if start else None
-    p_end = datetime.date.fromisoformat(end + "-01") if end else None
+    p_start = _period_bound(start, "start")
+    p_end = _period_bound(end, "end", end=True)
     try:
         p_as_of = datetime.date.fromisoformat(as_of) if as_of else None
     except ValueError:
