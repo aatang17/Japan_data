@@ -47,7 +47,7 @@ from . import sec_api
 
 router = APIRouter(prefix="/api/v1/us/financials/deep", tags=["US deep coverage"])
 
-STALE_AFTER_DAYS = 10     # the pull is meant to run at least weekly
+STALE_AFTER_DAYS = 3      # app/backfill.py pulls every day; three missed days is a fault
 
 PROVENANCE = {
     "trust": "official",
@@ -407,14 +407,17 @@ def health():
         cur = _require()
     except HTTPException:
         return []
+    # A pull that found the file unchanged still reached the SEC, so it counts
+    # as contact: freshness is "last checked", not "last found something new".
     last_ok, last_filed = cur.execute("""
-        SELECT (SELECT max(fetched_at) FROM sec_cf_pulls WHERE status = 'ok'),
+        SELECT (SELECT max(fetched_at) FROM sec_cf_pulls WHERE status IN ('ok', 'unchanged')),
                (SELECT max(last_filed) FROM sec_cf_companies)""").fetchone()
     first = cur.execute("SELECT min(first_filed) FROM sec_cf_companies").fetchone()[0]
     failed = [r[0] for r in cur.execute("""
         SELECT DISTINCT c.ticker FROM sec_cf_pulls p JOIN sec_cf_companies c USING (cik)
         WHERE p.status = 'failed' AND p.pull_id > coalesce(
-            (SELECT max(pull_id) FROM sec_cf_pulls q WHERE q.cik = p.cik AND q.status = 'ok'), 0)
+            (SELECT max(pull_id) FROM sec_cf_pulls q WHERE q.cik = p.cik
+               AND q.status IN ('ok', 'unchanged')), 0)
         """).fetchall()]
     days = (datetime.datetime.utcnow() - last_ok).days if last_ok else None
     stale = days is None or days > STALE_AFTER_DAYS

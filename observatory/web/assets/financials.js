@@ -83,8 +83,7 @@
 
   function nameCell(en, ja, href) {
     var main = en || ja || MISSING;
-    var sub = en && ja ? "<span class='sub'>" + esc(ja) + "</span>" : "";
-    return "<div class='cell-name'><a href='" + href + "'>" + esc(main) + "</a>" + sub + "</div>";
+    return "<div class='cell-name'><a href='" + href + "'>" + esc(main) + "</a></div>";
   }
 
   function edinetLink(docId) {
@@ -335,9 +334,9 @@
         }).join("") + "</tr>" + adjustedRow(f, rows);
     }).join("");
     var src = "<tr><td class='lbl'>Filing</td>" + rows.map(function (r) {
-      return "<td class='r src'>" + edinetLink(r.source.doc_id) + "<span class='sub'>filed " +
-        esc(r.source.filed_date) + (r.source.year_offset ? " · restated " + r.source.year_offset + "y" : "") +
-        "</span></td>";
+      return "<td class='r src' title='Filed " + esc(r.source.filed_date) +
+        (r.source.year_offset ? " · restated " + r.source.year_offset + "y" : "") + "'>" +
+        edinetLink(r.source.doc_id) + "</td>";
     }).join("") + "</tr>";
     $("ki-table").innerHTML = head + "<tbody>" + body + src + "</tbody>";
     $("ki-calc").innerHTML = (hasSplits(rows)
@@ -536,7 +535,7 @@
         var lbl = "<td class='lbl' data-depth='" + Math.min(l.depth, 4) + "' title='XBRL element: " + esc(l.element) + "'>" + esc(l.label_en) +
           (l.label_en_source === "derived" ? "<span class='pill' title='English label derived from the XBRL element name; the Japanese label is the filer&#39;s own'>derived</span>" : "") +
           (l.negated ? "<span class='pill' title='The filer prints this line with its sign reversed'>sign reversed</span>" : "") +
-          (l.label_ja ? "<span class='ja'>" + esc(l.label_ja) + "</span>" : "") + "</td>";
+          "</td>";
         if (l.is_heading) return "<tr class='heading'>" + lbl + "<td></td><td></td><td></td><td></td></tr>";
         var f = perShare(l) ? yenUnit : (l.unit === "pure" || l.unit === "shares" ? count : yenMn);
         var chg = (l.current != null && l.prior != null) ? l.current - l.prior : null;

@@ -209,8 +209,7 @@
     var primary = en || ja || MISSING;
     var link = href
       ? "<a href='" + href + "'>" + esc(primary) + "</a>" : esc(primary);
-    return "<div class='cell-item'><div class='en'>" + link + "</div>" +
-      (en && ja ? "<div class='ja'>" + esc(ja) + "</div>" : "") + "</div>";
+    return "<div class='cell-item'><div class='en'>" + link + "</div></div>";
   }
 
   // axis labels: drop the corporate suffix every name carries, so the part that

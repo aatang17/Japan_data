@@ -77,14 +77,16 @@ function lineOptions(cfg, pal, narrow) {
       // The legend sits under the plot when narrow and wraps to as many rows
       // as it needs. Two rows fit in 44px; a fourth series pushes it to three
       // and it lands on top of the axis labels, so reserve more for it.
-      ? { left: 8, right: 12,
+      ? { left: 8, right: cfg.gridRight || 12,
           // Six long names wrap to four rows; a caller that knows its legend
           // is that tall reserves the room with legendBottomNarrow.
           bottom: cfg.legendBottomNarrow ||
             (cfg.series.length > 3 ? 70 : (cfg.series.length > 1 ? 44 : 8)),
           containLabel: true,
           top: cfg.yAxisName ? 26 : 12 }
-      : { left: 8, right: 20, bottom: 8, containLabel: true,
+      // cfg.gridRight: room for a long last category label ("FY Dec-2025"),
+      // centred on the right edge of a category axis. Opt-in.
+      : { left: 8, right: cfg.gridRight || 20, bottom: 8, containLabel: true,
           top: cfg.series.length > 1 ? 34 : (cfg.yAxisName ? 28 : 16) },
     xAxis: Object.assign(axisCommon(pal), isCat
       ? { type: "category", boundaryGap: false, splitLine: { show: false },

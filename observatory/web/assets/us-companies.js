@@ -127,11 +127,8 @@
       cs.map(function (c) {
         var f = c.facts + c.predecessors.reduce(function (a, p) { return a + p.facts; }, 0);
         var n = c.filings + c.predecessors.reduce(function (a, p) { return a + p.filings; }, 0);
-        var pred = c.predecessors.length
-          ? "<span class='sub'>earlier years filed by " + esc(c.predecessors.map(function (p) {
-              return p.entity_name; }).join(", ")) + "</span>" : "";
         return "<tr><td><a href='us-companies.html?t=" + encodeURIComponent(c.ticker) + "'>" +
-          esc(c.name) + "</a>" + pred + "</td><td class='mono'>" + esc(c.ticker) + "</td><td>" +
+          esc(c.name) + "</a></td><td class='mono'>" + esc(c.ticker) + "</td><td>" +
           esc(c.sector) + "</td><td class=r>" + esc(c.history_from) + "</td><td class=r>" +
           esc(c.last_filed) + "</td><td class=r data-sort='" + n + "'>" + count(n) +
           "</td><td class=r data-sort='" + f + "'>" + count(f) + "</td></tr>";
@@ -280,8 +277,8 @@
     // balance sheet), so hovering a cell names that cell's own filing.
     var src = "<tr><td class='lbl'>Income statement from</td>" + rows.map(function (r) {
       var best = r.sources.revenue || r.sources.net_income || r.sources.cf_operating;
-      return "<td class='r src'>" + (best ? secLink(best.cik, best.accn, best.form) +
-        "<span class='sub'>" + esc(best.filed) + "</span>" : MISSING) + "</td>";
+      return "<td class='r src'" + (best ? " title='Filed " + esc(best.filed) + " · " +
+        esc(best.accn) + "'>" + secLink(best.cik, best.accn, best.form) : ">" + MISSING) + "</td>";
     }).join("") + "</tr>";
     $("ki-table").innerHTML = headRow + "<tbody>" + body + src + "</tbody>";
     // Newest periods sit at the right edge; start the reader there.
@@ -341,6 +338,7 @@
         yAxisName: spec.unit, trust: "official", sourceLine: source });
     } else {
       kiChart = obsChart(el, "line", { xType: "category", unit: "", unitSuffix: spec.unit, dp: spec.dp,
+        gridRight: 36,
         yAxisName: spec.unit, trust: "official", sourceLine: source,
         series: ser.map(function (s) {
           return { name: s.name, slot: s.slot, points: s.points.map(function (v, i) { return [cats[i], v]; }) };
@@ -383,17 +381,16 @@
       annual = res[0]; panel = res[1] || res[0]; head = annual;
       renderHead(); renderFacts(); renderPanel();
     }).catch(function (e) {
-      if (e.status === 404 && head) {
-        // A known company with nothing filed by the chosen date.
-        annual = panel = null;
-        renderFacts();
-        $("ki-table").innerHTML = "";
-        if (kiChart) { kiChart.dispose(); kiChart = null; }
-        $("ki-chart").innerHTML = "<p class='state-empty'>No " + esc(state.freq) + " periods had been " +
-          "filed by " + esc(state.asof || "then") + ".</p>";
-        $("ki-note").textContent = "";
-        return;
+      if (e.status === 404 && !head && !/deep-coverage universe/.test(e.message)) {
+        // A covered company with nothing filed by the chosen date: name it
+        // from its concept menu, then fall through to the empty state.
+        return getJSON(API + "/" + encodeURIComponent(state.t) + "?limit=1").then(function (d) {
+          head = { company: d.company, registrants: d.registrants };
+          renderHead();
+          throw e;
+        }).catch(function () { return noPeriods(); });
       }
+      if (e.status === 404 && head) return noPeriods();
       if (!head) {
         $("co-name").textContent = state.t;
         $("co-meta").textContent = e.status === 404
@@ -403,6 +400,19 @@
       }
       errorInto("ki-explain", e);
     });
+  }
+
+  // A known company with nothing filed by the chosen date.
+  function noPeriods() {
+    annual = panel = null;
+    renderFacts();
+    $("ki-table").innerHTML = "";
+    $("ki-calc").innerHTML = "";
+    if (kiChart) { kiChart.dispose(); kiChart = null; }
+    $("ki-chart").innerHTML = "<p class='state-empty'>No " + esc(state.freq) + " periods had been " +
+      "filed by " + esc(state.asof || "then") + ". Clear the date or choose a later one.</p>";
+    $("ki-source").textContent = "";
+    $("ki-note").textContent = "";
   }
 
   // ---- company: every filed concept ----------------------------------------
@@ -429,9 +439,7 @@
       (shown.length ? shown.map(function (c) {
         var key = c.taxonomy + ":" + c.tag;
         return "<tr class='pick' tabindex='0' data-tag='" + esc(key) + "' aria-selected='" +
-          (key === state.tag ? "true" : "false") + "'><td class='lbl'>" + esc(c.label || c.tag) +
-          (c.is_balance ? "<span class='pill' title='A balance on a date rather than a flow over a period'>balance</span>" : "") +
-          "<span class='tag'>" + esc(key) + "</span></td><td>" + esc(fmtUnits(c.units)) +
+          (key === state.tag ? "true" : "false") + "'><td class='lbl'>" + esc(c.label || c.tag) + "</td><td>" + esc(fmtUnits(c.units)) +
           "</td><td class=r>" + count(c.annual_periods) + "</td><td class=r>" + count(c.quarterly_periods) +
           "</td><td class=r>" + esc(c.first_period) + "</td><td class=r>" + esc(c.last_period) + "</td></tr>";
       }).join("") : "<tr><td colspan='6' class='state-empty'>No concept matches that.</td></tr>") + "</tbody>";
@@ -503,6 +511,7 @@
       var cats = pts.map(function (v) {
         return v.period_start ? periodLabel(v.period_end) : v.period_end; });
       cnChart = obsChart($("cn-chart"), "line", { xType: "category", unit: "", unitSuffix: sc.unit, dp: sc.dp,
+        gridRight: 36,
         yAxisName: sc.unit, trust: "official", sourceLine: src,
         series: [{ name: d.label || d.tag, slot: 1, points: pts.map(function (v, i) {
           return [cats[i], v.value == null ? null : v.value / sc.f]; }) }] });

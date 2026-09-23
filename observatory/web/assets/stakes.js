@@ -52,8 +52,7 @@
   function nameCell(en, ja, href) {
     var primary = en || ja || MISSING;
     var link = href ? "<a href='" + href + "'>" + esc(primary) + "</a>" : esc(primary);
-    return "<div class='cell-item'><div class='en'>" + link + "</div>" +
-      (en && ja ? "<div class='ja'>" + esc(ja) + "</div>" : "") + "</div>";
+    return "<div class='cell-item'><div class='en'>" + link + "</div></div>";
   }
 
   function errorInto(id, e) {
@@ -149,16 +148,16 @@
       "<th class=r>Stake (%)</th><th class=r>Was (%)</th><th class=r>Move</th>" +
       "<th>Important proposals</th></tr></thead><tbody>" +
       rows.map(function (r) {
-        return "<tr><td class='nowrap'>" + esc(day(r.filed_date)) +
-          "<span class='sub'>triggered " + esc(day(r.requirement_date)) + "</span>" +
+        return "<tr><td class='nowrap' title='Triggered " + esc(day(r.requirement_date)) + "'>" +
+          esc(day(r.filed_date)) +
           (r.status === "partial" ? " <span class='badge badge-note' title='" +
              esc(r.detail || "") + "'>Partial</span>" : "") +
           "</td><td>" + nameCell(r.issuer_name_en, r.issuer_name_raw,
               r.issuer_sec_code ? "stakes.html?c=" + esc(r.issuer_sec_code) : null) +
           "</td><td>" + nameCell(null, r.filer_name,
               r.filer_edinet_code ? "stakes.html?h=" + esc(r.filer_edinet_code) : null) +
-          "</td><td>" + esc(REPORT_LABEL[r.report_type] || r.report_type) +
-          (r.change_no ? "<span class='sub'>No. " + esc(r.change_no) + "</span>" : "") +
+          "</td><td" + (r.change_no ? " title='Change report No. " + esc(r.change_no) + "'" : "") + ">" +
+          esc(REPORT_LABEL[r.report_type] || r.report_type) +
           "</td><td class=r>" + pct(r.ratio_pct) +
           "</td><td class=r>" + pct(r.prior_ratio_pct) +
           "</td><td class='r move'>" + move(r.ratio_change_pp) +

@@ -48,8 +48,7 @@
   function nameCell(en, ja, href) {
     var primary = en || ja || MISSING;
     var link = href ? "<a href='" + href + "'>" + esc(primary) + "</a>" : esc(primary);
-    return "<div class='cell-item'><div class='en'>" + link + "</div>" +
-      (en && ja ? "<div class='ja'>" + esc(ja) + "</div>" : "") + "</div>";
+    return "<div class='cell-item'><div class='en'>" + link + "</div></div>";
   }
 
   function errorInto(id, e) {
@@ -396,8 +395,8 @@
             : "") +
           "</td><td>" + esc(p.title_ja || MISSING) +
           "</td><td>" + esc(ROLE_LABELS[p.role] || "Other officer") +
-          "</td><td class=r>" + (p.age_at_period_end == null ? MISSING : p.age_at_period_end) +
-          (p.date_of_birth ? "<span class='sub'>b. " + esc(p.date_of_birth) + "</span>" : "") +
+          "</td><td class=r" + (p.date_of_birth ? " title='Born " + esc(p.date_of_birth) + "'" : "") + ">" +
+          (p.age_at_period_end == null ? MISSING : p.age_at_period_end) +
           "</td><td class=r>" + count(p.shares_held) + "</td></tr>";
       }).join("") + "</tbody>";
     // The API's notes name their own fields, which is right for a machine
@@ -444,12 +443,11 @@
               : "<span class='badge badge-warn' title='The filer&#39;s components do not sum to its filed total. The total is the published figure.'>does not add up</span>");
         var ofWhich = /^ofwhich/i.test(r.category_key || "");
         var label = esc(r.category_label_en || MISSING).replace(/([A-Za-z])(\d+)$/, "$1 $2");
-        return "<tr><td>" + label +
-          (ofWhich
-            ? "<span class='sub' title='A subset of a category above, as the filer presents it — not an additional category. It is excluded from the filed total and from pay per officer so no officer is counted twice.'>of which — subset, not additive</span>"
+        return "<tr><td" + (ofWhich
+            ? " title='A subset of a category above, as the filer presents it — not an additional category. It is excluded from the filed total and from pay per officer so no officer is counted twice.'>Of which: "
             : r.category_label_source === "derived_from_filer_tag"
-              ? "<span class='sub' title='This filer defines its own officer category; the label is read from its own tag, not a published English name'>filer-defined category</span>"
-              : "") +
+              ? " title='This filer defines its own officer category; the label is read from its own tag, not a published English name'>"
+              : ">") + label +
           "</td><td class=r>" + count(r.headcount) +
           "</td><td class=r>" + yenM(r.total_yen) +
           "</td><td class=r>" + yenM(r.per_head_yen, 1) +

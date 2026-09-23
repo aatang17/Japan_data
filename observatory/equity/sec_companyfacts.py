@@ -45,7 +45,9 @@ the facts of newly filed reports and nothing else. If the SEC's file ever
 carries a different value for a (tag, period, filing) we already hold, the
 stored value stays and the pair is written to sec_cf_conflicts; if a stored
 fact is missing from a new file it stays too and the pull counts it as
-vanished. An unchanged file (same SHA-256 as the last good pull) is skipped.
+vanished. An unchanged file (same SHA-256 as the last good pull) loads nothing; the
+pull is still recorded, status 'unchanged', so freshness means "last reached
+the SEC", not "last found something new".
 
 Gate
 ----
@@ -266,9 +268,16 @@ def load_company(con, fetcher, cik, ticker, sector, successor):
     now = dt.datetime.utcnow().replace(microsecond=0)
     body = fetcher.get(url)
     sha = hashlib.sha256(body).hexdigest()
-    last = con.execute("""SELECT sha256 FROM sec_cf_pulls WHERE cik=? AND status='ok'
+    last = con.execute("""SELECT sha256, raw_path FROM sec_cf_pulls WHERE cik=? AND status='ok'
                           ORDER BY pull_id DESC LIMIT 1""", [cik]).fetchone()
     if last and last[0] == sha:
+        # Recorded, not just skipped: the health row dates the last pull that
+        # reached the SEC, and a quiet fortnight with no new filings is a
+        # working pipeline, not a stale one. Nothing else is written.
+        pull_id = con.execute("SELECT nextval('sec_cf_pull_seq')").fetchone()[0]
+        con.execute("""INSERT INTO sec_cf_pulls (pull_id, cik, fetched_at, url, sha256, bytes,
+                       raw_path, parser_version, status) VALUES (?,?,?,?,?,?,?,?,'unchanged')""",
+                    [pull_id, cik, now, url, sha, len(body), last[1], PARSER_VERSION])
         return "unchanged"
     raw_path = archive(body, cik, sha)
     try:

@@ -427,11 +427,12 @@ class PhaseIsolationTest(unittest.TestCase):
     def setUp(self):
         self._saved = {n: getattr(backfill, n) for n in (
             "backfill_macro", "stamp_cycle", "backfill_gdp_vintages",
-            "backfill_equity", "backfill_sec")}
+            "backfill_equity", "backfill_sec", "refresh_us_companies")}
         self.addCleanup(lambda: [setattr(backfill, n, f) for n, f in self._saved.items()])
         self.ran = []
         backfill.backfill_macro = lambda ds: self.ran.append("macro")
         backfill.stamp_cycle = lambda: self.ran.append("stamp")
+        backfill.refresh_us_companies = lambda: self.ran.append("us")
         backfill.backfill_equity = lambda d, m: self.ran.append("equity")
         backfill.backfill_sec = lambda q: self.ran.append("sec")
         for key in ("BACKFILL_DATASETS", "BACKFILL_GDP_VINTAGES",
@@ -447,6 +448,20 @@ class PhaseIsolationTest(unittest.TestCase):
         self.assertEqual(backfill.main(), 0)
         self.assertIn("equity", self.ran)
         self.assertIn("sec", self.ran)
+
+    def test_us_companies_run_before_the_long_history_phases(self):
+        """The US pull is current data and takes a minute; the equity catch-up
+        can run until the daily restart and would starve it."""
+        backfill.backfill_gdp_vintages = lambda: None
+        backfill.main()
+        self.assertLess(self.ran.index("us"), self.ran.index("equity"))
+
+    def test_us_companies_can_be_switched_off(self):
+        os.environ["BACKFILL_US_COMPANIES"] = "0"
+        self.addCleanup(os.environ.pop, "BACKFILL_US_COMPANIES", None)
+        backfill.backfill_gdp_vintages = lambda: None
+        backfill.main()
+        self.assertNotIn("us", self.ran)
 
     def test_equity_runs_before_the_gdp_archive(self):
         backfill.backfill_gdp_vintages = lambda: self.ran.append("gdp")

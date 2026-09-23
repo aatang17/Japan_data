@@ -39,6 +39,8 @@ Environment (all optional):
   BACKFILL_CATCH_UP_DAYS    archive days per equity slice (default 40)
   BACKFILL_MAX_SLICES       stop after this many equity slices (default 400)
   BACKFILL_SEC_QUARTERS     quarterly SEC data sets to hold in all (default 12; 0 = none)
+  BACKFILL_US_COMPANIES     0 to skip the daily pull of the US deep-coverage
+                            companies (default: on; needs EDGAR_USER_AGENT)
 """
 import errno
 import os
@@ -482,6 +484,66 @@ def backfill_sec(max_quarters, per_slice=2):
         log("US shelf slice %d landed (%.0fs): %s" % (n, took, ", ".join(sorted(after - before))))
 
 
+def _cf_last_pull(path):
+    """Highest company-facts pull id in a file, 0 before the first pull."""
+    con = duckdb.connect(str(path), read_only=True)
+    try:
+        names = {r[0] for r in con.execute(
+            "SELECT table_name FROM duckdb_tables()").fetchall()}
+        if "sec_cf_pulls" not in names:
+            return 0
+        return con.execute("SELECT coalesce(max(pull_id), 0) FROM sec_cf_pulls").fetchone()[0]
+    finally:
+        con.close()
+
+
+def refresh_us_companies():
+    """Pull the US deep-coverage companies from the SEC, every cycle.
+
+    equity/sec_companyfacts.py fetches each company's company-facts file from
+    data.sec.gov (about a minute for the whole universe) and adds only facts
+    it does not hold: insert-only, so a stored vintage is never touched. It
+    runs on a copy of data/sec.duckdb that is swapped in afterwards, like the
+    rest of this module. Every pull is recorded, 'unchanged' included, so the
+    copy is swapped whenever the SEC was reached — that record is what the
+    health row dates freshness from. A company that fails is recorded as
+    failed and the others still land.
+
+    It is current data, not history, so main() runs it before the equity
+    catch-up, which can take hours and is cut off by the daily restart.
+    """
+    if not os.environ.get("EDGAR_USER_AGENT"):
+        log("ATTENTION no EDGAR_USER_AGENT; the SEC refuses undeclared clients, so the "
+            "US companies were not refreshed")
+        record_check("sec-companyfacts", "failed", "EDGAR_USER_AGENT not set")
+        return
+    work = DATA_DIR / "sec.companyfacts.duckdb"
+    if LIVE_SEC.exists():
+        if fresh_copy(LIVE_SEC, work) is None:
+            record_check("sec-companyfacts", "failed", "no working copy of sec.duckdb")
+            return
+    else:
+        _discard(work)          # first pull on this volume: the script builds the file
+    before = _cf_last_pull(work) if work.exists() else 0
+    started = time.time()
+    rc = _run([sys.executable, str(ROOT / "equity" / "sec_companyfacts.py"),
+               "--db", str(work)], dict(os.environ), ROOT)
+    took = time.time() - started
+    after = _cf_last_pull(work) if work.exists() and rc != -1 else 0
+    if after <= before:
+        log("US companies: nothing recorded (exit %s, %.0fs); served data untouched"
+            % (rc, took))
+        _discard(work)
+        record_check("sec-companyfacts", "failed", "pull exited %s, nothing recorded" % rc)
+        return
+    swap(work, LIVE_SEC)
+    outcome = "published" if rc == 0 else "failed"
+    log("US companies pulled (%.0fs, exit %s): %d pulls recorded%s"
+        % (took, rc, after - before, "" if rc == 0 else "; some companies failed, see above"))
+    record_check("sec-companyfacts", outcome,
+                 None if rc == 0 else "some companies failed; the rest landed")
+
+
 def stamp_cycle():
     """Mark the end of a refresh cycle, and say what it left behind.
 
@@ -541,6 +603,10 @@ def main():
     # day. The current data is what the stamp is about, and it is current now.
     if not _stopping:
         stamp_cycle()
+    # The US deep-coverage companies: current data, about a minute, so before
+    # the history phases below, which can run until the daily restart.
+    if os.environ.get("BACKFILL_US_COMPANIES", "1") not in ("", "0") and not _stopping:
+        _phase("US companies", refresh_us_companies)
     # Current data before history: the equity extractors carry this week's
     # filings, the GDP archive is a one-off load of 2002-2019 releases that is
     # already complete on the production volume.

@@ -238,8 +238,7 @@
   function nameCell(en, ja, href) {
     var primary = en || ja || MISSING;
     var link = href ? "<a href='" + href + "'>" + esc(primary) + "</a>" : esc(primary);
-    return "<div class='cell-name'><div>" + link + "</div>" +
-      (en && ja ? "<div class='sub'>" + esc(ja) + "</div>" : "") + "</div>";
+    return "<div class='cell-name'><div>" + link + "</div></div>";
   }
 
   function runSearch(q) {
@@ -298,8 +297,7 @@
       var link = r.sec_code
         ? '<a href="facilities.html?code=' + esc(r.sec_code) + '">' + name + "</a>" : name;
       return "<tr><td class=r>" + (i + 1) + "</td>" +
-        '<td class="cell-name">' + link +
-        (r.sec_code ? '<span class="sub">' + esc(r.sec_code) + "</span>" : "") + "</td>" +
+        '<td class="cell-name">' + link + "</td>" +
         '<td class="r">' + yenBn(r.land_book_yen) + "</td>" +
         '<td class="r">' + areaFmt(r.land_area_m2) + "</td>" +
         '<td class="r">' + yenPerM2(r.yen_per_m2) + "</td>" +
@@ -336,8 +334,7 @@
       var link = r.sec_code
         ? '<a href="facilities.html?code=' + esc(r.sec_code) + '">' + name + "</a>" : name;
       return "<tr><td class=r>" + (i + 1) + "</td>" +
-        '<td class="cell-name">' + link +
-        (r.sec_code ? '<span class="sub">' + esc(r.sec_code) + "</span>" : "") + "</td>" +
+        '<td class="cell-name">' + link + "</td>" +
         '<td class="r">' + yenBn(r.carrying_yen) + "</td>" +
         '<td class="r">' + yenBn(r.fair_value_yen) + "</td>" +
         '<td class="r">' + yenSigned(r.unrealized_yen) + "</td>" +
@@ -696,22 +693,22 @@
         ? null : (x.land_yen || 0) + (x.trust_land_yen || 0);
       var site = splitSite(x);
       var cur = x.currency;
-      var filedNote = (!cur || cur === "JPY") ? "" :
-        '<span class="sub nw">as filed, ' + esc(cur) + "</span>";
-      return "<tr><td class=cell-name>" + esc(site.name || MISSING) +
-        (x.scope ? '<span class="sub">' + esc(SCOPE_LABEL[x.scope] || x.scope) + "</span>" : "") + "</td>" +
-        // English (derived) leads; the filed Japanese stays underneath
-        "<td>" + esc(x.location_en || site.loc || MISSING) +
-        (x.location_en && site.loc ? '<span class="sub">' + esc(site.loc) + "</span>" : "") + "</td>" +
-        '<td class="nw">' + (x.use ? esc(useLabel(x.use)) : MISSING) +
-        (NONCORE[x.use] ? ' <span class="chip-nc">non-core</span>' : "") +
-        (x.segment ? '<span class="sub">' + esc(x.segment) + "</span>" : "") + "</td>" +
+      // One line per cell. Currency is in moneyFmt's symbol; the scope, the
+      // filed Japanese location, the segment and trust land are hover text.
+      return "<tr><td class=cell-name" +
+        (x.scope ? " title='" + esc(SCOPE_LABEL[x.scope] || x.scope) + "'" : "") + ">" +
+        esc(site.name || MISSING) + "</td>" +
+        "<td" + (x.location_en && site.loc ? " title='Filed as: " + esc(site.loc) + "'" : "") + ">" +
+        esc(x.location_en || site.loc || MISSING) + "</td>" +
+        '<td class="nw"' + (x.segment ? " title='Segment: " + esc(x.segment) + "'" : "") + ">" +
+        (x.use ? esc(useLabel(x.use)) : MISSING) +
+        (NONCORE[x.use] ? ' <span class="chip-nc">non-core</span>' : "") + "</td>" +
         '<td class="r">' + moneyFmt(x.buildings_yen, cur) + "</td>" +
         '<td class="r">' + moneyFmt(x.machinery_yen, cur) + "</td>" +
-        '<td class="r">' + moneyFmt(land, cur) +
-        (x.trust_land_yen ? '<span class="sub">incl. trust ' + moneyFmt(x.trust_land_yen, cur) + "</span>" : "") + "</td>" +
+        '<td class="r"' + (x.trust_land_yen ? " title='Includes land held in trust: " +
+          moneyFmt(x.trust_land_yen, cur) + "'" : "") + ">" + moneyFmt(land, cur) + "</td>" +
         '<td class="r">' + areaFmt(x.land_area_m2) + "</td>" +
-        '<td class="r">' + moneyFmt(x.total_yen, cur) + filedNote + "</td>" +
+        '<td class="r">' + moneyFmt(x.total_yen, cur) + "</td>" +
         '<td class="r">' + (x.employees == null ? MISSING : fmtNum(x.employees, 0)) + "</td></tr>";
     }
     var body = rows.map(tr).join("");

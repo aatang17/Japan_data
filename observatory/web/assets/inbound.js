@@ -912,8 +912,7 @@ function renderTable() {
   const body = rows.map(r =>
     "<tr>" +
     "<td" + (r.indent && !ranked ? ' style="padding-left:22px"' : "") + ">" +
-      '<div class="cell-item"><div class="en">' + escapeHtml(r.name_en) +
-      '</div><div class="ja">' + escapeHtml(r.name_ja) + "</div></div></td>" +
+      '<div class="cell-item"><div class="en">' + escapeHtml(r.name_en) + "</div></div></td>" +
     '<td class="num">' + (r.arrivals === null ? MISSING : fmtNum(r.arrivals, 0)) + "</td>" +
     '<td class="num">' + fmtSigned(r.yoy, 1, "%") + "</td>" +
     '<td class="num">' + (r.share === null ? MISSING : fmtNum(r.share, 1)) + "</td>" +

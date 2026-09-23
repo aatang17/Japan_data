@@ -360,7 +360,6 @@ function renderFilings() {
       return "<tr><td>" + day(r.filed) + '</td><td><span class="co-code">' +
         escapeHtml(r.doc || MISSING) + "</span></td><td>" + escapeHtml(r.type) + "</td><td>" +
         escapeHtml(r.by || MISSING) +
-        (r.by_ja ? '<span class="co-ja">' + escapeHtml(r.by_ja) + "</span>" : "") +
         "</td><td>" + escapeHtml(r.summary || "") + "</td></tr>";
     }).join(""));
   const others = list.filter(function (r) { return r.type.indexOf("5%") === 0; }).length;
@@ -765,7 +764,6 @@ function renderGovernance() {
       board.map(function (b) {
         return "<tr><td>" + count(b.seat_no) + '</td><td><span class="co-nm">' +
           escapeHtml(b.name_en || b.name_ja || "") + "</span>" +
-          (b.name_en && b.name_ja ? '<span class="co-ja">' + escapeHtml(b.name_ja) + "</span>" : "") +
           "</td><td>" + escapeHtml(b.title_ja || "") + '</td><td class="num">' +
           count(b.age_at_period_end) + '</td><td class="num">' +
           (payOf[b.person_key] === undefined ? MISSING : fmtNum(payOf[b.person_key] / 1e6, 0)) +

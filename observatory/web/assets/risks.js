@@ -65,8 +65,7 @@
 
   function nameCell(en, ja, href) {
     var primary = en || ja || MISSING;
-    return "<div><a href='" + href + "'>" + esc(primary) + "</a></div>" +
-      (en && ja ? "<div class='ja'>" + esc(ja) + "</div>" : "");
+    return "<div><a href='" + href + "'>" + esc(primary) + "</a></div>";
   }
 
   function errorInto(id, e) {
@@ -100,7 +99,7 @@
           "<th>Company</th><th>Fiscal year</th><th class=r>Items</th></tr></thead><tbody>" +
           d.companies.map(function (c) {
             return "<tr><td>" + nameCell(c.name_en, c.name, "risks.html?c=" + esc(c.sec_code)) +
-              "<span class='sub'>" + esc(c.sec_code) + "</span></td><td class=nowrap>" +
+              "</td><td class=nowrap>" +
               esc(fmtFiscalYear(c.period_end)) + "</td><td class=r>" +
               (c.status === "unsplit" ? MISSING : count(c.n_top_items)) + "</td></tr>";
           }).join("") + "</tbody></table></div>";
@@ -132,8 +131,8 @@
             var href = "risks.html?c=" + encodeURIComponent(c.sec_code) + "&q=" +
               encodeURIComponent(term);
             var items = c.matches.filter(function (m) { return m.item_no != null; });
-            return "<tr><td>" + nameCell(c.name_en, c.name, href) + "<span class='sub'>" +
-              esc(c.sec_code) + "</span></td><td class='nowrap col-narrow' data-sort='" +
+            return "<tr><td>" + nameCell(c.name_en, c.name, href) +
+              "</td><td class='nowrap col-narrow' data-sort='" +
               esc(c.period_end) + "'>" + esc(fmtFiscalYear(c.period_end)) +
               "</td><td class='r col-narrow'>" + count(items.length) + "</td><td><ul class='hit-list'>" +
               c.matches.slice(0, 3).map(function (m) {

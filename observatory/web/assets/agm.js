@@ -62,8 +62,7 @@
     // A non-Japanese director is filed under the same Latin name in both
     // fields. Printing it twice would look like a rendering fault.
     var same = en && ja && en.replace(/\s+/g, "") === ja.replace(/\s+/g, "");
-    return "<span class='" + (cls || "") + "'>" + esc(main) + "</span>" +
-      (en && ja && !same ? "<span class='sub ja'>" + esc(ja) + "</span>" : "");
+    return "<span class='" + (cls || "") + "'>" + esc(main) + "</span>";
   }
 
   var RESULT = { "可決": "Carried", "否決": "Rejected" };
@@ -108,9 +107,7 @@
     var code = r.sec_code;
     var inner = code ? "<a href='agm.html?company=" + esc(code) + "'>" + esc(name) + "</a>"
                      : esc(name);
-    var sub = [code ? esc(code) : "", (en && ja) ? esc(ja) : ""].filter(Boolean).join(" · ");
-    return "<div class='cell-item'>" + inner +
-      (sub ? "<span class='sub'>" + sub + "</span>" : "") + "</div>";
+    return "<div class='cell-item'>" + inner + "</div>";
   }
 
   // A filing that stopped short of a full tally is marked, because it is why
@@ -303,10 +300,9 @@
       return "<tr>" +
         "<td>" + companyCell(r) + "</td>" +
         "<td class='nowrap'>" + day(r.meeting_date) + "</td>" +
-        "<td class='cell-item'>" + bilingual(r.label_en, r.label) +
-          (r.candidates ? "<span class='sub'>" + fmtNum(r.candidates, 0) +
-            (r.candidates === 1 ? " candidate" : " candidates") +
-            " voted individually</span>" : "") + "</td>" +
+        "<td class='cell-item'" + (r.candidates ? " title='" + fmtNum(r.candidates, 0) +
+            (r.candidates === 1 ? " candidate" : " candidates") + " voted individually'" : "") + ">" +
+          bilingual(r.label_en, r.label) + "</td>" +
         "<td class='cell-item'>" + catLabel(r.category) + tallyBadge(r.partial_tally) + "</td>" +
         "<td class='r'>" + count(r.for_votes) + "</td>" +
         "<td class='r'>" + count(r.against_votes) + "</td>" +

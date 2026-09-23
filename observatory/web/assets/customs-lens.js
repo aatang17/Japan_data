@@ -466,9 +466,8 @@ function renderProducts() {
 
 function nameCell(en, ja, code) {
   const main = en || ja || code;
-  const sub = en && ja ? "<span class='sub'>" + escapeHtml(ja) + "</span>" : "";
   return "<div class='cell-name'><a href='company.html?c=" + escapeHtml(code) + "'>" +
-    escapeHtml(main) + "</a>" + sub + "</div>";
+    escapeHtml(main) + "</a></div>";
 }
 
 function renderSearch(d) {

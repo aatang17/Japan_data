@@ -96,9 +96,8 @@ function customerCell(c) {
     ? '<a href="company.html?code=' + escapeHtml(c.customer_sec_code) + '">' +
       escapeHtml(en || c.customer_name) + "</a>"
     : escapeHtml(en || c.customer_name);
-  if (!en) return '<div class="cell-item"><div class="en">' + link + "</div></div>";
-  return '<div class="cell-item"><div class="en">' + link + "</div>" +
-    '<div class="ja">' + filed + "</div></div>";
+  return '<div class="cell-item"><div class="en"' + (en ? ' title="Filed as: ' + filed + '"' : "") +
+    ">" + link + "</div></div>";
 }
 
 function customerLabel(c) { return c.customer_name_en || c.customer_name; }

@@ -520,15 +520,13 @@ function renderNationality() {
 
   const body = ranked.map(r =>
     "<tr>" +
-    '<td><div class="cell-item"><div class="en">' + escapeHtml(r.name) + "</div>" +
+    '<td><div class="cell-item"><div class="en"' +
       (r.era === "new"
-        ? '<div class="ja" title="Published from January 2026, when the survey widened ' +
-          'its nationality list">published from 2026</div>'
+        ? ' title="Published from January 2026, when the survey widened its nationality list"'
         : r.era === "old"
-        ? '<div class="ja" title="The pre-2026 residual also contained the Nordic region, ' +
-          'the Middle East and Mexico">basis to 2025</div>'
-        : "") +
-    "</div></td>" +
+        ? ' title="Basis to 2025: the pre-2026 residual also contained the Nordic region, ' +
+          'the Middle East and Mexico"'
+        : "") + ">" + escapeHtml(r.name) + "</div></div></td>" +
     '<td class="num">' + (r.nights === null ? MISSING : fmtNum(r.nights, 0)) + "</td>" +
     '<td class="num">' + (r.share === null ? MISSING : fmtNum(r.share, 1)) + "</td>" +
     '<td class="num">' + fmtSigned(r.yoy, 1, "%") + "</td>" +
@@ -537,8 +535,8 @@ function renderNationality() {
     "</tr>").join("");
 
   const unknownRow = data.unknown === null ? "" :
-    '<tr><td><div class="cell-item"><div class="en">Nationality not identified</div>' +
-    '<div class="ja">Published total less the named categories</div></div></td>' +
+    '<tr><td><div class="cell-item"><div class="en" title="Published total less the named ' +
+    'categories">Nationality not identified</div></div></td>' +
     '<td class="num">' + fmtNum(data.unknown, 0) + "</td>" +
     '<td class="num">' + (data.base ? fmtNum((data.unknown / data.base) * 100, 1) : MISSING) + "</td>" +
     '<td class="num">' + MISSING + "</td><td class=\"num\">" + MISSING + "</td><td></td></tr>";

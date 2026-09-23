@@ -51,8 +51,7 @@
   }
   function nameCell(en, ja, href) {
     var main = en || ja || MISSING;
-    var sub = en && ja ? "<span class='sub'>" + esc(ja) + "</span>" : "";
-    return "<div class='cell-name'><a href='" + href + "'>" + esc(main) + "</a>" + sub + "</div>";
+    return "<div class='cell-name'><a href='" + href + "'>" + esc(main) + "</a></div>";
   }
 
   // ---- URL state -----------------------------------------------------------

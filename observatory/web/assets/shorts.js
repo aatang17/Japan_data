@@ -77,13 +77,13 @@
   function nameCell(en, ja, href) {
     var primary = en || ja || MISSING;
     var link = href ? "<a href='" + href + "'>" + esc(primary) + "</a>" : esc(primary);
-    return "<div class='cell-item'><div class='en'>" + link + "</div>" +
-      (en && ja ? "<div class='ja'>" + esc(ja) + "</div>" : "") + "</div>";
+    return "<div class='cell-item'><div class='en'>" + link + "</div></div>";
   }
 
   function holderCell(name, key, sub) {
-    return "<div class='cell-item'><a href='shorts.html?h=" + encodeURIComponent(key) + "'>" +
-      esc(name) + "</a>" + (sub ? "<span class='sub'>" + esc(sub) + "</span>" : "") + "</div>";
+    // The holder's address or mandate is hover text, not a second line.
+    return "<div class='cell-item'" + (sub ? " title='" + esc(sub) + "'" : "") +
+      "><a href='shorts.html?h=" + encodeURIComponent(key) + "'>" + esc(name) + "</a></div>";
   }
 
   // A holder reporting through a mandate names the manager and the fund. Those

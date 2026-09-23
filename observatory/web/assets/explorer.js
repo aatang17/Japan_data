@@ -159,7 +159,7 @@ const CELL = {
         fmtPeriod(s.as_of) + "</span>"
       : "";
     return { html: '<div class="cell-item"><div class="en">' + escapeHtml(s.name_en) + ends +
-      '</div><div class="ja">' + escapeHtml(s.name_ja || "") + "</div></div>" };
+      "</div></div>" };
   },
   weight: function (s) { return { html: fmtNum(s.weight, 0) }; },
   index: function (s) { return { html: fmtIndex(s.index) }; },

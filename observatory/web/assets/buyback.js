@@ -36,9 +36,10 @@
     return fmtNum(v / 1e12, dp == null ? 2 : dp);
   }
   function shares(v) { return v == null ? MISSING : fmtNum(v, 0); }
-  /* Never a qualifier under a missing value: "— shares" reads as a stray. */
-  function sharesSub(v) {
-    return v == null ? "" : "<span class=sub>" + fmtNum(v, 0) + " shares</span>";
+  /* The share count behind a yen figure, as hover text on its cell (never a
+     second line). No tip when the count is missing. */
+  function sharesTip(v) {
+    return v == null ? "" : " title='" + fmtNum(v, 0) + " shares'";
   }
 
   function getJSON(url) {
@@ -68,8 +69,7 @@
   function nameCell(en, ja, href) {
     var primary = en || ja || MISSING;
     var link = href ? "<a href='" + href + "'>" + esc(primary) + "</a>" : esc(primary);
-    return "<div class='cell-name'><div>" + link + "</div>" +
-      (en && ja ? "<div class='ja'>" + esc(ja) + "</div>" : "") + "</div>";
+    return "<div class='cell-name'><div>" + link + "</div></div>";
   }
 
   /* The state a programme is in, in the reader's words. The full sentence is on
@@ -220,8 +220,7 @@
           "</td><td class=nw>" + esc(r.resolution_date || MISSING) +
           "</td><td class=nw>" + windowCell(r) +
           "</td><td class=r>" + yenBn(r.authorised_yen) +
-          "</td><td class=r>" + yenBn(r.cumulative_yen) +
-          "<span class=sub>" + plural(r.filings, "report") + "</span>" +
+          "</td><td class=r title='" + plural(r.filings, "report") + "'>" + yenBn(r.cumulative_yen) +
           "</td><td class=r>" + pct(r.completion_pct) +
           "</td><td class=r>" + yenBn(r.unspent_yen) +
           "</td><td>" + stateBadge(r) + datesFlag(r) + "</td></tr>";
@@ -426,12 +425,11 @@
       "<th class=r>Bought</th><th class=r>Completion</th><th class=r>Unspent</th>" +
       "<th>State</th></tr></thead><tbody>" +
       d.programs.map(function (r) {
-        return "<tr><td class=nw>" + esc(r.resolution_date || MISSING) +
-          "<span class=sub>" + esc(r.resolution_type === "agm"
-            ? "shareholder meeting" : "board") + "</span>" +
+        return "<tr><td class=nw title='Resolved by " + (r.resolution_type === "agm"
+            ? "the shareholder meeting" : "the board") + "'>" + esc(r.resolution_date || MISSING) +
           "</td><td class=nw>" + windowCell(r) +
-          "</td><td class=r>" + yenBn(r.authorised_yen) + sharesSub(r.authorised_shares) +
-          "</td><td class=r>" + yenBn(r.cumulative_yen) + sharesSub(r.cumulative_shares) +
+          "</td><td class=r" + sharesTip(r.authorised_shares) + ">" + yenBn(r.authorised_yen) +
+          "</td><td class=r" + sharesTip(r.cumulative_shares) + ">" + yenBn(r.cumulative_yen) +
           "</td><td class=r>" + pct(r.completion_pct) +
           "</td><td class=r>" + yenBn(r.unspent_yen) +
           "</td><td>" + stateBadge(r) + datesFlag(r) + "</td></tr>";
@@ -461,12 +459,12 @@
       d.months.map(function (r) {
         return "<tr><td class=nw>" + esc(monthShort(r.month)) +
           "</td><td class=nw>" + esc(r.resolution_date || MISSING) +
-          "</td><td class=r>" + yenBn(r.month_yen) + sharesSub(r.month_shares) +
+          "</td><td class=r" + sharesTip(r.month_shares) + ">" + yenBn(r.month_yen) +
           "</td><td class=r>" + yenBn(r.cumulative_yen) +
           "</td><td class=r>" + pct(r.progress_yen_pct, 2) +
           "</td><td>" + reconciliation(r.program_status) +
-          "</td><td class=nw><span class='mono'>" + esc(r.doc_id) + "</span>" +
-          "<span class=sub>filed " + esc(r.submitted || MISSING) + "</span></td></tr>";
+          "</td><td class=nw title='Filed " + esc(r.submitted || MISSING) + "'><span class='mono'>" +
+          esc(r.doc_id) + "</span></td></tr>";
       }).join("") + "</tbody>";
     $("co-month-csv").onclick = function () {
       csvDownload("buyback-months-" + (d.sec_code || d.edinet_code) + ".csv",

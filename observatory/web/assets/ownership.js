@@ -45,8 +45,7 @@
   function nameCell(en, ja, href) {
     var primary = en || ja || MISSING;
     var link = href ? "<a href='" + href + "'>" + esc(primary) + "</a>" : esc(primary);
-    return "<div class='cell-item'><div class='en'>" + link + "</div>" +
-      (en && ja ? "<div class='ja'>" + esc(ja) + "</div>" : "") + "</div>";
+    return "<div class='cell-item'><div class='en'>" + link + "</div></div>";
   }
 
   function errorInto(id, e) {
@@ -331,17 +330,14 @@
       rows.map(function (r) {
         var href = r.holder_sec_code ? "ownership.html?c=" + esc(r.holder_sec_code)
                  : (r.holder_edinet_code ? "ownership.html?h=" + esc(r.holder_edinet_code) : null);
+        // The account a holding sits in is hover text, not a second line.
         var sub = "";
-        if (r.account_raw) sub = "Account: " + esc(r.account_raw);
-        if (r.beneficiary_raw) {
-          sub = "Pension trust of " + (r.beneficiary_sec_code
-            ? "<a href='ownership.html?c=" + esc(r.beneficiary_sec_code) + "'>" +
-              esc(r.beneficiary_raw) + "</a>" : esc(r.beneficiary_raw));
-        }
+        if (r.account_raw) sub = "Account: " + r.account_raw;
+        if (r.beneficiary_raw) sub = "Pension trust of " + r.beneficiary_raw;
         if (r.ratio_pct != null) cumulative += r.ratio_pct;
-        return "<tr><td class=rank>" + count(r.rank) + "</td><td>" +
+        return "<tr><td class=rank>" + count(r.rank) + "</td><td" +
+          (sub ? " title='" + esc(sub) + "'" : "") + ">" +
           nameCell(r.holder_name_en, r.name_raw, href) +
-          (sub ? "<span class='sub'>" + sub + "</span>" : "") +
           "</td><td>" + kindBadge(r.holder_kind) +
           "</td><td class=r>" + count(r.shares) +
           "</td><td class=r>" + pct(r.ratio_pct) +

@@ -34,6 +34,11 @@ Dashboards fail by answering ten questions equally. Rank them, then build to the
 Hard rules:
 
 - **If a cell would hold a sentence, it must not be a table.** Tables are for scanning _down a column_.
+- **No footnote lines under table entries.** A cell holds its value and nothing else — no grey
+  second line of background or caveat ("earlier years filed by…", a registrant's legal name, an
+  XBRL tag, an "incl. predecessor" pill). If the detail matters, put it on the item's own page (a
+  company page's header) or on the Methodology page, never in the list. The user asked for this
+  on 2026-09-24 after seeing "earlier years filed by WALT DISNEY CO/" under The Walt Disney Company.
 - **Every data table sorts and filters, and you get it for free.** Loading `assets/sortable.js` is the
   whole integration: it enhances any table with a header row and six or more rows, on render and on
   re-render. Never write a bespoke sort or filter for a table; give a cell `data-sort` when its text

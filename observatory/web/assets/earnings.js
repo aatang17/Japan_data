@@ -96,8 +96,7 @@
   function nameCell(en, ja, href) {
     var primary = en || ja || MISSING;
     var link = href ? "<a href='" + href + "'>" + esc(primary) + "</a>" : esc(primary);
-    return "<div class='cell-item'><div class='en'>" + link + "</div>" +
-      (en && ja ? "<div class='ja'>" + esc(ja) + "</div>" : "") + "</div>";
+    return "<div class='cell-item'><div class='en'>" + link + "</div></div>";
   }
 
   function errorInto(id, e) {
@@ -161,8 +160,7 @@
   }
 
   function releaseTag(r) {
-    return esc(PERIOD_LABEL[r.period] || r.period) +
-      "<span class='sub'>" + esc(fiscal(r.fiscal_period)) + "</span>";
+    return esc(PERIOD_LABEL[r.period] || r.period) + " · " + esc(fiscal(r.fiscal_period));
   }
 
   function renderProgress(d) {
@@ -250,7 +248,6 @@
         return "<tr><td class=nowrap>" + stamp(w.filed_date, w.filed_time) +
           "</td><td>" + nameCell(null, w.name, w.sec_code
             ? "earnings.html?c=" + esc(w.sec_code) : null) +
-          "<span class='sub'>" + esc(w.sec_code || "") + "</span>" +
           "</td><td><div class='cell-item headline'>" + esc(w.title) + "</div>" +
           "</td><td class=nowrap>" + esc(KIND_LABEL[w.kind] || w.kind) + "</td></tr>";
       }).join("") + "</tbody>";
@@ -303,7 +300,7 @@
           "<th>Disclosed</th></tr></thead><tbody>" +
           d.companies.map(function (c) {
             return "<tr><td>" + nameCell(c.name_en, c.name, "earnings.html?c=" + esc(c.sec_code)) +
-              "<span class='sub'>" + esc(c.sec_code) + "</span></td><td class=nowrap>" +
+              "</td><td class=nowrap>" +
               releaseTag({ period: c.latest_period, fiscal_period: c.latest_fiscal_period }) +
               "</td><td class=r>" + count(c.releases) +
               "</td><td class=nowrap>" + esc(day(c.last_filed_date)) + "</td></tr>";
@@ -368,8 +365,8 @@
       "<thead><tr><th>Line</th><th class=r>This period</th><th class=r>Same period, prior year</th>" +
       "<th class=r>YoY, as published</th></tr></thead><tbody>" +
       d.results.map(function (r) {
-        return "<tr><td>" + esc(r.label) + "<span class='sub'>" + esc(r.element) +
-          (r.line === "eps" ? " · yen" : " · ¥ mn") + "</span></td><td class=r>" +
+        return "<tr><td title='XBRL element: " + esc(r.element) + "'>" + esc(r.label) +
+          " <span class='unit'>(" + (r.line === "eps" ? "¥" : "¥ mn") + ")</span></td><td class=r>" +
           amount(r, r.value) + "</td><td class=r>" + amount(r, r.prior_value) +
           "</td><td class='r nowrap'>" + chg(r.yoy_pct_published) + "</td></tr>";
       }).join("") +
@@ -378,8 +375,8 @@
         if (!p) return "";
         var label = { total_assets: "Total assets", net_assets: "Net assets",
                       owners_equity: "Owners' equity" }[k];
-        return "<tr><td>" + label + "<span class='sub'>" + esc(p.element) +
-          " · ¥ mn · at period end</span></td><td class=r>" + mn(p.value) +
+        return "<tr><td title='XBRL element: " + esc(p.element) + " · at period end'>" + label +
+          " <span class='unit'>(¥ mn)</span></td><td class=r>" + mn(p.value) +
           "</td><td class=r>" + MISSING + "</td><td class=r>" + MISSING + "</td></tr>";
       }).join("") + "</tbody>";
 
@@ -395,8 +392,8 @@
         "<th class=r>Upper bound</th><th class=r>YoY, as published</th>" +
         "<th class=r>Progress (%)</th></tr></thead><tbody>" +
         d.forecast.map(function (r) {
-          return "<tr><td>" + esc(r.label) + "<span class='sub'>" + esc(r.element) +
-            (r.line === "eps" ? " · yen" : " · ¥ mn") + "</span></td><td class=r>" +
+          return "<tr><td title='XBRL element: " + esc(r.element) + "'>" + esc(r.label) +
+            " <span class='unit'>(" + (r.line === "eps" ? "¥" : "¥ mn") + ")</span></td><td class=r>" +
             amount(r, r.forecast) + "</td><td class=r>" + amount(r, r.forecast_lower) +
             "</td><td class=r>" + amount(r, r.forecast_upper) +
             "</td><td class='r nowrap'>" + chg(r.yoy_pct_published) +

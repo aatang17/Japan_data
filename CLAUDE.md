@@ -7,10 +7,13 @@
 
 ## What this product is
 
-- **Scope: Japan, deep — not Asia, wide.** Japan price statistics *plus* Bank of Japan
-  monetary and balance-sheet data. Breadth across countries has no moat; depth on one
-  market does. Hong Kong is verified and on hold — don't start it without an explicit
-  decision.
+- **Scope: all markets.** The product covers every market we can source, not Japan
+  alone. Japan came first (price statistics, Bank of Japan, EDINET filings); the United
+  States is second (Treasury curve, SEC company filings); more follow. Each market is a
+  top-level tab in the site header (`NAV_MARKETS` in `web/assets/nav.js`). A new market
+  meets the same bar as Japan before it ships: the trust contract, point-in-time
+  vintages, and its own row in `/api/v1/catalog/health`. Hong Kong is verified and not
+  started. (Changed 2026-09-24 from "Japan, deep — not Asia, wide".)
 - **An institutional data product, not a consumer dashboard.** Ordered customers:
   sell-side economists → buy-side/quant data teams → academics (free; citations are the
   point) → discretionary PMs. Judgement calls favour the API, the data, and reproducibility
@@ -80,7 +83,7 @@ Every number on every surface says where it came from:
 | Product overview, run/ingest/API     | [`observatory/README.md`](observatory/README.md)                     |
 | Any UI change (layout, chart, style) | the **`ui-ux-design` skill** — mandatory, not optional               |
 | Formulas, trust labels, limitations  | [`observatory/web/methodology.html`](observatory/web/methodology.html) — keep it in sync with any calculation change |
-| Product strategy / scope / roadmap   | [`docs/plans/PLAN-JAPAN-MACRO-OBSERVATORY.md`](docs/plans/PLAN-JAPAN-MACRO-OBSERVATORY.md) — **current**; supersedes the v1 plan on scope, tiers, and customers |
+| Product strategy / scope / roadmap   | [`docs/plans/PLAN-JAPAN-MACRO-OBSERVATORY.md`](docs/plans/PLAN-JAPAN-MACRO-OBSERVATORY.md) — tiers and customers still current; its **Japan-only scope is superseded** by "Scope: all markets" above |
 | Trust contract, risk register (v1)   | [`docs/plans/PLAN-JAPAN-INFLATION-OBSERVATORY.md`](docs/plans/PLAN-JAPAN-INFLATION-OBSERVATORY.md) — still valid there, out of date on tiers/scope |
 | Cross-shareholding DB (product #2)   | [`docs/plans/PLAN-CROSS-SHAREHOLDING-DB.md`](docs/plans/PLAN-CROSS-SHAREHOLDING-DB.md) — own schema namespace; macro golden rule does **not** apply to it |
 | Boards & pay (product surface #3)     | [`docs/plans/PLAN-BOARD-AND-PAY.md`](docs/plans/PLAN-BOARD-AND-PAY.md) |
