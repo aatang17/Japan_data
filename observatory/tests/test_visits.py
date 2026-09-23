@@ -314,6 +314,13 @@ class DwellTest(unittest.TestCase):
             folded[key] = max(folded.get(key, 0), row["seconds"])
         self.assertEqual(folded["v-test"], 95)
 
+    def test_the_ping_answers_with_no_body(self):
+        # a 204 with a body ("null") made the server raise on every ping
+        got = TestClient(app).post("/api/v1/visit/ping", headers={"user-agent": UA},
+                                   content=json.dumps({"path": "/cpi.html"}))
+        self.assertEqual(got.status_code, 204)
+        self.assertEqual(got.content, b"")
+
     def test_an_abandoned_tab_is_capped_not_dropped(self):
         client = TestClient(app)
         client.post("/api/v1/visit/ping", headers={"user-agent": UA},

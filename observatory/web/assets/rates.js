@@ -1,33 +1,29 @@
-/* JGB yield curve page. The question this screen answers:
-   "What does the JGB curve look like now, and how has it shifted?" —
+/* Government yield curve pages — JGB (rates.html) and US Treasury
+   (us-treasury.html). The question each screen answers:
+   "What does the curve look like now, and how has it shifted?" —
    the tiles and the scrubbable curve lead.
+
+   One script, two markets: the page names its curve on <body data-curve>,
+   and everything that differs between them — dataset, publisher, tiles,
+   axis, policy markers, export names — lives in CURVES below. The
+   behaviour, the trust handling and the exports are identical by
+   construction.
 
    One /curve payload carries the whole published history (every business
    day × every maturity); everything on the page is sliced from it
-   client-side. Yields are official values to three decimals, shown
+   client-side. Yields are official values to the published decimals, shown
    exactly as published; spreads and changes are calculated here and
    carry their formula on the page and in every export. Missing is "—";
    a maturity absent on a date breaks the line — never interpolated. */
 "use strict";
 
-const DATASET = "jgb-yields";
-const API = "/api/v1/" + DATASET;
-
-let CV = null;          // /curve payload
-let DATES = [];         // CV.dates
-let MATS = [];          // CV.maturities
-let activeIdx = 0;      // slider position into DATES
-let curveChart = null;  // echarts instance (custom mount — value x-axis)
-let histChart = null;   // obsChart handle
-let playTimer = null;
-let monthStarts = [];   // indices of the first business day of each month
-
-/* ---- verified BOJ policy dates for the history chart ----
-   Sources: Bank of Japan statements (boj.or.jp, "Change in the Guideline
-   for Money Market Operations" / policy statements), checked Aug 2026.
+/* ---- verified central-bank policy dates for the history chart ----
    major: shown at every range; the rest only when the visible span is
    short enough that the labels stay legible. */
-const POLICY_EVENTS = [
+
+/* Bank of Japan statements (boj.or.jp, "Change in the Guideline for Money
+   Market Operations" / policy statements), checked Aug 2026. */
+const BOJ_EVENTS = [
   { x: "1999-02-12", label: "ZIRP", major: true },
   { x: "2001-03-19", label: "QE", major: true },
   { x: "2006-03-09", label: "QE ends", major: false },
@@ -41,6 +37,105 @@ const POLICY_EVENTS = [
   { x: "2025-12-19", label: "0.75%", major: false, stagger: true },
   { x: "2026-06-16", label: "1.0%", major: false },
 ];
+
+/* Federal Reserve target-rate changes, dated as the Board's own table
+   lists them ("FOMC's target federal funds rate or range",
+   federalreserve.gov/monetarypolicy/openmarket.htm, checked 24 Sep 2026;
+   recent entries are the effective date, the day after the statement). */
+const FED_EVENTS = [
+  { x: "2004-06-30", label: "Hikes begin", major: true },
+  { x: "2007-09-18", label: "Cuts begin", major: true },
+  { x: "2008-12-16", label: "0–0.25%", major: true, stagger: true },
+  { x: "2015-12-17", label: "First hike", major: true },
+  { x: "2019-08-01", label: "Cut", major: false },
+  { x: "2020-03-16", label: "0–0.25%", major: true, stagger: true },
+  { x: "2022-03-17", label: "Hikes begin", major: true },
+  { x: "2023-07-27", label: "5.25–5.50%", major: false, stagger: true },
+  { x: "2024-09-19", label: "Cuts begin", major: true },
+  { x: "2025-12-11", label: "3.50–3.75%", major: false, stagger: true },
+  { x: "2026-09-17", label: "3.75–4.00%", major: false },
+];
+
+const CURVES = {
+  jgb: {
+    dataset: "jgb-yields",
+    file: "jgb",
+    dp: 3,
+    title: "JGB yield curve",
+    publisher: "Ministry of Finance, Japan",
+    publisherShort: "The Ministry",
+    sub: "Daily constant-maturity JGB yields, 1974–present · % per year · " +
+      "Ministry of Finance, computed from JSDA reference prices",
+    provSub: "constant-maturity par yields in %, computed by the Ministry " +
+      "from JSDA reference prices",
+    nameSuffix: " JGB yield",
+    tiles: [["yield", "10Y", "10-Year Yield"], ["yield", "2Y", "2-Year Yield"],
+            ["spread", "10Y", "2Y", "2s10s Spread", "s2s10"],
+            ["spread", "30Y", "10Y", "10s30s Spread", "s10s30"]],
+    xMax: 41,
+    ticks: [1, 2, 3, 5, 7, 10, 15, 20, 25, 30, 40],
+    ticksNarrow: [1, 5, 10, 20, 30, 40],
+    events: BOJ_EVENTS,
+    bank: "Bank of Japan",
+    bankShort: "BOJ",
+    eventsAbout: "Vertical rules mark Bank of Japan policy decisions, " +
+      "dated by the announcement: ZIRP (Feb 1999), quantitative easing (Mar 2001, " +
+      "ended Mar 2006), QQE (Apr 2013), the negative rate (Jan 2016), yield curve " +
+      "control (Sep 2016, band widened Dec 2022, ended Mar 2024) and the subsequent " +
+      "rate rises to 0.25% (Jul 2024), 0.5% (Jan 2025), 0.75% (Dec 2025) and 1.0% " +
+      "(Jun 2026). Markers are dates only; the yield lines are official values as " +
+      "published.",
+  },
+  ust: {
+    dataset: "ust-yields",
+    file: "ust",
+    dp: 2,
+    title: "US Treasury yield curve",
+    publisher: "U.S. Department of the Treasury",
+    publisherShort: "The Treasury",
+    sub: "Daily constant-maturity US Treasury par yields, 1990–present · " +
+      "% per year · U.S. Department of the Treasury",
+    provSub: "constant-maturity par yields in %, interpolated by the Treasury " +
+      "from end-of-day bid-side quotations",
+    nameSuffix: " Treasury constant-maturity yield",
+    tiles: [["yield", "10Y", "10-Year Yield"], ["yield", "2Y", "2-Year Yield"],
+            ["spread", "10Y", "2Y", "2s10s Spread", "s2s10"],
+            ["spread", "10Y", "3M", "3m10y Spread", "s3m10y"]],
+    xMax: 31,
+    ticks: [1, 2, 3, 5, 7, 10, 20, 30],
+    ticksNarrow: [1, 5, 10, 20, 30],
+    events: FED_EVENTS,
+    bank: "Federal Reserve",
+    bankShort: "Fed",
+    eventsAbout: "Vertical rules mark changes in the Federal Reserve's federal " +
+      "funds target, dated as the Board's own rate table lists them: the 2004 " +
+      "hiking cycle (Jun 2004), the first cut of 2007 (Sep 2007), the zero range " +
+      "(Dec 2008), the first hike after it (Dec 2015), the 2019 cut (Aug 2019), the " +
+      "return to zero (Mar 2020), the 2022 hiking cycle (Mar 2022) to its peak of " +
+      "5.25–5.50% (Jul 2023), the cuts from Sep 2024 to 3.50–3.75% (Dec 2025) and " +
+      "the rise to 3.75–4.00% (Sep 2026). Markers are dates only; the yield lines " +
+      "are official values as published.",
+    real: "ust-real-yields",
+  },
+};
+const CFG = CURVES[document.body.getAttribute("data-curve") || "jgb"];
+// Decimals as published: the Ministry prints three, the Treasury two.
+const DP = CFG.dp;
+const DP_WORD = { 2: "two", 3: "three" }[DP];
+const DATASET = CFG.dataset;
+const API = "/api/v1/" + DATASET;
+const POLICY_EVENTS = CFG.events;
+
+let CV = null;          // /curve payload
+let DATES = [];         // CV.dates
+let MATS = [];          // CV.maturities
+let activeIdx = 0;      // slider position into DATES
+let curveChart = null;  // echarts instance (custom mount — value x-axis)
+let histChart = null;   // obsChart handle
+let playTimer = null;
+let monthStarts = [];   // indices of the first business day of each month
+let RV = null;          // real-yield /curve payload (US page only)
+let realChart = null;   // obsChart handle
 
 /* stable series identity across the platform's rate charts:
    10Y is the headline (slot 1), 30Y second (slot 2), 2Y third (slot 3) */
@@ -58,6 +153,8 @@ const SPREAD_CALCS = {
   s2s10: "2s10s spread[t] = 10Y yield[t] − 2Y yield[t], in percentage points, " +
     "from published yields.",
   s10s30: "10s30s spread[t] = 30Y yield[t] − 10Y yield[t], in percentage points, " +
+    "from published yields.",
+  s3m10y: "3m10y spread[t] = 10Y yield[t] − 3M yield[t], in percentage points, " +
     "from published yields.",
   delta: "change[t] = value[t] − value[b], where b is the latest business day " +
     "on or before the same date 1 month (or 1 year) earlier.",
@@ -111,6 +208,7 @@ function urlState() {
     cmp: p.get("cmp") !== null ? p.get("cmp") : CMP_DEFAULT,
     pins: (p.get("pins") || "").split(",").filter(Boolean),
     hrange: p.get("hrange") || "10",
+    rrange: p.get("rrange") || "10",
   };
 }
 
@@ -121,12 +219,13 @@ function setUrlState(next) {
   if (state.cmp !== CMP_DEFAULT) p.set("cmp", state.cmp);
   if (state.pins.length) p.set("pins", state.pins.join(","));
   if (state.hrange !== "10") p.set("hrange", state.hrange);
+  if (state.rrange !== "10") p.set("rrange", state.rrange);
   const qs = p.toString();
   history.replaceState(null, "", qs ? "?" + qs : location.pathname);
 }
 
 function sourceLine(rel) {
-  return "Source: Ministry of Finance, Japan · " + rel.source_id +
+  return "Source: " + CFG.publisher + " · " + rel.source_id +
     " · % per year · Data through " + fmtDay(rel.latest_period) +
     " · Retrieved " + fmtStamp(rel.retrieved_at) +
     " · " + TRUST_LABELS.official;
@@ -145,12 +244,12 @@ function tileCell(label, valueHtml, deltaHtml, dir, title) {
 
 function deltaHtml(delta) {
   if (delta === null) return { html: MISSING, dir: "flat" };
-  const rounded = Number(delta.toFixed(3));
+  const rounded = Number(delta.toFixed(DP));
   const dir = rounded > 0 ? "up" : rounded < 0 ? "down" : "flat";
   const arrow = rounded === 0 ? ""
     : '<span aria-hidden="true">' + (rounded > 0 ? "▲" : "▼") + "</span> " +
       '<span class="visually-hidden">' + (rounded > 0 ? "up " : "down ") + "</span>";
-  return { html: arrow + fmtNum(Math.abs(delta), 3) + " pp", dir: dir };
+  return { html: arrow + fmtNum(Math.abs(delta), DP) + " pp", dir: dir };
 }
 
 function renderTiles() {
@@ -163,7 +262,7 @@ function renderTiles() {
     const d = deltaHtml(cur === null || val(code, m1) === null
       ? null : cur - val(code, m1));
     cells.push(tileCell(label,
-      (cur === null ? MISSING : fmtNum(cur, 3)) + '<span class="unit">%</span>',
+      (cur === null ? MISSING : fmtNum(cur, DP)) + '<span class="unit">%</span>',
       d.html, d.dir,
       label + " — published constant-maturity yield, exactly as released"));
   }
@@ -174,18 +273,18 @@ function renderTiles() {
       ? null : val(longCode, m1) - val(shortCode, m1);
     const d = deltaHtml(cur === null || prev === null ? null : cur - prev);
     cells.push(tileCell(label,
-      (cur === null ? MISSING : fmtSigned(cur, 3)) + '<span class="unit">pp</span>',
+      (cur === null ? MISSING : fmtSigned(cur, DP)) + '<span class="unit">pp</span>',
       d.html, d.dir, label + " — " + SPREAD_CALCS[calcKey]));
   }
 
-  yieldTile("10Y", "10-Year Yield");
-  yieldTile("2Y", "2-Year Yield");
-  spreadTile("10Y", "2Y", "2s10s Spread", "s2s10");
-  spreadTile("30Y", "10Y", "10s30s Spread", "s10s30");
+  CFG.tiles.forEach(t => {
+    if (t[0] === "yield") yieldTile(t[1], t[2]);
+    else spreadTile(t[1], t[2], t[3], t[4]);
+  });
 
   document.getElementById("tiles").innerHTML = cells.join("");
   document.getElementById("strip-foot").textContent =
-    "Yields to three decimals, exactly as published · changes vs " +
+    "Yields to " + DP_WORD + " decimals, exactly as published · changes vs " +
     fmtDay(DATES[m1]) + ", the latest business day one month earlier · " +
     "spreads are calculated (see calculation) · pp = percentage points";
 
@@ -193,8 +292,9 @@ function renderTiles() {
   document.getElementById("strip-calc").innerHTML =
     "<summary>Show calculation</summary>" +
     '<div class="calc-body">' +
-    "<b>2s10s Spread</b>: <code>" + escapeHtml(SPREAD_CALCS.s2s10) + "</code><br>" +
-    "<b>10s30s Spread</b>: <code>" + escapeHtml(SPREAD_CALCS.s10s30) + "</code><br>" +
+    CFG.tiles.filter(t => t[0] === "spread").map(t =>
+      "<b>" + escapeHtml(t[3]) + "</b>: <code>" + escapeHtml(SPREAD_CALCS[t[4]]) +
+      "</code><br>").join("") +
     "<b>Changes</b>: <code>" + escapeHtml(SPREAD_CALCS.delta) + "</code><br>" +
     "Inputs: official yields from " + escapeHtml(CV.release.source_name) +
     " (sha256 " + CV.release.sha256.slice(0, 12) + "…), release “" +
@@ -209,9 +309,7 @@ function renderHeader() {
     "Data through " + fmtDay(rel.latest_period);
   document.getElementById("page-asof").textContent =
     "Ingested " + fmtStamp(rel.ingested_at);
-  document.getElementById("page-sub").textContent =
-    "Daily constant-maturity JGB yields, 1974–present · % per year · " +
-    "Ministry of Finance, computed from JSDA reference prices";
+  document.getElementById("page-sub").textContent = CFG.sub;
   if (CV.credit_line) {
     document.getElementById("credit-line").textContent = CV.credit_line;
   }
@@ -223,7 +321,7 @@ function renderStale() {
     el.innerHTML = '<div class="banner" role="alert">This surface is stale: the newest ' +
       "ingested data is for " + fmtDay(CV.release.latest_period) +
       ", ingested " + fmtStamp(CV.release.ingested_at) +
-      ". The Ministry publishes each business day; the platform refreshes on its " +
+      ". " + CFG.publisherShort + " publishes each business day; the platform refreshes on its " +
       "daily restart — if this persists, run the ingestion.</div>";
   } else {
     el.innerHTML = "";
@@ -244,8 +342,7 @@ function renderProvenance() {
           '<div class="prov-value"><a href="' + escapeHtml(rel.source_page) +
             '" rel="noopener">' + escapeHtml(rel.source_name) + "</a></div>" +
           '<div class="prov-sub">Coverage ' + fmtDay(rel.coverage_start) +
-            " – latest business day · constant-maturity par yields in %, " +
-            "computed by the Ministry from JSDA reference prices</div>" +
+            " – latest business day · " + CFG.provSub + "</div>" +
         "</div>" +
         '<div class="prov-field">' +
           '<div class="prov-label">Release</div>' +
@@ -305,8 +402,9 @@ function curvePoints(idx) {
   return MATS.map(m => [m.years, val(m.code, idx)]);
 }
 
-const TICK_YEARS = { 1: 1, 2: 1, 3: 1, 5: 1, 7: 1, 10: 1, 15: 1, 20: 1, 25: 1, 30: 1, 40: 1 };
-const TICK_YEARS_NARROW = { 1: 1, 5: 1, 10: 1, 20: 1, 30: 1, 40: 1 };
+const TICK_YEARS = {}, TICK_YEARS_NARROW = {};
+CFG.ticks.forEach(y => { TICK_YEARS[y] = 1; });
+CFG.ticksNarrow.forEach(y => { TICK_YEARS_NARROW[y] = 1; });
 
 function curveOptions(pal, narrow, fixedY) {
   const curves = curveSet();
@@ -324,7 +422,7 @@ function curveOptions(pal, narrow, fixedY) {
       ? { left: 8, right: 12, top: 26, bottom: 44, containLabel: true }
       : { left: 8, right: 20, top: 34, bottom: 8, containLabel: true },
     xAxis: Object.assign(axisCommon(pal), {
-      type: "value", min: 0, max: 41, interval: 1,
+      type: "value", min: 0, max: CFG.xMax, interval: 1,
       splitLine: { show: false },
       axisLabel: { color: pal.muted, fontSize: 11,
                    formatter: v =>
@@ -351,10 +449,10 @@ function curveOptions(pal, narrow, fixedY) {
           const v = p.value[1];
           return p.marker + " " + escapeHtml(p.seriesName) +
             ' <span class="num" style="float:right;margin-left:16px;font-weight:600">' +
-            (v === null || v === undefined ? MISSING : fmtNum(v, 3) + "%") + "</span>";
+            (v === null || v === undefined ? MISSING : fmtNum(v, DP) + "%") + "</span>";
         });
         return '<div style="font-weight:600;margin-bottom:2px">' +
-          escapeHtml(yearsToCode[years] || years + "Y") + " maturity</div>" +
+          escapeHtml(tenorLabel(yearsToCode[years] || years + "Y")) + " maturity</div>" +
           rows.join("<br>") +
           '<div style="margin-top:4px;font-size:11px;color:' + pal.muted + '">' +
           TRUST_LABELS.official + "</div>";
@@ -439,17 +537,17 @@ function renderCurvePNG(size) {
 /* The curve is not an obsChart, but it is the same shape of picture, so it
    offers the same sizes and the same copy-to-clipboard. */
 function exportCurvePNG() {
-  obsExportMenu("jgb-yield-curve-" + DATES[activeIdx] + ".png", renderCurvePNG,
+  obsExportMenu(CFG.file + "-yield-curve-" + DATES[activeIdx] + ".png", renderCurvePNG,
     document.getElementById("curve-png"));
 }
 
 function exportCurveCSV() {
   const curves = curveSet();
   const head = [
-    "JGB yield curve — constant-maturity yields (% per year)",
+    CFG.title + " — constant-maturity yields (% per year)",
     "Trust: " + TRUST_LABELS.official + " — yields exactly as published; " +
       "empty = no published value (tenor not quoted on that date)",
-    "Source: Ministry of Finance, Japan, " + CV.release.source_id,
+    "Source: " + CFG.publisher + ", " + CV.release.source_id,
     "Release: " + CV.release.label,
     "Retrieved: " + fmtStamp(CV.release.retrieved_at),
     "Permalink: " + location.href,
@@ -464,7 +562,7 @@ function exportCurveCSV() {
   });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-  a.download = "jgb-yield-curve-" + DATES[activeIdx] + ".csv";
+  a.download = CFG.file + "-yield-curve-" + DATES[activeIdx] + ".csv";
   a.click();
   URL.revokeObjectURL(a.href);
 }
@@ -498,6 +596,19 @@ function startPlay() {
   renderCurve();   // switch to the fixed axis before the first tick
 }
 
+/* Markers in the last 5% of the plotted span end their label at the rule,
+   so a policy change days before the latest date is not cut off. */
+function edgeAlign(events, firstIso, lastIso) {
+  const t0 = Date.parse(firstIso), t1 = Date.parse(lastIso);
+  return events.map(e => (Date.parse(e.x) - t0) / (t1 - t0) > 0.95
+    ? Object.assign({}, e, { align: "right" }) : e);
+}
+
+/* tenor codes are ids ("1_5M"); a reader sees "1.5M" */
+function tenorLabel(code) {
+  return String(code).replace("_", ".");
+}
+
 /* ---- history chart ---- */
 
 function histStart(range) {
@@ -521,7 +632,7 @@ function renderHistory() {
   const series = CV.history_series.map(code => {
     const m = MATS.find(x => x.code === code);
     return {
-      name: m ? m.name_en.replace(" JGB yield", "") : code,
+      name: m ? m.name_en.replace(CFG.nameSuffix, "") : code,
       slot: HIST_SLOTS[code] || 4,
       points: DATES.slice(startIdx).map((d, i) =>
         [d, val(code, startIdx + i)]),
@@ -531,12 +642,13 @@ function renderHistory() {
   const cfg = {
     series: series,
     unit: "%",
-    dp: 3,
+    dp: DP,
     yAxisName: "% per year",
     trust: "official",
-    eventLines: events,
+    eventLines: edgeAlign(events, DATES[startIdx], DATES[DATES.length - 1]),
     isoPeriods: true,
-    sourceLine: sourceLine(CV.release) + " · dashed rules mark BOJ policy dates",
+    sourceLine: sourceLine(CV.release) + " · dashed rules mark " + CFG.bankShort +
+      " policy dates",
   };
   el.innerHTML = "";
   if (histChart) histChart.dispose();
@@ -547,31 +659,121 @@ function renderHistory() {
       'Source: <a href="' + escapeHtml(CV.release.source_page) +
       '" rel="noopener">').replace(" · " + CV.release.source_id,
       "</a> · " + CV.release.source_id) +
-    " · dashed rules mark Bank of Japan policy dates";
+    " · dashed rules mark " + CFG.bank + " policy dates";
 
   document.getElementById("hist-calc").innerHTML =
     "<summary>About the policy markers</summary>" +
-    '<div class="calc-body">Vertical rules mark Bank of Japan policy decisions, ' +
-    "dated by the announcement: ZIRP (Feb 1999), quantitative easing (Mar 2001, " +
-    "ended Mar 2006), QQE (Apr 2013), the negative rate (Jan 2016), yield curve " +
-    "control (Sep 2016, band widened Dec 2022, ended Mar 2024) and the subsequent " +
-    "rate rises to 0.25% (Jul 2024), 0.5% (Jan 2025), 0.75% (Dec 2025) and 1.0% " +
-    "(Jun 2026). Markers are dates only; the yield lines are official values as " +
-    "published.</div>";
+    '<div class="calc-body">' + escapeHtml(CFG.eventsAbout) + "</div>";
 
   document.getElementById("hist-png").onclick = () =>
-    histChart.exportPNG("jgb-yields-history.png");
+    histChart.exportPNG(CFG.file + "-yields-history.png");
   document.getElementById("hist-csv").onclick = () =>
-    histChart.exportCSV("jgb-yields-history.csv", [
-      "JGB yields over time — 2Y, 10Y, 30Y constant-maturity (% per year)",
+    histChart.exportCSV(CFG.file + "-yields-history.csv", [
+      CFG.title.replace(" curve", "s") + " over time — " + CV.history_series.join(", ") +
+        " constant-maturity (% per year)",
       "Trust: " + TRUST_LABELS.official + " — yields exactly as published; " +
         "empty = no published value",
-      "Source: Ministry of Finance, Japan, " + CV.release.source_id,
+      "Source: " + CFG.publisher + ", " + CV.release.source_id,
       "Release: " + CV.release.label,
       "Retrieved: " + fmtStamp(CV.release.retrieved_at),
       "Permalink: " + location.href,
       CV.credit_line || "",
     ]);
+}
+
+/* ---- real yields (US page: Treasury inflation-protected securities) ---- */
+
+function rval(code, idx) {
+  const v = RV.values[code][idx];
+  return v === undefined ? null : v;
+}
+
+function renderReal() {
+  const el = document.getElementById("real-chart");
+  const rdates = RV.dates;
+  const range = urlState().rrange;
+  let startIdx = 0;
+  if (range !== "max") {
+    const latest = RV.release.latest_period;
+    const start = (Number(latest.slice(0, 4)) - Number(range)) + latest.slice(4);
+    while (startIdx < rdates.length - 1 && rdates[startIdx] < start) startIdx++;
+  }
+  const rmats = RV.maturities;
+  const series = RV.history_series.map(code => {
+    const m = rmats.find(x => x.code === code);
+    return {
+      name: m ? m.name_en.replace(" TIPS constant-maturity real yield", "") + " real" : code,
+      slot: HIST_SLOTS[code] || 4,
+      points: rdates.slice(startIdx).map((d, i) => [d, rval(code, startIdx + i)]),
+    };
+  });
+  const narrow = el.clientWidth < 520;
+  const spanYears = (rdates.length - startIdx) / 245;
+  const events = POLICY_EVENTS.filter(e => e.x >= rdates[startIdx]
+    && (narrow ? e.major : (spanYears <= 16 || e.major)));
+  const src = "Source: " + CFG.publisher + " · " + RV.release.source_id +
+    " · % per year · Data through " + fmtDay(RV.release.latest_period) +
+    " · Retrieved " + fmtStamp(RV.release.retrieved_at) + " · " + TRUST_LABELS.official;
+  el.innerHTML = "";
+  if (realChart) realChart.dispose();
+  realChart = obsChart(el, "line", {
+    series: series, unit: "%", dp: 2, yAxisName: "% per year", trust: "official",
+    eventLines: edgeAlign(events, rdates[startIdx], rdates[rdates.length - 1]),
+    isoPeriods: true,
+    sourceLine: src + " · dashed rules mark " + CFG.bankShort + " policy dates",
+  });
+  document.getElementById("real-source").innerHTML =
+    src.replace("Source: ", 'Source: <a href="' + escapeHtml(RV.release.source_page) +
+      '" rel="noopener">').replace(" · " + RV.release.source_id,
+      "</a> · " + RV.release.source_id) +
+    " · dashed rules mark " + CFG.bank + " policy dates";
+  document.getElementById("real-note").textContent =
+    RV.maturities.length + " tenors · " + fmtDay(RV.release.latest_period);
+  document.getElementById("real-png").onclick = () =>
+    realChart.exportPNG(CFG.file + "-real-yields-history.png");
+  document.getElementById("real-csv").onclick = () =>
+    realChart.exportCSV(CFG.file + "-real-yields-history.csv", [
+      "US Treasury real yields over time — " + RV.history_series.join(", ") +
+        " TIPS constant-maturity (% per year)",
+      "Trust: " + TRUST_LABELS.official + " — yields exactly as published; " +
+        "empty = no published value",
+      "Source: " + CFG.publisher + ", " + RV.release.source_id,
+      "Release: " + RV.release.label,
+      "Retrieved: " + fmtStamp(RV.release.retrieved_at),
+      "Permalink: " + location.href,
+      RV.credit_line || "",
+    ]);
+}
+
+function wireReal() {
+  const seg = document.getElementById("real-seg");
+  const state = urlState();
+  seg.querySelectorAll("button").forEach(b => {
+    b.setAttribute("aria-pressed", String(b.dataset.range === state.rrange));
+    b.addEventListener("click", () => {
+      seg.querySelectorAll("button").forEach(x =>
+        x.setAttribute("aria-pressed", String(x === b)));
+      setUrlState({ rrange: b.dataset.range });
+      renderReal();
+    });
+  });
+}
+
+async function loadReal() {
+  try {
+    const r = await fetch("/api/v1/" + CFG.real + "/curve");
+    if (!r.ok) throw new Error("real curve " + r.status + " " + (await r.text()).slice(0, 300));
+    RV = await r.json();
+  } catch (err) {
+    document.getElementById("real-chart").innerHTML =
+      '<div class="state-error">The real-yield series failed to load. ' +
+      "The rest of this page is unaffected." +
+      "<details><summary>See details</summary><pre>" + escapeHtml(String(err)) +
+      "</pre></details></div>";
+    return;
+  }
+  wireReal();
+  renderReal();
 }
 
 /* ---- all-maturities table ---- */
@@ -594,10 +796,10 @@ function renderTable() {
       spark.push([DATES[i], val(m.code, i)]);
     }
     return "<tr>" +
-      '<td title="' + escapeHtml(m.name_en) + '">' + escapeHtml(m.code) + "</td>" +
-      '<td class="num">' + (cur === null ? MISSING : fmtNum(cur, 3)) + "</td>" +
-      '<td class="num">' + fmtSigned(d1m, 3) + "</td>" +
-      '<td class="num">' + fmtSigned(d1y, 3) + "</td>" +
+      '<td title="' + escapeHtml(m.name_en) + '">' + escapeHtml(tenorLabel(m.code)) + "</td>" +
+      '<td class="num">' + (cur === null ? MISSING : fmtNum(cur, DP)) + "</td>" +
+      '<td class="num">' + fmtSigned(d1m, DP) + "</td>" +
+      '<td class="num">' + fmtSigned(d1y, DP) + "</td>" +
       "<td>" + sparkSVG(spark, 110, 26) + "</td>" +
       '<td class="num">' + fmtPeriod(m.first_period) + "</td>" +
       "</tr>";
@@ -621,7 +823,7 @@ function renderTable() {
   enhanceTable(matEl, { placeholder: "Filter tenors…" });
 
   document.getElementById("mat-foot").textContent =
-    "Yields are official statistics to three decimals, exactly as published; " +
+    "Yields are official statistics to " + DP_WORD + " decimals, exactly as published; " +
     "Δ columns are calculated in percentage points vs the latest business day " +
     "1 month and 1 year earlier. — means no published value. Since = first " +
     "published date for the tenor.";
@@ -634,12 +836,12 @@ function renderTable() {
 
   document.getElementById("mat-csv").onclick = () => {
     const head = [
-      "JGB yield curve — all tenors, latest business day (% per year)",
+      CFG.title + " — all tenors, latest business day (% per year)",
       "Trust: yield_pct is " + TRUST_LABELS.official + " as published; " +
         "delta columns are calculated (formula below)",
       "Calculation: " + SPREAD_CALCS.delta,
       "Unit: % per year; deltas in percentage points; empty = not published",
-      "Source: Ministry of Finance, Japan, " + CV.release.source_id,
+      "Source: " + CFG.publisher + ", " + CV.release.source_id,
       "Release: " + CV.release.label,
       "Retrieved: " + fmtStamp(CV.release.retrieved_at),
       "Permalink: " + location.href,
@@ -651,12 +853,12 @@ function renderTable() {
       const d1m = (cur === null || val(m.code, m1) === null) ? "" : cur - val(m.code, m1);
       const d1y = (cur === null || val(m.code, y1) === null) ? "" : cur - val(m.code, y1);
       csv += [m.code, m.years, DATES[last], cur === null ? "" : cur,
-              d1m === "" ? "" : d1m.toFixed(3), d1y === "" ? "" : d1y.toFixed(3),
+              d1m === "" ? "" : d1m.toFixed(DP), d1y === "" ? "" : d1y.toFixed(DP),
               m.first_period].join(",") + "\n";
     });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    a.download = "jgb-yields-all-tenors.csv";
+    a.download = CFG.file + "-yields-all-tenors.csv";
     a.click();
     URL.revokeObjectURL(a.href);
   };
@@ -752,6 +954,7 @@ async function init() {
   initThemeToggle(() => {
     if (curveChart) renderCurve();
     if (histChart) renderHistory();
+    if (realChart) renderReal();
   });
   try {
     const r = await fetch(API + "/curve");
@@ -784,6 +987,7 @@ async function init() {
   renderTable();
   renderHistory();
   renderCurve();
+  if (CFG.real) loadReal();
 }
 
 init();

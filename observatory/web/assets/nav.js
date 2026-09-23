@@ -11,10 +11,14 @@
      <header class="site-header" data-section="macro" data-page="explorer"></header>
      <script src="assets/nav.js"></script>
 
-   Two tiers, because the platform has products and products have pages: the
-   navy bar carries the sections, and a section with more than one page gets a
-   light strip beneath it. The landing page belongs to no section and sets
-   data-section="" — it gets the bar with nothing marked current.
+   Two tiers. The navy bar carries the markets — Japan, United States — in
+   full words, plus Docs and the reader's controls at the right: which country
+   you are looking at is the first thing every page says. The light strip
+   beneath it carries the current market's sections; a section with more than
+   one page opens a menu of them. A small trail at the top of the content
+   (Japan / Macro / Yield Curve) repeats the place in words. The landing page
+   belongs to no section and sets data-section="" — it gets the last market
+   visited, with no section marked current.
 
    A third tier exists only where one destination has more than one view of the
    same data (Inflation: the headline page and the item table). Those are the
@@ -40,9 +44,20 @@ var BRAND_MARK =
   '<path d="M30 100 H62"/><path d="M74 100 H98"/></g></svg>';
 
 
+// Two markets, separated at the top of the bar: a reader works in one
+// market at a time, and the two stand on different sources (e-Stat, the BOJ
+// and EDINET; the SEC and the Treasury). Each section belongs to one market
+// or is "shared" (data access, methodology), and the bar shows only the
+// current market's sections plus the shared ones. A shared page stays in the
+// market the reader came from, remembered per browser.
+var NAV_MARKETS = [
+  { id: "jp", label: "Japan", entry: "macro.html" },
+  { id: "us", label: "United States", entry: "us-treasury.html" },
+];
+
 var NAV_SECTIONS = [
   {
-    id: "macro", label: "Macro", suffix: "Macro",
+    id: "macro", market: "jp", label: "Macro", suffix: "Macro",
     pages: [
       { id: "overview", label: "Overview", href: "macro.html" },
       // Inflation is one destination with two views. The headline page and
@@ -82,7 +97,7 @@ var NAV_SECTIONS = [
     // and imports by partner country answer an industry question. Each page
     // is one slice of the same Ministry of Finance table, read by the same
     // script; the strip names the industry, not the dataset.
-    id: "trade", label: "Trade", suffix: "Trade",
+    id: "trade", market: "jp", label: "Trade", suffix: "Trade",
     pages: [
       { id: "semis", label: "Semiconductors", href: "semis.html" },
       { id: "autos", label: "Motor Vehicles", href: "autos.html" },
@@ -96,7 +111,7 @@ var NAV_SECTIONS = [
     // Population and the vote-weight page are one subject read two ways:
     // the register counts people, and Vote Weight divides seats by them.
     // Neither is a price, a rate or a balance sheet.
-    id: "demographics", label: "Demographics", suffix: "Demographics",
+    id: "demographics", market: "jp", label: "Demographics", suffix: "Demographics",
     pages: [
       { id: "population", label: "Population", href: "population.html" },
       { id: "representation", label: "Vote Weight", href: "representation.html" },
@@ -106,7 +121,7 @@ var NAV_SECTIONS = [
     // Tourism left Macro once it was more than one page. Arrivals, guest
     // nights and the regional detail are three views of one story and were
     // pushing the macro strip past what a phone can show at all.
-    id: "tourism", label: "Tourism", suffix: "Tourism",
+    id: "tourism", market: "jp", label: "Tourism", suffix: "Tourism",
     pages: [
       { id: "inbound", label: "Arrivals", href: "inbound.html" },
       { id: "accommodation", label: "Guest Nights", href: "accommodation.html" },
@@ -118,14 +133,14 @@ var NAV_SECTIONS = [
     // cost of production and farm-input prices are four datasets that are
     // only useful read against each other, and none of them is a macro
     // aggregate.
-    id: "agriculture", label: "Agriculture", suffix: "Agriculture",
+    id: "agriculture", market: "jp", label: "Agriculture", suffix: "Agriculture",
     pages: [
       { id: "rice", label: "Rice & Farm Prices", href: "rice.html" },
       { id: "ja", label: "Co-operatives", href: "ja.html" },
     ],
   },
   {
-    id: "equities", label: "Equities", suffix: "Equities",
+    id: "equities", market: "jp", label: "Equities", suffix: "Equities",
     // Thirteen datasets as thirteen peers overran the strip at every width.
     // They are grouped by the question they answer — who holds it, who runs
     // it, what it reports — and each group's pages are its in-page tabs.
@@ -180,16 +195,31 @@ var NAV_SECTIONS = [
     ],
   },
   {
-    id: "connect", label: "Data Access", suffix: "Data Access",
+    id: "us-rates", market: "us", label: "Rates", suffix: "US Rates",
+    pages: [
+      { id: "us-treasury", label: "Treasury Yields", href: "us-treasury.html" },
+    ],
+  },
+  {
+    // The US large caps held at full filed depth (company-facts, 2009 on).
+    // One page: the covered list, and each company's record behind ?t=.
+    id: "us-companies", market: "us", label: "Companies", suffix: "US Companies",
+    pages: [
+      { id: "us-companies", label: "Company Financials", href: "us-companies.html" },
+    ],
+  },
+  {
+    // Everything about using the data rather than the data itself — how to
+    // connect, the manual, the API reference and the methodology — is one
+    // section. As two sections ("Data Access", "Methodology") they took a
+    // sixth of the bar and pushed it off the edge once the market switch and
+    // a signed-in account were added. Every URL is unchanged, and every page
+    // footer still links the methodology directly.
+    id: "connect", market: "shared", label: "Docs", suffix: "Docs",
     pages: [
       { id: "connect", label: "Setup", href: "connect.html" },
       { id: "manual", label: "Manual", href: "manual.html" },
       { id: "api", label: "API Reference", href: "api.html" },
-    ],
-  },
-  {
-    id: "methodology", label: "Methodology", suffix: "Methodology",
-    pages: [
       { id: "methodology", label: "Methodology", href: "methodology.html" },
     ],
   },
@@ -211,8 +241,9 @@ var NAV_SECTIONS = [
       .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
 
-  // The brand always returns to the landing page; the suffix names the
-  // section so a screenshot of any page says which product it came from.
+  // The brand always returns to the landing page. It carries no section
+  // suffix any more: the market tab, the strip and the trail at the top of
+  // the page each name where the reader is, and a screenshot keeps all three.
   //
   // The mark is inlined rather than an <img> on purpose: an SVG loaded through
   // <img> is an isolated document, so `currentColor` resolves to black there
@@ -222,21 +253,33 @@ var NAV_SECTIONS = [
   // version is an indistinct blob, and the header is the one place the mark is
   // always small. assets/favicon.svg is the same reasoning applied to the tab
   // icon; assets/logo.svg keeps the full-colour disc for large uses.
-  var brand = '<a class="brand" href="index.html">' + BRAND_MARK + esc(NAV_BRAND) +
-    (section ? ' <span class="ds">/ ' + esc(section.suffix) + "</span>" : "") +
-    "</a>";
+  var brand = '<a class="brand" href="index.html">' + BRAND_MARK + esc(NAV_BRAND) + "</a>";
 
-  var links = NAV_SECTIONS.map(function (s) {
-    // A section's first page is its entry point.
-    var current = s.id === sectionId;
-    return '<a href="' + esc(s.entry || s.pages[0].href) + '"' +
-      (current ? ' aria-current="page"' : "") + ">" + esc(s.label) + "</a>";
-  }).join("");
+  // Which market the reader is in. A market page says so itself; a shared
+  // page (Docs) and the landing page keep the market last visited.
+  var isDocs = !!section && section.market === "shared";
+  var market = section && !isDocs ? section.market : null;
+  try {
+    if (market) localStorage.setItem("obs-market", market);
+    else market = localStorage.getItem("obs-market");
+  } catch (e) { /* storage blocked: fall back to Japan below */ }
+  if (market !== "us") market = "jp";
+  var marketObj = NAV_MARKETS[market === "us" ? 1 : 0];
+
+  // First tier: the markets, in full words, and nothing else. The one
+  // question the navy bar answers is "which country am I looking at".
+  var markets = '<nav class="site-nav" aria-label="Market">' +
+    NAV_MARKETS.map(function (m) {
+      return '<a href="' + esc(m.entry) + '"' +
+        (!isDocs && m.id === market ? ' aria-current="page"' : "") + ">" +
+        esc(m.label) + "</a>";
+    }).join("") + "</nav>";
 
   header.innerHTML =
-    '<div class="inner">' + brand +
-    '<nav class="site-nav" aria-label="Main">' + links + "</nav>" +
+    '<div class="inner">' + brand + markets +
     '<div class="header-right">' +
+    '<a class="header-link" href="connect.html"' +
+      (isDocs ? ' aria-current="page"' : "") + ">Docs</a>" +
     '<span class="header-asof" id="header-asof"></span>' +
     '<span class="header-account" id="header-account"></span>' +
     '<button class="theme-toggle" type="button">Dark Mode</button>' +
@@ -264,11 +307,14 @@ var NAV_SECTIONS = [
             '">Sign in</a>';
           return;
         }
-        var shown = me.email.length > 22
-          ? me.email.slice(0, 10) + "…" + me.email.slice(-10) : me.email;
+        // A fixed-width "Account" control, not the address: an email is as
+        // long as its owner made it, and the bar has no room to give. The
+        // address is the first line of the menu, and the button's title.
         slot.innerHTML = '<span class="acct-menu">' +
-          '<button type="button" aria-expanded="false">' + esc(shown) + " \u25be</button>" +
+          '<button type="button" aria-expanded="false" title="Signed in as ' +
+          esc(me.email) + '">Account \u25be</button>' +
           '<span class="acct-pop" hidden>' +
+          '<span class="acct-who">' + esc(me.email) + "</span>" +
           '<a href="#" data-do="signout">Sign out</a></span></span>';
         var btn = slot.querySelector("button");
         var pop = slot.querySelector(".acct-pop");
@@ -309,26 +355,126 @@ var NAV_SECTIONS = [
     return false;
   }
 
-  // Second tier: only where a section has somewhere else to go.
-  if (section && section.pages.length > 1) {
-    var sub = document.createElement("nav");
-    sub.className = "site-subnav";
-    sub.setAttribute("aria-label", section.label);
-    sub.innerHTML = '<div class="inner">' + section.pages.map(function (p) {
-      return '<a href="' + esc(p.href) + '"' +
-        (owns(p) ? ' aria-current="page"' : "") + ">" +
-        esc(p.label) + "</a>";
-    }).join("") + "</div>";
-    header.parentNode.insertBefore(sub, header.nextSibling);
+  // Second tier: the current market's sections (or, on a Docs page, the
+  // Docs pages). A section with one page is a plain link; a section with more
+  // opens a menu of its pages, and a page's in-page views are listed under it
+  // so everything in the market is two clicks from anywhere.
+  var stripSections = isDocs ? [] : NAV_SECTIONS.filter(function (s) {
+    return s.market === market;
+  });
+  var sub = document.createElement("nav");
+  sub.className = "site-subnav";
+  sub.setAttribute("aria-label", isDocs ? "Docs" : marketObj.label + " sections");
+  var items = isDocs
+    ? section.pages.map(function (p) {
+        return '<a href="' + esc(p.href) + '"' +
+          (owns(p) ? ' aria-current="page"' : "") + ">" + esc(p.label) + "</a>";
+      })
+    : stripSections.map(function (s, n) {
+        var current = s === section;
+        if (s.pages.length === 1) {
+          return '<a href="' + esc(s.pages[0].href) + '"' +
+            (current ? ' aria-current="page"' : "") + ">" + esc(s.label) + "</a>";
+        }
+        return '<button type="button" class="subnav-sec" data-sec="' + n + '"' +
+          ' aria-expanded="false" aria-haspopup="true"' +
+          (current ? ' aria-current="true"' : "") + ">" + esc(s.label) +
+          ' <span class="caret" aria-hidden="true">\u25be</span></button>';
+      });
+  sub.innerHTML = '<div class="inner">' + items.join("") + "</div>" +
+    '<div class="subnav-panel" hidden></div>';
+  header.parentNode.insertBefore(sub, header.nextSibling);
 
-    // The strip scrolls sideways on a phone, and a section's later pages sit
-    // off-screen — so the page you are actually on can be invisible. Bring it
-    // into view once, without scrolling the document itself.
-    var inner = sub.firstChild;
-    var current = inner.querySelector('a[aria-current="page"]');
-    if (current && inner.scrollWidth > inner.clientWidth) {
-      inner.scrollLeft = Math.max(0, current.offsetLeft - 20);
-    }
+  var inner = sub.firstChild;
+  var panel = sub.lastChild;
+  var openBtn = null;
+
+  function closePanel() {
+    if (!openBtn) return;
+    openBtn.setAttribute("aria-expanded", "false");
+    openBtn = null;
+    panel.hidden = true;
+  }
+
+  function openPanel(btn) {
+    var s = stripSections[Number(btn.getAttribute("data-sec"))];
+    var count = 0;
+    panel.innerHTML = s.pages.map(function (p) {
+      count += 1 + (p.tabs ? p.tabs.length - 1 : 0);
+      var views = (p.tabs || []).filter(function (t) { return t.href !== p.href; });
+      return '<div class="grp"><a href="' + esc(p.href) + '"' +
+        (owns(p) ? ' aria-current="page"' : "") + ">" + esc(p.label) + "</a>" +
+        views.map(function (t) {
+          return '<a class="view" href="' + esc(t.href) + '"' +
+            (t.id === pageId ? ' aria-current="page"' : "") + ">" + esc(t.label) + "</a>";
+        }).join("") + "</div>";
+    }).join("");
+    panel.className = "subnav-panel" + (count > 14 ? " wide" : "");
+    panel.hidden = false;
+    // Under its button, but never past the right edge of the viewport. The
+    // panel is a child of the strip, not of the scrolling row, so the row's
+    // sideways scroll on a phone can never clip it.
+    var sr = sub.getBoundingClientRect(), br = btn.getBoundingClientRect();
+    var left = Math.max(8, Math.min(br.left - sr.left - 12,
+                                    sr.width - panel.offsetWidth - 8));
+    panel.style.left = left + "px";
+    btn.setAttribute("aria-expanded", "true");
+    openBtn = btn;
+  }
+
+  inner.addEventListener("click", function (e) {
+    var btn = e.target.closest(".subnav-sec");
+    if (!btn) return;
+    e.stopPropagation();
+    if (openBtn === btn) { closePanel(); return; }
+    closePanel();
+    openPanel(btn);
+  });
+  document.addEventListener("click", function (e) {
+    if (openBtn && !panel.contains(e.target)) closePanel();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && openBtn) { var b = openBtn; closePanel(); b.focus(); }
+  });
+  window.addEventListener("resize", closePanel);
+  inner.addEventListener("scroll", closePanel);
+
+  // The strip scrolls sideways on a phone, and a market's later sections sit
+  // off-screen — so the one you are in can be invisible. Bring it into view
+  // once, without scrolling the document itself.
+  var here = inner.querySelector('[aria-current]');
+  if (here && inner.scrollWidth > inner.clientWidth) {
+    inner.scrollLeft = Math.max(0, here.offsetLeft - 20);
+  }
+
+  // The trail at the top of the content: market, section, page. It is what
+  // the brand suffix used to do — name the place in words a screenshot keeps
+  // — with the country first, since that is the distinction readers lose.
+  if (section) {
+    var pageLabel = "";
+    section.pages.forEach(function (p) {
+      if (p.id === pageId) pageLabel = p.label;
+      (p.tabs || []).forEach(function (t) {
+        if (t.id === pageId && t.href !== p.href) pageLabel = p.label + " \u00b7 " + t.label;
+      });
+    });
+    var trail = isDocs
+      ? [["Docs", "connect.html"]]
+      : [[marketObj.label, marketObj.entry],
+         [section.label, section.entry || section.pages[0].href]];
+    if (pageLabel && pageLabel !== section.label) trail.push([pageLabel, null]);
+    document.addEventListener("DOMContentLoaded", function () {
+      var main = document.querySelector("main");
+      if (!main || document.body.classList.contains("page-home")) return;
+      var el = document.createElement("nav");
+      el.className = "crumbs";
+      el.setAttribute("aria-label", "You are here");
+      el.innerHTML = trail.map(function (c) {
+        return c[1] ? '<a href="' + esc(c[1]) + '">' + esc(c[0]) + "</a>"
+                    : '<span aria-current="page">' + esc(c[0]) + "</span>";
+      }).join('<span class="sep" aria-hidden="true">/</span>');
+      main.insertAdjacentElement("afterbegin", el);
+    });
   }
 
   // Third tier: the views of one destination, in the content column.

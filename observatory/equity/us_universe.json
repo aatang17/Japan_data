@@ -1,0 +1,72 @@
+{
+  "_about": "The deep-coverage US universe: the five largest S&P 500 members in each of the eleven GICS sectors, ranked by the order of the SEC's company_tickers.json (largest market value first) as fetched on 2026-09-23. `predecessors` are earlier registrants whose filings carry the same business's history before a holding-company reorganisation; their facts load under their own CIK and are linked here, never merged. `name` is the display name the pages show; the SEC files' own entity names (upper case, suffixes like /DE/, and for BAC a co-registrant subsidiary) are kept as filed in the database.",
+  "as_of": "2026-09-23",
+  "ranking_source": "https://www.sec.gov/files/company_tickers.json",
+  "companies": [
+    {"ticker": "NVDA", "name": "NVIDIA Corporation",  "cik": 1045810, "sector": "Information Technology"},
+    {"ticker": "AAPL", "name": "Apple Inc.",  "cik": 320193,  "sector": "Information Technology"},
+    {"ticker": "MSFT", "name": "Microsoft Corporation",  "cik": 789019,  "sector": "Information Technology"},
+    {"ticker": "AVGO", "name": "Broadcom Inc.",  "cik": 1730168, "sector": "Information Technology", "predecessors": [1649338, 1441634]},
+    {"ticker": "MU", "name": "Micron Technology, Inc.",    "cik": 723125,  "sector": "Information Technology"},
+
+    {"ticker": "GOOGL", "name": "Alphabet Inc.", "cik": 1652044, "sector": "Communication Services", "predecessors": [1288776]},
+    {"ticker": "META", "name": "Meta Platforms, Inc.",  "cik": 1326801, "sector": "Communication Services"},
+    {"ticker": "NFLX", "name": "Netflix, Inc.",  "cik": 1065280, "sector": "Communication Services"},
+    {"ticker": "VZ", "name": "Verizon Communications Inc.",    "cik": 732712,  "sector": "Communication Services"},
+    {"ticker": "DIS", "name": "The Walt Disney Company",   "cik": 1744489, "sector": "Communication Services", "predecessors": [1001039]},
+
+    {"ticker": "AMZN", "name": "Amazon.com, Inc.",  "cik": 1018724, "sector": "Consumer Discretionary"},
+    {"ticker": "TSLA", "name": "Tesla, Inc.",  "cik": 1318605, "sector": "Consumer Discretionary"},
+    {"ticker": "HD", "name": "The Home Depot, Inc.",    "cik": 354950,  "sector": "Consumer Discretionary"},
+    {"ticker": "MCD", "name": "McDonald's Corporation",   "cik": 63908,   "sector": "Consumer Discretionary"},
+    {"ticker": "TJX", "name": "The TJX Companies, Inc.",   "cik": 109198,  "sector": "Consumer Discretionary"},
+
+    {"ticker": "BRK-B", "name": "Berkshire Hathaway Inc.", "cik": 1067983, "sector": "Financials"},
+    {"ticker": "JPM", "name": "JPMorgan Chase & Co.",   "cik": 19617,   "sector": "Financials"},
+    {"ticker": "V", "name": "Visa Inc.",     "cik": 1403161, "sector": "Financials"},
+    {"ticker": "MA", "name": "Mastercard Incorporated",    "cik": 1141391, "sector": "Financials"},
+    {"ticker": "BAC", "name": "Bank of America Corporation",   "cik": 70858,   "sector": "Financials"},
+
+    {"ticker": "LLY", "name": "Eli Lilly and Company",   "cik": 59478,   "sector": "Health Care"},
+    {"ticker": "JNJ", "name": "Johnson & Johnson",   "cik": 200406,  "sector": "Health Care"},
+    {"ticker": "ABBV", "name": "AbbVie Inc.",  "cik": 1551152, "sector": "Health Care"},
+    {"ticker": "MRK", "name": "Merck & Co., Inc.",   "cik": 310158,  "sector": "Health Care"},
+    {"ticker": "UNH", "name": "UnitedHealth Group Incorporated",   "cik": 731766,  "sector": "Health Care"},
+
+    {"ticker": "WMT", "name": "Walmart Inc.",   "cik": 104169,  "sector": "Consumer Staples"},
+    {"ticker": "COST", "name": "Costco Wholesale Corporation",  "cik": 909832,  "sector": "Consumer Staples"},
+    {"ticker": "KO", "name": "The Coca-Cola Company",    "cik": 21344,   "sector": "Consumer Staples"},
+    {"ticker": "PG", "name": "The Procter & Gamble Company",    "cik": 80424,   "sector": "Consumer Staples"},
+    {"ticker": "PM", "name": "Philip Morris International Inc.",    "cik": 1413329, "sector": "Consumer Staples"},
+
+    {"ticker": "XOM", "name": "Exxon Mobil Corporation",   "cik": 2115436, "sector": "Energy", "predecessors": [34088]},
+    {"ticker": "CVX", "name": "Chevron Corporation",   "cik": 93410,   "sector": "Energy"},
+    {"ticker": "COP", "name": "ConocoPhillips",   "cik": 1163165, "sector": "Energy"},
+    {"ticker": "VLO", "name": "Valero Energy Corporation",   "cik": 1035002, "sector": "Energy"},
+    {"ticker": "MPC", "name": "Marathon Petroleum Corporation",   "cik": 1510295, "sector": "Energy"},
+
+    {"ticker": "CAT", "name": "Caterpillar Inc.",   "cik": 18230,   "sector": "Industrials"},
+    {"ticker": "GE", "name": "General Electric Company",    "cik": 40545,   "sector": "Industrials"},
+    {"ticker": "RTX", "name": "RTX Corporation",   "cik": 101829,  "sector": "Industrials"},
+    {"ticker": "GEV", "name": "GE Vernova Inc.",   "cik": 1996810, "sector": "Industrials"},
+    {"ticker": "DE", "name": "Deere & Company",    "cik": 315189,  "sector": "Industrials"},
+
+    {"ticker": "LIN", "name": "Linde plc",   "cik": 1707925, "sector": "Materials", "predecessors": [884905]},
+    {"ticker": "NEM", "name": "Newmont Corporation",   "cik": 1164727, "sector": "Materials"},
+    {"ticker": "FCX", "name": "Freeport-McMoRan Inc.",   "cik": 831259,  "sector": "Materials"},
+    {"ticker": "SHW", "name": "The Sherwin-Williams Company",   "cik": 89800,   "sector": "Materials"},
+    {"ticker": "ECL", "name": "Ecolab Inc.",   "cik": 31462,   "sector": "Materials"},
+
+    {"ticker": "NEE", "name": "NextEra Energy, Inc.",   "cik": 753308,  "sector": "Utilities"},
+    {"ticker": "SO", "name": "The Southern Company",    "cik": 92122,   "sector": "Utilities"},
+    {"ticker": "CEG", "name": "Constellation Energy Corporation",   "cik": 1868275, "sector": "Utilities"},
+    {"ticker": "DUK", "name": "Duke Energy Corporation",   "cik": 1326160, "sector": "Utilities"},
+    {"ticker": "AEP", "name": "American Electric Power Company, Inc.",   "cik": 4904,    "sector": "Utilities"},
+
+    {"ticker": "WELL", "name": "Welltower Inc.",  "cik": 766704,  "sector": "Real Estate"},
+    {"ticker": "PLD", "name": "Prologis, Inc.",   "cik": 1045609, "sector": "Real Estate"},
+    {"ticker": "EQIX", "name": "Equinix, Inc.",  "cik": 1101239, "sector": "Real Estate"},
+    {"ticker": "AMT", "name": "American Tower Corporation",   "cik": 1053507, "sector": "Real Estate"},
+    {"ticker": "SPG", "name": "Simon Property Group, Inc.",   "cik": 1063761, "sector": "Real Estate"}
+  ]
+}

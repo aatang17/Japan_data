@@ -511,6 +511,11 @@ def health():
             equity = equity + sec_api.health()
         except Exception:                                    # noqa: BLE001
             pass
+        try:
+            from . import sec_deep_api
+            equity = equity + sec_deep_api.health()
+        except Exception:                                    # noqa: BLE001
+            pass
 
         # The dataset manifests. A card that fails validation is quarantined
         # rather than fatal (see registry.py), so this is where it is noticed.
@@ -543,6 +548,22 @@ def health():
         try:
             from . import refresh
             report.update(refresh.delivery())
+        except Exception:                                    # noqa: BLE001
+            pass
+        # The Investment Assistant's runner, as a dataset-style row: absent
+        # from here, a desk whose runs stopped would look healthy forever
+        # (Ingest Guardrail 6). Only when the feature is switched on.
+        try:
+            from . import assistant as _assistant
+            if _assistant.enabled():
+                from .assistant import store as _store
+                last = _store.last_success_at()
+                report["assistant"] = {
+                    "enabled": True,
+                    "last_successful_run_at": (
+                        datetime.datetime.fromtimestamp(last, datetime.timezone.utc)
+                        .replace(microsecond=0).isoformat().replace("+00:00", "Z")
+                        if last else None)}
         except Exception:                                    # noqa: BLE001
             pass
         return report

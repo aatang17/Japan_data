@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>US Company Financials · Plover Analytics</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/app.css">
+<style>
+/* page-local layout only — tokens and components come from app.css.
+   Mirrors financials.html (the Japanese companies) so the two markets read alike. */
+.co-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 14px; margin: 18px 0 4px; }
+.co-head h1 { margin: 0; }
+.co-code { font-family: var(--obs-mono, monospace); color: var(--obs-text-muted); font-size: 15px; }
+.co-industry { font-size: 13px; color: var(--obs-text-muted); }
+.filing-meta { font-size: 12.5px; color: var(--obs-text-muted); margin: 6px 0 0; line-height: 1.6; }
+.filing-meta .mono, .mono { font-family: var(--obs-mono, monospace); }
+
+.fact-row { display: flex; flex-wrap: wrap; gap: 10px 44px; margin: 14px 0 4px;
+  padding-left: 14px; border-left: 2px solid var(--obs-border); }
+.fact-row div { margin: 0; }
+.fact-row dt { font-size: 12px; font-weight: 600; color: var(--obs-text-muted);
+  text-transform: uppercase; letter-spacing: 0.04em; margin: 0 0 3px; }
+.fact-row dd { margin: 0; font-size: 21px; font-weight: 600; color: var(--obs-ink);
+  font-variant-numeric: tabular-nums; line-height: 1.15; }
+.fact-row .qual { display: block; font-size: 12px; font-weight: 400;
+  color: var(--obs-text-muted); margin-top: 2px; }
+.facts-foot { font-size: 12px; color: var(--obs-text-muted); margin: 8px 0 0; }
+
+.sec-note { font-size: 12.5px; color: var(--obs-text-muted); margin: 0; line-height: 1.55; text-wrap: pretty; }
+.sec-note b { color: var(--obs-ink); font-weight: 600; }
+.chart-foot { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline;
+  font-size: 12px; color: var(--obs-text-faint); margin-top: 4px; }
+#ki-chart, #cn-chart { width: 100%; height: 360px; }
+
+input[type="date"] { font: inherit; font-size: 13px; color: var(--obs-ink); background: var(--obs-surface);
+  border: 1px solid var(--obs-border); border-radius: 3px; padding: 4px 6px; }
+.btn-text { font: inherit; font-size: 12.5px; color: var(--obs-primary); background: none; border: 0;
+  padding: 4px 2px; cursor: pointer; }
+.btn-text:hover { text-decoration: underline; }
+.asof-flag { font-size: 12.5px; margin: 0 0 10px; padding-left: 12px;
+  border-left: 2px solid var(--obs-warn); color: var(--obs-text); }
+
+/* One indicator per row, one period per column, oldest to newest — the way
+   an analyst lays out a company's record. */
+.tbl-fin { width: 100%; border-collapse: collapse; }
+.tbl-fin th, .tbl-fin td { padding: 7px 10px; font-size: 13px; border-bottom: 1px solid var(--obs-grid);
+  white-space: nowrap; }
+.tbl-fin thead th { font-size: 11px; font-weight: 600; color: var(--obs-text-muted);
+  text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid var(--obs-border); text-align: left; }
+.tbl-fin .r, .tbl-fin th.r { text-align: right; font-variant-numeric: tabular-nums; }
+.tbl-fin tbody tr:hover td { background: var(--obs-surface-subtle); }
+/* The label column stays put while the periods scroll under it. */
+.tbl-fin td.lbl { white-space: normal; min-width: 250px; position: sticky; left: 0;
+  background: var(--obs-surface); z-index: 1; border-right: 1px solid var(--obs-border); }
+.tbl-fin thead th.lbl { position: sticky; left: 0; background: var(--obs-surface); z-index: 1;
+  border-right: 1px solid var(--obs-border); }
+.tbl-fin tr.heading td.lbl { background: var(--obs-surface-subtle); }
+#cn-table td.lbl, #cn-table th.lbl { position: static; border-right: 0; }
+.tbl-fin tr.heading td { font-weight: 600; color: var(--obs-ink); background: var(--obs-surface-subtle);
+  font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.04em; }
+.tbl-fin a { color: var(--obs-primary); text-decoration: none; }
+.tbl-fin a:hover { text-decoration: underline; }
+.tbl-fin .sub { display: block; font-size: 11px; color: var(--obs-text-muted); margin-top: 1px; }
+.tbl-fin .unit { color: var(--obs-text-muted); font-weight: 400; }
+.tbl-fin td.src { font-size: 11px; color: var(--obs-text-muted); }
+.tbl-fin .tag { display: block; font-size: 10.5px; color: var(--obs-text-faint);
+  font-family: var(--obs-mono, monospace); white-space: normal; word-break: break-all; }
+.tbl-fin tr.pick { cursor: pointer; }
+.tbl-fin tr.pick[aria-selected="true"] td { background: var(--obs-surface-subtle); }
+.tbl-fin tr.pick[aria-selected="true"] td:first-child { border-left: 2px solid var(--obs-primary); }
+.tbl-fin tr.rev td { color: var(--obs-text-muted); }
+.pill { display: inline-block; font-size: 10.5px; line-height: 1.5; padding: 0 6px; margin-left: 6px;
+  border: 1px solid var(--obs-border); border-radius: 3px; color: var(--obs-text-muted);
+  vertical-align: middle; text-transform: uppercase; letter-spacing: 0.04em; }
+.more-row { margin: 8px 0 0; }
+#cn-detail h3 { margin: 22px 0 4px; font-size: 16px; }
+#cn-detail h3 .mono { font-size: 12.5px; font-weight: 400; color: var(--obs-text-muted); margin-left: 6px; }
+@media (max-width: 700px) {
+  #ki-chart, #cn-chart { height: 300px; }
+  .tbl-fin td.lbl { min-width: 150px; max-width: 170px; }
+  .fact-row { gap: 10px 28px; }
+}
+</style>
+</head>
+<body class="page-wide">
+
+<header class="site-header" data-section="us-companies" data-page="us-companies"></header>
+<script src="assets/nav.js"></script>
+
+<main class="container">
+  <div id="stale-banner"></div>
+
+  <!-- directory view -->
+  <section id="market-view">
+    <div class="page-head">
+      <h1>US Company Financials</h1>
+      <p class="page-sub">Every number these large US companies have filed with the SEC since 2009,
+      each tied to the filing that reported it. The five largest S&amp;P 500 members in each of
+      the eleven GICS sectors. Read any year as it stands today, as first reported, or as it
+      could have been known on a past date.</p>
+    </div>
+
+    <div class="strip" id="stat-strip"><div class="strip-grid cols-4">
+      <div class="strip-cell skeleton" style="min-height:96px"></div>
+      <div class="strip-cell skeleton" style="min-height:96px"></div>
+      <div class="strip-cell skeleton" style="min-height:96px"></div>
+      <div class="strip-cell skeleton" style="min-height:96px"></div>
+    </div></div>
+
+    <h2>Covered Companies <span class="h2-note" id="dir-note"></span></h2>
+    <p class="sec-note" style="margin:0 0 8px">Choose a company for its key indicators by year or
+      quarter and every concept it has filed. Where a company moved to a new holding company, its
+      earlier history comes from the predecessor registrant and says so.</p>
+    <div class="table-wrap"><table class="tbl-fin" id="dir-table"></table></div>
+  </section>
+
+  <!-- company view -->
+  <section id="company-view" hidden>
+    <p style="margin:16px 0 0"><a href="us-companies.html">← All US companies</a></p>
+    <div class="co-head">
+      <h1 id="co-name"></h1>
+      <span class="co-code" id="co-code"></span>
+      <span class="co-industry" id="co-sector"></span>
+    </div>
+    <p class="filing-meta" id="co-meta"></p>
+    <dl class="fact-row" id="co-facts"></dl>
+    <p class="facts-foot" id="co-facts-foot"></p>
+
+    <h2>Key Indicators <span class="h2-note" id="ki-note"></span></h2>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Frequency" id="freq-seg">
+        <button type="button" data-freq="annual" aria-pressed="true">Annual</button>
+        <button type="button" data-freq="quarterly" aria-pressed="false">Quarterly</button>
+      </div>
+      <div class="seg" role="group" aria-label="Which filed value" id="basis-seg">
+        <button type="button" data-basis="latest" aria-pressed="true">Latest filed</button>
+        <button type="button" data-basis="first" aria-pressed="false">As first reported</button>
+      </div>
+      <label for="asof">Known on</label>
+      <input type="date" id="asof" min="2009-01-01" aria-label="Only filings filed by this date">
+      <button type="button" class="btn-text" id="asof-clear" hidden>Clear</button>
+      <label for="chart-select">Chart</label>
+      <select id="chart-select" aria-label="Chart measure">
+        <option value="income">Revenue and net income ($bn)</option>
+        <option value="cf">Cash flows ($bn)</option>
+        <option value="returns">Dividends and buybacks ($bn)</option>
+        <option value="eps">Diluted EPS ($)</option>
+      </select>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="ki-png">Download PNG</button>
+      <button type="button" class="btn" id="ki-csv">Download CSV</button>
+    </div>
+    <p class="asof-flag" id="asof-flag" hidden></p>
+    <div class="chart-block">
+      <div id="ki-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+      <div class="chart-foot"><span id="ki-source"></span></div>
+    </div>
+    <p class="sec-note" style="margin:12px 0 8px" id="ki-explain"></p>
+    <div class="table-wrap" id="ki-wrap"><table class="tbl-fin" id="ki-table" data-no-enhance></table></div>
+    <details class="calc"><summary>Show calculation</summary>
+      <div class="calc-body" id="ki-calc"></div>
+    </details>
+
+    <h2>Every Filed Concept <span class="h2-note" id="cn-note"></span></h2>
+    <p class="sec-note" style="margin:0 0 8px">Every XBRL concept this company has filed a value
+      for, newest first. Choose one for its full history and the filing behind each value.</p>
+    <div class="controls">
+      <input type="search" id="cn-q" placeholder="Search concepts, e.g. research, inventory, lease"
+             aria-label="Search concepts" autocomplete="off">
+    </div>
+    <div class="table-wrap"><table class="tbl-fin" id="cn-table" data-no-enhance></table></div>
+    <p class="more-row" id="cn-more"></p>
+
+    <div id="cn-detail" hidden>
+      <h3 id="cn-title"></h3>
+      <p class="sec-note" id="cn-def" style="margin:0 0 10px"></p>
+      <div class="controls">
+        <div class="seg" role="group" aria-label="Versions" id="cn-mode">
+          <button type="button" data-mode="one" aria-pressed="true">One value per period</button>
+          <button type="button" data-mode="all" aria-pressed="false">Every filed version</button>
+        </div>
+        <span class="spacer"></span>
+        <button type="button" class="btn" id="cn-png">Download PNG</button>
+        <button type="button" class="btn" id="cn-csv">Download CSV</button>
+      </div>
+      <div class="chart-block">
+        <div id="cn-chart"></div>
+        <div class="chart-foot"><span id="cn-source"></span></div>
+      </div>
+      <div class="table-wrap" style="margin-top:10px"><table class="tbl-fin" id="cn-values" data-no-enhance></table></div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="inner">
+    Source: U.S. Securities and Exchange Commission, EDGAR — each company's XBRL company-facts
+    file (data.sec.gov). Every figure is exactly as filed and names the filing it came from; every
+    pull is archived with its SHA-256. Nothing is recomputed: dollars are shown in millions or
+    billions for reading, and exports carry the exact filed value. Missing is —, never zero.
+    <a href="methodology.html">Methodology</a> · <a href="api.html">API</a>
+  </div>
+</footer>
+
+<script src="assets/echarts.min.js"></script>
+<script src="assets/format.js"></script>
+<script src="assets/charts.js"></script>
+<script src="assets/sortable.js"></script>
+<script src="assets/us-companies.js"></script>
+</body>
+</html>

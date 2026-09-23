@@ -54,7 +54,7 @@ NEVER_CACHE = ("/api/v1/catalog/health",)
 # Whole namespaces that are per-reader rather than per-dataset. Excluded by
 # prefix, not by exact path, so that adding a second account endpoint cannot
 # accidentally put one reader's answer in a cache everybody is served from.
-NEVER_CACHE_PREFIXES = ("/api/v1/account/",)
+NEVER_CACHE_PREFIXES = ("/api/v1/account/", "/api/v1/assistant/")
 
 
 async def warm(app, paths):

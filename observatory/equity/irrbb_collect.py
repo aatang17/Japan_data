@@ -45,6 +45,20 @@ reason. Nothing is recomputed to pass.
 Basis: a bank holding company prints the table for the group (連結) and often
 for the bank alone (単体); both are kept and labelled.
 
+Holding-company books: one PDF often carries the group's table and then each
+bank's own (the group's cites 告示第15条, a bank's consolidated 第12条, a
+bank alone 第10条). Nothing inside a table names its entity, so a document
+with tables for more than two entities is refused unless the source hint
+lists the bank's own `pages`; a bank is never given its group's figures.
+
+Column order is read from the header: some banks print the earlier year
+first (2024年度 2025年度), and a pair read the wrong way round would report
+last year's risk as this year's.
+
+A PDF the collector cannot fetch (a site that refuses scripts, a server that
+trickles) can be downloaded by hand into data/raw/irrbb/manual/<fi_code>.pdf;
+it is read in place of the hint's URL, which stays the recorded source.
+
 Usage
 -----
   python irrbb_collect.py --codes 0134,0143 --dump          # two banks, show the parse
@@ -60,9 +74,11 @@ import io
 import json
 import os
 import re
+import signal
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import unicodedata
 import urllib.parse
@@ -77,7 +93,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, ".."))
 from extract import DB_PATH, record_run   # noqa: E402
 
-PARSER_VERSION = "irrbb-1"
+PARSER_VERSION = "irrbb-2"
 # Where each institution's table was found last time: fi_code -> PDF URL.
 # A HINT, never a lock — the 2026 document becomes the 2027 one and the path
 # changes with it, so a hint that no longer carries the table falls through to
@@ -90,6 +106,10 @@ SOURCE_HINTS_PATH = os.path.join(HERE, "irrbb_sources.json")
 EXTRACTOR = "bank-irrbb"
 RAW_DIR = os.environ.get("IRRBB_RAW_DIR", os.path.join(HERE, "..", "data", "raw", "irrbb"))
 PDF_CACHE = os.environ.get("IRRBB_PDF_CACHE")
+# PDFs a person downloaded because the bank's site refuses scripts, or serves
+# them too slowly to fetch. <fi_code>.pdf here (or the hint's "file") is read
+# in place of the hint's URL, which stays the recorded source.
+MANUAL_DIR = os.environ.get("IRRBB_MANUAL_DIR", os.path.join(RAW_DIR, "manual"))
 USER_AGENT = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
               "(KHTML, like Gecko) Chrome/124.0 Safari/537.36 PloverAnalytics/1.0")
 MAX_PDF_BYTES = 80 * 1024 * 1024
@@ -113,8 +133,9 @@ SOURCES_COLS = 17
 ROW_COLS = 16
 
 SCENARIOS = [
-    ("parallel_up", (u"上方パラレルシフト", u"上方パラレル")),
-    ("parallel_down", (u"下方パラレルシフト", u"下方パラレル")),
+    # the bare stems catch a label wrapped over two lines (上方パラレ / ルシフト)
+    ("parallel_up", (u"上方パラレルシフト", u"上方パラレル", u"上方パラレ")),
+    ("parallel_down", (u"下方パラレルシフト", u"下方パラレル", u"下方パラレ")),
     ("steepener", (u"スティープ化", u"スティープナー", u"スティープニング")),
     ("flattener", (u"フラット化", u"フラットナー", u"フラットニング")),
     ("short_up", (u"短期金利上昇",)),
@@ -244,19 +265,45 @@ CHROME = os.environ.get("IRRBB_CHROME") or next(
 def render(url):
     """The page as a browser sees it, for sites that build their document
     lists in JavaScript. Headless Chrome with its own profile directory, so
-    nothing touches — or is ever killed alongside — a real browser window."""
+    nothing touches — or is ever killed alongside — a real browser window.
+
+    Chrome prints the DOM and then, on some machines, never exits; waiting on
+    the process timed out and threw the page away. This waits on the OUTPUT
+    and then stops the process group it started (Chrome and its helpers, and
+    nothing else), so no orphaned helpers are left behind either."""
     if not CHROME:
         raise RuntimeError("no Chrome binary for rendering")
     prof = tempfile.mkdtemp(prefix="irrbb-chrome-")
+    proc = subprocess.Popen(
+        [CHROME, "--headless=new", "--disable-gpu", "--no-first-run",
+         "--user-data-dir=" + prof, "--virtual-time-budget=6000",
+         "--timeout=25000", "--dump-dom", url],
+        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, start_new_session=True)
+    chunks = []
+
+    def pump():
+        for b in iter(lambda: proc.stdout.read1(65536), b""):
+            chunks.append(b)
+
+    t = threading.Thread(target=pump)
+    t.daemon = True
+    t.start()
+    deadline = time.time() + 60
     try:
-        out = subprocess.run(
-            [CHROME, "--headless=new", "--disable-gpu", "--no-first-run",
-             "--user-data-dir=" + prof, "--virtual-time-budget=6000",
-             "--timeout=25000", "--dump-dom", url],
-            capture_output=True, timeout=60)
-        return out.stdout.decode("utf-8", "replace")
+        while time.time() < deadline and proc.poll() is None:
+            if b"</html>" in b"".join(chunks[-3:]).lower():
+                time.sleep(0.3)
+                break
+            time.sleep(0.25)
     finally:
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except OSError:
+            pass
+        proc.wait()
+        t.join(5)
         subprocess.run(["rm", "-rf", prof])
+    return b"".join(chunks).decode("utf-8", "replace")
 
 
 def crawl(start_url, log):
@@ -352,6 +399,52 @@ def pdf_text(blob, sha):
 
 # ------------------------------------------------------------- the table
 
+_LABEL_GAP = re.compile(u"(?<=[\u3040-\u30ff\u4e00-\u9fff])[ \u3000]+(?=[\u3040-\u30ff\u4e00-\u9fff])")
+
+
+_KANA_BAR = re.compile(u"(?<=[\u30a1-\u30f4])[\u2015\u2500\u2010\uff0d-](?=[\u30a1-\u30f4])")
+_LABEL_CHARS = re.compile(u"[\u3040-\u30ff\u4e00-\u9fff]")
+
+
+def squeeze(s):
+    """Close the gaps some layouts print between a label's characters
+    (上 方 パ ラ レ ル → 上方パラレル), and read a bar printed inside a katakana
+    word as the long-vowel mark (スティ―プ化 → スティープ化). Only a gap
+    between two kana or kanji closes and only a bar between two katakana
+    changes, so numbers, minus signs and blank-cell dashes are untouched."""
+    return _KANA_BAR.sub(u"ー", _LABEL_GAP.sub("", s))
+
+
+def column_order(lines):
+    """Which period the first number column holds, read from the header.
+
+    The template prints the current period first, but some banks print the
+    earlier one first (2024年度 2025年度). The nearest header line naming two
+    periods decides; failing that, the order of 当期/前期. -> 'prior_first',
+    'current_first', or None when the header names no periods."""
+    for ln in reversed(lines):
+        s = nfkc(ln)
+        ys = _ordered_years(s)
+        if len(ys) >= 2:
+            return "prior_first" if ys[0] < ys[1] else "current_first"
+        for cur, pri in ((u"当期", u"前期"), (u"当年度", u"前年度")):
+            a, b = s.find(cur), s.find(pri)
+            if a >= 0 and b >= 0:
+                return "prior_first" if b < a else "current_first"
+    return None
+
+
+def _ordered_years(s):
+    """Distinct years named in s, in the order they appear."""
+    hits = [(m.start(), int(m.group(1))) for m in re.finditer(u"(20\\d{2})\\s*年", s)]
+    hits += [(m.start(), 2018 + int(m.group(1))) for m in re.finditer(u"令和\\s*(\\d{1,2})\\s*年", s)]
+    out = []
+    for _pos, y in sorted(hits):
+        if y not in out:
+            out.append(y)
+    return out
+
+
 def to_num(tok):
     t = nfkc(tok).replace(",", "").replace(" ", "")
     if t in (u"-", u"－", u"―", u"—", u"△", u"▲", ""):
@@ -417,18 +510,18 @@ def find_tables(text):
     pages = text.split("\f")
     found = []
     for pno, page in enumerate(pages, start=1):
-        if not MARK_RE.search(page) or u"上方パラレル" not in nfkc(page):
+        if not MARK_RE.search(page) or u"上方パラレ" not in squeeze(nfkc(page)):
             continue
         lines = page.split("\n")
         n = nfkc(page)
         i = 0
         while i < len(lines):
-            if u"上方パラレル" in nfkc(lines[i]):
+            if u"上方パラレ" in squeeze(nfkc(lines[i])):
                 rows = {}        # key -> [numbers per column group]
                 groups = 1
                 j = i
                 while j < len(lines) and j < i + 60:
-                    ln = nfkc(lines[j])
+                    ln = squeeze(nfkc(lines[j]))
                     for key, needles in SCENARIOS:
                         if key in rows:
                             continue
@@ -439,16 +532,33 @@ def find_tables(text):
                             # digit is not data; two occurrences on one line are
                             # two tables printed side by side (連結 | 単体).
                             segs = segments_after(ln, hit[0])
+                            # a label wrapped over two lines (上方パラレ / ルシフト)
+                            # can print its numbers on a line of their own
+                            # between the halves
+                            if not any(segs) and j + 1 < len(lines):
+                                nxt = squeeze(nfkc(lines[j + 1]))
+                                if nxt.strip() and not _LABEL_CHARS.search(nxt):
+                                    segs = [numbers_in(nxt)]
                             rows[key] = segs
                             groups = max(groups, len(segs))
                             break
                     if len(rows) == len(SCENARIOS):
                         break
                     j += 1
+                def _has_numbers(key):
+                    return any(v is not None for seg in rows.get(key, []) for v in seg)
+                if len(rows) < 4 or not _has_numbers("max") or not (
+                        _has_numbers("parallel_up") or _has_numbers("parallel_down")):
+                    # prose naming a shock and a figure (下方パラレルシフトが前期末比
+                    # 260億円減少) is not the table: in the table the shock rows
+                    # and 最大値 carry numbers of their own. Some banks print only
+                    # the rows they measure (上方, 下方, スティープ化, 最大値).
+                    i += 1
+                    continue
                 tier1 = None
                 k = i          # from the table's first row: a two-column page
                 while k < len(lines) and k < i + 90:   # interleaves it with prose
-                    ln = nfkc(lines[k])
+                    ln = squeeze(nfkc(lines[k]))
                     tm = TIER1_RE.search(ln)
                     if tm:
                         # current and prior only; anything after is the next row
@@ -467,6 +577,13 @@ def find_tables(text):
                 dates = dates_in(nfkc(above) + nfkc(below))
                 if dates:
                     as_of = best_as_of(dates)
+                if as_of is None:
+                    # columns headed by fiscal year (2024年度 2025年度): the
+                    # newest one ends on 31 March of the following year
+                    fys = [int(y) for y in re.findall(u"(20\\d{2})\\s*年度(?!末)",
+                                                       nfkc("\n".join(lines[max(0, i - 8):i])))]
+                    if fys:
+                        as_of = _dt.date(max(fys) + 1, 3, 31)
                 basis = None
                 ctx = nfkc(above)[-600:]
                 if u"連結" in ctx and u"単体" not in ctx[-200:]:
@@ -476,6 +593,9 @@ def find_tables(text):
                 k = max(k, j)
                 text_block = "\n".join(lines[max(0, i - 25):k + 2])
                 header = "\n".join(lines[max(0, i - 8):i])
+                order = column_order(lines[max(0, i - 8):i])
+                # Tier 1 carries its own period header (ホ/ヘ) just above it
+                t1_order = column_order(lines[max(i, k - 3):k + 1]) or order
                 if as_of is None:
                     dates = dates_in(n)
                     if dates:
@@ -494,7 +614,8 @@ def find_tables(text):
                         gb = basis
                     found.append({"page": pno, "line": i, "rows": grows, "tier1": gt,
                                   "unit": unit, "as_of": as_of, "as_of_from": as_of_from,
-                                  "basis": gb, "text": text_block, "header": header})
+                                  "basis": gb, "text": text_block, "header": header,
+                                  "order": order, "t1_order": t1_order})
                 i = k + 1
             else:
                 i += 1
@@ -519,6 +640,9 @@ def interpret(table):
     width = max(counts)
     header = nfkc(table.get("header") or "")
     two_is_nii = width == 2 and re.search(u"NII", header) and not re.search(u"前期|前年|年度末.*年度末", header)
+    # a header naming the earlier period first (2024年度 2025年度) reverses
+    # every pair; read from the header, never guessed from the numbers
+    prior_first = table.get("order") == "prior_first"
     for key, _n in SCENARIOS:
         vals = table["rows"].get(key)
         if vals is None:
@@ -534,8 +658,13 @@ def interpret(table):
             eve_cur, eve_prior, nii_cur, nii_prior = vals[0], vals[1], None, None
         else:
             eve_cur, eve_prior, nii_cur, nii_prior = vals[0], None, None, None
+        if prior_first and not (width == 2 and two_is_nii) and width >= 2:
+            eve_cur, eve_prior = eve_prior, eve_cur
+            nii_cur, nii_prior = nii_prior, nii_cur
         rows.append((key, eve_cur, eve_prior, nii_cur, nii_prior))
-    tier1 = table["tier1"] or []
+    tier1 = list(table["tier1"] or [])
+    if table.get("t1_order") == "prior_first" and len(tier1) > 1:
+        tier1 = [tier1[1], tier1[0]]
     t1_cur = tier1[0] if tier1 else None
     t1_prior = tier1[1] if len(tier1) > 1 else None
     # gate: 最大値 equals the largest scenario ΔEVE
@@ -584,13 +713,18 @@ def load_hints():
         return {}
 
 
-def read_pdf(url, log):
-    """Download one PDF and look for the IRRBB table in it.
+def read_pdf(url, log, local=None):
+    """Download one PDF and look for the IRRBB table in it; `local` is a copy
+    of that same document already on disk.
 
     -> {"url", "sha", "tables", "text"} or None. Every failure is a log line,
     never an exception: a bank whose server is down is a gap, not a crash."""
     try:
-        blob, final = fetch(url, timeout=180, binary=True)
+        if local:
+            with open(local, "rb") as f:
+                blob, final = f.read(), url
+        else:
+            blob, final = fetch(url, timeout=180, binary=True)
     except Exception as e:                                        # noqa: BLE001
         log.append("pdf %s: %s" % (url, str(e)[:80]))
         return None
@@ -630,6 +764,41 @@ def date_tables(hit):
     return hit
 
 
+def entity_tables(tables):
+    """How many different institutions a document's newest tables belong to.
+
+    One bank prints one table, or two (連結 and 単体). A holding company's book
+    prints one for the group and one or two for each bank in it, and nothing
+    in the table itself says which bank it is. Tables are told apart by their
+    Tier 1 figures, the one number no two entities share."""
+    dated = [t for t in tables if t["as_of"]]
+    newest = max((t["as_of"] for t in dated), default=None)
+    keys = set()
+    for t in tables:
+        if newest and t["as_of"] != newest:
+            continue
+        keys.add(tuple(sorted(v for v in (t["tier1"] or []) if v)))
+    return len(keys)
+
+
+def own_tables(tables, hint, log):
+    """The tables that belong to this bank. A hint naming `pages` takes those
+    pages of a group book; a document with more than two entities' tables and
+    no pages is refused — a bank is never given its group's figures."""
+    pages = (hint or {}).get("pages")
+    if pages:
+        mine = [t for t in tables if t["page"] in pages]
+        if not mine:
+            log.append("no table on hinted pages %s" % pages)
+        return mine
+    n = entity_tables(tables)
+    if n > 2:
+        log.append("group document: tables for %d entities on pages %s; needs a pages hint"
+                   % (n, sorted({t["page"] for t in tables})))
+        return []
+    return tables
+
+
 def collect_one(ent, dump=False, hints=None):
     code, name, url = ent["code"], ent["name_ja"], ent["disclosure_url"]
     log = []
@@ -639,19 +808,29 @@ def collect_one(ent, dump=False, hints=None):
     if not url.startswith("http"):
         result["detail"] = "no disclosure URL on the FSA list"
         return result
-    hint = (hints or {}).get(code, {}).get("url")
+    hint_entry = (hints or {}).get(code, {})
+    hint = hint_entry.get("url")
+    local = os.path.join(MANUAL_DIR, hint_entry.get("file") or code + ".pdf")
+    local = local if hint and os.path.isfile(local) else None
     if hint:
-        got = read_pdf(hint, log)
+        got = read_pdf(hint, log, local)
         if got is not None:
             got = date_tables(got)
+            got["tables"] = own_tables(got["tables"], hint_entry, log)
+        if got is not None and not got["tables"]:
+            got = None
+        if got is not None:
             got["score"] = 0
             result.update({"status": "found", "source_url": got["url"], "sha": got["sha"],
                            "tables": got["tables"], "text": got["text"],
-                           "from_hint": True, "pdfs_tried": 1})
+                           "from_hint": True, "pdfs_tried": 1, "from_file": bool(local)})
             if dump:
                 print("== %s %s: hint hit %s" % (code, name, got["url"]))
             return result
         log.append("hint did not carry the table: %s" % hint)
+        if any(l.startswith("group document") for l in log):
+            result["detail"] = "; ".join(log)[:400]
+            return result
 
     try:
         candidates, pages = crawl(url, log)
@@ -688,6 +867,10 @@ def collect_one(ent, dump=False, hints=None):
         tables = [t for t in find_tables(txt)
                   if any(v is not None for vals in t["rows"].values() for v in vals)]
         if not tables:
+            continue
+        if entity_tables(tables) > 2:
+            log.append("group document %s: tables for %d entities; needs a pages hint"
+                       % (final, entity_tables(tables)))
             continue
         # A table that names no date takes the newest date on the document's
         # first pages, else the year in the URL; both are recorded as such.
@@ -776,8 +959,16 @@ def main():
             "WHERE status IN ('clean','partial') AND source_url IS NOT NULL "
             "ORDER BY fi_code").fetchall()
         con.close()
-        out = dict((r[0], {"name": r[1], "url": r[2],
-                           "as_of": r[3].isoformat() if r[3] else None}) for r in rows)
+        # A group book's `pages` were chosen by hand and cannot be read back
+        # from the table; keep them while the document is the same one.
+        old = load_hints()
+        out = {}
+        for r in rows:
+            out[r[0]] = {"name": r[1], "url": r[2],
+                         "as_of": r[3].isoformat() if r[3] else None}
+            prev = old.get(r[0], {})
+            if prev.get("pages") and prev.get("url") == r[2]:
+                out[r[0]]["pages"] = prev["pages"]
         with open(SOURCE_HINTS_PATH, "w", encoding="utf-8") as f:
             json.dump(out, f, ensure_ascii=False, indent=1, sort_keys=True)
             f.write("\n")
@@ -835,6 +1026,8 @@ def main():
                 for t in keep:
                     f.write("# page %s basis=%s\n%s\n\n" % (t["page"], t["basis"], t["text"]))
             seen_basis = set()
+            if r.get("from_file"):
+                details.append("source:local_copy")
             for t in keep:
                 rows, reason, t1_cur, t1_prior = interpret(t)
                 basis = t["basis"] or ("consolidated" if "consolidated" not in seen_basis else "non-consolidated")

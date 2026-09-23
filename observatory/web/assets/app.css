@@ -63,14 +63,13 @@ html { scroll-padding-top: 66px; }
   height: 52px;
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 18px;
 }
 
 .brand { font-weight: 700; color: var(--obs-header-ink); font-size: 15px; letter-spacing: 0.01em; }
-.brand .ds { font-weight: 400; color: var(--obs-header-muted); }
-
-.site-nav { display: flex; gap: 16px; font-size: 13.5px; }
-.site-nav a { color: var(--obs-header-text); padding: 4px 2px; }
+/* The markets: the whole of the first tier, so they can be read at a glance. */
+.site-nav { display: flex; gap: 22px; font-size: 14.5px; }
+.site-nav a { color: var(--obs-header-text); padding: 4px 2px; white-space: nowrap; }
 .site-nav a:hover { text-decoration: none; color: var(--obs-header-ink); }
 .site-nav a[aria-current="page"] {
   color: var(--obs-header-ink);
@@ -78,6 +77,9 @@ html { scroll-padding-top: 66px; }
   border-bottom: 2px solid var(--obs-header-accent);
   margin-bottom: -2px;
 }
+.header-link { font-size: 13px; color: var(--obs-header-text); white-space: nowrap; }
+.header-link:hover { color: var(--obs-header-ink); text-decoration: none; }
+.header-link[aria-current="page"] { color: var(--obs-header-ink); font-weight: 600; }
 
 .header-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
 .header-asof { font-size: 12px; color: var(--obs-header-muted); white-space: nowrap; }
@@ -1534,6 +1536,7 @@ body.has-consent-bar .site-footer { margin-bottom: 76px; }
    other pages undiscoverable. Phones keep it non-sticky: two fixed bars would
    eat a fifth of the screen. */
 .site-subnav {
+  position: relative; /* the section menu hangs from the strip */
   background: var(--obs-surface);
   border-bottom: 1px solid var(--obs-border);
 }
@@ -1562,6 +1565,45 @@ body.page-wide .site-subnav .inner { max-width: 1360px; }
   padding: 3px 1px;
 }
 .site-subnav a:hover { color: var(--obs-ink); text-decoration: none; }
+.site-subnav .subnav-sec {
+  font: inherit; font-size: 13px; color: var(--obs-text-muted);
+  background: none; border: 0; border-bottom: 2px solid transparent;
+  padding: 3px 1px; margin-bottom: -2px; cursor: pointer; white-space: nowrap;
+}
+.site-subnav .subnav-sec .caret { font-size: 10px; margin-left: 2px; }
+.site-subnav .subnav-sec:hover,
+.site-subnav .subnav-sec[aria-expanded="true"] { color: var(--obs-ink); }
+.site-subnav .subnav-sec[aria-current="true"] {
+  color: var(--obs-ink); font-weight: 600; border-bottom-color: var(--obs-primary);
+}
+.site-subnav .subnav-sec:focus-visible { outline: 2px solid var(--obs-primary); outline-offset: 2px; }
+
+/* A section's pages, and each page's in-page views indented under it. One
+   border, no shadow; long sections (Equities) run in columns. */
+.subnav-panel {
+  position: absolute; top: calc(100% + 1px); z-index: 45;
+  min-width: 220px; max-width: calc(100vw - 16px);
+  background: var(--obs-surface); border: 1px solid var(--obs-border); border-radius: 3px;
+  padding: 6px 0;
+}
+.subnav-panel.wide { columns: 3 200px; column-gap: 0; width: 660px; }
+.subnav-panel .grp { break-inside: avoid; padding: 2px 0; }
+.site-subnav .subnav-panel a {
+  display: block; padding: 5px 14px; font-size: 13px; color: var(--obs-ink);
+  border: 0; margin: 0;
+}
+.site-subnav .subnav-panel a.view { padding-left: 26px; font-size: 12.5px; color: var(--obs-text-muted); }
+.site-subnav .subnav-panel a:hover { background: var(--obs-surface-subtle); color: var(--obs-ink); }
+.site-subnav .subnav-panel a[aria-current="page"] {
+  font-weight: 600; color: var(--obs-primary); border: 0; margin: 0;
+}
+
+/* Where the reader is, in words: market / section / page. */
+.crumbs { font-size: 12px; color: var(--obs-text-muted); margin: 0 0 10px; }
+.crumbs a { color: inherit; }
+.crumbs a:hover { color: var(--obs-primary); }
+.crumbs [aria-current] { color: var(--obs-ink); }
+.crumbs .sep { margin: 0 7px; }
 .site-subnav a[aria-current="page"] {
   color: var(--obs-ink);
   font-weight: 600;
@@ -2356,6 +2398,10 @@ table.data tr.row-total td { font-weight: 600; color: var(--obs-ink); background
   border-bottom: 1px solid var(--obs-grid);
 }
 .header-account .acct-pop a:last-child { border-bottom: 0; color: var(--obs-text-muted); }
+.header-account .acct-who {
+  display: block; padding: 8px 12px; font-size: 12px; color: var(--obs-text-muted);
+  border-bottom: 1px solid var(--obs-grid); white-space: nowrap;
+}
 .header-account .acct-pop a:hover { background: var(--obs-surface-subtle); color: var(--obs-ink); }
 
 /* The account slot is one more thing competing for the header's right edge.
@@ -2371,22 +2417,14 @@ table.data tr.row-total td { font-weight: 600; color: var(--obs-ink); background
   .site-header .header-asof { display: none; }
 }
 
-/* Below ~1100px the brand, eight section links and the toggle no longer fit
-   on one 52px row, and flexbox squeezed each of them onto two lines instead.
-   The bar becomes two rows: brand and controls, then the section links on a
-   row of their own. Nothing in it ever breaks mid-label. Phones keep their
-   own wrapping layout (max-width: 480px above). */
+/* The bar holds the brand, two markets and the controls — one row down to
+   ~700px. Below that it wraps as whole items, never mid-label. */
 .brand, .theme-toggle { white-space: nowrap; flex-shrink: 0; }
-@media (min-width: 481px) and (max-width: 1100px) {
-  .site-header .inner { height: auto; flex-wrap: wrap; row-gap: 0; }
-  .brand, .site-header .header-right { min-height: 48px; }
-  .site-nav { order: 3; flex: 1 0 100%; align-items: center; min-height: 36px; padding-bottom: 4px; }
-  .site-nav a { white-space: nowrap; }
-}
-/* the sub-nav sticks under the taller two-row bar (48 + 36) */
-@media (min-width: 769px) and (max-width: 1100px) {
-  .site-nav { flex-wrap: nowrap; height: 36px; padding-bottom: 0; }
-  .site-subnav { top: 84px; }
+@media (max-width: 700px) {
+  .site-header .inner {
+    height: auto; min-height: 44px; flex-wrap: wrap;
+    gap: 6px 16px; padding: 8px 14px;
+  }
 }
 
 /* The coverage statement. On the datasets whose source deletes its own files —

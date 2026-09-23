@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>JGB Yield Curve · Plover Analytics</title>
+<title>US Treasury Yield Curve · Plover Analytics</title>
 <link rel="stylesheet" href="assets/tokens.css">
 <link rel="stylesheet" href="assets/app.css">
 </head>
-<body data-curve="jgb">
+<body data-curve="ust">
 
-<header class="site-header" data-section="macro" data-page="rates"></header>
+<header class="site-header" data-section="us-rates" data-page="us-treasury"></header>
 <script src="assets/nav.js"></script>
 
 <main class="container">
@@ -17,7 +17,7 @@
 
   <div class="metric-card">
     <div class="metric-card-head">
-      <h1>JGB Yield Curve</h1>
+      <h1>US Treasury Yield Curve</h1>
       <span class="metric-asof" id="page-asof"></span>
       <p class="metric-sub" id="page-sub"><span class="skeleton" style="display:inline-block;width:420px;height:14px"></span></p>
     </div>
@@ -35,10 +35,12 @@
 
   <section aria-labelledby="h-curve">
     <h2 id="h-curve">Yield Curve History <span class="h2-note" id="curve-note"></span></h2>
-    <p class="section-sub">Constant-maturity yields for 15 tenors from 1 to 40 years, exactly
-    as published by the Ministry of Finance — no fitting, no interpolation. Drag the slider
-    to any business day back to September 1974, or press Play to watch the curve move.
-    A maturity that was not yet quoted on a date is simply absent.</p>
+    <p class="section-sub">Par yields for 14 constant maturities from 1 month to 30 years,
+    exactly as published by the U.S. Department of the Treasury — no fitting by this
+    platform. Drag the slider to any business day back to January 1990, or press Play to
+    watch the curve move. A maturity that did not exist on a date is simply absent: the
+    1-month begins in 2001, the 2-month in 2018, the 4-month in 2022, the 1.5-month in
+    2025, and the 30-year is missing from February 2002 to February 2006.</p>
     <div class="chart-panel">
     <div class="controls">
       <div class="band-toggles" id="cmp-toggles" role="group" aria-label="Comparison curves">
@@ -67,10 +69,9 @@
 
   <section aria-labelledby="h-history">
     <h2 id="h-history">Yields by Maturity, Daily</h2>
-    <p class="section-sub">The 2-, 10- and 30-year yields as published, with Bank of Japan
-    policy dates marked. The 10-year constant-maturity series begins in July 1986 and the
-    30-year in September 1999; short maturities have real gaps where the tenor was not
-    quoted — gaps stay gaps.</p>
+    <p class="section-sub">The 2-, 10- and 30-year yields as published, with changes in the
+    Federal Reserve's federal funds target marked. The 30-year has a real gap from 2002 to
+    2006, when the Treasury did not issue it — gaps stay gaps.</p>
     <div class="chart-panel">
     <div class="controls">
       <div class="seg" role="group" aria-label="History date range" id="hist-seg">
@@ -89,10 +90,32 @@
     </div>
   </section>
 
+  <section aria-labelledby="h-real">
+    <h2 id="h-real">Real Yields by Maturity, Daily <span class="h2-note" id="real-note"></span></h2>
+    <p class="section-sub">Par real yields on Treasury inflation-protected securities (TIPS)
+    — the yield above inflation — at 5, 10 and 30 years, exactly as published by the
+    Treasury. The series begin in January 2003; the 7- and 20-year real yields are
+    available through the API.</p>
+    <div class="chart-panel">
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Real yield date range" id="real-seg">
+        <button type="button" data-range="5">5Y</button>
+        <button type="button" data-range="10" aria-pressed="true">10Y</button>
+        <button type="button" data-range="max">Max</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="real-png">Download PNG</button>
+      <button type="button" class="btn" id="real-csv">Download CSV</button>
+    </div>
+    <div class="chart" id="real-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+    <p class="source-line" id="real-source"></p>
+    </div>
+  </section>
+
   <section aria-labelledby="h-maturities">
     <h2 id="h-maturities">Maturity Detail <span class="h2-note" id="mat-note"></span></h2>
-    <p class="section-sub">Every published tenor on the latest business day. Yields are
-    official values to three decimals, exactly as released; changes are calculated from
+    <p class="section-sub">Every published maturity on the latest business day. Yields are
+    official values to two decimals, exactly as released; changes are calculated from
     them and shown in percentage points.</p>
     <div class="controls">
       <span class="spacer"></span>
@@ -103,8 +126,6 @@
     <details class="calc" id="mat-calc"></details>
   </section>
 
-  <!-- No h2 band here: the card carries its own "Data Source" head, and two
-       stacked headers saying the same thing read as a duplicate. -->
   <section aria-label="Data source and provenance" class="prov">
     <div id="prov-card"></div>
   </section>
@@ -113,7 +134,7 @@
 
 <footer class="site-footer">
   <div class="inner">
-    <span id="credit-line">Source: Ministry of Finance, Japan.</span>
+    <span id="credit-line">Source: U.S. Department of the Treasury.</span>
     Yields are official constant-maturity values as published; spreads and changes are
     calculated from them.
     <a href="methodology.html">Methodology</a>

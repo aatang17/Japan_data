@@ -22,6 +22,9 @@ env.load()
 from . import api  # noqa: E402 — must follow env.load()
 from .admin_api import router as admin_router  # noqa: E402
 from . import accounts  # noqa: E402
+from . import assistant  # noqa: E402
+from .assistant import api as assistant_api  # noqa: E402
+from .assistant import desk_mcp as assistant_desk_mcp  # noqa: E402
 from .api import router  # noqa: E402
 from .buyback_api import router as buyback_router  # noqa: E402
 from .cohorts_api import router as cohorts_router  # noqa: E402
@@ -34,11 +37,13 @@ from .governance_api import router as governance_router  # noqa: E402
 from .lvh_api import router as lvh_router  # noqa: E402
 from .short_api import router as short_router  # noqa: E402
 from .earnings_api import router as earnings_router  # noqa: E402
+from .calendar_api import router as calendar_router  # noqa: E402
 from .agm_api import router as agm_router  # noqa: E402
 from .segments_api import router as segments_router  # noqa: E402
 from .risk_api import router as risk_router  # noqa: E402
 from . import sec_api  # noqa: E402
 from .sec_api import router as sec_router  # noqa: E402
+from .sec_deep_api import router as sec_deep_router  # noqa: E402
 from .catalog_api import router as catalog_router  # noqa: E402
 from .apportionment_api import router as representation_router  # noqa: E402
 from .company_api import router as company_router  # noqa: E402
@@ -191,6 +196,7 @@ app.include_router(ownership_router)
 app.include_router(lvh_router)
 app.include_router(short_router)
 app.include_router(earnings_router)
+app.include_router(calendar_router)
 app.include_router(agm_router)
 app.include_router(facility_router)
 app.include_router(bank_router)
@@ -202,6 +208,7 @@ app.include_router(equity_router)
 # The US shelf's literal /api/v1/us/financials/… paths, ahead of the core
 # router for the same reason as the equity ones.
 app.include_router(sec_router)
+app.include_router(sec_deep_router)
 # The catalog of manifests ahead of the core router, so its literal
 # /api/v1/catalog/… paths can never be shadowed by /{dataset}/… catch-alls.
 # /api/v1/company/{code} ahead of the core router, so it beats the
@@ -227,6 +234,14 @@ app.include_router(admin_router)
 # and are excluded from the response cache by prefix (app/cache.py).
 if accounts.enabled():
     app.include_router(accounts.router)
+# The Investment Assistant needs both a signed-in person and its own switch;
+# app/assistant/__init__.py checks both. Per-desk responses, cache-excluded
+# by prefix like the account routes.
+if assistant.enabled():
+    app.include_router(assistant_api.router)
+    # /mcp/desk: the same desk for the reader's own agent (Claude Code, Codex),
+    # behind a personal key made in Settings. Outside /api/v1, so never cached.
+    app.include_router(assistant_desk_mcp.router)
 # robots.txt and sitemap.xml are generated from the pages in web/, so they
 # have to be registered ahead of the static mount that serves those pages —
 # the mount answers every remaining path and would 404 both.

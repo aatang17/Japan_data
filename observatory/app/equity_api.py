@@ -123,7 +123,10 @@ EXTRACT_STALE_AFTER_DAYS = 7
 # the month-end effective date of the JPX file, so a copy fetched this morning
 # is already up to five weeks old by its own date and a weekly threshold would
 # report "attention" on data that is perfectly current.
-STALE_AFTER_BY_EXTRACTOR = {"classification": 45}
+# JPX's earnings-calendar lists are dated by the list itself and re-issued
+# every week or two, with a new month's list early each month; the same 45
+# days gives a missed month room to show before it cries wolf.
+STALE_AFTER_BY_EXTRACTOR = {"classification": 45, "earnings-calendar": 45}
 
 
 def coverage():

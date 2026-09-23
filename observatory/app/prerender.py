@@ -216,6 +216,12 @@ DESCRIPTIONS = {
     "rates.html":
         "The Japanese government bond yield curve — every published maturity from 1 year to "
         "40, daily, from Ministry of Finance data.",
+    "us-treasury.html":
+        "The US Treasury yield curve — par yields from 1 month to 30 years and TIPS real "
+        "yields, daily since 1990, from U.S. Department of the Treasury data.",
+    "us-companies.html":
+        "Large US companies' SEC filings since 2009 — revenue, profit, cash flows and every "
+        "filed concept, as latest filed, as first reported or as known on any date.",
     "banks.html":
         "Japanese banks — non-performing loans, earnings and per-bank statements, from the "
         "Financial Services Agency and the Japanese Bankers Association.",

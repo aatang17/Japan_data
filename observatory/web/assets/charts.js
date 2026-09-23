@@ -182,8 +182,11 @@ function lineOptions(cfg, pal, narrow) {
             lineStyle: { color: pal.border, width: 1, type: "dashed" },
             // stagger drops a label one line down, so two events close in
             // time (NIRP and YCC) don't print on top of each other
+            // align "right" ends the label at the rule, for an event so
+            // close to the latest date that a centred label runs off the plot
             label: { show: !!e.label, formatter: e.label, position: "end",
                      offset: e.stagger ? [0, 13] : [0, 0],
+                     align: e.align || "center",
                      color: pal.muted, fontSize: 10 },
           }))),
       } : undefined,
@@ -526,14 +529,19 @@ function colsOptions(cfg, pal, narrow) {
         textStyle: { color: pal.text, fontSize: narrow ? 11 : 12, padding: [0, 0, 0, 2] },
         data: cfg.series.map(s => s.name) },
       narrow ? { bottom: 0, left: 0 } : { top: 0, right: 0 }),
-    grid: { left: 8, right: 12, containLabel: true,
+    // cfg.gridRight: room for a long last category label ("FY Dec-2025"),
+    // which is centred on the last bar and would otherwise run off the edge.
+    grid: { left: 8, right: cfg.gridRight || 12, containLabel: true,
             top: narrow ? 26 : 34, bottom: narrow ? 44 : 8 },
     xAxis: Object.assign(axisCommon(pal), {
       type: "category", data: cfg.categories,
       splitLine: { show: false },
       axisLabel: { color: pal.muted, fontSize: 11,
-                   // a month label per bar is unreadable at phone width
-                   interval: narrow ? 2 : 0, rotate: narrow ? 0 : 0 },
+                   // a month label per bar is unreadable at phone width.
+                   // cfg.labelInterval ("auto") opts a long run of periods
+                   // into ECharts' own overlap thinning at every width.
+                   interval: cfg.labelInterval !== undefined ? cfg.labelInterval
+                     : (narrow ? 2 : 0), rotate: narrow ? 0 : 0 },
     }),
     yAxis: Object.assign(axisCommon(pal), {
       // Bars keep a zero baseline; a series that goes negative (credit costs,

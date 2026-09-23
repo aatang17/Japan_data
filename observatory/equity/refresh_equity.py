@@ -98,6 +98,10 @@ EXTRACTORS = [
     # record that nobody can recover. Cheap — one page and the days we are
     # missing from it, usually one.
     ("short_extract.py",      "short-positions",      []),
+    # JPX's earnings calendar (決算発表予定日): one small workbook per
+    # period-end month, re-issued as dates change. Every version is kept, so a
+    # moved date stays visible. One page and a few workbooks a night.
+    ("calendar_extract.py",   "earnings-calendar",    []),
     # Bank balance-sheet notes: bond maturities, unrealised gains, deposits by
     # term. Reads only the bank-industry filers extract.py has registered, so
     # it is cheap, and runs after extract.py for that reason.

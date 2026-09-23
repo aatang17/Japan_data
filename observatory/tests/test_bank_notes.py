@@ -140,3 +140,108 @@ def test_irrbb_max_mismatch_is_reported_not_fixed():
     t = irr.find_tables(bad)[0]
     _rows, reason, _a, _b = irr.interpret(t)
     assert reason and reason.startswith("max_mismatch")
+
+
+# Layouts from the September 2026 re-collection, as pdftotext prints them.
+
+SPACED_PRIOR_FIRST = u"""IRRBB１：金利リスク
+                                                ⊿EVE                          ⊿NII
+ 項    番
+                                         2024年度    2025年度              2024年度    2025年度
+  １       上   方    パ   ラ レ ル   シ フ   ト     6,210      5,746              1,826     1,280
+  ２       下   方    パ   ラ レ ル   シ フ   ト    60,606     53,775                  0        32
+  ３       ス       テ    ィ   ー    プ    化     3,715      4,113
+  ４       フ        ラ     ッ     ト     化
+  ５       短       期    金   利    上    昇
+  ６       短       期    金   利    低    下
+  ７       最              大           値    60,606     53,775                1,826      1,280
+                                               2024年度                          2025年度
+  ８       自       己    資   本   の     額              361,627                         378,276
+"""
+
+
+def test_irrbb_spaced_labels_and_prior_year_first():
+    # 十六: every label letter-spaced, and the earlier year printed first
+    t = irr.find_tables(u"（単位：百万円）\n" + SPACED_PRIOR_FIRST)[0]
+    assert t["as_of"].isoformat() == "2026-03-31"      # the 2025年度 column
+    rows, reason, t1_cur, t1_prior = irr.interpret(t)
+    assert reason is None
+    got = {r[0]: r for r in rows}
+    assert got["parallel_down"][1:] == (53775.0, 60606.0, 32.0, 0.0)
+    assert got["max"][1] == 53775.0
+    assert (t1_cur, t1_prior) == (378276.0, 361627.0)
+
+
+def test_irrbb_wrapped_label_with_numbers_between_halves():
+    # 福島: 上方パラレ / numbers / ルシフト on three lines
+    text = u"""IRRBB1:金利リスク                                  （単位：百万円）
+                      ⊿EVE                   ⊿NII
+                 当期末       前期末         当期末          前期末
+1 上方パラレ
+                 2,425           578    1,206            851
+  ルシフト
+2 下方パラレ
+                       0          0          0             0
+  ルシフト
+3 スティープ化               0          0
+4 フラット化           516         1,150
+5 短期金利上昇         1,365           989
+6 短期金利低下               0          0
+7 最大値            2,425        1,150     1,206            851
+    自己資本の額（連結）               31,882                 31,393
+"""
+    rows, reason, t1_cur, _ = irr.interpret(irr.find_tables(text)[0])
+    assert reason is None
+    assert {r[0]: r for r in rows}["parallel_up"][1:] == (2425.0, 578.0, 1206.0, 851.0)
+    assert t1_cur == 31882.0
+
+
+def test_irrbb_bar_printed_for_long_vowel():
+    # 福岡: スティ―プ化 with U+2015 where ー belongs; a minus sign is untouched
+    assert irr.squeeze(u"3   スティ―プ化    14,469   −5   ―") == u"3   スティープ化    14,469   −5   ―"
+
+
+def test_irrbb_prose_mentioning_a_shock_is_not_a_table():
+    prose = (u"IRRBB\n⊿EVEは、下方パラレルシフトが前期末比260億円減少し、\n"
+             u"上方パラレルシフトが最大となりました 70\n")
+    assert irr.find_tables(prose) == []
+
+
+def _t(page, tier1):
+    import datetime
+    return {"page": page, "tier1": tier1, "as_of": datetime.date(2026, 3, 31)}
+
+
+def test_group_book_is_refused_without_pages_and_split_with_them():
+    book = [_t(61, [378276.0, 361627.0]),          # the holding company
+            _t(122, [328616.0, 321574.0]),         # the bank, consolidated
+            _t(136, [320186.0, 313732.0])]         # the bank alone
+    log = []
+    assert irr.own_tables(book, {}, log) == []
+    assert log and log[0].startswith("group document")
+    mine = irr.own_tables(book, {"pages": [122, 136]}, [])
+    assert [t["page"] for t in mine] == [122, 136]
+    # one bank's consolidated and bank-only tables are not a group book
+    assert irr.own_tables(book[1:], {}, []) == book[1:]
+
+
+def test_irrbb_four_row_table_is_still_a_table():
+    # トモニ: only the rows it measures, and years in 令和 with the earlier first
+    text = u"""■金利リスクに関する事項                         （単位：百万円）
+                         ⊿EVE                 ⊿NII
+   項番
+                  令和６年度       令和７年度      令和６年度     令和７年度
+    1     上方パラレルシフト        8,151      6,973     7,387      7,955
+    2     下方パラレルシフト        7,299      7,830     8,384      4,712
+    3     スティープ化             3,152      2,214
+    4     最大値                  8,151      7,830     8,384      7,955
+                     令和７年３月期               令和８年３月期
+    5     自己資本の額              147,949              153,208
+IRRBB
+"""
+    tables = irr.find_tables(text)
+    assert len(tables) == 1
+    rows, _reason, t1_cur, t1_prior = irr.interpret(tables[0])
+    got = {r[0]: r for r in rows}
+    assert got["max"][1:] == (7830.0, 8151.0, 7955.0, 8384.0)
+    assert (t1_cur, t1_prior) == (153208.0, 147949.0)

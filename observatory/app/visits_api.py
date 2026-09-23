@@ -13,7 +13,7 @@ app/visits.py for what each identity means.
 import json
 
 from fastapi import APIRouter, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 
 from . import seo, visits
 
@@ -59,8 +59,9 @@ async def ping(request: Request):
             visits.heartbeat(request.scope, path)
     except Exception as exc:  # noqa: BLE001 — counting is never fatal
         print("VISIT PING FAILED (%s)" % exc)
-    return JSONResponse(None, status_code=204,
-                        headers={"Cache-Control": "no-store"})
+    # A 204 carries no body. JSONResponse(None) sent "null", and uvicorn
+    # raised "Response content longer than Content-Length" on every ping.
+    return Response(status_code=204, headers={"Cache-Control": "no-store"})
 
 
 @router.post("/consent")

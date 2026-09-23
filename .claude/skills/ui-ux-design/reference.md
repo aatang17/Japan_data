@@ -379,6 +379,41 @@ h2 {
 - **Content width**: dashboards and tables use the full container. Prose (methodology, notes, docs) caps
   at ~1040px with 60–80 characters per line, ≥14px, line-height ~1.55.
 
+## Workspace app shell
+
+The default for every signed-in, app-style surface with a left menu: the Investment Assistant
+today, and any Pro workspace after it. Public data pages keep the site header and do not use it.
+Reference implementation: `observatory/web/assistant.html` with `assets/assistant.css` and
+`assets/assistant.js` (`vDesk`, `vSpecialists`, `vInbox`, `vAudit`). Adopted 2026-09-24 because the
+first version, grey text on grey panels with no section markers, read as unclear and low-contrast.
+
+- **Navy bar across the full width.** The sidebar's brand block and the page's top bar are both 56px
+  on `--obs-header-bg`, with a `--obs-header-border` bottom rule, so they read as one bar. Breadcrumbs
+  sit in the bar: links in `--obs-header-text`, the current page in `--obs-header-ink` at 600.
+- **White sidebar, dark text.** `--obs-surface` with a 1px right border. Group labels ("Workspace",
+  "System") are 11px uppercase, tracked, `--obs-text-muted`. Items are `--obs-ink`. The active item
+  gets a 3px `--obs-primary` left edge, a `--obs-focus-soft` fill and primary text at 600. Below 760px
+  the menu becomes one row of icons and the brand turns to an outline logo.
+- **Content stands off the page.** The page is `--obs-surface-subtle`; lists, tables, feeds and panels
+  sit on `--obs-surface`. Body text is `--obs-ink`. Keep `--obs-text-muted` for labels, times and
+  metadata, never for the content itself.
+- **Page order:** `h1` plus one plain sentence → a stat strip when the page has headline counts →
+  `h2` bands (the section band above), each with bare content under it.
+- **Stat strip, not separate tiles.** One bordered strip, cells split by 1px rules: 11px uppercase
+  label, 28px tabular value, a 12.5px line under it that gives context or the link to act. Colour a
+  value `--obs-warn` only when something is waiting on the user. Four cells become 2×2 on a phone.
+  These are counts of the user's own workspace, so they carry no trust label; an official statistic
+  shown on the page still follows Stat tiles.
+- **The work leads.** On an overview page, the thing the user came for (what the specialists found)
+  takes the wide column. Rosters, lists and settings go in a ~340px side column. No org charts or
+  other diagrams that only restate a list.
+- **Needs action = warn edge plus outline tag.** A 3px `--obs-warn` left edge on the item and an
+  outline tag ("Needs approval"). Never a filled badge.
+- **Catalogues are lists, not card grids.** One row per item: initials, name with a meta line,
+  one-sentence description, actions on the right. State is an outline tag ("On desk"). One filled
+  primary button per view, so row actions are secondary buttons.
+- **Feeds run newest first,** with the input box at the top. Menus opened from it drop downward.
+
 ## Responsive
 
 - Breakpoints: 390 (mobile) / 768 (tablet) / 1280 (desktop) / 1440 (wide).

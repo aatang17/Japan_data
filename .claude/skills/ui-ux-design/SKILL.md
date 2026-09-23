@@ -53,6 +53,9 @@ Hard rules:
   content above must never depend on a `<section>`/`.prose` wrapper, and no negative margins to
   tighten text against it. Spec → [reference.md](reference.md#section-header-band).
 - Dashboard order: headline stat row → the primary chart → supporting breakdown → the full table → provenance/methodology. Not a grid of equal-weight boxes.
+- **Signed-in workspace pages (an app with a left menu) use the workspace app shell**: navy bar across
+  the top, white sidebar, stat strip, `h2` bands, lists instead of card grids. Spec →
+  [reference.md](reference.md#workspace-app-shell).
 - One border, one background per panel. **No box nested inside a box.** No scrollable inner box except a genuinely wide data table wrapped in `overflow-x: auto`.
 - Spacing: nothing touches. Min 8px between unrelated elements, 4px between closely related.
 - **Charts get room.** A time-series chart squeezed into a 200px-tall card is decoration, not analysis. Give the primary chart at least 320px of plot height on desktop and let it span the content width; reduce the *number* of charts before shrinking any one of them.

@@ -451,8 +451,8 @@ MANIFEST = {
         "revisions": "/api/v1/%s/revisions" % DATASET["slug"],
     },
     "capabilities": ["series", "search"],
-    "cite": "/rates.html",
-    "page": "/rates.html",
+    "cite": "/us-treasury.html",
+    "page": "/us-treasury.html",
     "notes": [
         "Daily series: the monthly rate measures (yoy, mom, ann3m) do not "
         "apply and are refused; request measure=index for published yields.",
