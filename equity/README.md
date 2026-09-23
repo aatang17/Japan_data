@@ -105,10 +105,18 @@ Consequences:
 - **The 2021-08-10 archive start was set by the 5-year window at backfill time,
   not by what EDINET keeps.** Roughly 4.9 years of annual reports, extraordinary
   reports, tender offers and capital raises (2016-10-01..2021-08-09) were still
-  downloadable and missing from the archive. Service `edinet-backfill` is
-  capturing that window now (started 2026-09-11; `CAPTURE_ARGS=--start 2016-10-01
-  --end 2021-08-09`, restart ON_FAILURE, no cron). It cannot recover 350/360 or
-  220 for those years — those are gone for good.
+  downloadable and missing from the archive. Service `edinet-backfill` (restart
+  ON_FAILURE, no cron) captured that window 2026-09-11..13:
+  `archived:45496 skipped(existing):965 failed:0 list-failures:0`. All 21,100
+  corporate annual reports in the window are held (~3.5% PDF-only). It could not
+  recover 350/360 or 220 for those years — gone for good — and EDINET's lists
+  for the window contain no half-year reports (160) at all.
+- **Quarterly reports (140/150) were never in `DOC_TYPES`**, so neither the daily
+  job nor either backfill took them, though EDINET still serves them (~11,000 a
+  year). Started 2026-09-22 on `edinet-backfill` with `CAPTURE_ARGS=--start
+  2016-10-01 --types 140,150` (end = today, so late amendments are caught).
+  Quarterlies are archived with both packages (t1 + t5), like annual reports;
+  ~230KB each, so expect roughly 20–25GB and 2–3 days.
 - Test day 2017-06-28 (peak annual-report season): 893 documents, 252MB, zero
   failures. Most days are far lighter.
 

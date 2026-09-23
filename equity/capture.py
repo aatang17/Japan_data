@@ -12,6 +12,7 @@ Usage:
     python capture.py                       # trailing 7 days through today
     python capture.py --days 30             # wider catch-up window
     python capture.py --start 2026-06-01 --end 2026-06-30   # backfill a range
+    python capture.py --start 2016-10-01 --types 140,150    # only these doc types
 
 Captured document types (verified empirically 2026-08-06/07):
     120 有価証券報告書 (annual report; cross-shareholding tables)
@@ -66,7 +67,10 @@ DOC_URL = ("https://api.edinet-fsa.go.jp/api/v2/documents/{doc_id}"
 DOC_TYPES = {"120", "130", "160", "170", "180", "190",
              "240", "250", "270", "290", "300",
              "030", "040", "350", "360", "220"}
-CSV_ALSO = {"120", "130", "160", "170"}   # periodic reports: CSV package too
+# periodic reports: CSV package too. 140/150 (quarterly reports, abolished for
+# periods from April 2024) are not in DOC_TYPES; a backfill asks for them with
+# --types 140,150
+CSV_ALSO = {"120", "130", "140", "150", "160", "170"}
 THROTTLE_SECONDS = 0.7             # be a polite client; EDINET bans heavy users
 RETRIES = 3
 TIMEOUT = 90
@@ -290,7 +294,12 @@ def main():
                    help="trailing window ending today (default 7; self-heals missed runs)")
     p.add_argument("--start", help="backfill start date YYYY-MM-DD")
     p.add_argument("--end", help="backfill end date YYYY-MM-DD")
+    p.add_argument("--types", help="comma-separated docTypeCodes to capture "
+                   "instead of the default set (e.g. 140,150 for quarterly reports)")
     args = p.parse_args()
+    if args.types:
+        DOC_TYPES.clear()
+        DOC_TYPES.update(t.strip() for t in args.types.split(",") if t.strip())
 
     today = dt.date.today()
     if args.start:
