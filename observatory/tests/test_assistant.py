@@ -317,6 +317,32 @@ class AssistantTests(unittest.TestCase):
         rec = c.get("/api/v1/assistant/runs/%d" % run["run_id"]).json()
         self.assertEqual(rec["outcome"], "failed")
 
+    # ---- invite-only sign-in
+
+    def test_invite_list_limits_signin_and_hides_header_link(self):
+        c = self.client(signed=False)
+        os.environ["ACCOUNTS_ALLOWED_EMAILS"] = "PM@example.com, other@example.com"
+        try:
+            r = c.post("/api/v1/account/signin-link", json={"email": "stranger@example.com"})
+            self.assertEqual(r.status_code, 403)
+            self.assertIn("invitation", r.json()["detail"])
+            self.assertEqual(c.post("/api/v1/account/signin-link",
+                                    json={"email": "pm@example.com"}).status_code, 200)
+            me = c.get("/api/v1/account/me")
+            self.assertEqual(me.status_code, 401)
+            self.assertTrue(me.json()["invite_only"])
+            # the invited keep their session
+            self.assertEqual(self.client().get("/api/v1/account/me").json()["email"], "pm@example.com")
+            # taken off the list, the open session stops working
+            os.environ["ACCOUNTS_ALLOWED_EMAILS"] = "other@example.com"
+            self.assertEqual(self.client().get("/api/v1/account/me").status_code, 401)
+            self.assertEqual(self.client().get("/api/v1/assistant/desk").status_code, 401)
+        finally:
+            del os.environ["ACCOUNTS_ALLOWED_EMAILS"]
+        me = c.get("/api/v1/account/me")
+        self.assertFalse(me.json()["invite_only"])
+        self.assertEqual(self.client().get("/api/v1/account/me").json()["email"], "pm@example.com")
+
     # ---- charts
 
     def test_chart_is_read_from_the_result_not_typed(self):

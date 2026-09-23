@@ -295,7 +295,10 @@ var NAV_SECTIONS = [
     fetch("/api/v1/account/me", { headers: { Accept: "application/json" } })
       .then(function (r) {
         if (r.status === 404) return null;               // feature off
-        if (r.status === 401) return { email: null };    // on, nobody signed in
+        // on, nobody signed in; while sign-in is invite-only the public
+        // header offers nothing (the invited use signin.html directly)
+        if (r.status === 401) return r.json().catch(function () { return {}; })
+          .then(function (b) { return b && b.invite_only ? null : { email: null }; });
         if (!r.ok) return null;
         return r.json();
       })

@@ -53,6 +53,7 @@ import time
 import urllib.parse
 
 from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from . import mailer
@@ -83,6 +84,23 @@ def enabled():
     """The kill switch. Nothing in this module runs unless it is set."""
     return str(os.environ.get("ACCOUNTS_ENABLED", "")).strip().lower() in (
         "1", "true", "yes", "on")
+
+
+def allowed_emails():
+    """`ACCOUNTS_ALLOWED_EMAILS`: a comma-separated invite list, or None when
+    sign-in is open to anyone. While it is set, only these addresses get a
+    link or keep a session, and the public header shows no "Sign in" — a
+    visitor cannot use a feature they were not invited to."""
+    raw = str(os.environ.get("ACCOUNTS_ALLOWED_EMAILS", "")).strip()
+    if not raw:
+        return None
+    # plain lower-casing: a typo in the setting must not break every request
+    return set(e.strip().lower() for e in raw.split(",") if e.strip())
+
+
+def _allowed(email):
+    allow = allowed_emails()
+    return allow is None or (email or "").strip().lower() in allow
 
 
 def dev_links():
@@ -229,6 +247,9 @@ def current_account(request):
     row = cur.fetchone()
     if row is None:
         return None
+    # an address taken off the invite list loses its open sessions too
+    if not _allowed(row["email"]):
+        return None
     # conn() takes the same lock, so the handle is taken before it is held:
     # threading.Lock is not reentrant and calling conn() inside `with _lock`
     # deadlocks the request instead of failing.
@@ -258,6 +279,8 @@ def signin_link(payload: LinkRequest, request: Request):
     the same action, so this endpoint does not care whether the address is
     already known — the link decides."""
     email = _normalise(payload.email)
+    if not _allowed(email):
+        raise HTTPException(403, "Sign-in is by invitation only for now.")
     ip = _client_ip(request)
     now = _now()
     hour_ago = now - 3600
@@ -335,7 +358,9 @@ def me(request: Request):
     thing and must stay distinguishable."""
     account = current_account(request)
     if account is None:
-        raise HTTPException(401, "Not signed in.")
+        # invite_only tells the header not to offer "Sign in" to the public
+        return JSONResponse({"detail": "Not signed in.",
+                             "invite_only": allowed_emails() is not None}, status_code=401)
     return {"email": account["email"]}
 
 
