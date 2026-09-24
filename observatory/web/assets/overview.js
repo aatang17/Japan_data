@@ -7,6 +7,9 @@
      data-items-dataset    a detailed-item table for the breadth panel (optional)
      data-compare-dataset  a second dataset drawn beside the main series (optional)
      data-subtitle, data-strip-note, data-default-measure, data-default-range
+     data-agency, data-agency-via, data-country
+                           who publishes it, how it reaches us, and the file
+                           and CSV prefix — Japan's Statistics Bureau by default
    A section whose markup is absent from the page is simply not rendered, so
    a table published without weights (seasonally adjusted, the 1946 series)
    carries no contribution or group panel. The base year is read from the
@@ -25,6 +28,11 @@ const SUBTITLE = MAIN.getAttribute("data-subtitle") || "";
 const DEFAULT_MEASURE = MAIN.getAttribute("data-default-measure") || "yoy";
 const DEFAULT_RANGE = MAIN.getAttribute("data-default-range") || "5";
 const FILE_TAG = MAIN.getAttribute("data-file-tag") || DATASET;
+const AGENCY = MAIN.getAttribute("data-agency") || "Statistics Bureau of Japan";
+const AGENCY_VIA = MAIN.hasAttribute("data-agency-via")
+  ? MAIN.getAttribute("data-agency-via") : " via e-Stat";
+const COUNTRY = MAIN.getAttribute("data-country") || "Japan";
+const FILE_PREFIX = COUNTRY.toLowerCase().replace(/[^a-z]+/g, "-") + "-";
 
 let OV = null;          // /overview payload
 let CONTRIB = null;     // /contributions payload
@@ -68,7 +76,7 @@ function baseLabel(rel) {
 
 function sourceLine(rel, trust) {
   const label = TRUST_LABELS[trust];
-  return "Source: Statistics Bureau of Japan · " + rel.source_id +
+  return "Source: " + AGENCY + " · " + rel.source_id +
     " · " + baseLabel(rel) + " · Data through " + fmtPeriod(rel.latest_period) +
     " · Retrieved " + fmtStamp(rel.retrieved_at) +
     (label ? " · " + label : "");
@@ -171,7 +179,7 @@ function renderHeader() {
     "Data through " + fmtPeriod(rel.latest_period);
   document.getElementById("page-asof").textContent = "Ingested " + fmtStamp(rel.ingested_at);
   document.getElementById("page-sub").textContent =
-    (SUBTITLE ? SUBTITLE + " · " : "") + baseLabel(rel) + " · Statistics Bureau of Japan";
+    (SUBTITLE ? SUBTITLE + " · " : "") + baseLabel(rel) + " · " + AGENCY;
   const indexOption = document.querySelector('#measure-select option[value="index"]');
   if (indexOption) indexOption.textContent = "Index Level (" + baseLabel(rel) + ")";
 }
@@ -247,14 +255,14 @@ async function renderMain() {
   }
 
   document.getElementById("main-png").onclick = () =>
-    mainChart.exportPNG("japan-" + FILE_TAG + "-" + state.measure + ".png");
+    mainChart.exportPNG(FILE_PREFIX + FILE_TAG + "-" + state.measure + ".png");
   document.getElementById("main-csv").onclick = () =>
-    mainChart.exportCSV("japan-" + FILE_TAG + "-" + state.measure + ".csv", [
-      "Japan CPI (" + DATASET + ") — " + MEASURE_LABELS[state.measure],
+    mainChart.exportCSV(FILE_PREFIX + FILE_TAG + "-" + state.measure + ".csv", [
+      COUNTRY + " CPI (" + DATASET + ") — " + MEASURE_LABELS[state.measure],
       TRUST_LABELS[data.trust] ? "Trust: " + TRUST_LABELS[data.trust]
         : "Trust: calculated from official index values (formula below)",
       "Calculation: " + data.calc,
-      "Source: Statistics Bureau of Japan via e-Stat, " + OV.release.source_id,
+      "Source: " + AGENCY + AGENCY_VIA + ", " + OV.release.source_id,
       "Release: " + OV.release.label + " (" + baseLabel(OV.release) + ")",
       "Retrieved: " + fmtStamp(OV.release.retrieved_at),
       "Permalink: " + location.href,
@@ -309,13 +317,13 @@ async function renderCompare() {
       "weights; the rates are calculated here, separately for each, and are compared, never " +
       "combined.</div>";
   }
-  const name = "japan-" + FILE_TAG + "-vs-" + COMPARE_DATASET + "-" + measure;
+  const name = FILE_PREFIX + FILE_TAG + "-vs-" + COMPARE_DATASET + "-" + measure;
   document.getElementById("compare-png").onclick = () => compareChart.exportPNG(name + ".png");
   document.getElementById("compare-csv").onclick = () => compareChart.exportCSV(name + ".csv", [
-    "Japan CPI — " + (OWN_LABEL || DATASET) + " against " + COMPARE_LABEL + ", " + MEASURE_LABELS[measure],
+    COUNTRY + " CPI — " + (OWN_LABEL || DATASET) + " against " + COMPARE_LABEL + ", " + MEASURE_LABELS[measure],
     "Trust: calculated from official index values (formula below)",
     "Calculation: " + a.calc,
-    "Sources: Statistics Bureau of Japan via e-Stat, " + OV.release.source_id + " and " + COMPARE.release.source_id,
+    "Sources: " + AGENCY + AGENCY_VIA + ", " + OV.release.source_id + " and " + COMPARE.release.source_id,
     "Releases: " + OV.release.label + " (" + baseLabel(OV.release) + "); " + COMPARE.release.label + " (" + baseLabel(COMPARE.release) + ")",
     "Permalink: " + location.href,
   ]);
@@ -415,13 +423,13 @@ function renderContrib() {
     "“Other &amp; residual”, so the bars always sum to headline YoY.</div>";
 
   document.getElementById("contrib-png").onclick = () =>
-    contribChart.exportPNG("japan-" + FILE_TAG + "-contributions.png");
+    contribChart.exportPNG(FILE_PREFIX + FILE_TAG + "-contributions.png");
   document.getElementById("contrib-csv").onclick = () =>
-    contribChart.exportCSV("japan-" + FILE_TAG + "-contributions.csv", [
-      "Japan CPI — contribution to headline YoY by major group (pp)",
+    contribChart.exportCSV(FILE_PREFIX + FILE_TAG + "-contributions.csv", [
+      COUNTRY + " CPI — contribution to headline YoY by major group (pp)",
       "Trust: calculated from official index values and weights (formula below)",
       "Calculation: " + CONTRIB.calc,
-      "Source: Statistics Bureau of Japan via e-Stat, " + CONTRIB.release.source_id,
+      "Source: " + AGENCY + AGENCY_VIA + ", " + CONTRIB.release.source_id,
       "Release: " + CONTRIB.release.label + " (" + baseLabel(CONTRIB.release) + ")",
       "Retrieved: " + fmtStamp(CONTRIB.release.retrieved_at),
       "Permalink: " + location.href,
@@ -465,13 +473,13 @@ function renderBreadth() {
     "out of that month's denominator. Threshold: " + BREADTH.threshold + "%.</div>";
 
   document.getElementById("breadth-png").onclick = () =>
-    breadthChart.exportPNG("japan-" + FILE_TAG + "-breadth.png");
+    breadthChart.exportPNG(FILE_PREFIX + FILE_TAG + "-breadth.png");
   document.getElementById("breadth-csv").onclick = () =>
-    breadthChart.exportCSV("japan-" + FILE_TAG + "-breadth.csv", [
-      "Japan CPI — inflation breadth over detailed items (% of items)",
+    breadthChart.exportCSV(FILE_PREFIX + FILE_TAG + "-breadth.csv", [
+      COUNTRY + " CPI — inflation breadth over detailed items (% of items)",
       "Trust: calculated from official index values (definition below)",
       "Calculation: " + BREADTH.calc,
-      "Source: Statistics Bureau of Japan via e-Stat, " + BREADTH.release.source_id,
+      "Source: " + AGENCY + AGENCY_VIA + ", " + BREADTH.release.source_id,
       "Release: " + BREADTH.release.label + " (" + baseLabel(BREADTH.release) + ")",
       "Retrieved: " + fmtStamp(BREADTH.release.retrieved_at),
       "Permalink: " + location.href,

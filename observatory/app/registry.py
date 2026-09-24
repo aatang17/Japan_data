@@ -145,7 +145,10 @@ _API_UNIT = {"index": "index", "JPY_100mn": "jpy_100mn", "%": "percent",
              "JPY_thousand": "jpy_1000", "JPY_per_60kg": "jpy_per_60kg",
              "JPY_million": "jpy_million", "JPY_trillion": "jpy_trillion",
              "tonnes_10k": "t10k_brown_rice", "JPY": "jpy",
-             "JPY_billion": "jpy_billion"}
+             "JPY_billion": "jpy_billion",
+             # US dollars as published by the BLS (average prices, earnings);
+             # constant 1982-84 dollars share the wording, not the unit label.
+             "USD": "usd"}
 
 # Equity API modules, in registration order. Macro modules come from
 # api.ADAPTERS, so a new adapter is registered here by being registered there.

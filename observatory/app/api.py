@@ -42,7 +42,9 @@ from .adapters import (boj_assets, cpi_jp, cpi_jp_goods_services, cpi_jp_items,
                        estat_gdp, estat_gfs, mof_hojin,
                        fsa_npl, fsa_bank_results, jba_banks,
                        boj_loan_rates, boj_deposit_rates, fsa_fi_list,
-                       jpx_margin, jpx_investor_type)
+                       jpx_margin, jpx_investor_type,
+                       cpi_us, cpi_us_sa, cpi_us_areas, cpi_us_weights,
+                       us_avg_prices, us_wages, us_wage_tracker)
 
 # The agent is optional: without the openai package installed the data API
 # and the site keep working, and /ask reports itself as unavailable.
@@ -96,7 +98,11 @@ ADAPTERS = {"cpi-jp": cpi_jp, "cpi-jp-items": cpi_jp_items, "boj-assets": boj_as
             "boj-deposit-rates": boj_deposit_rates,
             "fsa-regional-fi": fsa_fi_list,
             "margin-jp": jpx_margin,
-            "investor-flows-jp": jpx_investor_type}
+            "investor-flows-jp": jpx_investor_type,
+            "cpi-us": cpi_us, "cpi-us-sa": cpi_us_sa,
+            "cpi-us-areas": cpi_us_areas, "cpi-us-weights": cpi_us_weights,
+            "us-avg-prices": us_avg_prices, "us-wages": us_wages,
+            "us-wage-tracker": us_wage_tracker}
 
 router = APIRouter(prefix="/api/v1", tags=["Datasets"])
 
@@ -150,7 +156,11 @@ UNIT_LABEL = {"index": "index", "jpy_100mn": "¥100mn", "pct": "%",
               "ＮＯ": "units", "ＫＧ": "kg",
               # Fuels: crude and refined products by the kilolitre, coal and
               # gas by the metric tonne, as the Ministry publishes them.
-              "ＫＬ": "kilolitre", "ＭＴ": "tonne", "ＧＲ": "gram"}
+              "ＫＬ": "kilolitre", "ＭＴ": "tonne", "ＧＲ": "gram",
+              # US dollars as published; the per-unit quantity (per lb., per
+              # gallon, per hour) is in the series name. "1982-84 $" is the
+              # BLS's constant-dollar real earnings, never current dollars.
+              "usd": "$", "usd_1982_84": "1982-84 $"}
 
 
 def _calc_for(measure, unit):
@@ -167,14 +177,42 @@ def _unit_for(measure, unit):
         if measure == "index" else UNIT[measure]
 
 
+def _index_key(pres):
+    """How an index dataset names its headline and group series, or None for
+    a dataset that is not an index.
+
+    The Statistics Bureau's tables are named by their Japanese labels, because
+    their codes are not stable across a rebase; those declare main_series by
+    `name_ja` and groups by `groups_ja`. A source whose codes are stable (the
+    BLS series ids) declares `measure_type: "index"`, main_series by `code`
+    and groups by `group_codes`. Either way the surfaces below compute the
+    same measures; only the lookup key differs.
+    """
+    main = (pres.get("main_series") or [{}])[0]
+    if "name_ja" in main:
+        return "name_ja"
+    if pres.get("measure_type") == "index" and "code" in main:
+        return "code"
+    return None
+
+
+def _group_keys(pres):
+    return pres.get("groups_ja") or pres.get("group_codes") or []
+
+
+def _kind(pres, code):
+    """A series' kind (stock, flow, rate...), or the dataset's declared default
+    — a dataset whose every series is a rate declares it once."""
+    return (pres.get("kinds") or {}).get(code) or pres.get("kind_default")
+
+
 def _index_shaped_or_404(adapter, dataset):
     """Guard the index-and-weight surfaces (overview, series, contributions,
     breadth). They compute YoY tiles, weighted contributions and breadth — all
     of which presuppose an index with weights. A dataset of yen levels and
     flows has no honest answer here, so it 404s rather than returning a number
     that mixes measure types."""
-    main = (adapter.PRESENTATION.get("main_series") or [{}])[0]
-    if "name_ja" not in main:
+    if _index_key(adapter.PRESENTATION) is None:
         raise HTTPException(
             404, "'%s' does not serve this surface: it is not an index dataset. "
                  "Use /observations for its published values." % dataset)
@@ -830,8 +868,8 @@ def overview(dataset):
     # An index dataset gets the YoY-tile overview below; a levels-and-flows
     # dataset that declares overview_tiles gets the level overview; anything
     # else keeps the honest 404.
-    main = (adapter.PRESENTATION.get("main_series") or [{}])[0]
-    if "name_ja" not in main:
+    key = _index_key(adapter.PRESENTATION)
+    if key is None:
         if adapter.PRESENTATION.get("overview_tiles"):
             return _level_overview(adapter, dataset)
     _index_shaped_or_404(adapter, dataset)
@@ -839,7 +877,7 @@ def overview(dataset):
     con = _con()
     try:
         rel = _release(con, dataset)
-        smap = {s["name_ja"]: s for s in _series_map(con, dataset)}
+        smap = {s[key]: s for s in _series_map(con, dataset)}
         latest = datetime.date.fromisoformat(rel["latest_period"])
         prior = _months_ago(latest, 1)
 
@@ -860,11 +898,11 @@ def overview(dataset):
             })
 
         for m in pres["main_series"]:
-            s = smap.get(m["name_ja"])
+            s = smap.get(m[key])
             if s:
                 tile(m["role"] + "_yoy", m["label"] + " · YoY", s, "yoy")
         first = pres["main_series"][0]
-        headline = smap.get(first["name_ja"])
+        headline = smap.get(first[key])
         if headline:
             tile("headline_mom", first["label"] + " · MoM", headline, "mom")
             tile("headline_ann3m", first["label"] + " · 3m Annualized", headline, "ann3m")
@@ -872,8 +910,8 @@ def overview(dataset):
         # A table published without weights (seasonally adjusted, the 1946
         # series) declares no groups and gets no decomposition.
         groups = []
-        for ja in pres.get("groups_ja") or []:
-            s = smap.get(ja)
+        for g in _group_keys(pres):
+            s = smap.get(g)
             if not s:
                 continue
             vals = _values(con, s["series_id"])
@@ -890,8 +928,8 @@ def overview(dataset):
             "dataset": dataset, "release": rel, "tiles": tiles, "groups": groups,
             "main_series": [
                 {"role": m["role"], "label": m["label"], "slot": m["slot"],
-                 "code": smap[m["name_ja"]]["code"]}
-                for m in pres["main_series"] if m["name_ja"] in smap],
+                 "code": smap[m[key]]["code"]}
+                for m in pres["main_series"] if m[key] in smap],
             "stale": stale,
         }
     finally:
@@ -917,7 +955,6 @@ def _level_series(adapter, dataset, q):
     ended before the release's latest month is marked discontinued, so a
     frozen line is never mistaken for a current one.
     """
-    kinds = adapter.PRESENTATION.get("kinds") or {}
     step = _period_months(adapter)
     per_year = 12 // step
     con = _con()
@@ -929,7 +966,7 @@ def _level_series(adapter, dataset, q):
         matched = [s for s in smap
                    if not needle
                    or needle in s["name_en"].lower()
-                   or needle == s["code"]]
+                   or needle == s["code"].lower()]
         all_vals = _values_bulk(con, [s["series_id"] for s in matched])
 
         out = []
@@ -946,7 +983,7 @@ def _level_series(adapter, dataset, q):
             spark_from = _months_ago(as_of, 60)
             out.append({
                 "code": s["code"], "name_en": s["name_en"],
-                "kind": kinds.get(s["code"]),
+                "kind": _kind(adapter.PRESENTATION, s["code"]),
                 "unit": UNIT_LABEL.get(s["unit"], s["unit"]),
                 "as_of": as_of.isoformat(),
                 "latest": cur,
@@ -980,8 +1017,8 @@ def series_list(dataset, q: str = Query("", max_length=200,
     """Every series in the dataset with its latest reading, or the ones
     matching `q`. Use it to find the codes that /observations takes."""
     adapter = _dataset_or_404(dataset)
-    main = (adapter.PRESENTATION.get("main_series") or [{}])[0]
-    if "name_ja" not in main:
+    key = _index_key(adapter.PRESENTATION)
+    if key is None:
         # Every levels-and-flows dataset serves this listing. It used to be
         # gated on the dataset also declaring PRESENTATION["kinds"], which is
         # only a per-series label for the front end: thirteen datasets —
@@ -1001,6 +1038,12 @@ def series_list(dataset, q: str = Query("", max_length=200,
                      "by name or code." % dataset)
         return _level_series(adapter, dataset, q)
     _index_shaped_or_404(adapter, dataset)
+    # A code-keyed index dataset may be too large to list whole (every item
+    # in every US metro area); like a levels dataset it then asks for ?q=.
+    if adapter.PRESENTATION.get("series_requires_query") and not q.strip():
+        raise HTTPException(
+            422, "'%s' has too many series to list at once; pass ?q= to search "
+                 "by name or code." % dataset)
     con = _con()
     try:
         rel = _release(con, dataset)
@@ -1011,14 +1054,14 @@ def series_list(dataset, q: str = Query("", max_length=200,
                    if not needle
                    or needle in s["name_en"].lower()
                    or needle in (s["name_ja"] or "").lower()
-                   or needle == s["code"]]
+                   or needle == s["code"].lower()]
         all_vals = _values_bulk(con, [s["series_id"] for s in matched])
 
         # Denominator for the per-row contribution column. Same formula as
         # /contributions — the headline index a year before the row's own
         # reference month — so the two surfaces can never disagree.
-        head_ja = adapter.PRESENTATION["main_series"][0]["name_ja"]
-        head = next((s for s in smap if s["name_ja"] == head_ja), None)
+        head_key = adapter.PRESENTATION["main_series"][0][key]
+        head = next((s for s in smap if s[key] == head_key), None)
         head_vals = {}
         if head is not None:
             head_vals = all_vals.get(head["series_id"]) or _values(con, head["series_id"])
@@ -1296,7 +1339,7 @@ def arrivals(dataset):
                 "name_en": s["name_en"],
                 "name_ja": s["name_ja"],
                 "parent": hierarchy.get(s["code"]),
-                "kind": kinds.get(s["code"]),
+                "kind": _kind(adapter.PRESENTATION, s["code"]),
             })
 
         # Which months are still estimates is recorded by the ingest that
@@ -1821,7 +1864,6 @@ def observations(dataset,
         as_of_values = (vintages.values_as_of(con, dataset, p_as_of, codes)
                         if p_as_of else None)
         smap = {s["code"]: s for s in _series_map(con, dataset)}
-        kinds = adapter.PRESENTATION.get("kinds") or {}
         out = []
         units = set()
         for code in codes:
@@ -1833,7 +1875,7 @@ def observations(dataset,
             # negative during runoff). A percentage change across a sign change
             # is arithmetic noise, so rates are refused on flow series rather
             # than served with a caveat.
-            if measure != "index" and kinds.get(code) == "flow":
+            if measure != "index" and _kind(adapter.PRESENTATION, code) == "flow":
                 raise HTTPException(
                     400, "'%s' is a flow series and crosses zero; percentage "
                          "changes are not meaningful. Request measure=index." % code)
@@ -1841,7 +1883,7 @@ def observations(dataset,
             # percentage (a loan rate going from 1% to 2% is "+100%") is the
             # unit confusion the trust contract exists to prevent: the change
             # in a rate is in percentage points, and the tiles carry that.
-            if measure != "index" and kinds.get(code) == "rate":
+            if measure != "index" and _kind(adapter.PRESENTATION, code) == "rate":
                 raise HTTPException(
                     400, "'%s' is a rate in percent; a percentage change of a "
                          "rate is not meaningful. Request measure=index and "

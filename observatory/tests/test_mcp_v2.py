@@ -162,7 +162,9 @@ class ToolTest(Base):
         data, err = call(self.client, "list_datasets", section="prices")
         self.assertEqual([d["id"] for d in data["datasets"]],
                          ["cpi-jp", "cpi-jp-goods-services", "cpi-jp-items", "cpi-jp-long",
-                          "cpi-jp-sa", "cpi-tokyo", "cpi-tokyo-items"])
+                          "cpi-jp-sa", "cpi-tokyo", "cpi-tokyo-items",
+                          "cpi-us", "cpi-us-areas", "cpi-us-sa", "cpi-us-weights",
+                          "us-avg-prices", "us-wage-tracker", "us-wages"])
         data, err = call(self.client, "list_datasets", section="weather")
         self.assertTrue(err)
         self.assertIn("prices", data["error"])

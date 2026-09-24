@@ -46,7 +46,9 @@ from .adapters import (boj_assets, cpi_jp, cpi_jp_goods_services, cpi_jp_items,
                        estat_gdp, estat_gfs, mof_hojin,
                        fsa_npl, fsa_bank_results, jba_banks,
                        boj_loan_rates, boj_deposit_rates, fsa_fi_list,
-                       jpx_margin, jpx_investor_type)
+                       jpx_margin, jpx_investor_type,
+                       cpi_us, cpi_us_sa, cpi_us_areas, cpi_us_weights,
+                       us_avg_prices, us_wages, us_wage_tracker)
 
 ADAPTERS = {"cpi-jp": cpi_jp, "cpi-jp-items": cpi_jp_items, "boj-assets": boj_assets,
             "cpi-jp-goods-services": cpi_jp_goods_services, "cpi-jp-sa": cpi_jp_sa,
@@ -84,7 +86,11 @@ ADAPTERS = {"cpi-jp": cpi_jp, "cpi-jp-items": cpi_jp_items, "boj-assets": boj_as
             "boj-deposit-rates": boj_deposit_rates,
             "fsa-regional-fi": fsa_fi_list,
             "margin-jp": jpx_margin,
-            "investor-flows-jp": jpx_investor_type}
+            "investor-flows-jp": jpx_investor_type,
+            "cpi-us": cpi_us, "cpi-us-sa": cpi_us_sa,
+            "cpi-us-areas": cpi_us_areas, "cpi-us-weights": cpi_us_weights,
+            "us-avg-prices": us_avg_prices, "us-wages": us_wages,
+            "us-wage-tracker": us_wage_tracker}
 
 # "this (series, period) had no prior value at all" — distinct from a prior
 # value that happens to be None.

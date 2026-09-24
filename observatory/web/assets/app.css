@@ -2483,3 +2483,10 @@ details.readable .source-line a { color: var(--obs-primary); }
 
 /* A label cell that must not break mid-word when a wide table scrolls. */
 .nowrap { white-space: nowrap; }
+
+/* A wide series table on a phone keeps the name and the numbers a reader
+   came for; the code, the trend and the secondary changes step aside. The
+   full row is still in the table's CSV and on a wider screen. */
+@media (max-width: 700px) {
+  table.data .narrow-hide { display: none; }
+}

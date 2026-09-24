@@ -195,6 +195,24 @@ var NAV_SECTIONS = [
     ],
   },
   {
+    // US prices and pay, all from the BLS except the Atlanta Fed tracker.
+    // Inflation owns its cuts as tabs, as Japan's does; retail prices and
+    // wages are separate questions and separate pages.
+    id: "us-prices", market: "us", label: "Prices & Wages", suffix: "US Prices",
+    pages: [
+      { id: "us-inflation", label: "Inflation", href: "us-inflation.html",
+        tabs: [
+          { id: "us-inflation", label: "Overview", href: "us-inflation.html" },
+          { id: "us-explorer", label: "Item Explorer", href: "us-explorer.html" },
+          { id: "us-cpi-sa", label: "Seasonally Adjusted", href: "us-cpi-sa.html" },
+          { id: "us-cpi-areas", label: "Regions & Metro Areas", href: "us-cpi-areas.html" },
+          { id: "us-weights", label: "Basket Weights", href: "us-weights.html" },
+        ] },
+      { id: "us-prices", label: "Retail Prices", href: "us-prices.html" },
+      { id: "us-wages", label: "Wages", href: "us-wages.html" },
+    ],
+  },
+  {
     id: "us-rates", market: "us", label: "Rates", suffix: "US Rates",
     pages: [
       { id: "us-treasury", label: "Treasury Yields", href: "us-treasury.html" },

@@ -293,6 +293,49 @@
   <p class="section-sub">One entry per dataset. Everything specific to a source lives here —
   open the one you are reading. The rules above still apply to all of them.</p>
 
+  <details class="ds" id="calc-us-prices">
+    <summary><span>US prices and wages</span><span class="ds-note">BLS CPI, average prices, weights, earnings; Atlanta Fed tracker</span></summary>
+    <div class="ds-body">
+    <ul>
+      <li><b>cpi-us</b>, <b>cpi-us-sa</b> and <b>cpi-us-areas</b> are three cuts of the BLS
+      CPI for All Urban Consumers (CPI-U) flat files: U.S. city average not seasonally adjusted
+      (about 400 series, all items from 1913), seasonally adjusted (about 325, from 1947), and
+      regions, size classes and 23 metro areas plus urban Alaska and Hawaii (about 3,400). Codes
+      are the BLS series ids (<code>CUUR0000SA0</code>), so every figure can be checked on bls.gov.
+      Rates use the same formulas as the Japanese CPI (see <a href="#calc">Calculations</a>) and
+      can differ from the BLS's own published percent change by about a tenth of a point.</li>
+      <li><b>Reference periods differ by series.</b> Most indices are 1982-84 = 100; an item
+      introduced later carries its own base (Dec 1997 = 100, Dec 2017 = 100, …) and names it in its
+      title. Rates of change do not depend on the base.</li>
+      <li><b>Not carried:</b> semiannual series, alternate-base (“old base”) duplicates, the
+      purchasing power of the consumer dollar, and the BLS annual averages (M13).</li>
+      <li><b>Gaps.</b> October 2025 is blank throughout, flagged by the BLS “data unavailable due
+      to the 2025 lapse in appropriations”, so October 2026's year-on-year rate will be missing
+      too. Most metro areas are priced every other month; the months between are
+      absent. The BLS prints 0.0 for some months that were not priced (quarterly area pricing in
+      1935–40, a few metro fuels in 1996); an index or a price cannot be zero, so those cells are
+      treated as missing.</li>
+      <li><b>No contribution-to-headline split for the US.</b> The BLS publishes relative
+      importance for December only, and it moves every month with relative prices, so a
+      fixed-weight split would not add up to headline. The December weights are served as
+      <b>cpi-us-weights</b> (Table 1, CPI-U, percent of all items, December 2020 onward), matched
+      to CPI item codes by name; about 27 rows with no published index keep an <code>RI-</code>
+      code. The eight major groups must sum to 100 within 0.01 or the release is not published.</li>
+      <li><b>us-avg-prices</b> are the BLS average prices in dollars per the unit in each item's
+      name (per dozen, per lb., per gallon, per kWh). They are not quality-adjusted and are not a
+      substitute for the item index; two items' dollar levels are never charted on one axis.</li>
+      <li><b>us-wages</b> are average hourly and weekly earnings from the BLS payroll survey (CES),
+      total private and its two halves, current and 1982-84 dollars. The real series are the
+      BLS's own; nothing is deflated here. Each month is revised twice and the whole series is
+      re-benchmarked every February; each revision is a vintage.</li>
+      <li><b>us-wage-tracker</b> is the Atlanta Fed Wage Growth Tracker: the median of
+      <code>100 × ln(wage[t] ÷ wage[t − 12])</code> for the same people a year apart. Headline
+      cuts are 3-month moving averages, demographic cuts 12-month; the window is in every series
+      name. Values are rates as published; a percentage change of one is refused.</li>
+    </ul>
+    </div>
+  </details>
+
   <details class="ds" id="calc-gdp">
     <summary><span>Quarterly GDP</span><span class="ds-note">Expenditure side, three bases, ¥bn</span></summary>
     <div class="ds-body">
@@ -1676,6 +1719,13 @@
   of use</a> with attribution. Cite the underlying data as: Statistics Bureau of Japan, Consumer
   Price Index, 2025-base national indices, via e-Stat (middle-class table statInfId 000040482943;
   detailed-item table statInfId 000040482945).</p>
+  <p><b>U.S. Bureau of Labor Statistics.</b> Consumer Price Index, Average Price Data, relative
+  importance and Current Employment Statistics earnings are works of the United States Government
+  in the public domain, retrieved from the BLS bulk files at download.bls.gov and bls.gov. Cite
+  as: U.S. Bureau of Labor Statistics, with the BLS series id.</p>
+  <p><b>Federal Reserve Bank of Atlanta.</b> Wage Growth Tracker, computed by the Federal Reserve
+  Bank of Atlanta from Current Population Survey microdata. Cite as: Federal Reserve Bank of
+  Atlanta, Wage Growth Tracker.</p>
   <p><b>Bank of Japan.</b> Retrieved through the Bank's public time-series API. As that service
   requires: “This service uses the API provided by the ‘Bank of Japan Time-Series Data Search.’
   The Bank of Japan does not guarantee the content of the service.”</p>

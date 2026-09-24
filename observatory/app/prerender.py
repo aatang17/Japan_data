@@ -219,6 +219,27 @@ DESCRIPTIONS = {
     "us-treasury.html":
         "The US Treasury yield curve — par yields from 1 month to 30 years and TIPS real "
         "yields, daily since 1990, from U.S. Department of the Treasury data.",
+    "us-inflation.html":
+        "US Consumer Price Index — headline, core, food, energy and the eight major groups, "
+        "monthly with all items from 1913, as published by the Bureau of Labor Statistics.",
+    "us-explorer.html":
+        "Every item in the US CPI — about 400 series from eggs to motor vehicle insurance, "
+        "seasonally adjusted or not, searchable by name or BLS series id.",
+    "us-cpi-sa.html":
+        "US Consumer Price Index as seasonally adjusted by the BLS, with month-over-month and "
+        "three-month annualized rates.",
+    "us-cpi-areas.html":
+        "US CPI for the four census regions and 23 metro areas, by item, monthly, from the "
+        "Bureau of Labor Statistics.",
+    "us-weights.html":
+        "How much each item counts in the US CPI: the BLS relative importance of every "
+        "component, percent of all items, each December from 2020.",
+    "us-prices.html":
+        "What US shoppers pay, in dollars: eggs per dozen, gasoline per gallon, ground beef, "
+        "milk, coffee and 150 more items, monthly from the BLS.",
+    "us-wages.html":
+        "US average hourly and weekly earnings, nominal and real, from the BLS, and the "
+        "Atlanta Fed Wage Growth Tracker's median wage growth by group.",
     "us-companies.html":
         "Large US companies' SEC filings since 2009 — revenue, profit, cash flows and every "
         "filed concept, as latest filed, as first reported or as known on any date.",
