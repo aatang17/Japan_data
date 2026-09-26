@@ -150,11 +150,34 @@ CATALOGUE = [
      "tries": ["Draft a note from my latest thread"]},
 ]
 
-BY_SLUG = dict((s["slug"], s) for s in CATALOGUE)
+# The desk's own analyst: the one a person chats with. Every desk has it
+# without hiring it, it may read every dataset, and it has no schedule — it
+# only answers. It is kept out of CATALOGUE so it is never offered for hire,
+# listed among the specialists, or run by the scheduler.
+ANALYST = {
+    "slug": "analyst", "initials": "AN", "name": "Analyst", "category": "Chat",
+    "version": "1.0.0", "chat": True,
+    "summary": "Answers questions on any dataset or company, with every lookup shown.",
+    "schedule": "On request", "delivery": "Chat",
+    "tools": list(READ_TOOLS) + ["my_coverage", "draw_chart"],
+    "brief": (
+        "You answer the desk's questions on Japanese official statistics and company "
+        "disclosures. Look up every figure with a tool before you state it; start with "
+        "search or list_datasets when you do not know where a number lives. Answer the "
+        "question that was asked. If the data cannot answer it, say what is missing "
+        "instead of guessing."),
+    "task": ""}
+
+BY_SLUG = dict((s["slug"], s) for s in CATALOGUE + [ANALYST])
 
 
 def get(slug):
     return BY_SLUG.get(slug)
+
+
+def builtin(slug):
+    """True for a specialist every desk has without hiring it (the Analyst)."""
+    return bool((get(slug) or {}).get("chat"))
 
 
 def sha(spec):

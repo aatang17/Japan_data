@@ -340,6 +340,80 @@ table.t td.reason { color: var(--obs-text-muted); font-size: 12.5px; }
 .ask input { flex: 1; height: 38px; padding: 0 12px; border: 1px solid var(--obs-border); border-radius: 4px; background: var(--obs-surface); font-size: 14px; }
 .ask .btn { height: 38px; }
 
+/* ----------------------------------------------------------------- chat */
+.chat-layout { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 48px; align-items: start; }
+.chat-layout .thread { max-width: none; }
+.chat-layout > aside { position: sticky; top: 0; }
+
+/* The chat box: one bordered box holding the picked companies, the question
+   and a footer row. The company menu opens upward when the box sits at the
+   foot of the screen, where a downward menu would fall off it. */
+.composer { margin-top: 16px; border: 1px solid var(--obs-border); border-radius: 4px; background: var(--obs-surface); }
+.composer:focus-within { border-color: var(--obs-primary); }
+.composer textarea {
+  display: block; width: 100%; min-height: 84px; max-height: 240px; resize: none; border: 0; padding: 12px 14px;
+  background: transparent; font: inherit; font-size: 14px; line-height: 1.5; color: var(--obs-ink);
+}
+.composer textarea:focus { outline: none; }
+.composer .picked { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 12px 0; }
+.pchip {
+  display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 2px 0 10px;
+  border: 1px solid var(--obs-border); border-radius: 4px; font-size: 12.5px; color: var(--obs-ink);
+}
+.pchip .code, .pickmenu .code { color: var(--obs-text-muted); font-variant-numeric: tabular-nums; }
+.pchip button { display: inline-grid; place-items: center; width: 20px; height: 20px; color: var(--obs-text-faint); }
+.pchip button:hover { color: var(--obs-ink); }
+.pchip svg { width: 12px; height: 12px; }
+.cfoot { display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 12px; border-top: 1px solid var(--obs-grid); }
+.cfoot .hint { font-size: 12px; color: var(--obs-text-faint); }
+.covpick { position: relative; }
+.covpick > .linkbtn svg { width: 14px; height: 14px; }
+.pickmenu {
+  position: absolute; left: 0; bottom: calc(100% + 8px); z-index: 40; width: 340px; max-width: calc(100vw - 48px);
+  background: var(--obs-surface); border: 1px solid var(--obs-text-muted); border-radius: 4px;
+}
+.pickmenu.down { bottom: auto; top: calc(100% + 8px); }
+.pickmenu input { accent-color: var(--obs-primary); }
+.pickmenu header { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-bottom: 1px solid var(--obs-border); font-size: 13px; }
+.pickmenu header b { flex: 1; font-weight: 600; color: var(--obs-ink); }
+.pickmenu select { flex: 1; min-width: 0; height: 28px; padding: 0 6px; border: 1px solid var(--obs-border); border-radius: 4px; background: var(--obs-surface); color: var(--obs-ink); font-size: 13px; }
+.pickmenu ul { list-style: none; max-height: 260px; overflow-y: auto; padding: 4px 0; }
+.pickmenu label { display: flex; align-items: center; gap: 10px; padding: 7px 12px; cursor: pointer; font-size: 13px; color: var(--obs-ink); }
+.pickmenu label:hover { background: var(--obs-surface-subtle); }
+.pickmenu label > span:first-of-type { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.linklist button.on { background: var(--obs-focus-soft); }
+.linklist button.on b { color: var(--obs-primary); }
+.iconbtn { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 4px; color: var(--obs-text-muted); }
+.iconbtn:hover { background: var(--obs-surface-subtle); color: var(--obs-ink); }
+.iconbtn svg { width: 15px; height: 15px; }
+
+/* The pop-up: a launcher, then a docked panel. Set off from the page by a
+   darker border, never a shadow (ui-ux-design, Step 7). */
+.dock-btn {
+  position: fixed; right: 24px; bottom: 24px; z-index: 90;
+  display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px;
+  border: 1px solid var(--obs-primary); border-radius: 4px; background: var(--obs-primary); color: #fff;
+  font-size: 13.5px; font-weight: 600;
+}
+.dock-btn:hover { background: var(--obs-primary-dark); border-color: var(--obs-primary-dark); }
+.dock-btn svg { width: 16px; height: 16px; }
+.dock {
+  position: fixed; right: 24px; bottom: 24px; z-index: 90;
+  display: flex; flex-direction: column; width: 420px; height: min(640px, calc(100vh - 48px));
+  border: 1px solid var(--obs-text-muted); border-radius: 4px; background: var(--obs-surface);
+}
+.dock > header { display: flex; align-items: center; gap: 4px; padding: 8px 8px 8px 16px; border-bottom: 1px solid var(--obs-border); }
+.dock > header b { font-size: 13.5px; font-weight: 600; color: var(--obs-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.dock-body { flex: 1; overflow-y: auto; padding: 16px; }
+.dock-body > p { margin-bottom: 12px; }
+.dock-body .notice { margin-bottom: 16px; }
+.dock-body .msg { gap: 10px; padding: 16px 0; }
+.dock-body .msg:first-of-type { padding-top: 0; }
+.dock .composer { margin: 0; border-width: 1px 0 0; border-radius: 0; }
+.dock .composer:focus-within { border-color: var(--obs-border); }
+.dock .cfoot .hint { display: none; }
+.dock .pickmenu { left: 8px; }
+
 /* ---------------------------------------------------------------- files */
 .files { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 24px; align-items: start; }
 .filetree .dir { padding: 16px 10px 4px; font-size: 12px; color: var(--obs-text-muted); }
@@ -383,10 +457,12 @@ table.t td.reason { color: var(--obs-text-muted); font-size: 12.5px; }
 @media (max-width: 1180px) {
   .desk { grid-template-columns: 1fr; }
   .sp-layout { grid-template-columns: 1fr; gap: 40px; }
+  .chat-layout { grid-template-columns: 1fr; gap: 40px; }
+  .chat-layout > aside { position: static; }
 }
 @media (max-width: 760px) {
   body { height: auto; overflow: auto; }
-  .shell { grid-template-columns: 1fr; height: auto; min-height: 100vh; }
+  .shell { grid-template-columns: 1fr; grid-template-rows: auto 1fr; height: auto; min-height: 100vh; }
   .nav { flex-direction: row; align-items: center; gap: 4px; padding: 8px 12px; border-right: 0; border-bottom: 1px solid var(--obs-border); overflow-x: auto; }
   .brand { height: auto; margin: 0; padding: 0 8px 0 0; background: none; border: 0; }
   .logo { border-color: var(--obs-primary); color: var(--obs-primary); }
@@ -417,6 +493,9 @@ table.t td.reason { color: var(--obs-text-muted); font-size: 12.5px; }
   .files { grid-template-columns: 1fr; }
   .kv { grid-template-columns: 1fr; gap: 2px; }
   .kv dt { margin-top: 12px; }
+  .dock-btn { right: 16px; bottom: 16px; }
+  .dock { right: 0; bottom: 0; left: 0; width: auto; height: 85vh; border-width: 1px 0 0; border-radius: 0; }
+  .cfoot .hint { display: none; }
 }
 
 /* ---------------------------------------------------- live-page additions */
@@ -775,3 +854,10 @@ table.caltable .code:hover { text-decoration: underline; }
   .calbar .grow { display: none; }
   table.caltable { min-width: 780px; }
 }
+
+/* ---------- ChatGPT (Codex) sign-in row in Settings ---------- */
+.kv dd#codex-row { flex-wrap: wrap; }
+.codex-code p { margin: 0 0 6px; line-height: 1.5; }
+.codex-code a { color: var(--obs-primary); word-break: break-all; }
+.codex-code code.big { font-size: 15px; font-weight: 600; letter-spacing: 0.08em; padding: 2px 8px; border: 1px solid var(--obs-border); border-radius: 3px; }
+.kv .hint.err { color: var(--obs-trust-stale); margin-top: 0; }

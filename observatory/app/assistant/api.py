@@ -19,7 +19,7 @@ from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
 from .. import accounts, tools_v2
-from . import delivery, drive, gateway, keychain, mcp_client, runner, specialists, store
+from . import codex, delivery, drive, gateway, keychain, mcp_client, runner, specialists, store
 
 router = APIRouter(prefix="/api/v1/assistant", tags=["assistant"])
 
@@ -39,6 +39,23 @@ def _hire_or_404(account_id, hire_id):
     if h is None:
         raise HTTPException(404, "No such specialist on this desk.")
     return h
+
+
+def _analyst(account_id):
+    """The desk's built-in Analyst, created on first use and kept on the current
+    version: it comes with the desk, so nobody hires or updates it."""
+    spec = specialists.ANALYST
+    h = store.add_hire(account_id, spec["slug"], spec["version"])
+    if h["version"] != spec["version"]:
+        h = store.update_hire(account_id, h["id"], version=spec["version"])
+    return h
+
+
+def _desk_runs(account_id, limit=10):
+    """Specialists' runs, newest first. Chat answers are left out: they are in
+    their thread (and the audit), not the desk's record of work done."""
+    return [r for r in store.runs(account_id, limit=limit * 5)
+            if not specialists.builtin(r["slug"])][:limit]
 
 
 def _with_spec(h):
@@ -149,11 +166,12 @@ def desk(request: Request):
     aid = account["id"]
     return {"email": account["email"],
             "desk": store.desk(aid),
-            "hires": [_with_spec(h) for h in store.hires(aid)],
+            "hires": [_with_spec(h) for h in store.hires(aid) if not specialists.builtin(h["slug"])],
+            "analyst": _with_spec(_analyst(aid)),
             "coverage": store.coverage(aid),
             "lists": store.lists(aid),
             "pending_approvals": len(store.approvals(aid, "pending")),
-            "runs": store.runs(aid, limit=10),
+            "runs": _desk_runs(aid),
             "keychain": keychain.enabled()}
 
 
@@ -198,7 +216,9 @@ def accept_update(hire_id: int, request: Request):
 @router.delete("/hires/{hire_id}")
 def remove_hire(hire_id: int, request: Request):
     aid = _account(request)["id"]
-    _hire_or_404(aid, hire_id)
+    h = _hire_or_404(aid, hire_id)
+    if specialists.builtin(h["slug"]):
+        raise HTTPException(400, "The Analyst comes with every desk and cannot be removed.")
     store.remove_hire(aid, hire_id)
     return {"removed": hire_id}
 
@@ -419,7 +439,7 @@ def inbox(request: Request):
     aid = _account(request)["id"]
     return {"pending": store.approvals(aid, "pending"),
             "decided": [a for a in store.approvals(aid) if a["status"] != "pending"][:20],
-            "runs": store.runs(aid, limit=10)}
+            "runs": _desk_runs(aid)}
 
 
 @router.post("/approvals/{approval_id}/approve")
@@ -562,9 +582,15 @@ class SettingsRequest(BaseModel):
 
 @router.get("/settings")
 def settings(request: Request):
-    d = store.desk(_account(request)["id"])
+    aid = _account(request)["id"]
+    d = store.desk(aid)
     d["providers"] = [{"id": k, "label": v["label"], "default_model": v["default_model"]}
                       for k, v in gateway.PROVIDERS.items()]
+    # Codex runs on the desk's own ChatGPT sign-in rather than a key; offered
+    # only where the binary is installed.
+    d["codex"] = codex.status(aid)
+    if d["codex"]["available"]:
+        d["providers"].append({"id": codex.PROVIDER, "label": codex.LABEL, "default_model": ""})
     d["keychain"] = keychain.enabled()
     return d
 
@@ -573,8 +599,11 @@ def settings(request: Request):
 def save_settings(payload: SettingsRequest, request: Request):
     aid = _account(request)["id"]
     fields = {}
+    if payload.model_provider == codex.PROVIDER:
+        if not store.desk(aid)["codex_connected"]:
+            raise HTTPException(400, "Connect your ChatGPT account first.")
     if payload.model_provider:
-        if payload.model_provider not in gateway.PROVIDERS:
+        if payload.model_provider not in gateway.PROVIDERS and payload.model_provider != codex.PROVIDER:
             raise HTTPException(400, "Unknown provider.")
         fields["model_provider"] = payload.model_provider
         fields["model_name"] = (payload.model_name or "").strip() or \
@@ -604,6 +633,27 @@ def save_settings(payload: SettingsRequest, request: Request):
     return store.update_desk(aid, **fields)
 
 
+@router.get("/settings/codex")
+def codex_status(request: Request):
+    return codex.status(_account(request)["id"])
+
+
+@router.post("/settings/codex/login")
+def codex_login(request: Request):
+    """Start Codex's sign-in: a link and a one-time code for OpenAI's page."""
+    try:
+        return codex.start_login(_account(request)["id"])
+    except codex.CodexError as exc:
+        raise HTTPException(503, str(exc))
+
+
+@router.delete("/settings/codex")
+def codex_logout(request: Request):
+    aid = _account(request)["id"]
+    codex.logout(aid)
+    return codex.status(aid)
+
+
 class KeyTestRequest(BaseModel):
     model_provider: str = ""
     model_key: str = ""
@@ -624,6 +674,8 @@ async def test_model(request: Request, payload: KeyTestRequest = None):
             raise HTTPException(502, str(exc))
         return {"ok": True, "reply": reply}
     d = store.desk(aid)
+    if d["model_provider"] == codex.PROVIDER:
+        raise HTTPException(400, "ChatGPT has no key to test; ask the Analyst a question instead.")
     if not d["model_provider"] or not d["model_key_set"]:
         raise HTTPException(400, "Choose a provider and store a key first.")
     try:

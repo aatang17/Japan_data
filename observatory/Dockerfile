@@ -7,6 +7,19 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends poppler-utils \
     && rm -rf /var/lib/apt/lists/*
 
+# OpenAI's Codex CLI, for desks answered on their owner's ChatGPT plan
+# (app/assistant/codex.py). Pinned by version and SHA-256: a changed download
+# fails the build rather than shipping. Codex runs with its shell and every
+# other built-in tool off; its only tools are ours.
+ARG CODEX_VERSION=0.144.3
+ARG CODEX_SHA256=b9b4ae8e9b561c64dfbc5ef52c6319cba750ac87de3c7f55885026231e3aea89
+RUN python -c "import urllib.request; urllib.request.urlretrieve('https://github.com/openai/codex/releases/download/rust-v${CODEX_VERSION}/codex-x86_64-unknown-linux-musl.tar.gz', '/tmp/codex.tgz')" \
+    && echo "${CODEX_SHA256}  /tmp/codex.tgz" | sha256sum -c - \
+    && tar -xzf /tmp/codex.tgz -C /tmp \
+    && install -m 0755 /tmp/codex-x86_64-unknown-linux-musl /usr/local/bin/codex \
+    && rm -f /tmp/codex.tgz /tmp/codex-x86_64-unknown-linux-musl \
+    && codex --version
+
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 

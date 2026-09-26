@@ -92,6 +92,39 @@ def fake_search(query, dataset="", limit=5):
     return json.dumps({"companies": []})
 
 
+# A stand-in for the Codex CLI: `login --device-auth` prints Codex's prompt and
+# writes an auth.json; `exec` records what it was given and answers.
+FAKE_CODEX = r"""#!%s
+import json, os, sys, time
+home = os.environ["CODEX_HOME"]
+if sys.argv[1:3] == ["login", "--device-auth"]:
+    print("\x1b[1mWelcome to Codex\x1b[0m")
+    print("1. Open this link in your browser and sign in to your account")
+    print("   \x1b[94mhttps://auth.openai.com/codex/device\x1b[0m")
+    print("2. Enter this one-time code \x1b[90m(expires in 15 minutes)\x1b[0m")
+    print("   \x1b[94mABCD-12345\x1b[0m", flush=True)
+    time.sleep(0.5)
+    import base64
+    claims = base64.urlsafe_b64encode(json.dumps({"email": "pm@example.com"}).encode()).decode().rstrip("=")
+    json.dump({"tokens": {"id_token": "h." + claims + ".s", "refresh_token": "r1"}},
+              open(os.path.join(home, "auth.json"), "w"))
+    sys.exit(0)
+if sys.argv[1] == "exec":
+    args = sys.argv[1:]
+    out = args[args.index("-o") + 1]
+    seen = {"args": args, "env": dict(os.environ), "prompt": sys.stdin.read(),
+            "auth": json.load(open(os.path.join(home, "auth.json")))}
+    json.dump(seen, open(%r, "w"))   # a fixed path: Codex gets no environment to carry one
+    # Codex rotates its refresh token while it works
+    a = seen["auth"]; a["tokens"]["refresh_token"] = "r2"
+    json.dump(a, open(os.path.join(home, "auth.json"), "w"))
+    open(out, "w").write("Answer from Codex.")
+    print(json.dumps({"type": "turn.completed", "usage": {"input_tokens": 120, "output_tokens": 30}}))
+    sys.exit(0)
+sys.exit(2)
+"""
+
+
 class Script(object):
     """A scripted model: each call pops the next reply."""
 
@@ -429,6 +462,104 @@ class AssistantTests(unittest.TestCase):
         feed = c.get("/api/v1/assistant/feed").json()["posts"]
         self.assertEqual(len(feed[-1]["charts"]), 1)
         self.assertEqual(feed[-1]["charts"][0]["title"], "CPI")
+
+    # ---- Codex on the desk's ChatGPT plan
+
+    def _fake_codex(self):
+        from app.assistant import codex
+        import stat, sys as _sys
+        d = tempfile.mkdtemp()
+        path = os.path.join(d, "codex")
+        log = os.path.join(d, "seen.json")
+        with open(path, "w") as f:
+            f.write(FAKE_CODEX % (_sys.executable, log))
+        os.chmod(path, os.stat(path).st_mode | stat.S_IEXEC)
+        self.addCleanup(setattr, codex, "BIN", codex.BIN)
+        codex.BIN = path
+        return codex, log
+
+    def test_codex_signin_and_locked_down_run(self):
+        import time as _time
+        codex, log = self._fake_codex()
+        c = self.client()
+        s = c.get("/api/v1/assistant/settings").json()
+        self.assertIn("codex", [p["id"] for p in s["providers"]])
+        self.assertFalse(s["codex"]["connected"])
+        # not connected: cannot be chosen
+        self.assertEqual(c.post("/api/v1/assistant/settings",
+                                json={"model_provider": "codex"}).status_code, 400)
+        r = c.post("/api/v1/assistant/settings/codex/login").json()
+        self.assertEqual(r["url"], "https://auth.openai.com/codex/device")
+        self.assertEqual(r["code"], "ABCD-12345")
+        for _ in range(50):
+            st = c.get("/api/v1/assistant/settings/codex").json()
+            if st["connected"]:
+                break
+            _time.sleep(0.1)
+        self.assertTrue(st["connected"])
+        self.assertEqual(st["email"], "pm@example.com")
+        # the sign-in is sealed, never returned
+        self.assertNotIn("codex_auth_ct", c.get("/api/v1/assistant/settings").json())
+        self.assertNotIn("r1", json.dumps(c.get("/api/v1/assistant/settings").json()))
+        self.assertEqual(c.post("/api/v1/assistant/settings",
+                                json={"model_provider": "codex"}).json()["model_provider"], "codex")
+
+        h = c.post("/api/v1/assistant/specialists/macro-brief/hire").json()
+        t = c.post("/api/v1/assistant/threads", json={"hire_id": h["id"], "text": "What did CPI print?"}).json()
+        self.assertEqual(t["messages"][1]["text"], "Answer from Codex.")
+        seen = json.load(open(log))
+        args = seen["args"]
+        # shell off, read-only, no user config, our tools the only tools
+        for f in ("shell_tool", "unified_exec", "browser_use", "computer_use"):
+            self.assertIn(f, args)
+        self.assertEqual(args[args.index("-s") + 1], "read-only")
+        self.assertIn("--ignore-user-config", args)
+        self.assertIn('web_search="disabled"', args)
+        self.assertTrue(any(a.startswith("mcp_servers.plover.args=") and "codex_mcp" in a for a in args))
+        # no server secret reaches Codex
+        self.assertNotIn("ASSISTANT_SECRET", seen["env"])
+        self.assertNotIn("test-secret-not-for-production", json.dumps(args))
+        # (macOS adds its own __CF_USER_TEXT_ENCODING to every process)
+        self.assertEqual(sorted(k for k in seen["env"] if not k.startswith("__CF")),
+                         sorted(["PATH", "HOME", "CODEX_HOME", "LANG"]))
+        # same brief and question as any other provider
+        self.assertIn("Macro Release Brief", seen["prompt"])
+        self.assertIn("What did CPI print?", seen["prompt"])
+        # the rotated refresh token is sealed back for the next run
+        auth = json.loads(keychain.open_(store.desk_secrets(self.account_id)["codex_auth_ct"]))
+        self.assertEqual(auth["tokens"]["refresh_token"], "r2")
+        run = store.run(self.account_id, t["run"]["run_id"])
+        self.assertEqual((run["tokens_in"], run["tokens_out"]), (120, 30))
+        # disconnect clears the sign-in and the provider
+        st = c.delete("/api/v1/assistant/settings/codex").json()
+        self.assertFalse(st["connected"])
+        self.assertIsNone(store.desk(self.account_id)["model_provider"])
+
+    def test_codex_tool_server_is_the_run_allowlist(self):
+        from app.assistant import codex_mcp
+        c = self.client()
+        h = c.post("/api/v1/assistant/specialists/macro-brief/hire").json()
+        run_id = store.start_run(self.account_id, h["id"], "macro-brief", h["version"], "message", "q", "")
+        ctx = codex_mcp.Context(self.account_id, h["id"], run_id)
+        rpc = lambda method, params=None, i=[0]: codex_mcp.handle(ctx, {"jsonrpc": "2.0", "id": 1, "method": method, "params": params or {}})
+        self.assertIn("tools", rpc("initialize", {"protocolVersion": "2025-06-18"})["result"]["capabilities"])
+        tools = rpc("tools/list")["result"]["tools"]
+        names = set(t["name"] for t in tools)
+        self.assertIn("get_series", names)
+        self.assertIn("draw_chart", names)
+        self.assertNotIn("post_to_desk", names)          # desk actions stay with the runner
+        self.assertTrue(all(t["annotations"]["readOnlyHint"] for t in tools))
+        res = rpc("tools/call", {"name": "get_series", "arguments": {"dataset": "cpi-jp", "series": "0001"}})["result"]
+        self.assertFalse(res["isError"])
+        self.assertEqual(json.loads(res["content"][0]["text"])["call"], 1)
+        ch = rpc("tools/call", {"name": "draw_chart", "arguments": {
+            "title": "CPI", "kind": "line", "series": [{"call": 1, "series": "0001"}]}})["result"]
+        self.assertFalse(ch["isError"])
+        bad = rpc("tools/call", {"name": "post_to_desk", "arguments": {"text": "x", "sources": ["y"]}})["result"]
+        self.assertTrue(bad["isError"])
+        # every call is in the run's audit, and the chart is under the run
+        self.assertEqual([x["name"] for x in store.calls(run_id)], ["get_series", "draw_chart", "post_to_desk"])
+        self.assertEqual(len(store.charts_for_run(run_id)), 1)
 
     def test_workspace_files(self):
         c = self.client()

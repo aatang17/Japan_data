@@ -18,7 +18,7 @@ import sys
 import time
 
 from .. import tools_v2
-from . import charts, digest, drive, gateway, keychain, mcp_client, specialists, store
+from . import charts, codex, digest, drive, gateway, keychain, mcp_client, specialists, store
 
 # Tokens are counted cumulatively: every turn re-sends the conversation so far,
 # so a run over five companies reads its early results five times. 60k (the
@@ -370,8 +370,10 @@ class Run(object):
                 and self.task == self.spec["task"]:
             return self._prepared_coverage(desk, provider, key, model)
 
+        # A chat stands alone: its context is its own thread, never the
+        # answer to someone else's question.
         last = None
-        for r in store.runs(self.account_id, limit=20):
+        for r in ([] if self.spec.get("chat") else store.runs(self.account_id, limit=20)):
             if r["hire_id"] == self.hire["id"] and r["outcome"] in ("done", "approval_waiting") \
                     and r["summary"]:
                 last = r["summary"]
@@ -384,6 +386,15 @@ class Run(object):
         messages.append({"role": "user", "content": self.task})
         tools = (tool_schemas(self.spec["tools"]) + [e["schema"] for e in self.ext.values()]
                  + [t for t in drive.TOOL_SCHEMAS if t["name"] in self.drive])
+
+        # Codex on the desk's ChatGPT plan: the same prompt and history, its
+        # tool calls served and audited by codex_mcp under this run.
+        if provider == codex.PROVIDER:
+            text, outcome, error = codex.run(self, messages, model or None,
+                                             BUDGET["seconds"])
+            self.n_calls = len(store.calls(self.run_id))
+            self.charts = [c["id"] for c in store.charts_for_run(self.run_id)]
+            return self._finish(outcome, text, error)
 
         started = time.time()
         text = ""
@@ -421,7 +432,10 @@ class Run(object):
                                  "content": _clip(result)})
         else:
             outcome, error = "budget", "The run needed more turns than allowed."
+        return self._finish(outcome, text, error)
 
+    def _finish(self, outcome, text, error):
+        """Post, attach, record: the end of every run, whichever model ran it."""
         if outcome == "done" and self.approvals:
             outcome = "approval_waiting"
         # On the desk, a run that already posted its notes says nothing more:
@@ -490,7 +504,14 @@ class Run(object):
                                         "the filings named in brackets; use only these, and put the document "
                                         "id beside each figure you quote.\n\n" + brief}]
         try:
-            turn = gateway.complete(provider, key, model, messages, tools=None, max_tokens=1200)
+            if provider == codex.PROVIDER:
+                t, outcome, err = codex.run(self, messages, model or None,
+                                            BUDGET["seconds"])
+                if outcome != "done":
+                    raise gateway.GatewayError(err or outcome)
+                turn = {"text": t, "usage": {"in": 0, "out": 0}}
+            else:
+                turn = gateway.complete(provider, key, model, messages, tools=None, max_tokens=1200)
         except gateway.GatewayError as exc:
             store.add_post(self.account_id, "system", "%s stopped before finishing: %s" % (self.spec["name"], exc),
                            hire_id=self.hire["id"], run_id=self.run_id)
@@ -508,6 +529,8 @@ class Run(object):
     def _model_key(self, desk):
         if not desk["model_provider"]:
             raise RunnerError("No model provider is set for this desk. Open Settings.")
+        if desk["model_provider"] == codex.PROVIDER:
+            return None          # codex.run unseals the ChatGPT sign-in itself
         if not desk["model_key_set"]:
             raise RunnerError("No model key is stored for this desk. Open Settings.")
         if not keychain.enabled():
@@ -545,7 +568,7 @@ def _cli(argv):
         rows = store.conn().execute("SELECT DISTINCT account_id FROM ia_hires WHERE enabled = 1")
         for r in rows.fetchall():
             for h in store.hires(r["account_id"]):
-                if h["enabled"]:
+                if h["enabled"] and not specialists.builtin(h["slug"]):
                     jobs.append((r["account_id"], h))
     elif args.account and args.slug:
         h = store.hire_by_slug(args.account, args.slug)

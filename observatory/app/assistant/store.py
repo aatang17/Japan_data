@@ -31,7 +31,8 @@ from .. import accounts
 DB_PATH = pathlib.Path(os.environ.get("WORKSPACE_DB") or accounts.DB_PATH)
 
 _lock = threading.Lock()
-_conn = None
+_conn = None           # the connection that created the schema; None = not opened yet
+_local = threading.local()
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS ia_desks (
@@ -215,28 +216,32 @@ APPROVAL_TTL_SECONDS = 7 * 24 * 60 * 60
 
 
 def conn():
-    """The one connection per process, opened on first use."""
+    """This thread's connection (see accounts.conn for why not one shared)."""
     global _conn
     with _lock:
         if _conn is None:
             DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-            _conn = sqlite3.connect(str(DB_PATH), check_same_thread=False)
-            _conn.row_factory = sqlite3.Row
+            _conn = accounts._open(DB_PATH)
             _conn.execute("PRAGMA journal_mode=WAL")
-            _conn.execute("PRAGMA busy_timeout=4000")
             _conn.executescript(SCHEMA)
             # Columns added after the first release of these tables. SQLite has
             # no ADD COLUMN IF NOT EXISTS, so each is tried and a duplicate
             # column is the expected, harmless outcome on an upgraded file.
             for ddl in ("ALTER TABLE ia_posts ADD COLUMN approval_id INTEGER",
                         "ALTER TABLE ia_desks ADD COLUMN monitor_model TEXT",
-                        "ALTER TABLE ia_list_items ADD COLUMN name_ja TEXT"):
+                        "ALTER TABLE ia_list_items ADD COLUMN name_ja TEXT",
+                        # a Codex sign-in (ChatGPT plan): auth.json, sealed
+                        "ALTER TABLE ia_desks ADD COLUMN codex_auth_ct TEXT",
+                        "ALTER TABLE ia_desks ADD COLUMN codex_email TEXT"):
                 try:
                     _conn.execute(ddl)
                 except sqlite3.OperationalError:
                     pass
             _conn.commit()
-        return _conn
+        base = _conn
+    if getattr(_local, "base", None) is not base:
+        _local.base, _local.conn = base, accounts._open(DB_PATH)
+    return _local.conn
 
 
 def reset_for_tests(path):
@@ -297,6 +302,8 @@ def desk(account_id):
         "slack_set": bool(row["slack_webhook_ct"]),
         "slack_label": row["slack_label"],
         "policy": _loads(row["policy_json"], {}),
+        "codex_connected": bool(row["codex_auth_ct"]),
+        "codex_email": row["codex_email"],
     }
 
 
@@ -304,14 +311,14 @@ def desk_secrets(account_id):
     """The ciphertexts, for the keychain only. Not for any API response."""
     desk(account_id)
     return _row(conn().execute(
-        "SELECT model_key_ct, slack_webhook_ct FROM ia_desks WHERE account_id = ?",
+        "SELECT model_key_ct, slack_webhook_ct, codex_auth_ct FROM ia_desks WHERE account_id = ?",
         (account_id,)))
 
 
 def update_desk(account_id, **fields):
     desk(account_id)
     allowed = ("model_provider", "model_name", "monitor_model", "model_key_ct", "model_key_last4",
-               "slack_webhook_ct", "slack_label", "policy_json")
+               "slack_webhook_ct", "slack_label", "policy_json", "codex_auth_ct", "codex_email")
     sets = [k for k in fields if k in allowed]
     if not sets:
         return desk(account_id)

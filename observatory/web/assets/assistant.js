@@ -45,7 +45,13 @@
   function md(text) {
     const lines = String(text || '').split(/\r?\n/);
     const out = []; let para = []; let list = []; let table = [];
-    const inline = s => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/`([^`]+)`/g, '<code>$1</code>').replace(/(https?:\/\/[^\s)]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+    // [text](url) links are set aside first so the bare-URL rule cannot touch them
+    const inline = s => {
+      const links = [];
+      const t = esc(s).replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (m, txt, url) => { links.push(`<a href="${url}" target="_blank" rel="noopener">${txt}</a>`); return '\u0000' + (links.length - 1) + '\u0000'; })
+        .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/`([^`]+)`/g, '<code>$1</code>').replace(/(https?:\/\/[^\s)]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+      return t.replace(/\u0000(\d+)\u0000/g, (m, i) => links[+i]);
+    };
     const flush = () => {
       if (para.length) { out.push('<p>' + inline(para.join(' ')) + '</p>'); para = []; }
       if (list.length) { out.push('<ul>' + list.map(l => '<li>' + inline(l) + '</li>').join('') + '</ul>'); list = []; }
@@ -225,7 +231,7 @@
   }
   const specOf = h => (h && h.spec) || {};
   const hireBySlug = slug => (desk.hires || []).find(h => h.slug === slug);
-  const hireById = id => (desk.hires || []).find(h => h.id === Number(id));
+  const hireById = id => (desk.analyst && desk.analyst.id === Number(id)) ? desk.analyst : (desk.hires || []).find(h => h.id === Number(id));
 
   /* ------------------------------------------------------------- icons */
   const I = d => `<svg viewBox="0 0 24 24">${d}</svg>`;
@@ -234,6 +240,9 @@
     desk: I('<rect x="3.5" y="3.5" width="7" height="7" rx="1"/><rect x="13.5" y="3.5" width="7" height="7" rx="1"/><rect x="3.5" y="13.5" width="7" height="7" rx="1"/><rect x="13.5" y="13.5" width="7" height="7" rx="1"/>'),
     specialists: I('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><circle cx="17" cy="9" r="2.5"/><path d="M15.5 14.5c3 0 6 2 6 5.5"/>'),
     research: I('<path d="M4 5h16v11H9l-5 4z"/>'),
+    chat: I('<path d="M3.5 4.5h12v8.5H8l-4.5 3.5z"/><path d="M8.5 16.5v.5H16l4.5 3.5V9h-5"/>'),
+    close: I('<path d="M6 6l12 12M18 6L6 18"/>'),
+    expand: I('<path d="M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7"/>'),
     calendar: I('<rect x="3.5" y="5" width="17" height="15" rx="1"/><path d="M3.5 10h17M8 3v4M16 3v4"/>'),
     files: I('<path d="M3 6h6l2 2h10v11H3z"/>'),
     audit: I('<path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01"/>'),
@@ -257,7 +266,7 @@
     file: I('<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/>'),
     upload: I('<path d="M12 16V4M7 9l5-5 5 5M4 20h16"/>')
   };
-  const NAV = [['inbox', 'Inbox'], ['desk', 'Desk'], ['coverage', 'Coverage'], ['calendar', 'Calendar'], ['specialists', 'Specialists'], ['research', 'Research'], ['files', 'Files'], ['drive', 'Drive']];
+  const NAV = [['inbox', 'Inbox'], ['desk', 'Desk'], ['chat', 'Chat'], ['coverage', 'Coverage'], ['calendar', 'Calendar'], ['specialists', 'Specialists'], ['research', 'Research'], ['files', 'Files'], ['drive', 'Drive']];
   const SYSTEM_NAV = [['tools', 'MCP tools'], ['keys', 'API keys'], ['audit', 'Audit'], ['settings', 'Settings']];
 
   /* ------------------------------------------------------------ routing */
@@ -316,10 +325,11 @@
       if (e.signin) return signinState();
       return errorState(e);
     }
-    const views = { tools: vTools, keys: vKeys, inbox: vInbox, desk: vDesk, coverage: vCoverage, calendar: vCalendar, specialists: r.id ? vSpecialist : vSpecialists, research: r.id ? vThread : vResearch, files: vFiles, drive: vDrive, audit: vAudit, settings: vSettings };
+    const views = { tools: vTools, keys: vKeys, inbox: vInbox, desk: vDesk, coverage: vCoverage, calendar: vCalendar, specialists: r.id ? vSpecialist : vSpecialists, chat: vChat, research: r.id ? vThread : vResearch, files: vFiles, drive: vDrive, audit: vAudit, settings: vSettings };
     shell(navHtml(r), '<div class="content"><div class="page">' + working('Loading') + '</div></div>');
     bindCommon();
     try { await (views[r.sec] || vDesk)(r); } catch (e) { if (e.signin) return signinState(); console.error(e); $('#main').innerHTML = topbar([['Error']]) + `<div class="content"><div class="page"><p class="err">${esc(e.detail || e.message || 'Could not load this page.')}</p></div></div>`; }
+    await renderDock(r);
     bindCommon();
   }
 
@@ -817,19 +827,171 @@
     bindApprovals();
   }
 
+  // A thread's messages, the same on the Research page, the Chat page and in
+  // the chat pop-up. `key` keeps chart and trail ids apart between them.
+  function msgsHtml(t, sp, key) {
+    return t.messages.map((m, i) => m.role === 'user' ? `<div class="msg"><span class="av me">${esc((me.email || 'A')[0].toUpperCase())}</span><div class="mbody"><header><b>You</b><time>${when(m.created_at)}</time></header><div class="txt">${esc(m.text)}</div></div></div>`
+      : `<div class="msg"><span class="av">${esc(sp.initials || '?')}</span><div class="mbody"><header><b>${esc(sp.name || '')}</b><time>${when(m.created_at)}</time></header><div class="txt">${md(m.text)}</div>${chartsHtml(m.charts, key + i)}${trailHtml(m.calls, key + i)}</div></div>`).join('');
+  }
+  // The question just sent, shown at once while the answer is worked out.
+  const pendingHtml = q => `<div class="msg"><span class="av me">${esc((me.email || 'A')[0].toUpperCase())}</span><div class="mbody"><header><b>You</b></header><div class="txt">${esc(q)}</div></div></div>` + working('Looking it up. This can take a minute.');
+  const analystThreads = list => list.filter(t => desk.analyst && t.hire_id === desk.analyst.id);
+
+  /* ---- Chat box: the question, the coverage companies it is about, Ask.
+     Used on the Chat page ('chat') and in the pop-up ('dock'). Picked
+     companies go into the question itself — "About Toyota Motor (7203): …" —
+     so the thread shows exactly what was asked. */
+  const picks = { chat: [], dock: [] };   // [{code, name}] per chat box
+  function composerHtml(id, placeholder) {
+    return `<div class="composer" id="cmp-${id}"><div class="picked"></div>
+      <textarea rows="3" placeholder="${esc(placeholder)}"></textarea>
+      <div class="cfoot"><div class="covpick"><button class="linkbtn" data-pick>${ICONS.coverage}<span>Companies</span></button><div class="pickmenu hidden"></div></div>
+        <span class="grow"></span><span class="hint">Enter to send · Shift+Enter for a new line</span><button class="btn primary" data-send>Ask</button></div></div>`;
+  }
+  function bindComposer(id, onSend) {
+    const box = $('#cmp-' + id); if (!box) return;
+    const ta = $('textarea', box), menu = $('.pickmenu', box), pickBtn = $('[data-pick]', box), sendBtn = $('[data-send]', box);
+    const drawPicked = () => {
+      const p = picks[id];
+      $('.picked', box).innerHTML = p.map(c => `<span class="pchip">${esc(c.name)}<span class="code">${esc(c.code)}</span><button data-unpick="${esc(c.code)}" aria-label="Remove ${esc(c.name)}">${ICONS.close}</button></span>`).join('');
+      $('.picked', box).classList.toggle('hidden', !p.length);
+      $('span', pickBtn).textContent = p.length ? 'Companies (' + p.length + ')' : 'Companies';
+      $$('[data-unpick]', box).forEach(b => b.onclick = () => { picks[id] = picks[id].filter(c => c.code !== b.dataset.unpick); drawPicked(); drawMenu(); });
+    };
+    let listId = null;
+    const drawMenu = async () => {
+      if (menu.classList.contains('hidden')) return;
+      const lists = desk.lists || [];
+      if (listId == null) { const d = lists.find(l => l.is_default) || lists[0]; listId = d ? (d.is_default ? 0 : d.id) : 0; }
+      let rows = [];
+      try { rows = (await api('/coverage?list_id=' + listId)).coverage; } catch (e) { rows = []; }
+      const on = new Set(picks[id].map(c => c.code));
+      menu.innerHTML = `<header>${lists.length > 1 ? `<select data-list>${lists.map(l => { const v = l.is_default ? 0 : l.id; return `<option value="${v}" ${v === listId ? 'selected' : ''}>${esc(l.name)} (${l.count})</option>`; }).join('')}</select>` : `<b>${esc((lists[0] || {}).name || 'Coverage')}</b>`}
+          ${rows.length ? `<button class="linkbtn" data-all>${rows.every(r => on.has(r.sec_code)) ? 'Clear all' : 'Select all'}</button>` : ''}</header>
+        ${rows.length ? `<ul>${rows.map(r => `<li><label><input type="checkbox" value="${esc(r.sec_code)}" data-name="${esc(prettyName(r.name))}" ${on.has(r.sec_code) ? 'checked' : ''}><span>${esc(prettyName(r.name))}</span><span class="code">${esc(r.sec_code)}</span></label></li>`).join('')}</ul>`
+          : '<p class="empty">No companies on this list. <a href="#/coverage">Add some on Coverage</a>.</p>'}`;
+      const sel = $('[data-list]', menu); if (sel) sel.onchange = () => { listId = +sel.value; drawMenu(); };
+      $$('input[type=checkbox]', menu).forEach(cb => cb.onchange = () => {
+        picks[id] = cb.checked ? picks[id].concat([{ code: cb.value, name: cb.dataset.name }]) : picks[id].filter(c => c.code !== cb.value);
+        drawPicked(); const all = $('[data-all]', menu); if (all) all.textContent = $$('input[type=checkbox]', menu).every(x => x.checked) ? 'Clear all' : 'Select all';
+      });
+      const all = $('[data-all]', menu);
+      if (all) all.onclick = () => {
+        const codes = rows.map(r => r.sec_code); const clear = rows.every(r => picks[id].some(c => c.code === r.sec_code));
+        picks[id] = picks[id].filter(c => !codes.includes(c.code));
+        if (!clear) picks[id] = picks[id].concat(rows.map(r => ({ code: r.sec_code, name: prettyName(r.name) })));
+        drawPicked(); drawMenu();
+      };
+    };
+    // up from a box at the foot of the screen, down from one near the top
+    pickBtn.onclick = () => { menu.classList.toggle('down', pickBtn.getBoundingClientRect().top < 360); menu.classList.toggle('hidden'); drawMenu(); };
+    const grow = () => { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight + 2, 240) + 'px'; };
+    ta.oninput = grow;
+    const send = () => {
+      const q = ta.value.trim(); if (!q) return;
+      const p = picks[id];
+      const text = p.length ? 'About ' + p.map(c => c.name + ' (' + c.code + ')').join(', ') + ': ' + q : q;
+      picks[id] = []; menu.classList.add('hidden');
+      ta.value = ''; ta.disabled = true; sendBtn.disabled = true; drawPicked(); grow();
+      onSend(text);
+    };
+    sendBtn.onclick = send;
+    ta.onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); } };
+    drawPicked();
+    return ta;
+  }
+  // A click outside a company menu closes it.
+  document.addEventListener('mousedown', e => $$('.pickmenu:not(.hidden)').forEach(m => { if (!m.parentNode.contains(e.target)) m.classList.add('hidden'); }));
+
+  /* ---- Chat: a conversation with the desk's Analyst */
+  async function vChat(r) {
+    const a = desk.analyst; const sp = specOf(a);
+    const [list, t] = await Promise.all([api('/threads'), r.id ? api('/threads/' + r.id) : null]);
+    const chats = analystThreads(list.threads);
+    const head = t ? pageHead(esc(t.title), 'With the Analyst. It reads the same data as this site, and every answer lists its lookups.')
+      : pageHead('Chat', 'Ask about any dataset or company, or pick companies from your coverage. The Analyst looks up every figure and lists its lookups under the answer.');
+    $('#main').innerHTML = topbar(t ? [['Chat', 'chat'], [t.title]] : [['Chat']]) + `<div class="content"><div class="page wide">${setupNotice()}
+      <div class="chat-layout"><div class="thread">${head}
+        <div id="chat-msgs">${t ? msgsHtml(t, sp, 'c') : ''}</div>
+        ${composerHtml('chat', t ? 'Ask a follow-up' : 'Ask the Analyst')}</div>
+      <aside class="side-stack"><section class="panel"><header>Chats<small>${chats.length}</small><span class="grow"></span>${t ? `<button class="linkbtn" data-go="chat">${ICONS.plus}New</button>` : ''}</header>${chats.length ? `<ul class="linklist">${chats.map(c => `<li><button class="${t && t.id === c.id ? 'on' : ''}" data-go="chat/${c.id}"><b>${esc(c.title)}</b><small>${when(c.updated_at)}</small></button></li>`).join('')}</ul>` : '<p class="empty">No chats yet.</p>'}</section></aside></div></div></div>`;
+    const ta = bindComposer('chat', async q => {
+      $('#chat-msgs').insertAdjacentHTML('beforeend', pendingHtml(q));
+      const c = $('#main .content'); if (c) c.scrollTop = 1e6;
+      try {
+        if (t) { await api('/threads/' + t.id + '/messages', { method: 'POST', body: { text: q } }); render(); }
+        else { const nt = await api('/threads', { method: 'POST', body: { hire_id: a.id, text: q } }); go('chat/' + nt.id); }
+      } catch (e) { toast(e.detail || 'Could not ask'); render(); }
+    });
+    if (t) { const c = $('#main .content'); if (c) c.scrollTop = 1e6; } else if (ta) ta.focus();
+  }
+
+  /* ---- Chat pop-up: the same Analyst from any page, docked bottom right.
+     It lives outside #app so a page change does not close it; which chat it
+     shows is kept for the browser tab. */
+  let dockState = { open: false, tid: null };
+  try { dockState = Object.assign(dockState, JSON.parse(sessionStorage.getItem('ia-dock') || '{}')); } catch (e) { }
+  const saveDock = () => { try { sessionStorage.setItem('ia-dock', JSON.stringify(dockState)); } catch (e) { } };
+  let dockBusy = false;
+  function dockEl() {
+    let el = document.getElementById('chatdock');
+    if (!el) { el = document.createElement('div'); el.id = 'chatdock'; document.body.appendChild(el); }
+    return el;
+  }
+  async function renderDock(r) {
+    const el = dockEl();
+    // The Chat page is the same conversation at full size: no pop-up on it.
+    if (!desk || !desk.analyst || (r || route()).sec === 'chat') { el.innerHTML = ''; return; }
+    if (!dockState.open) {
+      el.innerHTML = `<button class="dock-btn" id="dock-open" aria-label="Open chat">${ICONS.chat}<span>Chat</span></button>`;
+      $('#dock-open').onclick = () => { dockState.open = true; saveDock(); renderDock(); };
+      return;
+    }
+    // While a question is out, a page change leaves the pop-up as it is.
+    if (dockBusy && $('.dock', el)) return;
+    const sp = specOf(desk.analyst);
+    let t = null;
+    if (dockState.tid) { try { t = await api('/threads/' + dockState.tid); } catch (e) { dockState.tid = null; saveDock(); } }
+    const noKey = !desk.desk.model_provider || !desk.desk.model_key_set;
+    el.innerHTML = `<section class="dock" role="dialog" aria-label="Chat with the Analyst">
+      <header><b>${t ? esc(t.title) : 'Analyst'}</b><span class="grow"></span>
+        ${t ? `<button class="iconbtn" id="dock-new" title="New chat">${ICONS.plus}</button>` : ''}
+        <button class="iconbtn" id="dock-full" title="Open in Chat">${ICONS.expand}</button>
+        <button class="iconbtn" id="dock-close" title="Close">${ICONS.close}</button></header>
+      <div class="dock-body" id="dock-body">${noKey ? '<div class="notice">No model key yet. <a href="#/settings">Add one in Settings</a>.</div>' : ''}
+        ${t ? msgsHtml(t, sp, 'd') : '<p class="muted small">Ask about any dataset or company, or pick companies from your coverage. Every answer lists its lookups.</p>'}</div>
+      ${composerHtml('dock', t ? 'Ask a follow-up' : 'Ask the Analyst')}</section>`;
+    const body = $('#dock-body'); body.scrollTop = 1e6;
+    $('#dock-close').onclick = () => { dockState.open = false; saveDock(); renderDock(); };
+    $('#dock-full').onclick = () => { dockState.open = false; saveDock(); go(t ? 'chat/' + t.id : 'chat'); };
+    const nb = $('#dock-new'); if (nb) nb.onclick = () => { dockState.tid = null; saveDock(); renderDock(); };
+    const ta = bindComposer('dock', async q => {
+      if (dockBusy) return;
+      dockBusy = true;
+      body.insertAdjacentHTML('beforeend', pendingHtml(q)); body.scrollTop = 1e6;
+      try {
+        if (t) await api('/threads/' + t.id + '/messages', { method: 'POST', body: { text: q } });
+        else { const nt = await api('/threads', { method: 'POST', body: { hire_id: desk.analyst.id, text: q } }); dockState.tid = nt.id; saveDock(); }
+      } catch (e) { toast(e.detail || 'Could not ask'); }
+      dockBusy = false;
+      await renderDock(); bindCommon();
+    });
+    ta.addEventListener('keydown', e => { if (e.key === 'Escape') $('#dock-close').click(); });
+    if (!t) ta.focus();
+  }
+
   /* ---- Research */
   async function vResearch() {
     const d = await api('/threads');
-    $('#main').innerHTML = topbar([['Research']]) + `<div class="content"><div class="page narrow">${pageHead('Research', 'Conversations with your specialists. Every answer shows its tool calls.', desk.hires.length ? `<button class="btn" id="new-thread">${ICONS.plus} New thread</button>` : '')}
-      ${d.threads.length ? `<ul class="rows">${d.threads.map(t => { const h = hireById(t.hire_id); return `<li data-go="research/${t.id}"><span class="av sm">${esc(specOf(h).initials || '?')}</span><div><b>${esc(t.title)}</b><small>${esc(specOf(h).name || '')} · ${t.messages} messages</small></div><time class="muted small">${when(t.updated_at)}</time></li>`; }).join('')}</ul>` : '<p class="muted">No threads yet. Open a specialist and ask it something.</p>'}</div></div>`;
+    $('#main').innerHTML = topbar([['Research']]) + `<div class="content"><div class="page narrow">${pageHead('Research', 'Conversations with the Analyst and your specialists. Every answer shows its tool calls.', desk.hires.length ? `<button class="btn" id="new-thread">${ICONS.plus} New thread</button>` : '')}
+      ${d.threads.length ? `<ul class="rows">${d.threads.map(t => { const h = hireById(t.hire_id); return `<li data-go="research/${t.id}"><span class="av sm">${esc(specOf(h).initials || '?')}</span><div><b>${esc(t.title)}</b><small>${esc(specOf(h).name || '')} · ${t.messages} messages</small></div><time class="muted small">${when(t.updated_at)}</time></li>`; }).join('')}</ul>` : '<p class="muted">No threads yet. <a href="#/chat">Start a chat</a>, or open a specialist and ask it something.</p>'}</div></div>`;
     const nt = $('#new-thread'); if (nt) nt.onclick = () => go('specialists/' + desk.hires[0].id);
   }
   async function vThread(r) {
     const t = await api('/threads/' + r.id);
     const h = hireById(t.hire_id); const sp = specOf(h);
     $('#main').innerHTML = topbar([['Research', 'research'], [t.title]]) + `<div class="content"><div class="page"><div class="thread">${pageHead(esc(t.title), 'With ' + esc(sp.name || 'a specialist') + '. It only reads; nothing is sent without your approval.')}
-      ${t.messages.map((m, i) => m.role === 'user' ? `<div class="msg"><span class="av me">${esc((me.email || 'A')[0].toUpperCase())}</span><div class="mbody"><header><b>You</b><time>${when(m.created_at)}</time></header><div class="txt">${esc(m.text)}</div></div></div>`
-        : `<div class="msg"><span class="av">${esc(sp.initials || '?')}</span><div class="mbody"><header><b>${esc(sp.name || '')}</b><time>${when(m.created_at)}</time></header><div class="txt">${md(m.text)}</div>${chartsHtml(m.charts, 'm' + i)}${trailHtml(m.calls, 'm' + i)}</div></div>`).join('')}
+      ${msgsHtml(t, sp, 'm')}
       <div id="thread-wait"></div>
       <div class="ask"><input id="ask" placeholder="Ask ${esc(sp.name || '')}"><button class="btn primary" id="ask-send">Ask</button></div>
       <div class="chips" style="margin-top:12px">${(sp.tries || []).map(x => `<button class="chip" data-askhere="${esc(x)}">${esc(x)}</button>`).join('')}</div></div></div></div>`;
@@ -1123,8 +1285,9 @@
         <dt>Provider</dt><dd><select id="provider">${s.providers.map(p => `<option value="${p.id}" ${p.id === prov ? 'selected' : ''}>${esc(p.label)}</option>`).join('')}</select></dd>
         <dt>Model</dt><dd><input id="model" value="${esc(s.model_name || '')}" placeholder="${esc((s.providers.find(p => p.id === prov) || {}).default_model || '')}"><span class="hint">for research and questions</span></dd>
         <dt>Monitor model</dt><dd><input id="monitor-model" value="${esc(s.monitor_model || '')}" placeholder="same as above"><span class="hint">a cheaper model is enough: the desk does the bookkeeping</span></dd>
-        <dt>API key</dt><dd><input id="key" type="password" placeholder="${s.model_key_set ? 'Stored · ends ' + esc(s.model_key_last4) + ' · paste to replace' : 'Paste your key'}" ${s.keychain ? '' : 'disabled'}></dd>
-        <dt></dt><dd><button class="btn primary" id="save-model">Save</button><button class="btn" id="test-model" ${s.model_key_set ? '' : 'disabled'}>Test</button><span class="hint" id="model-msg"></span></dd></dl></div>
+        <dt class="keyrow">API key</dt><dd class="keyrow"><input id="key" type="password" placeholder="${s.model_key_set ? 'Stored · ends ' + esc(s.model_key_last4) + ' · paste to replace' : 'Paste your key'}" ${s.keychain ? '' : 'disabled'}></dd>
+        ${s.codex && s.codex.available ? `<dt>ChatGPT account</dt><dd id="codex-row">${codexRow(s.codex)}</dd>` : ''}
+        <dt></dt><dd><button class="btn primary" id="save-model">Save</button><button class="btn keyrow" id="test-model" ${s.model_key_set ? '' : 'disabled'}>Test</button><span class="hint" id="model-msg"></span></dd></dl></div>
       <h2 class="band">Delivery</h2><div class="panel"><dl class="kv body">
         <dt>Slack webhook</dt><dd><input id="slack" type="password" placeholder="${s.slack_set ? 'Stored · paste to replace' : 'https://hooks.slack.com/services/…'}" ${s.keychain ? '' : 'disabled'}></dd>
         <dt>Channel label</dt><dd><input id="slack-label" value="${esc(s.slack_label || '')}" placeholder="#japan-desk"></dd>
@@ -1149,10 +1312,52 @@
         $$('#cx-out [data-copy]').forEach(b => b.onclick = () => { const el = document.getElementById(b.dataset.copy); try { navigator.clipboard.writeText(el.textContent); toast('Copied'); } catch (e) { toast('Select and copy by hand'); } });
       } catch (e) { toast(e.detail || 'Could not create a key'); }
     };
-    $('#provider').onchange = () => { const p = s.providers.find(x => x.id === $('#provider').value); $('#model').placeholder = p ? p.default_model : ''; };
+    // ChatGPT (Codex) runs on the account connected below, not on a key
+    const keyRows = () => { const cx = $('#provider').value === 'codex'; $$('.keyrow').forEach(el => el.classList.toggle('hidden', cx)); };
+    $('#provider').onchange = () => { const p = s.providers.find(x => x.id === $('#provider').value); $('#model').placeholder = p ? (p.default_model || (p.id === 'codex' ? 'Codex default' : '')) : ''; keyRows(); };
+    $('#provider').onchange();
+    bindCodex();
     $('#save-model').onclick = async () => { const m = $('#model-msg'); m.textContent = 'Saving'; try { await api('/settings', { method: 'POST', body: { model_provider: $('#provider').value, model_name: $('#model').value, monitor_model: $('#monitor-model').value, model_key: $('#key').value } }); m.textContent = 'Saved'; render(); } catch (e) { m.textContent = e.detail || 'Could not save'; } };
     $('#test-model').onclick = async () => { const m = $('#model-msg'); m.textContent = 'Testing'; try { const r = await api('/settings/test', { method: 'POST' }); m.textContent = 'The model answered: ' + (r.reply || 'ok'); } catch (e) { m.textContent = e.detail || 'The test failed'; } };
     $('#save-slack').onclick = async () => { const m = $('#slack-msg'); m.textContent = 'Saving'; try { await api('/settings', { method: 'POST', body: { slack_webhook: $('#slack').value, slack_label: $('#slack-label').value } }); m.textContent = 'Saved'; render(); } catch (e) { m.textContent = e.detail || 'Could not save'; } };
+  }
+
+  /* ChatGPT (Codex): the desk signs in with Codex's own device code. The
+     person opens OpenAI's page and types the code; the server holds the
+     sign-in, sealed, and never sees a password. */
+  let codexPoll = null;
+  function codexRow(c) {
+    if (c.connected) return `<span>Connected${c.email ? ' as <b>' + esc(c.email) + '</b>' : ''}</span> <button class="linkbtn" id="codex-off">Disconnect</button>`;
+    if (c.pending) return `<div class="codex-code"><p>1. Open <a href="${esc(c.pending.url)}" target="_blank" rel="noopener">${esc(c.pending.url)}</a> and sign in to ChatGPT.</p>
+      <p>2. Enter this one-time code: <code class="big">${esc(c.pending.code)}</code></p>
+      <p class="hint">Waiting for you to finish on OpenAI's page. The code expires in 15 minutes.</p></div>`;
+    return `<button class="btn" id="codex-on">Connect ChatGPT</button>${c.error ? `<span class="hint err">${esc(c.error)}</span>` : '<span class="hint">answers run on your ChatGPT plan, through Codex on this server</span>'}`;
+  }
+  function bindCodex() {
+    const on = $('#codex-on'), off = $('#codex-off');
+    if (on) on.onclick = async () => {
+      on.disabled = true; on.textContent = 'Starting';
+      try { const r = await api('/settings/codex/login', { method: 'POST' }); $('#codex-row').innerHTML = codexRow({ pending: r }); watchCodex(); }
+      catch (e) { toast(e.detail || 'Could not start the sign-in'); on.disabled = false; on.textContent = 'Connect ChatGPT'; }
+    };
+    if (off) off.onclick = async () => {
+      if (!confirm('Disconnect ChatGPT from this desk? Answers stop until you connect again or choose another provider.')) return;
+      await api('/settings/codex', { method: 'DELETE' }); toast('ChatGPT disconnected'); render();
+    };
+  }
+  function watchCodex() {
+    clearInterval(codexPoll);
+    codexPoll = setInterval(async () => {
+      const row = $('#codex-row');
+      if (!row) { clearInterval(codexPoll); return; }
+      try {
+        const c = await api('/settings/codex');
+        if (c.pending) return;
+        clearInterval(codexPoll);
+        if (c.connected) toast('ChatGPT connected');
+        row.innerHTML = codexRow(c); bindCodex();
+      } catch (e) { clearInterval(codexPoll); }
+    }, 3000);
   }
 
   // Setup steps for each client, with the key filled in. Claude Code takes the

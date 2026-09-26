@@ -77,7 +77,8 @@ EMAIL_MAX = 254
 _EMAIL = re.compile(r"^[^@\s]+@[^@\s.]+\.[^@\s]+$")
 
 _lock = threading.Lock()
-_conn = None
+_conn = None           # the connection that created the schema; None = not opened yet
+_local = threading.local()
 
 
 def enabled():
@@ -140,19 +141,30 @@ CREATE INDEX IF NOT EXISTS sessions_account ON sessions (account_id);
 """
 
 
+def _open(path):
+    c = sqlite3.connect(str(path), check_same_thread=False)
+    c.row_factory = sqlite3.Row
+    c.execute("PRAGMA busy_timeout=4000")
+    return c
+
+
 def conn():
-    """The one connection, opened on first use and kept for the process."""
+    """This thread's connection. One connection shared by every request thread
+    crashed the server inside libsqlite3 (segfault / abort) when two requests
+    read at once, 24 Sep 2026; each thread now opens its own and WAL lets them
+    read side by side. Writes still take _lock."""
     global _conn
     with _lock:
         if _conn is None:
             DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-            _conn = sqlite3.connect(str(DB_PATH), check_same_thread=False)
-            _conn.row_factory = sqlite3.Row
+            _conn = _open(DB_PATH)
             _conn.execute("PRAGMA journal_mode=WAL")
-            _conn.execute("PRAGMA busy_timeout=4000")
             _conn.executescript(SCHEMA)
             _conn.commit()
-        return _conn
+        base = _conn
+    if getattr(_local, "base", None) is not base:
+        _local.base, _local.conn = base, _open(DB_PATH)
+    return _local.conn
 
 
 def _now():

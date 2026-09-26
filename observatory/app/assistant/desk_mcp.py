@@ -132,7 +132,8 @@ def _call_desk(owner, name, args, run_id):
     if name == "desk_overview":
         return _j({"coverage": store.coverage(aid),
                    "specialists": [{"handle": h["slug"], "name": (specialists.get(h["slug"]) or {}).get("name"),
-                                    "version": h["version"]} for h in store.hires(aid)],
+                                    "version": h["version"]} for h in store.hires(aid)
+                                   if not specialists.builtin(h["slug"])],
                    "pending_approvals": len(store.approvals(aid, "pending"))})
     if name == "read_feed":
         try:
