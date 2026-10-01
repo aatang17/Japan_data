@@ -1311,23 +1311,6 @@ body.has-consent-bar .site-footer { margin-bottom: 76px; }
   padding: 0 4px;
 }
 
-/* ---------- methodology: contents strip ---------- */
-
-/* A reference page long enough that a reader arrives looking for one section.
-   Plain links, not chips: this is a table of contents, not navigation. */
-.toc {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 18px;
-  margin: 14px 0 0;
-  padding: 10px 0;
-  border-top: 1px solid var(--obs-border);
-  border-bottom: 1px solid var(--obs-border);
-  font-size: 12.5px;
-}
-.toc a { color: var(--obs-text-muted); }
-.toc a:hover { color: var(--obs-ink); }
-
 /* ---------- methodology: dataset notes ---------- */
 
 /* Twelve stacked disclosures, one row each until opened, so the page reads as
@@ -1643,51 +1626,97 @@ body.page-wide .site-subnav .inner { max-width: 1360px; }
   border-bottom-color: var(--obs-primary);
 }
 
-/* ---------- contents row (rendered by nav.js from the page's h2s) ---------- */
+/* ---------- section picker (rendered by nav.js from the page's h2s) ---------- */
 
-/* A tinted strip with one outlined chip per section: readable at a glance,
-   and the chip for the section in view turns navy as the page scrolls. */
+/* One line under the page head: the section in view, by number and name,
+   opening a numbered list of every section. Same one-border dropdown as the
+   sub-nav's section menus. One line at every width, so it stays pinned under
+   the header on a phone too; opaque, because content scrolls beneath it. */
 .page-toc {
+  position: sticky;
+  /* 1px up, so its top rule lands on the sub-nav's bottom rule when stuck. */
+  top: calc(var(--obs-stack, 52px) - 1px);
+  z-index: 30;
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 8px 8px;
-  margin: 12px 0 0;
-  padding: 10px 14px;
-  background: var(--obs-surface-subtle);
-  border: 1px solid var(--obs-border);
-  border-radius: 4px;
+  gap: 12px;
+  margin: 14px 0 0;
+  padding: 7px 0;
+  background: var(--obs-surface);
+  border-top: 1px solid var(--obs-border);
+  border-bottom: 1px solid var(--obs-border);
   font-size: 13px;
 }
+/* Under a tab strip it shares the tabs' rule rather than drawing a second. */
+.page-tabs + .page-toc { margin-top: 0; border-top-color: transparent; }
 .page-toc-label {
   font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.7px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--obs-ink);
-  margin-right: 6px;
+  color: var(--obs-text-muted);
 }
-.page-toc a {
+/* The list hangs from the button; on a phone, from the full bar. */
+.page-toc-pick { position: relative; display: flex; min-width: 0; }
+.page-toc-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  max-width: min(460px, 100%);
+  font: inherit;
   color: var(--obs-ink);
   background: var(--obs-surface);
   border: 1px solid var(--obs-border);
   border-radius: 3px;
   padding: 4px 10px;
+  cursor: pointer;
+}
+.page-toc-btn:hover,
+.page-toc-btn[aria-expanded="true"] { border-color: var(--obs-primary); }
+.page-toc-btn:focus-visible { outline: 2px solid var(--obs-primary); outline-offset: 2px; }
+.page-toc-btn .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.page-toc-btn .caret { font-size: 10px; color: var(--obs-text-muted); }
+.page-toc .n {
+  font-variant-numeric: tabular-nums;
+  color: var(--obs-text-muted);
+  min-width: 18px;
+}
+.page-toc-count {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  color: var(--obs-text-muted);
   white-space: nowrap;
-  transition: border-color .15s ease, color .15s ease;
 }
-.page-toc a:hover { border-color: var(--obs-primary); color: var(--obs-primary); text-decoration: none; }
-.page-toc a[aria-current="true"] { border-color: var(--obs-primary); color: var(--obs-primary); font-weight: 600; }
-.page-tabs + .page-toc { margin-top: 12px; }
-/* Pinned under the sticky header stack on wider screens; --obs-stack is
-   measured by nav.js. On a phone it scrolls away: it would take a third of
-   the screen if it stuck. */
-@media (min-width: 769px) {
-  .page-toc { position: sticky; top: var(--obs-stack, 52px); z-index: 30; }
+.page-toc-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 31;
+  width: 340px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - var(--obs-stack, 52px) - 72px);
+  overflow-y: auto;
+  background: var(--obs-surface);
+  border: 1px solid var(--obs-border);
+  border-radius: 3px;
+  padding: 4px 0;
 }
+.page-toc-menu[hidden] { display: none; }
+.page-toc-menu a {
+  display: flex;
+  gap: 12px;
+  padding: 7px 12px;
+  color: var(--obs-ink);
+  line-height: 1.35;
+}
+.page-toc-menu a:hover,
+.page-toc-menu a:focus-visible { background: var(--obs-surface-subtle); text-decoration: none; outline: none; }
+.page-toc-menu a[aria-current="true"] { color: var(--obs-primary); font-weight: 600; }
 @media (max-width: 560px) {
-  .page-toc { padding: 8px 10px; gap: 6px; font-size: 12.5px; }
-  .page-toc a { padding: 3px 8px; }
+  .page-toc { gap: 8px; font-size: 12.5px; }
+  .page-toc-pick { position: static; }
+  .page-toc-menu { width: 100%; max-width: none; }
 }
 
 /* ---------- landing: product list ---------- */

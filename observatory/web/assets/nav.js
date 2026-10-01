@@ -219,11 +219,14 @@ var NAV_SECTIONS = [
     ],
   },
   {
-    // The US large caps held at full filed depth (company-facts, 2009 on).
-    // One page: the covered list, and each company's record behind ?t=.
+    // US companies from their SEC filings. Each page is a list, with one
+    // company's record behind ?t=: financials for the large caps held at
+    // full filed depth (company-facts, 2009 on), pay for the S&P 500.
     id: "us-companies", market: "us", label: "Companies", suffix: "US Companies",
     pages: [
       { id: "us-companies", label: "Company Financials", href: "us-companies.html" },
+      // Pay versus performance from every S&P 500 member's proxy statement.
+      { id: "us-pay", label: "Executive Pay", href: "us-pay.html" },
     ],
   },
   {
@@ -517,32 +520,47 @@ var NAV_SECTIONS = [
   });
 })();
 
-/* Contents row: one link per section band, generated from the page's own
-   h2 headings so no page has to maintain a list. It sits under the page head
-   (or the tab strip, where there is one) and marks the section in view.
-   Pages with fewer than two sections get nothing; the home page, whose
-   bands are promotional rather than navigational, opts out with body.page-home. */
+/* Section picker: one slim bar under the page head (or the tab strip, where
+   there is one) naming the section in view — "Section 03 What the server
+   carries ▾  3 of 9" — that opens a numbered list of every section. It is
+   generated from the page's own h2 headings, so no page maintains a list,
+   and it is one line at every width, so it stays pinned on a phone too.
+   Pages with fewer than two sections get nothing; the home page, whose bands
+   are promotional rather than navigational, opts out with body.page-home. */
 (function renderContents() {
-  var toc = null, heads = [], links = [];
+  var toc = null, btn = null, menu = null, heads = [], links = [], sig = "", curIdx = -1;
+  var wired = false;
+
+  function esc(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  function label(h) {
+    var c = h.cloneNode(true);
+    Array.prototype.forEach.call(c.querySelectorAll(".h2-note"), function (n) { n.remove(); });
+    return c.textContent.replace(/\s+/g, " ").trim();
+  }
+  function num(i) { return (i < 9 ? "0" : "") + (i + 1); }
+
+  function setOpen(open, focusCurrent) {
+    if (!menu) return;
+    menu.hidden = !open;
+    btn.setAttribute("aria-expanded", open ? "true" : "false");
+    if (open && focusCurrent) (links[curIdx] || links[0]).focus();
+  }
 
   function build() {
     if (document.body.classList.contains("page-home")) return;
     var main = document.querySelector("main");
     if (!main) return;
     heads = Array.prototype.filter.call(main.querySelectorAll("h2"), function (h) {
-      return h.offsetParent !== null && h.textContent.trim();
+      return h.offsetParent !== null && h.textContent.trim() && !(toc && toc.contains(h));
     });
-    if (heads.length < 2) { if (toc) { toc.remove(); toc = null; } return; }
+    if (heads.length < 2) {
+      if (toc) { toc.remove(); toc = null; sig = ""; }
+      return;
+    }
 
-    function esc(s) {
-      return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-    }
-    function label(h) {
-      var c = h.cloneNode(true);
-      Array.prototype.forEach.call(c.querySelectorAll(".h2-note"), function (n) { n.remove(); });
-      return c.textContent.replace(/\s+/g, " ").trim();
-    }
     var used = {};
     heads.forEach(function (h) {
       if (!h.id) {
@@ -557,30 +575,82 @@ var NAV_SECTIONS = [
     if (!toc) {
       toc = document.createElement("nav");
       toc.className = "page-toc";
-      toc.setAttribute("aria-label", "Contents");
+      toc.setAttribute("aria-label", "Sections on this page");
+      toc.innerHTML =
+        '<span class="page-toc-label" id="page-toc-label">Section</span>' +
+        '<span class="page-toc-pick">' +
+        '<button type="button" class="page-toc-btn" aria-haspopup="true" aria-expanded="false"' +
+        ' aria-controls="page-toc-menu" aria-describedby="page-toc-label"></button>' +
+        '<div class="page-toc-menu" id="page-toc-menu" hidden></div></span>' +
+        '<span class="page-toc-count"></span>';
       var after = main.querySelector(".page-tabs") || main.querySelector(".page-head") ||
         main.querySelector("#stale-banner");
       if (after) after.insertAdjacentElement("afterend", toc);
       else main.insertAdjacentElement("afterbegin", toc);
+      btn = toc.querySelector(".page-toc-btn");
+      menu = toc.querySelector(".page-toc-menu");
+
+      btn.addEventListener("click", function () { setOpen(menu.hidden, false); });
+      btn.addEventListener("keydown", function (e) {
+        if (e.key === "ArrowDown") { e.preventDefault(); setOpen(true, true); }
+      });
+      menu.addEventListener("click", function (e) {
+        if (e.target.closest("a")) setOpen(false);
+      });
+      menu.addEventListener("keydown", function (e) {
+        var i = links.indexOf(document.activeElement);
+        if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+          e.preventDefault();
+          var n = links.length;
+          links[((i < 0 ? curIdx : i) + (e.key === "ArrowDown" ? 1 : n - 1)) % n].focus();
+        } else if (e.key === "Home") { e.preventDefault(); links[0].focus(); }
+        else if (e.key === "End") { e.preventDefault(); links[links.length - 1].focus(); }
+      });
+      if (!wired) {
+        wired = true;
+        document.addEventListener("click", function (e) {
+          if (toc && !menu.hidden && !toc.contains(e.target)) setOpen(false);
+        });
+        document.addEventListener("keydown", function (e) {
+          if (e.key === "Escape" && toc && !menu.hidden) { setOpen(false); btn.focus(); }
+        });
+      }
     }
-    toc.innerHTML = '<span class="page-toc-label">Contents</span>' + heads.map(function (h) {
-      return '<a href="#' + esc(h.id) + '">' + esc(label(h)) + "</a>";
-    }).join("");
-    links = Array.prototype.slice.call(toc.querySelectorAll("a"));
+
+    // Rebuild the list only when the sections change, so an open menu is not
+    // swapped out from under the reader by a late-arriving chart.
+    var next = heads.map(function (h) { return h.id + "\u0000" + label(h); }).join("\u0001");
+    if (next !== sig) {
+      sig = next;
+      menu.innerHTML = heads.map(function (h, i) {
+        return '<a href="#' + esc(h.id) + '"><span class="n">' + num(i) + "</span>" +
+          '<span class="t">' + esc(label(h)) + "</span></a>";
+      }).join("");
+      links = Array.prototype.slice.call(menu.querySelectorAll("a"));
+      curIdx = -2;  // force the bar to repaint
+    }
     mark();
   }
 
-  // The section in view is the last heading above the sticky header.
+  // The section in view is the last heading that has reached the bar's
+  // bottom edge. Above the first heading, the bar invites a jump instead.
   function mark() {
-    // A section is current once its heading has reached the strip's bottom
-    // edge (or the header's, where the strip does not stick).
-    var line = 80, current = null;
-    if (toc && getComputedStyle(toc).position === "sticky") line = toc.getBoundingClientRect().bottom + 12;
-    heads.forEach(function (h) { if (h.getBoundingClientRect().top <= line) current = h; });
+    if (!toc) return;
+    var line = toc.getBoundingClientRect().bottom + 12, idx = -1;
+    heads.forEach(function (h, i) { if (h.getBoundingClientRect().top <= line) idx = i; });
+    if (idx === curIdx) return;
+    curIdx = idx;
     links.forEach(function (a, i) {
-      if (heads[i] === current) a.setAttribute("aria-current", "true");
+      if (i === idx) a.setAttribute("aria-current", "true");
       else a.removeAttribute("aria-current");
     });
+    btn.innerHTML = idx < 0
+      ? '<span class="t">Jump to a section</span><span class="caret" aria-hidden="true">▾</span>'
+      : '<span class="n">' + num(idx) + '</span><span class="t">' + esc(label(heads[idx])) +
+        '</span><span class="caret" aria-hidden="true">▾</span>';
+    toc.querySelector(".page-toc-count").textContent = idx < 0
+      ? heads.length + " sections"
+      : (idx + 1) + " of " + heads.length;
   }
   var ticking = false;
   window.addEventListener("scroll", function () {
@@ -591,7 +661,7 @@ var NAV_SECTIONS = [
 
   // Sections that only appear once data arrives are picked up by the
   // later passes; a page whose sections are all in the markup is unchanged.
-  // The strip sticks under whatever is already stuck (header, and the
+  // The bar sticks under whatever is already stuck (header, and the
   // sub-nav where it is sticky), and a jump to a section lands below all of
   // it. Both are measured, not assumed: the header wraps on a phone and the
   // sub-nav only sticks on wider screens.
@@ -610,8 +680,8 @@ var NAV_SECTIONS = [
   document.addEventListener("DOMContentLoaded", function () {
     build();
     setStack();
-    // Per-company views appear when a company is chosen; the row follows.
-    // Mutations inside the row itself are its own rebuilds and are ignored.
+    // Per-company views appear when a company is chosen; the bar follows.
+    // Mutations inside the bar itself are its own rebuilds and are ignored.
     if (!window.MutationObserver) return;
     var main = document.querySelector("main"), timer = null;
     if (!main) return;
