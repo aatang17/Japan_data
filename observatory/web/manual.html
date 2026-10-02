@@ -22,7 +22,7 @@
 
   <div class="prose">
 
-  <h2 id="what">What this is</h2>
+  <h2 id="what">Overview</h2>
   <p>This site publishes its data over the Model Context Protocol (MCP) — an open standard
   that lets an AI assistant such as Claude look data up from an external source while you
   chat with it. You add one URL to your assistant; after that, questions about Japanese
@@ -33,7 +33,7 @@
   release, computed by the same code as the <a href="api.html">public API</a>. Nothing you
   ask is used to change anything here — every lookup is read-only.</p>
 
-  <h2 id="setup">Getting connected</h2>
+  <h2 id="setup">Connecting your assistant</h2>
   <p>The connect URL is:</p>
   <div class="connect-url">
     <code id="mcp-url">https://ploveranalytics.com/mcp</code>
@@ -72,7 +72,7 @@
   URL. The server is stateless, needs no key, and identifies itself as
   <code>Plover Analytics</code>.</p>
 
-  <h2 id="coverage">What the server carries</h2>
+  <h2 id="coverage">Data coverage</h2>
   <p>Twenty-five datasets in twelve sections — Japanese official statistics on one side,
   company disclosures filed on EDINET on the other. The <a href="datasets.html">datasets
   directory</a> lists them in full with sources and update schedules.</p>
@@ -115,7 +115,7 @@
   earnings series are built but not yet published on this server; the assistant is not shown
   tools it cannot answer with.</p>
 
-  <h2 id="lookups">The lookups, one by one</h2>
+  <h2 id="lookups">Lookup reference</h2>
   <p>You never call these yourself — the assistant chooses them from your plain-English
   question. Knowing what exists tells you what you can ask. Eight generic lookups cover
   every dataset.</p>
@@ -162,7 +162,7 @@
   for compatibility, and the assistant may still choose them. They answer with the same
   numbers as the generic lookups.</p>
 
-  <h2 id="reading">How to read what comes back</h2>
+  <h2 id="reading">Reading a response</h2>
   <p>Every lookup result carries the same disclosure fields. If you ever need to check the
   assistant's statement, these are what to look at:</p>
   <ul>
@@ -187,7 +187,7 @@
     so.</li>
   </ul>
 
-  <h2 id="sessions">Ten questions to try</h2>
+  <h2 id="sessions">Example questions</h2>
   <ol>
     <li>What are Japan's headline, core, and core-core inflation rates right now?</li>
     <li>Break the current headline rate into percentage-point contributions by group.</li>
@@ -204,7 +204,7 @@
     <li>What did the latest CPI month look like as of the day before it was revised?</li>
   </ol>
 
-  <h2 id="limits">Limits, honestly stated</h2>
+  <h2 id="limits">Limitations</h2>
   <ul>
     <li><b>Japan only, and not every Japanese statistic.</b> No wages, GDP or producer
     prices yet; no Tokyo advance, regional or seasonally adjusted CPI; no yen price levels
@@ -228,7 +228,7 @@
     against its <code>cite</code> link.</li>
   </ul>
 
-  <h2 id="trouble">When something looks wrong</h2>
+  <h2 id="trouble">Troubleshooting</h2>
   <ul>
     <li><b>The connector won't add</b> — custom connectors need a paid Claude plan; free
     accounts can't add them.</li>
@@ -245,7 +245,7 @@
     assistant's own words, not this site's data.</li>
   </ul>
 
-  <h2 id="teams">For data teams</h2>
+  <h2 id="teams">Programmatic access</h2>
   <p>The endpoint speaks JSON-RPC 2.0 over a single stateless POST — no session, no
   authentication, gzip supported. A minimal round-trip:</p>
   <p><code>curl -X POST https://ploveranalytics.com/mcp -H "Content-Type:
