@@ -2572,6 +2572,13 @@ details.readable .source-line a { color: var(--obs-primary); }
   .site-nav { font-size: 18px; gap: 30px; }
   .nav-dd-docs .nav-dd-menu { top: calc(100% + 22px); }
   .header-link { font-size: 16px; }
+  /* Account sits beside Docs and reads at the same size; the reserved width
+     grows with it so the bar still does not jump when the answer arrives. */
+  .header-account { min-width: 80px; }
+  .header-account:empty { min-width: 0; }
+  .header-account a, .header-account button { font-size: 16px; }
+  .header-account button { display: inline-flex; align-items: center; gap: 6px; }
+  .header-account .chev { width: 16px; height: 16px; }
   .header-asof { font-size: 14px; }
   .header-right { gap: 18px; }
   .theme-toggle { font-size: 15px; padding: 6px 14px; border-radius: 4px; }

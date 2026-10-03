@@ -453,7 +453,7 @@ var NAV_SECTIONS = [
         // address is the first line of the menu, and the button's title.
         slot.innerHTML = '<span class="acct-menu">' +
           '<button type="button" aria-expanded="false" title="Signed in as ' +
-          esc(me.email) + '">Account \u25be</button>' +
+          esc(me.email) + '">Account' + NAV_CHEVRON + "</button>" +
           '<span class="acct-pop" hidden>' +
           '<span class="acct-who">' + esc(me.email) + "</span>" +
           '<a href="#" data-do="signout">Sign out</a></span></span>';
