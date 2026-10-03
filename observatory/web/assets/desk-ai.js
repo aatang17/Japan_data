@@ -11,18 +11,16 @@
    finishes, the draft is reloaded from the server. "Undo AI Changes" puts
    back the "Before AI" copy the server kept in History, as a new revision.
 
+   A skill that only answers (Brainstorm, Review, Headlines) leaves the draft
+   alone, so the canvas stays editable during its run. A reply can end with
+   next-step buttons the AI offered ("Plan This", "Draft It"); one click
+   starts that run.
+
    Loaded before desk.js; uses its helpers ($, S, api, send, renderDraft …)
    only inside functions, which run after both files have loaded. */
 "use strict";
 
-var AI = { settings: null, job: null, poll: null, codexPoll: null, setup: false };
-
-var AI_EXAMPLES = [
-  ["Draft from My Notes", "Turn my notes in the draft into a finished article: a clear argument, short paragraphs, and charts from Plover data where they help."],
-  ["Add a Chart", "Add a Plover chart that supports the main point, with one sentence introducing it."],
-  ["Check the Numbers", "Check every number in the draft against Plover data. Correct any that are wrong and tell me what you changed."],
-  ["Tighten the Writing", "Tighten the writing: cut repetition and filler, keep my argument and every number."],
-];
+var AI = { settings: null, job: null, poll: null, codexPoll: null, setup: false, skill: "" };
 
 var AI_HELP = {
   claude_code: "Uses your Claude subscription. On your own computer, in Terminal, run " +
@@ -46,7 +44,7 @@ function renderAIPane() {
     if (saved && !AI.job) {
       return api("/research/ai/jobs/" + saved).then(function (j) {
         AI.job = j;
-        if (j.status === "running") { pauseCanvas(true); followJob(); }
+        if (j.status === "running") { if (j.writes !== false) pauseCanvas(true); followJob(); }
         drawAI();
       }).catch(function () { forgetJob(); drawAI(); });
     }
@@ -72,27 +70,36 @@ function drawAI() {
     (s.model ? ' <span class="mono">' + escapeHtml(s.model) + "</span>" : "") + "</span>" +
     '<button type="button" class="linkish" id="dk-ai-change"' + (running ? " disabled" : "") + ">Change</button></div>" +
     '<form id="dk-ai-form" class="dk-ai-form">' +
+    (s.skills && s.skills.length
+      ? '<label class="dk-flabel" for="dk-ai-skill">Skill</label>' +
+        '<select id="dk-ai-skill"' + (running ? " disabled" : "") + '><option value="">None (follow my instruction)</option>' +
+        s.skills.map(function (k) {
+          return '<option value="' + k.id + '"' + (String(k.id) === AI.skill ? " selected" : "") + ">" + escapeHtml(k.name) + "</option>";
+        }).join("") + "</select>" +
+        '<span class="hint" id="dk-ai-skill-note"></span>'
+      : "") +
     '<label class="dk-flabel" for="dk-ai-text">Instruction</label>' +
     '<textarea id="dk-ai-text" rows="5" maxlength="8000" placeholder="What should it do with this draft?"' +
     (running ? " disabled" : "") + "></textarea>" +
-    '<div class="dk-ai-ex">' + AI_EXAMPLES.map(function (e, i) {
-      return '<button type="button" class="dk-mini" data-ex="' + i + '"' + (running ? " disabled" : "") + ">" +
-        escapeHtml(e[0]) + "</button>";
-    }).join("") + "</div>" +
     '<button type="submit" class="btn btn-primary" id="dk-ai-run"' + (running ? " disabled" : "") + ">" +
     (running ? "Working…" : "Run") + "</button></form>" +
+    '<p class="dk-ai-reach">Can use: ' + escapeHtml((s.reach || []).join(", ")) +
+    '. <a href="admin.html#ai" target="_blank" rel="noopener">Skills and connections</a></p>' +
     '<div id="dk-ai-job"></div>';
   $("#dk-ai-change").addEventListener("click", function () { AI.setup = true; drawAI(); });
-  $all("[data-ex]", box).forEach(function (b) {
-    b.addEventListener("click", function () {
-      var ta = $("#dk-ai-text");
-      ta.value = AI_EXAMPLES[Number(b.getAttribute("data-ex"))][1];
-      ta.focus();
-    });
-  });
+  var pick = $("#dk-ai-skill");
+  function skillNote() {
+    if (!pick) return;
+    AI.skill = pick.value;
+    var k = s.skills.filter(function (x) { return String(x.id) === pick.value; })[0];
+    $("#dk-ai-skill-note").textContent = k ? k.description + (k.writes ? "" : " Answers in this panel; your draft is not changed.") : "";
+    $("#dk-ai-text").placeholder = k ? "Optional: the story, the question or anything to add"
+      : "What should it do with this draft?";
+  }
+  if (pick) { pick.addEventListener("change", skillNote); skillNote(); }
   $("#dk-ai-form").addEventListener("submit", function (e) {
     e.preventDefault();
-    runAI($("#dk-ai-text").value);
+    runAI($("#dk-ai-text").value, pick ? pick.value : "");
   });
   drawJob();
 }
@@ -303,9 +310,9 @@ function saveProvider(p) {
 
 /* ---------------------------------------------------------------- a run */
 
-function runAI(text) {
+function runAI(text, skillId, onFail) {
   text = (text || "").trim();
-  if (!text) { $("#dk-ai-text").focus(); return; }
+  if (!text && !skillId) { $("#dk-ai-text").focus(); return; }
   var b = $("#dk-ai-run");
   b.disabled = true;
   b.textContent = "Saving your draft…";
@@ -313,17 +320,18 @@ function runAI(text) {
   saveNow().then(function () {
     if (S.seq !== S.savedSeq) throw new Error("Your latest changes are not saved yet; try again in a moment.");
     b.textContent = "Starting…";
-    return send("POST", "/research/articles/" + ID + "/ai", { instruction: text });
+    return send("POST", "/research/articles/" + ID + "/ai", { instruction: text, skill_id: skillId ? Number(skillId) : null });
   }).then(function (job) {
     AI.job = job;
     AI.lastInstruction = text;
     try { localStorage.setItem(aiKey(), job.id); } catch (e) { /* storage blocked */ }
-    pauseCanvas(true);
+    if (job.writes !== false) pauseCanvas(true);
     drawAI();
     followJob();
   }).catch(function (err) {
     b.disabled = false;
     b.textContent = "Run";
+    if (onFail) onFail();
     toast(err.message);
   });
 }
@@ -387,16 +395,41 @@ function drawJob() {
   var j = AI.job;
   if (!el || !j) return;
   var steps = j.steps || [];
+  var list = steps.length ? '<ol class="dk-ai-steps">' + steps.map(function (s) {
+    return '<li class="' + (s.kind === "error" ? "bad" : "") + '">' + escapeHtml(s.text) + "</li>";
+  }).join("") + "</ol>" : "";
+  // while it works the steps are the news; once it is done the answer is
   el.innerHTML =
     '<div class="dk-ai-head"><span class="dk-flabel">' + escapeHtml(AI_STATUS[j.status] || "") +
+    (j.skill ? " · " + escapeHtml(j.skill) : "") +
     (j.provider_label ? " · " + escapeHtml(j.provider_label) : "") + "</span>" +
     (j.seconds !== undefined ? '<span class="num muted">' + fmtSecs(j.seconds) + "</span>" : "") + "</div>" +
-    (steps.length ? '<ol class="dk-ai-steps">' + steps.map(function (s) {
-      return '<li class="' + (s.kind === "error" ? "bad" : "") + '">' + escapeHtml(s.text) + "</li>";
-    }).join("") + "</ol>" : (j.status === "running" ? '<p class="muted">Reading the draft…</p>' : "")) +
-    (j.reply ? '<div class="dk-ai-reply">' + escapeHtml(j.reply).replace(/\n/g, "<br>") + "</div>" : "") +
+    (j.status === "running" ? (list || '<p class="muted">Reading the draft…</p>') : "") +
+    (j.reply ? '<div class="dk-ai-reply">' + replyHtml(j.reply) + "</div>" : "") +
+    (j.status === "done" && j.next && j.next.length
+      ? '<div class="dk-ai-next">' + j.next.map(function (o, i) {
+          return '<button type="button" class="btn" data-next="' + i + '" title="' +
+            escapeHtml((o.skill ? o.skill + ": " : "") + o.instruction) + '">' + escapeHtml(o.label) + "</button>";
+        }).join("") + "</div>"
+      : "") +
     (j.error ? '<p class="bad">' + escapeHtml(j.error) + "</p>" : "") +
-    (undoable(j) ? '<button type="button" class="btn" id="dk-ai-undo">Undo AI Changes</button>' : "");
+    (undoable(j) ? '<button type="button" class="btn" id="dk-ai-undo">Undo AI Changes</button>' : "") +
+    (j.status !== "running" && list
+      ? '<details class="dk-ai-trail"><summary>Show the ' + steps.length + (steps.length === 1 ? " step" : " steps") +
+        " it took</summary>" + list + "</details>"
+      : "");
+  $all("[data-next]", el).forEach(function (b) {
+    b.addEventListener("click", function () {
+      var o = j.next[Number(b.getAttribute("data-next"))];
+      AI.skill = o.skill_id ? String(o.skill_id) : "";
+      $all("[data-next]", el).forEach(function (x) { x.disabled = true; });
+      b.textContent = "Starting…";
+      runAI(o.instruction, o.skill_id ? String(o.skill_id) : "", function () {
+        $all("[data-next]", el).forEach(function (x) { x.disabled = false; });
+        b.textContent = o.label;
+      });
+    });
+  });
   var u = $("#dk-ai-undo");
   if (u) u.addEventListener("click", function () {
     u.disabled = true;
@@ -416,6 +449,58 @@ function drawJob() {
 function undoable(j) {
   return j.status !== "running" && j.changed && j.before_history_id &&
     (j.revision_after === undefined || j.revision_after === null || j.revision_after === S.base);
+}
+
+/* The model's reply, read as light Markdown: paragraphs, headings, "- " and
+   "1. " lists, pipe tables, **bold**, `code` and [links](https://…). Everything is escaped first, so nothing the
+   model writes becomes markup of its own. */
+function replyHtml(text) {
+  function inline(t) {
+    return escapeHtml(t).replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>").replace(/`([^`]+)`/g, "<code>$1</code>")
+      .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+|\/[^\s)]*)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  }
+  function cells(line) {
+    return line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map(function (c) { return c.trim(); });
+  }
+  var out = [], lines = String(text).replace(/\r/g, "").split("\n"), i = 0;
+  while (i < lines.length) {
+    var line = lines[i];
+    if (/^\s*\|/.test(line)) {
+      var rows = [];
+      while (i < lines.length && /^\s*\|/.test(lines[i])) { rows.push(lines[i]); i++; }
+      rows = rows.filter(function (r) { return !/^\s*\|?\s*:?-{2,}/.test(r); });
+      out.push('<table class="dk-ai-table" data-no-enhance><thead><tr>' + cells(rows[0]).map(function (c) { return "<th>" + inline(c) + "</th>"; }).join("") +
+        "</tr></thead><tbody>" + rows.slice(1).map(function (r) {
+          return "<tr>" + cells(r).map(function (c) { return "<td>" + inline(c) + "</td>"; }).join("") + "</tr>";
+        }).join("") + "</tbody></table>");
+    } else if (/^\s*#{1,4} /.test(line)) {
+      out.push('<p class="dk-ai-h">' + inline(line.replace(/^\s*#{1,4} /, "")) + "</p>");
+      i++;
+    } else if (/^\s*\d+[.)] /.test(line)) {
+      // one list even when the items are spaced by blank lines, numbered from its first item
+      var steps = [], first = parseInt(line, 10);
+      while (i < lines.length) {
+        if (/^\s*\d+[.)] /.test(lines[i])) steps.push(lines[i].replace(/^\s*\d+[.)] /, ""));
+        else if (/^\s{2,}\S/.test(lines[i])) steps[steps.length - 1] += " " + lines[i].trim();
+        else if (!lines[i].trim() && /^\s*\d+[.)] /.test(lines[i + 1] || "")) { /* gap between items */ }
+        else break;
+        i++;
+      }
+      out.push("<ol" + (first > 1 ? ' start="' + first + '"' : "") + ">" +
+        steps.map(function (x) { return "<li>" + inline(x) + "</li>"; }).join("") + "</ol>");
+    } else if (/^\s*[-*] /.test(line)) {
+      var items = [];
+      while (i < lines.length && /^\s*[-*] /.test(lines[i])) { items.push(lines[i].replace(/^\s*[-*] /, "")); i++; }
+      out.push("<ul>" + items.map(function (x) { return "<li>" + inline(x) + "</li>"; }).join("") + "</ul>");
+    } else if (line.trim()) {
+      var para = [];
+      while (i < lines.length && lines[i].trim() && !/^\s*(\||[-*] |\d+[.)] |#{1,4} )/.test(lines[i])) { para.push(lines[i]); i++; }
+      out.push("<p>" + para.map(inline).join("<br>") + "</p>");
+    } else {
+      i++;
+    }
+  }
+  return out.join("");
 }
 
 function fmtSecs(n) {

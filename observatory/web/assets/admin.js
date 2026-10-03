@@ -21,6 +21,7 @@ var ADMIN_NAV = [
   ]},
   { group: "Research", pages: [
     { id: "articles", label: "Articles", hash: "#articles", perm: "writing" },
+    { id: "ai", label: "AI Setup", hash: "#ai", perm: "writing" },
   ]},
   { group: "Classification", pages: [
     { id: "queue", label: "Classification Queue", hash: "#queue", perm: "classification" },
@@ -275,6 +276,7 @@ function route() {
   if (!target) return;
   disposeTrafficChart();  // the view about to be replaced may own it
   if (view === "articles") viewArticles(target);
+  else if (view === "ai") viewAISetup(target);
   else if (view === "team") viewTeam(target);
   else if (view === "account") viewAccount(target);
   else if (view === "vintages") viewVintages(target, arg);

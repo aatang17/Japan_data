@@ -5,7 +5,8 @@ shell, file and browser tools switched off, so the run can do only this: read
 and change the one draft it was started on (as the writer, "via Codex" or "via
 Claude" in the history), run the publish checklist, read a web page through
 the desk's guarded reader, and read the platform's data through the same
-functions that serve /api/v1. The spec file names the writer, the article and
+functions that serve /api/v1. A run on an answer-only skill (spec read_only)
+is not offered the tools that change the draft. The spec file names the writer, the article and
 a call log the desk reads to show progress.
 
 Every tool is annotated read-only: Codex in exec mode cancels any tool not so
@@ -19,7 +20,7 @@ import json
 import sys
 import time
 
-from . import research_ai, staff
+from . import research_ai, staff, staff_google
 
 PROTOCOL = "2025-06-18"
 
@@ -29,12 +30,17 @@ class Context(object):
         person = staff.get(spec["staff_id"])
         if person is None:
             raise SystemExit("no such person")
-        self.ctx = {"person": person, "client": spec["client"], "article_id": spec["article_id"]}
+        creds = spec.get("creds") or {}
+        if creds.get("google_token"):
+            staff_google.hand_token(person["id"], creds["google_token"])
+        self.ctx = {"person": person, "client": spec["client"], "article_id": spec["article_id"],
+                    "read_only": bool(spec.get("read_only")),
+                    "creds": {"connector_keys": creds.get("connector_keys") or {}}}
         self.log = spec.get("log")
         self.tools = [{"name": t["name"], "description": t["description"],
                        "inputSchema": t["parameters"],
                        "annotations": {"readOnlyHint": True, "openWorldHint": False}}
-                      for t in research_ai.tool_list()]
+                      for t in research_ai.tool_list(self.ctx)]
 
     def call(self, name, args):
         args = args if isinstance(args, dict) else {}

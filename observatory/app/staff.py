@@ -118,6 +118,52 @@ CREATE TABLE IF NOT EXISTS staff_ai (
   codex_email TEXT,
   updated_at INTEGER
 );
+CREATE TABLE IF NOT EXISTS team_skills (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  slug TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  instructions TEXT NOT NULL DEFAULT '',
+  enabled INTEGER NOT NULL DEFAULT 1,
+  writes INTEGER NOT NULL DEFAULT 1,
+  position INTEGER NOT NULL DEFAULT 100,
+  seed TEXT,
+  created_at INTEGER,
+  created_by TEXT,
+  updated_at INTEGER,
+  updated_by TEXT
+);
+CREATE TABLE IF NOT EXISTS team_connectors (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  label TEXT NOT NULL,
+  url TEXT NOT NULL,
+  auth_kind TEXT NOT NULL DEFAULT 'none',
+  header_name TEXT,
+  secret_ct TEXT,
+  secret_last4 TEXT,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  tools_json TEXT NOT NULL DEFAULT '[]',
+  off_tools_json TEXT NOT NULL DEFAULT '[]',
+  server_name TEXT,
+  checked_at INTEGER,
+  last_error TEXT,
+  created_at INTEGER,
+  created_by TEXT,
+  updated_at INTEGER,
+  updated_by TEXT
+);
+CREATE TABLE IF NOT EXISTS team_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT
+);
+CREATE TABLE IF NOT EXISTS staff_google (
+  staff_id INTEGER PRIMARY KEY,
+  email TEXT,
+  scopes TEXT,
+  ct TEXT NOT NULL,
+  connected_at INTEGER,
+  last_used_at INTEGER
+);
 CREATE TABLE IF NOT EXISTS staff_setup_tokens (
   token_hash TEXT PRIMARY KEY,
   staff_id INTEGER NOT NULL,
@@ -156,12 +202,27 @@ def conn():
             base = _open(DB_PATH)
             base.execute("PRAGMA journal_mode=WAL")
             base.executescript(SCHEMA)
+            _add_columns(base)
             base.commit()
             _conn = _Base(base, str(DB_PATH))
         base = _conn
     if getattr(_local, "base", None) is not base:
         _local.base, _local.conn = base, _open(DB_PATH)
     return _local.conn
+
+
+# Columns added to a table after its first release: (table, column, definition).
+LATER_COLUMNS = [
+    ("team_skills", "writes", "INTEGER NOT NULL DEFAULT 1"),
+    ("team_skills", "position", "INTEGER NOT NULL DEFAULT 100"),
+]
+
+
+def _add_columns(c):
+    for table, column, kind in LATER_COLUMNS:
+        have = [r[1] for r in c.execute("PRAGMA table_info(%s)" % table).fetchall()]
+        if column not in have:
+            c.execute("ALTER TABLE %s ADD COLUMN %s %s" % (table, column, kind))
 
 
 class _Base(object):
@@ -559,6 +620,19 @@ def set_ai(staff_id, **fields):
                       list(fields.values()) + [_now(), staff_id])
         c.commit()
     return ai_settings(staff_id)
+
+
+def team_setting(key, default=None):
+    row = conn().execute("SELECT value FROM team_settings WHERE key = ?", (key,)).fetchone()
+    return row["value"] if row else default
+
+
+def set_team_setting(key, value):
+    c = conn()
+    with _lock:
+        c.execute("INSERT INTO team_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE "
+                  "SET value = excluded.value", (key, value))
+        c.commit()
 
 
 def shared_person():

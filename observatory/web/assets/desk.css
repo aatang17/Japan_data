@@ -277,8 +277,12 @@ sup.dk-fn[data-note=""]::after { content: "[?]"; color: var(--obs-warn); }
   padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--obs-border); color: var(--obs-text); }
 .dk-ai-using .mono { font-size: 11.5px; color: var(--obs-text-muted); }
 .dk-ai-form { display: flex; flex-direction: column; gap: 6px; }
-.dk-ai-ex { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0 4px; }
 .dk-ai-form .btn-primary { align-self: flex-start; }
+.dk-ai-form select { margin-bottom: 2px; }
+#dk-ai-skill-note { margin: 0 0 8px; }
+#dk-ai-skill-note:empty { display: none; }
+.dk-ai-reach { font-size: 12px; color: var(--obs-text-muted); margin: 12px 0 0; line-height: 1.5; }
+.dk-ai-reach a { color: var(--obs-primary); }
 .dk-ai-head { display: flex; justify-content: space-between; align-items: baseline; margin-top: 18px;
   padding-top: 12px; border-top: 1px solid var(--obs-border); }
 .dk-ai-head .num { font-size: 12px; font-variant-numeric: tabular-nums; }
@@ -288,6 +292,22 @@ sup.dk-fn[data-note=""]::after { content: "[?]"; color: var(--obs-warn); }
   background: var(--obs-text-muted); }
 .dk-ai-reply { margin: 10px 0; padding: 10px 12px; border-left: 3px solid var(--obs-primary);
   background: var(--obs-surface-subtle); color: var(--obs-ink); line-height: 1.5; }
+.dk-ai-reply p { margin: 0 0 8px; }
+.dk-ai-reply p:last-child, .dk-ai-reply ul:last-child, .dk-ai-reply ol:last-child,
+.dk-ai-reply table:last-child { margin-bottom: 0; }
+.dk-ai-reply ul, .dk-ai-reply ol { margin: 0 0 8px; padding-left: 18px; }
+.dk-ai-reply li { margin-bottom: 4px; }
+.dk-ai-reply .dk-ai-h { font-weight: 600; margin: 10px 0 4px; }
+.dk-ai-reply .dk-ai-h:first-child { margin-top: 0; }
+.dk-ai-trail { margin: 10px 0 0; font-size: 12.5px; }
+.dk-ai-trail summary { cursor: pointer; color: var(--obs-primary); }
+.dk-ai-trail .dk-ai-steps { margin-top: 4px; }
+.dk-ai-next { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin: 0 0 10px; }
+.dk-ai-next .btn { text-align: left; white-space: normal; }
+.dk-ai-table { width: 100%; border-collapse: collapse; font-size: 12px; margin: 0 0 8px; }
+.dk-ai-table th, .dk-ai-table td { text-align: left; padding: 4px 6px 4px 0; border-bottom: 1px solid var(--obs-border);
+  vertical-align: top; overflow-wrap: anywhere; }
+.dk-ai-table th { font-weight: 600; color: var(--obs-text-muted); }
 .dk-ai-prov { border: 0; padding: 0; margin: 0 0 12px; display: flex; flex-direction: column; gap: 6px; }
 .dk-ai-prov label { display: flex; gap: 6px; align-items: center; color: var(--obs-ink); }
 .dk-ai-ok { font-size: 11px; font-weight: 600; color: var(--obs-trust-official);

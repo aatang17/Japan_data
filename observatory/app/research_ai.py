@@ -17,6 +17,12 @@ It cannot publish, withdraw, delete, or touch another article, and every save
 is recorded as "<email> via <provider>" in the draft history, after a "Before
 AI" copy that the editor's Undo restores. One run per writer at a time.
 
+A run may follow one of the team's skills (app/skills.py). A skill that may
+not change the draft — Brainstorm, Review, Headlines — is run without the
+draft-changing tools, and the writer keeps editing while it works. Any run
+can end by offering next steps (offer_next_step), shown as buttons under its
+reply: "Plan This" on a brainstormed angle, "Draft It" under a plan.
+
 Secrets — API keys, the Claude Code token, the Codex sign-in — are sealed with
 the assistant keychain (ASSISTANT_SECRET) and opened only for the length of a
 run. The CLIs run with their shell, file and browser tools switched off, in an
@@ -37,7 +43,8 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
-from . import research, research_doc as rd, research_mcp, research_web, staff, tools_v2
+from . import (connectors, research, research_doc as rd, research_mcp, research_web,
+               skills, staff, staff_google, tools_v2)
 from .assistant import codex as codex_mod, gateway, keychain
 
 PROVIDERS = [
@@ -87,7 +94,21 @@ def settings_view(person):
         "codex": codex_status(person), "keychain": keychain.enabled(),
         "claude_available": shutil.which(CLAUDE_BIN) is not None,
         "codex_available": codex_mod.available(),
+        "skills": [{"id": k["id"], "name": k["name"], "description": k["description"],
+                    "writes": k["writes"]}
+                   for k in skills.list_skills(enabled_only=True)],
+        "reach": _reach(person),
     }
+
+
+def _reach(person):
+    """What a run can use beyond the draft, named for the writer."""
+    out = ["Plover data", "Web pages"]
+    if staff_google.usable(person["id"]):
+        out.append("Google Drive")
+    out += [c["label"] for c in connectors.list_connectors(enabled_only=True)
+            if any(t["on"] for t in c["tools"])]
+    return out
 
 
 def _ready(provider, s):
@@ -396,18 +417,77 @@ ARTICLE_TOOLS = [
      "parameters": _schema({"url": {"type": "string"}}, ["url"])},
 ]
 ARTICLE_TOOL_NAMES = set(t["name"] for t in ARTICLE_TOOLS)
+WRITE_TOOLS = ("replace_draft", "append_to_draft", "set_details")
+NEXT_MAX = 8
+LABEL_MAX = 48
+
+NEXT_TOOL = {
+    "name": "offer_next_step",
+    "description": "Put a button under your reply that starts another run on this draft when the "
+                   "writer clicks it: one per brainstormed angle, 'Draft It' under a plan, one per "
+                   "proposed chart. Call it once per button, at most %d times." % NEXT_MAX,
+    "parameters": _schema({
+        "label": {"type": "string", "description": "The button's text, up to %d characters, "
+                                                  "e.g. 'Plan This: Bank Margins'." % LABEL_MAX},
+        "instruction": {"type": "string", "description": "Everything the next run needs, written "
+                                                        "as an instruction to it."},
+        "skill": {"type": "string", "description": "Optional: the name of the team skill the next "
+                                                  "run follows, e.g. 'Plan'."}},
+        ["label", "instruction"])}
 
 
-def tool_list():
+SKILL_TOOL = {
+    "name": "read_skill",
+    "description": "Open one of the team's skills (listed in your instructions) and get its steps. "
+                   "Call it when the writer's instruction matches a skill, then follow the steps.",
+    "parameters": _schema({"name": {"type": "string", "description": "The skill's name."}}, ["name"])}
+
+DRIVE_TOOLS = [
+    {"name": "drive_search",
+     "description": "Search the writer's own Google Drive by file name and text. Returns ids, "
+                    "names, types and links, newest first.",
+     "parameters": _schema({"query": {"type": "string"}})},
+    {"name": "drive_read",
+     "description": "Read one file from the writer's Google Drive as text (a Doc as text, a Sheet "
+                    "as CSV, a PDF's text). Give its id from drive_search, or its link.",
+     "parameters": _schema({"file": {"type": "string", "description": "File id or link."}}, ["file"])},
+]
+
+
+def tool_list(ctx=None):
+    """Everything a run may call: the draft tools, the team's skills, Plover's
+    data, the writer's Google Drive when connected, and every connector tool
+    the team has switched on."""
     data = [{"name": d["name"], "description": d["description"], "parameters": d["inputSchema"]}
             for d in tools_v2.descriptors()]
-    return ARTICLE_TOOLS + data
+    read_only = (ctx or {}).get("read_only")
+    out = [t for t in ARTICLE_TOOLS if not (read_only and t["name"] in WRITE_TOOLS)]
+    out += [SKILL_TOOL, NEXT_TOOL] + data
+    person = (ctx or {}).get("person")
+    if person and staff_google.usable(person["id"]):
+        out += DRIVE_TOOLS
+    out += [dict((k, t[k]) for k in ("name", "description", "parameters")) for t in connectors.run_tools()]
+    return out
 
 
 def call_tool(ctx, name, args):
     """(text, is_error) for one tool call within a job context."""
     args = args if isinstance(args, dict) else {}
     person, client, aid = ctx["person"], ctx["client"], ctx["article_id"]
+    if name in WRITE_TOOLS and ctx.get("read_only"):
+        return json.dumps({"error": "This run answers only: it cannot change the draft. "
+                                    "Put your answer in your reply."}), True
+    if name == "offer_next_step":
+        try:
+            offer = clean_offer(args)
+        except AIError as exc:
+            return json.dumps({"error": str(exc)}), True
+        offers = ctx.get("offers")
+        if offers is not None:
+            if len(offers) >= NEXT_MAX:
+                return json.dumps({"error": "That is %d buttons already, the most a reply shows." % NEXT_MAX}), True
+            offers.append(offer)
+        return json.dumps({"ok": True, "button": offer["label"]}), False
     if name in ARTICLE_TOOL_NAMES:
         if name == "read_page":
             try:
@@ -431,23 +511,91 @@ def call_tool(ctx, name, args):
     if name in tools_v2.IMPLS:
         text, err = tools_v2.run_tool(name, args)
         return text[:TOOL_TEXT_MAX], err
+    if name == "read_skill":
+        sk = skills.get(str(args.get("name") or ""))
+        if sk is None or not sk["enabled"]:
+            return json.dumps({"error": "No skill called '%s'. The skills are: %s."
+                               % (args.get("name"), ", ".join(x["name"] for x in skills.list_skills(True)))}), True
+        return json.dumps({"name": sk["name"], "steps": sk["instructions"]}, ensure_ascii=False), False
+    if name in ("drive_search", "drive_read"):
+        if not staff_google.usable(person["id"]):
+            return json.dumps({"error": "Google Drive is not connected for this writer."}), True
+        try:
+            if name == "drive_search":
+                return json.dumps({"files": staff_google.search(person["id"], args.get("query"))},
+                                  ensure_ascii=False), False
+            return json.dumps(staff_google.read(person["id"], str(args.get("file") or "")),
+                              ensure_ascii=False)[:TOOL_TEXT_MAX * 2], False
+        except staff_google.GoogleError as exc:
+            return json.dumps({"error": str(exc)}), True
+    for t in connectors.run_tools():
+        if t["name"] == name:
+            keys = (ctx.get("creds") or {}).get("connector_keys")
+            text, err = connectors.call(t["connector_id"], t["remote"], args,
+                                        key=None if keys is None else keys.get(str(t["connector_id"])),
+                                        key_given=keys is not None)
+            return text[:TOOL_TEXT_MAX], err
     return json.dumps({"error": "Unknown tool '%s'." % name}), True
+
+
+def clean_offer(args):
+    """A next step as the writer will see it, or AIError worded for the model."""
+    label = " ".join(str(args.get("label") or "").split())
+    instruction = str(args.get("instruction") or "").strip()
+    if not label or not instruction:
+        raise AIError("A next step needs a label and an instruction.")
+    if len(label) > LABEL_MAX:
+        label = label[:LABEL_MAX - 1].rstrip() + "…"
+    out = {"label": label, "instruction": instruction[:4000], "skill_id": None, "skill": None}
+    name = str(args.get("skill") or "").strip()
+    if name:
+        sk = skills.get(name)
+        if sk is None or not sk["enabled"]:
+            raise AIError("No skill called '%s'. The skills are: %s. Leave skill empty to "
+                          "use none." % (name, ", ".join(x["name"] for x in skills.list_skills(True))))
+        out["skill_id"], out["skill"] = sk["id"], sk["name"]
+    return out
 
 
 # ---------------------------------------------------------------------------
 # jobs
 
-def _system(article, person):
+def _system(article, person, skill=None):
     d = article["draft"]
-    return (
-        "You are the writing assistant inside the PloverResearch editor, working for %s on "
-        "one draft: article %d, \"%s\". The writer gives you an instruction; carry it out on "
-        "this draft with the tools, then reply with two to four plain sentences to the writer: "
-        "what you changed and anything they should check. You cannot publish; the writer does.\n\n"
-        "Call get_draft first. Change the draft only with replace_draft, append_to_draft and "
-        "set_details. Keep the writer's own text unless the instruction asks you to change it.\n\n"
-        % (person["name"], article["id"], d.get("title") or "Untitled")
-    ) + research_mcp.RULES
+    read_only = bool(skill) and not skill["writes"]
+    menu = skills.list_skills(enabled_only=True)
+    extra = "House style for everything you write in the draft:\n" + skills.house_style() + "\n\n"
+    if menu:
+        extra += ("The team's skills (open one with read_skill when the instruction matches it):\n"
+                  + skills.menu_text(menu) + "\n\n")
+    if skill:
+        extra += ("The writer chose the skill \"%s\" for this run. Follow its steps:\n\n%s\n\n"
+                  % (skill["name"], skill["instructions"]))
+    lines = [c["label"] for c in connectors.list_connectors(enabled_only=True) if c["tools"]]
+    if staff_google.usable(person["id"]):
+        lines.insert(0, "the writer's Google Drive (drive_search, drive_read)")
+    if lines:
+        extra += ("Also connected: %s. Use them when the instruction needs them; say in your "
+                  "reply which you used.\n\n" % ", ".join(lines))
+    head = ("You are the writing assistant inside the PloverResearch editor, working for %s on "
+            "one draft: article %d, \"%s\". You cannot publish; the writer does.\n\n"
+            % (person["name"], article["id"], d.get("title") or "Untitled"))
+    if read_only:
+        head += ("This run answers only: you cannot change the draft, and the writer may keep "
+                 "editing it while you work. Call get_draft first. Your reply is what the writer "
+                 "reads, in the panel beside the draft: follow the skill's format. Numbered and "
+                 "bulleted lists, pipe tables and **bold** are shown as such.\n\n")
+    else:
+        head += ("The writer gives you an instruction; carry it out on this draft with the tools, "
+                 "then reply to the writer in two to four plain sentences (unless the skill sets "
+                 "another format): what you changed and anything they should check.\n\n"
+                 "Call get_draft first. Change the draft only with replace_draft, append_to_draft and "
+                 "set_details. Keep the writer's own text unless the instruction asks you to change "
+                 "it.\n\n")
+    head += ("offer_next_step puts a button under your reply that starts another run with the "
+             "instruction (and skill) you give. Offer one when the skill says to, or when there is "
+             "an obvious next step; never more than %d.\n\n" % NEXT_MAX)
+    return head + extra + research_mcp.RULES
 
 
 def _log(job, kind, text):
@@ -473,11 +621,29 @@ def _describe(name, args):
         return "Searched Plover for \"%s\"" % (args.get("query") or "")
     if name == "get_series":
         return "Read series %s" % (args.get("codes") or args.get("code") or args.get("dataset") or "")
+    if name == "read_skill":
+        return "Opened the skill \"%s\"" % (args.get("name") or "")
+    if name == "offer_next_step":
+        return "Offered a next step: %s" % (args.get("label") or "")
+    if name == "drive_search":
+        return "Searched Google Drive for \"%s\"" % (args.get("query") or "")
+    if name == "drive_read":
+        return "Read a file from Google Drive"
+    m = re.match(r"^x(\d+)_(.+)$", name)
+    if m:
+        c = connectors.get(int(m.group(1)))
+        return "Used %s: %s" % (c["label"] if c else "a connector", m.group(2).replace("_", " "))
     return "Used %s" % name.replace("_", " ")
 
 
-def start(person, article_id, instruction):
+def start(person, article_id, instruction, skill_id=None):
     instruction = (instruction or "").strip()
+    skill = None
+    if skill_id:
+        skill = skills.get(int(skill_id))
+        if skill is None or not skill["enabled"]:
+            raise AIError("That skill is no longer available.")
+        instruction = instruction or "Follow the skill on this draft."
     if not instruction:
         raise AIError("Tell the AI what to do.")
     if len(instruction) > 8000:
@@ -489,19 +655,22 @@ def start(person, article_id, instruction):
     provider = s["provider"]
     if not provider or not _ready(provider, s):
         raise AIError("Choose and connect a provider first.")
+    writes = not skill or skill["writes"]
     with _jobs_lock:
         busy = _running.get(person["id"])
         if busy and _jobs.get(busy, {}).get("status") == "running":
             raise AIError("The AI is still working on your last instruction.")
-        before = research.mark(article_id, staff.actor_label(person), "Before AI")
+        before = research.mark(article_id, staff.actor_label(person), "Before AI") if writes else None
         job = {"id": uuid.uuid4().hex[:16], "status": "running", "steps": [], "reply": "",
                "error": None, "article_id": article_id, "staff_id": person["id"],
                "provider": provider, "started": time.time(), "finished": None,
-               "before_history_id": before, "revision_before": article["revision"]}
+               "before_history_id": before, "revision_before": article["revision"],
+               "skill": skill["name"] if skill else None, "writes": writes, "next": []}
         _jobs[job["id"]] = job
         _running[person["id"]] = job["id"]
-    ctx = {"person": person, "client": CLIENT[provider], "article_id": article_id}
-    threading.Thread(target=_run, args=(job, ctx, s, instruction, article), daemon=True).start()
+    ctx = {"person": person, "client": CLIENT[provider], "article_id": article_id,
+           "read_only": not writes, "offers": job["next"]}
+    threading.Thread(target=_run, args=(job, ctx, s, instruction, article, skill), daemon=True).start()
     return public(job)
 
 
@@ -509,10 +678,12 @@ def public(job):
     a = research.get(job["article_id"])
     return {"id": job["id"], "status": job["status"], "steps": job["steps"], "reply": job["reply"],
             "error": job["error"], "provider": job["provider"],
-            "provider_label": PROVIDER_LABEL.get(job["provider"]),
+            "provider_label": PROVIDER_LABEL.get(job["provider"]), "skill": job.get("skill"),
             "before_history_id": job["before_history_id"],
             "revision_after": job.get("revision_after"),
-            "changed": bool(a) and a["revision"] != job["revision_before"],
+            "writes": job.get("writes", True), "next": job.get("next") or [],
+            # an answer-only run changes nothing; the writer's own saves are theirs
+            "changed": job.get("writes", True) and bool(a) and a["revision"] != job["revision_before"],
             "revision": a["revision"] if a else None,
             "seconds": round((job["finished"] or time.time()) - job["started"])}
 
@@ -524,10 +695,10 @@ def get_job(person, job_id):
     return public(job)
 
 
-def _run(job, ctx, s, instruction, article):
+def _run(job, ctx, s, instruction, article, skill=None):
     try:
         provider = s["provider"]
-        system = _system(article, ctx["person"])
+        system = _system(article, ctx["person"], skill)
         if provider in ("openai", "anthropic"):
             reply = _run_api(job, ctx, provider, _open(s["key_ct"]),
                              s["model"] or DEFAULT_MODEL[provider], system, instruction)
@@ -552,7 +723,7 @@ def _run(job, ctx, s, instruction, article):
 def _run_api(job, ctx, provider, key, model, system, instruction):
     if not key:
         raise AIError("The stored key could not be read; paste it again.")
-    tools = tool_list()
+    tools = tool_list(ctx)
     messages = [{"role": "system", "content": system}, {"role": "user", "content": instruction}]
     for _ in range(MAX_STEPS):
         out = gateway.complete(provider, key, model, messages, tools, max_tokens=8000)
@@ -573,10 +744,31 @@ def _run_api(job, ctx, provider, key, model, system, instruction):
 def _spec_file(job, ctx, work):
     path = os.path.join(work, "spec.json")
     log = os.path.join(work, "calls.jsonl")
-    with open(path, "w") as f:
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
         json.dump({"staff_id": ctx["person"]["id"], "article_id": ctx["article_id"],
-                   "client": ctx["client"], "log": log}, f)
+                   "client": ctx["client"], "log": log, "read_only": bool(ctx.get("read_only")),
+                   "creds": _run_creds(ctx["person"])}, f)
     return path, log
+
+
+def _run_creds(person):
+    """What the CLI's tool server needs to reach Drive and the connectors,
+    without the keychain's master secret: an hour-long Google access token
+    and each connector's key, in a 0600 file deleted with the run."""
+    out = {"google_token": None, "connector_keys": {}}
+    if staff_google.usable(person["id"]):
+        try:
+            out["google_token"] = staff_google._token(person["id"])
+        except staff_google.GoogleError:
+            pass
+    for c in connectors.list_connectors(enabled_only=True, with_secret=True):
+        if c.get("_secret_ct"):
+            try:
+                out["connector_keys"][str(c["id"])] = connectors._secret(c)
+            except connectors.ConnectorError:
+                pass
+    return out
 
 
 def _child_env():
@@ -600,7 +792,9 @@ def _follow(job, log_path, stop):
             try:
                 ev = json.loads(line)
                 _log(job, "error" if ev.get("error") else "tool", _describe(ev["name"], ev.get("args")))
-            except (ValueError, KeyError):
+                if ev["name"] == "offer_next_step" and not ev.get("error") and len(job["next"]) < NEXT_MAX:
+                    job["next"].append(clean_offer(ev.get("args") or {}))
+            except (ValueError, KeyError):         # AIError is a ValueError
                 pass
         seen = len(lines)
         if last:
@@ -817,7 +1011,8 @@ class ModelsBody(BaseModel):
 
 
 class RunBody(BaseModel):
-    instruction: str
+    instruction: str = ""
+    skill_id: Optional[int] = None
 
 
 @router.get("/ai")
@@ -876,7 +1071,7 @@ def ai_codex_status(request: Request):
 def ai_run(article_id: int, body: RunBody, request: Request):
     person = _person(request)
     try:
-        job = start(person, article_id, body.instruction)
+        job = start(person, article_id, body.instruction, body.skill_id)
     except AIError as exc:
         raise HTTPException(400, str(exc))
     _audit(request, person, "research_ai_run", "article %d via %s" % (
