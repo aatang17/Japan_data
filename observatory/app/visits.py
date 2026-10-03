@@ -512,8 +512,8 @@ def is_hosting(network):
 
 def _kind(path):
     """What was asked for. None means "do not count at all"."""
-    if path.startswith("/admin") or path.startswith("/desk"):
-        return None  # the console and the research desk are not traffic
+    if path.startswith("/admin") or path.startswith("/desk") or path.startswith("/clip"):
+        return None  # the console, the research desk and Send to Plover are not traffic
     if path.startswith(PING_PATH) or path.startswith(CONSENT_PATH):
         # The page telling us it is open, and the reader answering the banner.
         # Both are handled where they land; counting them here would turn one

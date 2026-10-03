@@ -28,6 +28,7 @@ from .research_pages import router as research_router  # noqa: E402
 from .research_mcp import router as research_mcp_router  # noqa: E402
 from .research_ai import router as research_ai_router  # noqa: E402
 from .ai_setup_api import router as ai_setup_router  # noqa: E402
+from .research_clips import router as research_clips_router  # noqa: E402
 from . import accounts  # noqa: E402
 from . import assistant  # noqa: E402
 from .assistant import api as assistant_api  # noqa: E402
@@ -260,6 +261,9 @@ app.include_router(research_router)
 app.include_router(research_mcp_router)
 app.include_router(research_ai_router)
 app.include_router(ai_setup_router)
+# Pages a writer sends from their own browser (Send to Plover), to read what
+# they subscribe to. Per person, under /admin/api like the rest of the desk.
+app.include_router(research_clips_router)
 # Accounts only exist where ACCOUNTS_ENABLED says so. Absent, every
 # /api/v1/account/… path 404s, and the sign-in page reads that as "not switched
 # on" rather than showing a form that cannot work. Its responses are per-reader

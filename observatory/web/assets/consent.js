@@ -20,8 +20,8 @@
   var METHODOLOGY = "methodology.html#cookies";
 
   /* The console and the research desk are not readership and never ask
-     their reader anything. */
-  if (/\/(admin|desk)(\.html)?$/.test(location.pathname)) return;
+     their reader anything; nor does the Send to Plover window. */
+  if (/\/(admin|desk|clip)(\.html)?$/.test(location.pathname)) return;
 
   function cookie(name) {
     var parts = ("; " + document.cookie).split("; " + name + "=");

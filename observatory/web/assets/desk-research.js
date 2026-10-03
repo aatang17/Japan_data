@@ -505,7 +505,8 @@ function renderResearchPane() {
     "into the draft.</p>" +
     '<form class="dk-rs-form" id="dk-rs-rform"><input type="url" id="dk-rs-url" placeholder="https://\u2026" aria-label="Page address">' +
     '<button type="submit" class="dk-mini">Read</button></form>' +
-    '<div id="dk-rs-wres" class="dk-rs-res"></div></div>';
+    '<div id="dk-rs-wres" class="dk-rs-res"></div>' +
+    '<div id="dk-rs-clips"></div></div>';
 
   $all("[data-rs]", box).forEach(function (b) {
     b.addEventListener("click", function () {
@@ -516,6 +517,7 @@ function renderResearchPane() {
   });
   $("#dk-rs-dform").addEventListener("submit", function (e) { e.preventDefault(); dataSearch($("#dk-rs-dq").value); });
   $("#dk-rs-rform").addEventListener("submit", function (e) { e.preventDefault(); webRead($("#dk-rs-url").value); });
+  renderClips();
 }
 
 /* ---- Plover data ---- */
@@ -645,8 +647,10 @@ function insertValue(s, btn) {
 
 function citation(page) {
   var when = page.published && /^\d{4}-\d{2}-\d{2}/.test(page.published) ? ", " + dateLong(page.published) : "";
+  // A page sent from the writer's browser was read on the day it was sent.
+  var read = page.sent_at ? new Date(page.sent_at * 1000).toISOString().slice(0, 10) : todayIso();
   return (page.author ? page.author + ", " : "") + (page.title || page.url) + ". " +
-    (page.site ? page.site + when + ". " : "") + page.url + " (accessed " + dateLong(todayIso()) + ").";
+    (page.site ? page.site + when + ". " : "") + page.url + " (accessed " + dateLong(read) + ").";
 }
 
 function citePage(page) {
@@ -658,29 +662,40 @@ function webRead(url) {
   var res = $("#dk-rs-wres");
   if (!(url || "").trim()) return;
   res.innerHTML = '<p class="muted">Reading the page…</p>';
-  send("POST", "/research/web/read", { url: url.trim() }).then(function (page) {
-    S.rsPage = page;
-    res.innerHTML =
-      '<div class="dk-reader">' +
-      '<p class="dk-reader-src"><a href="' + escapeHtml(page.url) + '" target="_blank" rel="noopener noreferrer">' +
-      escapeHtml(page.site || page.url) + "</a>" + (page.published ? " · " + escapeHtml(dateLong(page.published) || page.published) : "") + "</p>" +
-      '<p class="dk-reader-title">' + escapeHtml(page.title || page.url) + "</p>" +
-      '<div class="dk-reader-acts"><button type="button" class="dk-mini" id="dk-rd-cite">Cite This Page</button>' +
-      '<button type="button" class="dk-mini" id="dk-rd-quote">Quote Selection</button></div>' +
-      '<div class="dk-reader-text" id="dk-reader-text">' +
-      (page.pdf ? '<p>This is a PDF. Open it to read it; citing it works from here.</p>'
-        : page.blocks.map(function (b) {
-          return b.kind === "h" ? "<p><strong>" + escapeHtml(b.text) + "</strong></p>"
-            : (b.kind === "quote" ? "<blockquote>" + escapeHtml(b.text) + "</blockquote>" : "<p>" + escapeHtml(b.text) + "</p>");
-        }).join("") || "<p>No readable text was found on this page.</p>") +
-      "</div></div>";
-    $("#dk-rd-cite").addEventListener("click", function () { citePage(page); });
-    $("#dk-rd-quote").addEventListener("click", function () {
-      var s = window.getSelection();
-      var text = s && s.rangeCount && $("#dk-reader-text").contains(s.anchorNode) ? s.toString().replace(/\s+/g, " ").trim() : "";
-      if (!text) { toast("Select the passage to quote in the page text first."); return; }
-      insertAfterCaretBlock({ type: "quote", html: escapeHtml(text) + noteSup(citation(page)) });
-      toast("Quotation added with its footnote.");
-    });
-  }).catch(function (err) { res.innerHTML = '<p class="bad">' + escapeHtml(err.message) + "</p>"; });
+  send("POST", "/research/web/read", { url: url.trim() }).then(showPage)
+    .catch(function (err) { res.innerHTML = '<p class="bad">' + escapeHtml(err.message) + "</p>"; });
+}
+
+/* A page in the reader: one read by address, or one sent from the writer's
+   browser (desk-clip.js). */
+function showPage(page) {
+  var res = $("#dk-rs-wres");
+  var chars = (page.blocks || []).reduce(function (n, b) { return n + b.text.length; }, 0);
+  S.rsPage = page;
+  res.innerHTML =
+    '<div class="dk-reader">' +
+    '<p class="dk-reader-src"><a href="' + escapeHtml(page.url) + '" target="_blank" rel="noopener noreferrer">' +
+    escapeHtml(page.site || page.url) + "</a>" + (page.published ? " · " + escapeHtml(dateLong(page.published) || page.published) : "") + "</p>" +
+    '<p class="dk-reader-title">' + escapeHtml(page.title || page.url) + "</p>" +
+    (page.sent ? '<p class="dk-reader-sent">Sent from your browser on ' + escapeHtml(dateLong(new Date(page.sent_at * 1000).toISOString())) +
+      (page.selection ? ": the passage you selected" : "") + ".</p>"
+      : (!page.pdf && chars < 1500 ? '<p class="dk-reader-sent">Only a short part of this page came through. If the site needs a ' +
+        "subscription, open the article in your browser and use Send to Plover, below.</p>" : "")) +
+    '<div class="dk-reader-acts"><button type="button" class="dk-mini" id="dk-rd-cite">Cite This Page</button>' +
+    '<button type="button" class="dk-mini" id="dk-rd-quote">Quote Selection</button></div>' +
+    '<div class="dk-reader-text" id="dk-reader-text">' +
+    (page.pdf ? '<p>This is a PDF. Open it to read it; citing it works from here.</p>'
+      : page.blocks.map(function (b) {
+        return b.kind === "h" ? "<p><strong>" + escapeHtml(b.text) + "</strong></p>"
+          : (b.kind === "quote" ? "<blockquote>" + escapeHtml(b.text) + "</blockquote>" : "<p>" + escapeHtml(b.text) + "</p>");
+      }).join("") || "<p>No readable text was found on this page.</p>") +
+    "</div></div>";
+  $("#dk-rd-cite").addEventListener("click", function () { citePage(page); });
+  $("#dk-rd-quote").addEventListener("click", function () {
+    var s = window.getSelection();
+    var text = s && s.rangeCount && $("#dk-reader-text").contains(s.anchorNode) ? s.toString().replace(/\s+/g, " ").trim() : "";
+    if (!text) { toast("Select the passage to quote in the page text first."); return; }
+    insertAfterCaretBlock({ type: "quote", html: escapeHtml(text) + noteSup(citation(page)) });
+    toast("Quotation added with its footnote.");
+  });
 }

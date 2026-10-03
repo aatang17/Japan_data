@@ -10,8 +10,10 @@ core CPI", "check every number"). The model works on that one draft only:
   title / standfirst / summary, run the publish checklist;
 * the platform's own read-only data tools (the public MCP set, tools_v2), so
   every number comes from the same functions as /api/v1;
-* read_page, the desk's guarded page reader; Codex and Claude Code may also
-  search the web with their own built-in search.
+* read_page, the desk's guarded page reader — or the writer's own copy of a
+  page they sent from their browser (research_clips.py), which is how a paid
+  article reaches the run; Codex and Claude Code may also search the web with
+  their own built-in search.
 
 It cannot publish, withdraw, delete, or touch another article, and every save
 is recorded as "<email> via <provider>" in the draft history, after a "Before
@@ -43,7 +45,7 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
-from . import (connectors, research, research_doc as rd, research_mcp, research_web,
+from . import (connectors, research, research_clips, research_doc as rd, research_mcp, research_web,
                skills, staff, staff_google, tools_v2)
 from .assistant import codex as codex_mod, gateway, keychain
 
@@ -413,8 +415,14 @@ ARTICLE_TOOLS = [
      "parameters": _schema({})},
     {"name": "read_page",
      "description": "Read a web page by its address and return its text, title, site and date, "
-                    "to quote or cite as a footnote.",
+                    "to quote or cite as a footnote. A page the writer sent from their own "
+                    "browser (a paid article they subscribe to: FT, WSJ, Nikkei) is read from "
+                    "that copy.",
      "parameters": _schema({"url": {"type": "string"}}, ["url"])},
+    {"name": "list_sent_pages",
+     "description": "The pages the writer sent from their own browser with Send to Plover, "
+                    "newest first: address, title, site and when. Read one with read_page.",
+     "parameters": _schema({})},
 ]
 ARTICLE_TOOL_NAMES = set(t["name"] for t in ARTICLE_TOOLS)
 WRITE_TOOLS = ("replace_draft", "append_to_draft", "set_details")
@@ -489,15 +497,25 @@ def call_tool(ctx, name, args):
             offers.append(offer)
         return json.dumps({"ok": True, "button": offer["label"]}), False
     if name in ARTICLE_TOOL_NAMES:
-        if name == "read_page":
-            try:
-                page = research_web.read(str(args.get("url") or ""))
-            except research_web.WebError as exc:
-                return json.dumps({"error": str(exc)}), True
-            text = "\n".join(b["text"] for b in page["blocks"])[:TOOL_TEXT_MAX]
-            return json.dumps({"url": page["url"], "title": page["title"], "site": page["site"],
-                               "published": page["published"], "text": text},
+        if name == "list_sent_pages":
+            return json.dumps({"pages": [dict((k, c[k]) for k in ("url", "title", "site", "published", "sent_at"))
+                                         for c in research_clips.list_for(person["id"])]},
                               ensure_ascii=False), False
+        if name == "read_page":
+            url = str(args.get("url") or "")
+            page = research_clips.find(person["id"], url) if url.strip() else None
+            if page is None:
+                try:
+                    page = research_web.read(url)
+                except research_web.WebError as exc:
+                    return json.dumps({"error": str(exc)}), True
+            text = "\n".join(b["text"] for b in page["blocks"])[:TOOL_TEXT_MAX]
+            out = {"url": page["url"], "title": page["title"], "site": page["site"],
+                   "published": page["published"], "text": text}
+            if page.get("sent"):
+                out["sent_from_browser"] = True
+                out["accessed"] = time.strftime("%Y-%m-%d", time.gmtime(page["sent_at"]))
+            return json.dumps(out, ensure_ascii=False), False
         cur = research.get(aid)
         if cur is None:
             return json.dumps({"error": "The article no longer exists."}), True
@@ -617,6 +635,8 @@ def _describe(name, args):
         return "Ran the publish checklist"
     if name == "read_page":
         return "Read %s" % (args.get("url") or "a page")
+    if name == "list_sent_pages":
+        return "Listed the pages you sent from your browser"
     if name == "search":
         return "Searched Plover for \"%s\"" % (args.get("query") or "")
     if name == "get_series":
