@@ -121,6 +121,8 @@ sup.dk-fn::after { content: "[" counter(fn) "]"; }
 sup.dk-fn[data-note=""]::after { content: "[?]"; color: var(--obs-warn); }
 
 /* ---------- figures: shared ---------- */
+.dk-block > .dk-del { position: absolute; top: -4px; right: 0; }
+.dk-block > .dk-del:hover { color: var(--obs-trust-stale); border-color: var(--obs-trust-stale); }
 .dk-fig-label { font-size: 11.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
   color: var(--obs-text-muted); margin-bottom: 6px; }
 .dk-fig-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; margin-top: 10px; }

@@ -47,7 +47,10 @@ For each page or feature you touched, try:
   - the example the screen itself shows (placeholder, hint, suggestion buttons);
   - clicking a button twice, and a slow reply;
   - an empty result, and an error (bad input, signed out, server down);
-  - the real page at 1440 and 390 if it changed how anything looks.
+  - the real page at 1440 and 390 if it changed how anything looks;
+  - could a first-time user do it with no help? Undo, delete and close in plain
+    sight; no silent wait; every failure says what to do next; nothing half-made
+    left behind (CLAUDE.md: the app must be VERY EASY TO USE).
 Then add one line to your reply, starting "Tried as a user:", listing what you
 tried and what happened. Cut what does not apply; never claim what you did not do."""
 

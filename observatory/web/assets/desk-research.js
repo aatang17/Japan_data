@@ -189,9 +189,13 @@ function captureNow(path) {
       var n = liveCharts(w).length + rawCharts(w, liveCharts(w)).length;
       if (n === last && n > 0) stable++; else { stable = 0; last = n; }
       if (stable >= 4) finish();
-      else if (Date.now() - started > 25000) {
-        if (n > 0) finish();
-        else finish(new Error("No charts appeared on that page. Check the address shows a chart for that view."));
+      else if (n === 0 && Date.now() - started > 12000) {
+        // A page that has drawn nothing in 12 seconds shows no chart at this
+        // address; waiting the full 25 only makes the writer wait to be told.
+        finish(new Error("That page shows no chart at this address. If it charts one company " +
+                         "at a time, open it, choose the company, and copy from that address."));
+      } else if (Date.now() - started > 25000) {
+        finish();
       }
     }, 500);
     document.body.appendChild(frame);
@@ -491,9 +495,9 @@ function renderResearchPane() {
     '<button type="button" role="tab" aria-selected="true" data-rs="data">Plover Data</button>' +
     '<button type="button" role="tab" aria-selected="false" data-rs="web">Web Page</button></div>' +
     '<div id="dk-rs-data">' +
-    '<form class="dk-rs-form" id="dk-rs-dform"><input type="search" id="dk-rs-dq" placeholder="Series or company, e.g. core CPI, 7203" aria-label="Search Plover data">' +
+    '<form class="dk-rs-form" id="dk-rs-dform"><input type="search" id="dk-rs-dq" placeholder="Series, company or topic, e.g. core CPI, 7203, CEO pay" aria-label="Search Plover data">' +
     '<button type="submit" class="dk-mini">Search</button></form>' +
-    '<div id="dk-rs-dres" class="dk-rs-res"><p class="hint">Find a series to chart or quote, or a company whose charts to copy. ' +
+    '<div id="dk-rs-dres" class="dk-rs-res"><p class="hint">Find a series to chart or quote, or a company or topic whose charts to copy. ' +
     'A value is inserted where your cursor was, with a footnote naming its source and date.</p></div></div>' +
     '<div id="dk-rs-web" hidden>' +
     '<p class="hint">Paste a page address to read it here, then cite it as a footnote or quote from it. ' +
@@ -521,7 +525,8 @@ function dataSearch(q) {
   if (!q.trim()) return;
   res.innerHTML = '<p class="muted">Searching…</p>';
   api("/research/data/search?q=" + encodeURIComponent(q)).then(function (r) {
-    if (!r.series.length && !r.companies.length) {
+    var pages = r.pages || [];
+    if (!r.series.length && !r.companies.length && !pages.length) {
       res.innerHTML = '<p class="muted">Nothing matches. Try a shorter name, or a series code.</p>';
       return;
     }
@@ -547,7 +552,23 @@ function dataSearch(q) {
           }).join("") + '</select><button type="button" class="dk-mini" data-ccopy="' + i + '">Copy a Chart</button>' +
           '<button type="button" class="dk-mini" data-copen="' + i + '">Open</button></span></li>';
       }).join("") + "</ul>" : "");
-    res.innerHTML = firstCo ? companyHtml + seriesHtml : seriesHtml + companyHtml;
+    // pages about the topic ("CEO compensation"): copy one of their charts
+    var pageHtml =
+      (pages.length ? '<p class="dk-rs-h">Pages</p><ul class="dk-rs-list">' + pages.map(function (pg, i) {
+        return '<li><span class="dk-rs-name" title="' + escapeHtml(pg.description) + '">' + escapeHtml(pg.title) +
+          ' <span class="mono muted">' + escapeHtml(pg.url.replace(/^\//, "")) + "</span></span>" +
+          '<span class="dk-rs-acts"><button type="button" class="dk-mini" data-pcopy="' + i + '">Copy a Chart</button>' +
+          '<button type="button" class="dk-mini" data-popen="' + i + '">Open</button></span></li>';
+      }).join("") + "</ul>" : "");
+    res.innerHTML = (firstCo ? companyHtml + seriesHtml : seriesHtml + companyHtml) + pageHtml;
+    $all("[data-pcopy]", res).forEach(function (b) {
+      b.addEventListener("click", function () { copyFromSearch(pages[Number(b.getAttribute("data-pcopy"))].url); });
+    });
+    $all("[data-popen]", res).forEach(function (b) {
+      b.addEventListener("click", function () {
+        window.open(pages[Number(b.getAttribute("data-popen"))].url, "_blank", "noopener");
+      });
+    });
     $all("[data-schart]", res).forEach(function (b) {
       b.addEventListener("click", function () {
         var s = r.series[Number(b.getAttribute("data-schart"))];
@@ -561,10 +582,7 @@ function dataSearch(q) {
     });
     $all("[data-ccopy]", res).forEach(function (b) {
       b.addEventListener("click", function () {
-        var i = b.getAttribute("data-ccopy");
-        var url = $('[data-cpage="' + i + '"]', res).value;
-        var el = insertAfterCaretBlock({ type: "snapshot", url: url, chart: 0, title: "", note: "" });
-        copyChart(el, S.models[el.getAttribute("data-id")], true);
+        copyFromSearch($('[data-cpage="' + b.getAttribute("data-ccopy") + '"]', res).value);
       });
     });
     $all("[data-copen]", res).forEach(function (b) {
@@ -573,6 +591,22 @@ function dataSearch(q) {
       });
     });
   }).catch(function (err) { res.innerHTML = '<p class="bad">' + escapeHtml(err.message) + "</p>"; });
+}
+
+/* Copy a chart from a page found in the search. The chart block goes in at
+   once, so the writer sees where it will land; if no chart comes of it (the
+   page has none, or the writer cancels the choice) the block is taken out
+   again and the reason shown, so nothing half-made is left in the draft. */
+function copyFromSearch(url) {
+  var el = insertAfterCaretBlock({ type: "snapshot", url: url, chart: 0, title: "", note: "" });
+  // a page with one chart gives it straight away; with several, the writer chooses
+  copyChart(el, S.models[el.getAttribute("data-id")], false).then(function (ok) {
+    if (ok || !document.contains(el)) return;
+    var st = el.querySelector(".dk-snap-status");
+    var why = st && st.classList.contains("bad") ? st.textContent : "";
+    removeBlock(el);
+    toast(why ? why + " Nothing was added." : "No chart chosen. Nothing was added.");
+  });
 }
 
 /* Thousands grouped, every published decimal kept, true minus. */

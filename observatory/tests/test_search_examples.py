@@ -19,7 +19,7 @@ from tests import _data
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 # What a writer types first, beyond the box's own examples.
-OBVIOUS = ["CPI", "GDP", "10-year", "Toyota", "7203"]
+OBVIOUS = ["CPI", "GDP", "10-year", "Toyota", "7203", "CEO compensation", "buybacks"]
 
 
 def placeholder_examples():
@@ -46,8 +46,27 @@ class DeskSearchExamples(unittest.TestCase):
         for q in placeholder_examples() + OBVIOUS:
             with self.subTest(q=q):
                 r = research_api.data_search(None, q)
-                self.assertTrue(r["series"] or r["companies"],
+                self.assertTrue(r["series"] or r["companies"] or r["pages"],
                                 "the desk search finds nothing for %r" % q)
+
+    @unittest.skipUnless(_data.MACRO, _data.NO_MACRO)
+    def test_a_town_is_found_by_its_english_and_japanese_name(self):
+        # Municipal names are stored with the town in Japanese and shown in
+        # English (app/place_en.py); the search must match what is shown.
+        import json
+        from app import tools_v2
+        for q, want in (("Koriyama", "Koriyama-shi"), ("郡山市", "Koriyama-shi")):
+            with self.subTest(q=q):
+                r = json.loads(tools_v2.search(q, dataset="population-jp-municipal", limit=3))
+                self.assertTrue(r["series"], q)
+                self.assertIn(want, r["series"][0]["name_en"])
+
+    def test_a_topic_finds_its_pages(self):
+        # 2026-10-03: "CEO Compensation" found nothing; the pay pages say
+        # "CEO pay" and "officer remuneration".
+        titles = [p["title"] for p in research_api.page_hits("CEO Compensation")]
+        self.assertIn("US Executive Pay", titles)
+        self.assertIn("Boards & Pay", titles)
 
     @unittest.skipUnless(_data.MACRO, _data.NO_MACRO)
     def test_cpi_lists_the_headline_first(self):

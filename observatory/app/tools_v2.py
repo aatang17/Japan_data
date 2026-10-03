@@ -29,11 +29,14 @@ dataset comes back with `data: null` and a `missing` reason. Unknown dataset
 ids and screen sorts answer with the valid list, so a caller can correct
 itself in one step.
 """
+import array
+import bisect
 import datetime
 import importlib
 import json
+import threading
 
-from . import api, asof, registry
+from . import api, asof, db, place_en, registry
 from .tools import (DEFAULT_MONTHS, POINT_BUDGET, _cite, _fail, _record,
                     _release_of, _trim_points, _window_start, call_api)
 
@@ -418,52 +421,181 @@ def _series_labels(dataset):
 DATASET_HIT_SERIES = 3
 
 
-def _series_hits(dataset, needle, limit):
-    """Series matching needle, each with a rank: 0 its code, 1 the phrase in the
-    series' own name, 2 every word found across the series and dataset names,
-    3 the dataset alone matches. Series names rarely repeat their dataset's
-    ("All items", not "All items CPI"), so ranks 2 and 3 are what let a
-    search for "CPI" or "food CPI" find anything."""
+# Every dataset's series names, ready to search, held in memory until the
+# database file changes (db.file_version, the same stamp the response cache
+# uses). Reading them afresh on every search took ~2s here and over 10s on the
+# live server: one list has ~585,000 series, ~1 GB as Python dicts.
+#
+# So each dataset is kept compact: one lowercased UTF-8 block of every
+# series' searchable text (English name, Japanese name, the page's own label
+# for it), one block of codes, and where each row starts in both. A search is
+# a substring find in C; the full details (names as shown, unit) are read from
+# the database only for the few series a search returns. Byte search on UTF-8
+# is a correct character search: the encoding never matches mid-character.
+_SEARCHABLE = {"version": None, "maps": {}}
+_SEARCHABLE_LOCK = threading.Lock()
+# Rows a search looks at per dataset and rank before it stops (it needs the
+# first few in each; the count it reports is then a floor, flagged truncated).
+SCAN_CAP = 200
+
+
+def _build_searchable(dataset):
+    m = registry.get(dataset) or {}
+    labels = _series_labels(dataset)
+    text, codes = bytearray(b"\n"), bytearray(b"\n")
+    starts, code_starts = array.array("q"), array.array("q")
+    labelled = []
     con = api._con()
     try:
-        smap = api._series_map(con, dataset)
+        cur = con.execute("SELECT code, name_en, name_ja FROM series WHERE dataset=? "
+                          "ORDER BY sort_order", [dataset])
+        i = 0
+        while True:
+            batch = cur.fetchmany(5000)
+            if not batch:
+                break
+            for code, name_en, name_ja in batch:
+                # the English label as every page shows it (see api._series_map)
+                name_en = place_en.series_name_en(dataset, code, name_en)
+                label = labels.get(code) or labels.get(name_ja) or ""
+                if label:
+                    labelled.append(i)
+                starts.append(len(text))
+                text += " ".join([name_en or "", name_ja or "", label]).lower().encode("utf-8") + b"\n"
+                code_starts.append(len(codes))
+                codes += code.lower().encode("utf-8") + b"\n"
+                i += 1
     finally:
         con.close()
-    m = registry.get(dataset) or {}
-    about = " ".join([dataset.replace("-", " "), (m.get("name") or {}).get("en") or "",
-                      (m.get("name") or {}).get("ja") or ""]).lower()
-    labels = _series_labels(dataset)
+    name = m.get("name") or {}
+    # kept as bytearrays: find() works the same, and a bytes() copy of an
+    # 80 MB block would double it while it is made
+    return {"text": text, "starts": starts, "codes": codes,
+            "code_starts": code_starts, "labelled": labelled,
+            "about": " ".join([dataset.replace("-", " "), name.get("en") or "",
+                               name.get("ja") or ""]).lower()}
+
+
+def _searchable(dataset):
+    version = db.file_version()
+    with _SEARCHABLE_LOCK:
+        if _SEARCHABLE["version"] != version:
+            _SEARCHABLE["version"] = version
+            _SEARCHABLE["maps"] = {}
+        entry = _SEARCHABLE["maps"].get(dataset)
+    if entry is not None:
+        return entry
+    entry = _build_searchable(dataset)
+    with _SEARCHABLE_LOCK:
+        if _SEARCHABLE["version"] == version:
+            _SEARCHABLE["maps"][dataset] = entry
+    return entry
+
+
+def warm_search():
+    """Build every dataset's search block once, so the first search after a
+    start is fast. Run in a background thread at boot; a dataset that fails is
+    left to build on first use."""
+    for mid in registry.ids():
+        m = registry.get(mid) or {}
+        if m.get("shape") == "series" and registry.available(mid):
+            try:
+                _searchable(mid)
+            except Exception:  # noqa: BLE001 — warming must never stop the server
+                pass
+
+
+def _rows_with(entry, word, cap):
+    """Indices of the first `cap` rows whose text contains `word`, in order."""
+    text, starts = entry["text"], entry["starts"]
+    needle = word.encode("utf-8")
+    found = []
+    pos = text.find(needle)
+    while pos != -1 and len(found) < cap:
+        row = bisect.bisect_right(starts, pos) - 1
+        found.append(row)
+        # carry on from the start of the next row: one hit per row
+        pos = text.find(needle, starts[row + 1] if row + 1 < len(starts) else len(text))
+    return found
+
+
+def _row_text(entry, row):
+    starts = entry["starts"]
+    end = starts[row + 1] - 1 if row + 1 < len(starts) else len(entry["text"]) - 1
+    return entry["text"][starts[row]:end]
+
+
+def _row_code(entry, row):
+    cs = entry["code_starts"]
+    end = cs[row + 1] - 1 if row + 1 < len(cs) else len(entry["codes"]) - 1
+    return entry["codes"][cs[row]:end].decode("utf-8")
+
+
+def _series_hits(dataset, needle, limit):
+    """Series matching needle, as (rank, order, dataset, row): rank 0 its code,
+    1 the phrase in the series' own name, 2 every word found across the series
+    and dataset names, 3 the dataset alone matches. Series names rarely repeat
+    their dataset's ("All items", not "All items CPI"), so ranks 2 and 3 are
+    what let a search for "CPI" or "food CPI" find anything. Within rank 2 the
+    shortest name is the closest: "Food" before "All items, less fresh food"."""
+    entry = _searchable(dataset)
     needle = needle.lower()
     words = needle.split()
-    hits = []
-    whole = []
-    for s in smap:
-        label = labels.get(s["code"]) or labels.get(s["name_ja"]) or ""
-        own = " ".join([s["name_en"] or "", s["name_ja"] or "", label]).lower()
-        if needle == s["code"].lower():
-            rank = 0
-        elif needle in own:
-            rank = 1
-        elif words and any(w in own for w in words) and all(w in own or w in about for w in words):
-            rank = 2
-        elif words and all(w in about for w in words):
-            whole.append((not label, len(whole), s))
-            continue
-        else:
-            continue
-        hits.append({"kind": "series", "dataset": dataset, "code": s["code"],
-                     "name_en": s["name_en"], "name_ja": s["name_ja"],
-                     "unit": s.get("unit"), "rank": rank})
-    whole.sort(key=lambda t: t[:2])
-    if not hits:
-        for _, _, s in whole[:DATASET_HIT_SERIES]:
-            hits.append({"kind": "series", "dataset": dataset, "code": s["code"],
-                         "name_en": s["name_en"], "name_ja": s["name_ja"],
-                         "unit": s.get("unit"), "rank": 3})
-    # among word matches the shortest name is the closest: "Food" before
-    # "All items, less fresh food" for "food CPI"
-    hits.sort(key=lambda h: (h["rank"], len(h["name_en"] or "") if h["rank"] == 2 else 0))
-    return hits[:limit]
+    must = [w for w in words if w not in entry["about"]]
+    hits = {}
+
+    pos = entry["codes"].find(b"\n" + needle.encode("utf-8") + b"\n")
+    if pos != -1:
+        hits[bisect.bisect_right(entry["code_starts"], pos + 1) - 1] = (0, 0)
+    for row in _rows_with(entry, needle, SCAN_CAP):
+        hits.setdefault(row, (1, row))
+    if len(words) > 1:
+        seeds = _rows_with(entry, must[0], SCAN_CAP * 10) if must else sorted(
+            set(r for w in words for r in _rows_with(entry, w, SCAN_CAP * 10)))
+        for row in seeds:
+            if row in hits:
+                continue
+            t = _row_text(entry, row).decode("utf-8")
+            if all(w in t for w in must) and any(w in t for w in words):
+                hits[row] = (2, len(t))
+    if not hits and words and not must:
+        # the query names the dataset alone: its key series first, then the rest in order
+        rows = entry["labelled"][:DATASET_HIT_SERIES]
+        rows += [r for r in range(min(len(entry["starts"]), DATASET_HIT_SERIES * 4))
+                 if r not in rows][:DATASET_HIT_SERIES - len(rows)]
+        for row in rows:
+            hits[row] = (3, row)
+    ranked = sorted(((rank, order, dataset, row) for row, (rank, order) in hits.items()),
+                    key=lambda h: h[:2])
+    return ranked[:max(limit, 1) * 4]
+
+
+def _series_details(picked):
+    """Full rows, names as every page shows them, for (dataset, row) hits."""
+    by_dataset = {}
+    for _, _, dataset, row in picked:
+        by_dataset.setdefault(dataset, []).append(row)
+    found = {}
+    con = api._con()
+    try:
+        for dataset, rows in by_dataset.items():
+            entry = _searchable(dataset)
+            codes = [_row_code(entry, r) for r in rows]
+            for code, name_en, name_ja, unit in con.execute(
+                    "SELECT code, name_en, name_ja, unit FROM series WHERE dataset=? AND "
+                    "lower(code) IN (%s)" % ",".join("?" * len(codes)), [dataset] + codes).fetchall():
+                found[(dataset, code.lower())] = {
+                    "kind": "series", "dataset": dataset, "code": code,
+                    "name_en": place_en.series_name_en(dataset, code, name_en),
+                    "name_ja": name_ja, "unit": unit}
+    finally:
+        con.close()
+    out = []
+    for _, _, dataset, row in picked:
+        hit = found.get((dataset, _row_code(_searchable(dataset), row)))
+        if hit:
+            out.append(hit)
+    return out
 
 
 def _company_hits(dataset, needle, limit):
@@ -520,10 +652,9 @@ def search(query, dataset="", limit=SEARCH_LIMIT):
                   key=lambda r: (needle != (r["sec_code"] or ""), -len(r["datasets"]),
                                  r["name"] or ""))
     company_rows = rows[:limit]
-    series.sort(key=lambda h: h["rank"])  # stable: datasets keep registry order within a rank
-    for h in series:
-        h.pop("rank", None)
-    series_rows = series[:limit]
+    # by rank only: stable, so datasets keep registry order and each its own best first
+    series.sort(key=lambda h: h[0])
+    series_rows = _series_details(series[:limit])
     return _dumps({"tool": "search", "query": needle,
                    "companies": company_rows, "series": series_rows,
                    "count": {"companies": len(rows), "series": len(series)},

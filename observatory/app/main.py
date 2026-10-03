@@ -7,6 +7,7 @@ import contextlib
 import hashlib
 import os
 import pathlib
+import threading
 
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse, Response
@@ -54,6 +55,7 @@ from .nav_preview import router as nav_preview_router  # noqa: E402
 from .apportionment_api import router as representation_router  # noqa: E402
 from .company_api import router as company_router  # noqa: E402
 from . import registry  # noqa: E402
+from . import tools_v2  # noqa: E402
 from .ownership_api import router as ownership_router  # noqa: E402
 from . import refresh  # noqa: E402
 from .mcp import router as mcp_router  # noqa: E402
@@ -129,6 +131,9 @@ async def lifespan(app):
     registry.bind(app)
     # The Data menu's previews too: every page header fetches them on first open.
     await cache.warm(app, api.warm_paths() + ["/api/v1/catalog/previews"])
+    # The series search reads every dataset's series list; load them once in
+    # the background, after the port is open, so boot is not held up.
+    threading.Thread(target=tools_v2.warm_search, name="warm-search", daemon=True).start()
     # Watches ingest health for as long as we serve, and — only under
     # start.sh, which sets REFRESH_SUPERVISED — ends the process once a day so
     # the supervisor can re-run the ingests. See refresh.py.

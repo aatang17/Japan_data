@@ -371,14 +371,79 @@ COMPANY_PAGES = [
 ]
 
 
+# Words a writer uses for a topic that the pages put another way: "CEO
+# compensation" is "officer remuneration" on the Japanese page and "CEO pay"
+# on the US one. A query word matches a page when it, or one of these, is in
+# the page's title or description.
+TOPIC_WORDS = {
+    "compensation": ("pay", "remuneration"),
+    "remuneration": ("pay", "compensation"),
+    "pay": ("remuneration", "compensation"),
+    "salary": ("wage", "earnings", "pay"),
+    "salaries": ("wage", "earnings", "pay"),
+    "ceo": ("chief executive", "executive", "officer"),
+    "ceos": ("chief executive", "executive", "officer"),
+    "executive": ("officer", "ceo"),
+    "inflation": ("cpi", "consumer price"),
+    "jobless": ("unemployment",),
+    "buyback": ("repurchase",),
+    "buybacks": ("repurchase", "buyback"),
+}
+_FILLER = {"the", "of", "and", "in", "for", "a", "an", "to", "on", "by", "japan", "japanese"}
+_PAGES = []
+
+
+def _page_index():
+    """Every public page: its address, title and description (the same
+    description it serves to search engines, app/prerender.DESCRIPTIONS)."""
+    if not _PAGES:
+        import html as html_lib
+        import pathlib
+        import re
+        from . import prerender
+        web = pathlib.Path(prerender.WEB_DIR or pathlib.Path(__file__).resolve().parent.parent / "web")
+        for name, desc in sorted(prerender.DESCRIPTIONS.items()):
+            path = web / name
+            if not path.exists():
+                continue
+            m = re.search(r"(?is)<title>(.*?)</title>", path.read_text(encoding="utf-8"))
+            title = html_lib.unescape(m.group(1)).split(" · ")[0].strip() if m else name
+            _PAGES.append({"url": "/" + name, "title": title, "description": desc,
+                           "text": (title + " " + desc).lower()})
+    return _PAGES
+
+
+def page_hits(q, limit=6):
+    """Pages about the topic in q: every word (or a word for the same thing)
+    in the page's title or description. Title matches first."""
+    words = [w for w in q.lower().split() if w not in _FILLER]
+    if not words:
+        return []
+    hits = []
+    for page in _page_index():
+        title = page["title"].lower()
+        in_title = 0
+        for w in words:
+            forms = (w,) + TOPIC_WORDS.get(w, ())
+            if not any(f in page["text"] for f in forms):
+                break
+            in_title += any(f in title for f in forms)
+        else:
+            hits.append((-in_title, page["title"], page))
+    hits.sort(key=lambda h: h[:2])
+    return [{"url": p["url"], "title": p["title"], "description": p["description"]}
+            for _, _, p in hits[:limit]]
+
+
 @router.get("/data/search")
 def data_search(request: Request, q: str = ""):
-    """Plover datasets, series and companies matching q — the same search the
-    public MCP server runs — with the page each hit lives on."""
+    """Plover series and companies matching q — the same search the public MCP
+    server runs — with the page each hit lives on, plus the pages about q as
+    a topic ("CEO compensation"), whose charts can be copied."""
     _writer(request)
     from . import registry, tools_v2
     if not q.strip():
-        return {"series": [], "companies": []}
+        return {"series": [], "companies": [], "pages": []}
     raw = json.loads(tools_v2.search(q.strip()[:200], limit=15))
     if raw.get("error"):
         raise HTTPException(400, raw["error"])
@@ -401,7 +466,7 @@ def data_search(request: Request, q: str = ""):
                           "name_ja": c.get("name"),
                           "pages": [{"label": lab, "url": tpl % c["sec_code"]}
                                     for lab, tpl in COMPANY_PAGES]})
-    return {"series": series, "companies": companies}
+    return {"series": series, "companies": companies, "pages": page_hits(q)}
 
 
 class ReadBody(BaseModel):

@@ -93,6 +93,13 @@ Every number on every surface says where it came from:
 
 ## General Rules
 
+- **The app must be VERY EASY TO USE (P0).** A first-time user gets every common task done
+  without instructions or help. So: every action is visible where people look for it
+  (delete, undo and close are buttons on the thing, not hidden in a menu); the common case
+  is one click; nothing waits without saying what it is doing; every failure says what to
+  do next; and nothing half-made is left behind. If a task needs explaining, the design is
+  wrong. (2026-10-03: deleting a chart in the desk needed the ⋮⋮ handle and a menu; Copy a
+  Chart from a page with no chart waited 25 seconds and left an empty block in the draft.)
 - Don't assume I'm correct — do a thorough check. If my request is ambiguous, restate your
   interpretation in one sentence before making changes.
 - I'm a businessman, not an engineer — explain things in plain language.

@@ -291,7 +291,26 @@ function makeBlock(b) {
   } else if (b.type === "snapshot") {
     renderSnapshotBlock(c, b);
   }
+  // A figure gets a Delete button in plain sight: the ⋮⋮ menu is not where
+  // anyone looks to remove a chart. It sits outside .dk-content, which the
+  // figure's own renderers rewrite.
+  if (FIGURE_TYPES[b.type]) {
+    el.insertAdjacentHTML("beforeend", '<button type="button" class="dk-mini dk-del">Delete</button>');
+  }
   return el;
+}
+
+var FIGURE_TYPES = { chart: true, image: true, snapshot: true, table: true };
+
+/* Delete a block, say which, and offer Undo. */
+function deleteBlock(el) {
+  var lab = el.querySelector(".dk-fig-label");
+  var name = lab && lab.textContent ? lab.textContent : "Block";
+  pushUndo("delete");
+  var prev = el.previousElementSibling;
+  removeBlock(el);
+  if (prev) focusBlock(prev, true);
+  toast(name + " deleted.", true);
 }
 
 function readBlock(el) {
@@ -1230,6 +1249,7 @@ function onClick(e) {
   if (fn) { e.preventDefault(); notes.open(fn); return; }
   if (!blockEl) return;
   var model = S.models[blockEl.getAttribute("data-id")];
+  if (t.closest(".dk-del")) { deleteBlock(blockEl); return; }
   if (t.closest(".dk-add")) { slashOpen(blockEl, "", false); return; }
   if (t.closest(".dk-handle")) { blockMenu(blockEl, t.closest(".dk-handle")); return; }
   var c = blockEl.querySelector(".dk-content");
@@ -1376,11 +1396,7 @@ function blockMenu(blockEl, anchor) {
         copy.id = bid();
         insertBlock(copy, el, true);
       } else if (what === "del") {
-        pushUndo("delete");
-        var prev = el.previousElementSibling;
-        removeBlock(el);
-        if (prev) focusBlock(prev, true);
-        toast("Block deleted.", true);
+        deleteBlock(el);
       } else if (what.indexOf("to-") === 0) {
         convert(el, what.slice(3));
       }
@@ -1868,6 +1884,8 @@ function updateCounts() {
     var lab = b.querySelector(".dk-fig-label");
     if (type === "chart" || type === "image" || type === "snapshot") { c++; if (lab) lab.textContent = "Chart " + c; }
     if (type === "table") { t++; if (lab) lab.textContent = "Table " + t; }
+    var del = b.querySelector(":scope > .dk-del");
+    if (del && lab) del.setAttribute("aria-label", "Delete " + lab.textContent);
   });
   fillLeadOptions();
 }
