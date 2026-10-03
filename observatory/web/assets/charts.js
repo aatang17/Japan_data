@@ -39,13 +39,111 @@ function axisCommon(pal) {
   };
 }
 
+/* Legend geometry, worked out before drawing so a chart can pick the layout
+   its legend fits. It follows ECharts' own legend layout: icon, 5px, the name
+   (2px left padding), itemGap between items, 5px padding round the box, each
+   row as tall as the font, itemGap between rows. Names are measured in the
+   face ECharts draws them in, not the page's. */
+const LEGEND_FACE = /^Win/.test(navigator.platform || "") ? "Microsoft YaHei" : "sans-serif";
+
+function legendItemWidths(names, fontSize, itemWidth) {
+  let ctx = legendItemWidths._ctx;
+  if (ctx === undefined) {
+    try {
+      ctx = document.createElement("canvas").getContext("2d");
+    } catch (e) {
+      ctx = null;
+    }
+    legendItemWidths._ctx = ctx;
+  }
+  if (ctx) ctx.font = fontSize + "px " + LEGEND_FACE;
+  return names.map(n => itemWidth + 7 +
+    (ctx ? ctx.measureText(String(n)).width : String(n).length * fontSize * 0.56));
+}
+
+/* Height of a legend laid out under the plot, wrapping at the chart's width. */
+function legendHeightBelow(names, width, fontSize, itemWidth, itemGap) {
+  const room = width - 10;
+  let rows = 1, x = 0;
+  legendItemWidths(names, fontSize, itemWidth).forEach(w => {
+    if (x > 0 && x + itemGap + w > room) { rows++; x = w; }
+    else x += (x > 0 ? itemGap : 0) + w;
+  });
+  return rows * fontSize + (rows - 1) * itemGap + 10;
+}
+
+/* Whether the legend fits on one row in the top-right corner, clear of the
+   y-axis name at the top-left. If it does not, ECharts wraps it leftwards
+   over the name and down into the plot, so the caller puts it underneath.
+   The name starts at the y-axis line, which sits right of the widest tick
+   label; that label is estimated from the largest value plotted. */
+function legendFitsTop(names, width, cfg, values, itemWidth, itemGap) {
+  const legendW = legendItemWidths(names, 12, itemWidth).reduce((a, w) => a + w, 0) +
+    itemGap * (names.length - 1) + 10;
+  let reserve = 0;
+  if (cfg.yAxisName) {
+    let maxAbs = 0, neg = false;
+    values.forEach(v => {
+      if (typeof v !== "number" || !isFinite(v)) return;
+      if (v < 0) neg = true;
+      maxAbs = Math.max(maxAbs, Math.abs(v));
+    });
+    // the top tick can be a digit longer than the data (8.6m on an axis to 10m)
+    const tick = (neg ? "−" : "") + fmtNum(maxAbs * 1.25, cfg.yAxisDp || 0);
+    const tickW = legendItemWidths([tick], 11, 0)[0] - 7;
+    const nameW = legendItemWidths([cfg.yAxisName], 11, 0)[0] - 7;
+    reserve = 8 + tickW + 8 + nameW + 16;
+  }
+  return legendW <= width - reserve;
+}
+
+/* A line chart's legend lists its series highest latest value first. */
+function legendOrder(series) {
+  const latestOf = s => {
+    for (let i = s.points.length - 1; i >= 0; i--) if (s.points[i][1] !== null) return s.points[i][1];
+    return -Infinity;
+  };
+  return series.slice().sort((a, b) => latestOf(b) - latestOf(a));
+}
+
+/* The legend names, in legend order, and plotted values of a chart that has
+   a legend, or null. */
+function legendNamesAndValues(kind, cfg) {
+  const vals = [];
+  if (kind === "line") {
+    if (cfg.series.length < 2) return null;
+    cfg.series.forEach(s => s.points.forEach(p => vals.push(p[1])));
+    return { names: legendOrder(cfg.series).map(s => s.name), values: vals, itemWidth: 16, itemGap: 18 };
+  }
+  if (kind === "stack") {
+    // stacked bars reach the sum of their positive (or negative) parts
+    const n = cfg.series.length ? cfg.series[0].points.length : 0;
+    for (let i = 0; i < n; i++) {
+      let up = 0, down = 0;
+      cfg.series.forEach(s => {
+        const v = s.points[i] && s.points[i][1];
+        if (typeof v === "number") { if (v > 0) up += v; else down += v; }
+      });
+      vals.push(up, down);
+    }
+    if (cfg.line) cfg.line.points.forEach(p => vals.push(p[1]));
+    return { names: cfg.series.map(s => s.name).concat(cfg.line ? [cfg.line.name] : []),
+             values: vals, itemWidth: 16, itemGap: 14 };
+  }
+  if (kind === "cols") {
+    cfg.series.forEach(s => s.points.forEach(v => vals.push(v)));
+    return { names: cfg.series.map(s => s.name), values: vals, itemWidth: 14, itemGap: 18 };
+  }
+  return null;
+}
+
 /* cfg: { series: [{name, slot, points: [[iso, v|null], ...]}],
           unit: "%" | "index", yAxisName, trust, sourceLine,
           annotations?: [{x: iso, y: value, text}] }
    Annotations mark real readings (a peak, a policy date) on the first
    series: a small filled point with a label. The caller supplies the
    coordinates from its own data — nothing is computed here. */
-function lineOptions(cfg, pal, narrow) {
+function lineOptions(cfg, pal, narrow, below) {
   // Annual data has no meaningful position between two points, so a fiscal-year
   // series uses a category axis: a time axis would label it by month and imply
   // readings we do not have. Time remains the default for every other caller.
@@ -54,11 +152,7 @@ function lineOptions(cfg, pal, narrow) {
   let crossesZero = false;
   cfg.series.forEach(s => s.points.forEach(p => { if (p[1] !== null && p[1] < 0) crossesZero = true; }));
 
-  const latestOf = s => {
-    for (let i = s.points.length - 1; i >= 0; i--) if (s.points[i][1] !== null) return s.points[i][1];
-    return -Infinity;
-  };
-  const ordered = cfg.series.slice().sort((a, b) => latestOf(b) - latestOf(a));
+  const ordered = legendOrder(cfg.series);
 
   return {
     animation: false,
@@ -79,9 +173,11 @@ function lineOptions(cfg, pal, narrow) {
       // and it lands on top of the axis labels, so reserve more for it.
       ? { left: 8, right: cfg.gridRight || 12,
           // Six long names wrap to four rows; a caller that knows its legend
-          // is that tall reserves the room with legendBottomNarrow.
-          bottom: cfg.legendBottomNarrow ||
-            (cfg.series.length > 3 ? 70 : (cfg.series.length > 1 ? 44 : 8)),
+          // is that tall reserves the room with legendBottomNarrow. `below`
+          // is the measured height of the wrapped legend, which wins when
+          // the names are longer than either guess allowed for.
+          bottom: Math.max(cfg.legendBottomNarrow ||
+            (cfg.series.length > 3 ? 70 : (cfg.series.length > 1 ? 44 : 8)), below || 0),
           containLabel: true,
           top: cfg.yAxisName ? 26 : 12 }
       // cfg.gridRight: room for a long last category label ("FY Dec-2025"),
@@ -211,7 +307,7 @@ function lineOptions(cfg, pal, narrow) {
           unit: "pp", yAxisName, trust, sourceLine }
    Stacked bars per series (contributions) with an optional line overlay
    (the total the stacks decompose). */
-function stackOptions(cfg, pal, narrow) {
+function stackOptions(cfg, pal, narrow, below) {
   const isCat = cfg.xType === "category";
   const names = cfg.series.map(s => s.name).concat(cfg.line ? [cfg.line.name] : []);
   // Shares that sum to a fixed whole say so on the axis: cfg.yMax = 100 stops
@@ -234,7 +330,7 @@ function stackOptions(cfg, pal, narrow) {
     grid: narrow
       // The axis name is drawn above the grid, so a chart that carries one
       // needs the room or its unit is clipped off the top of the panel.
-      ? { left: 8, right: 12, top: cfg.yAxisName ? 26 : 12, bottom: 56,
+      ? { left: 8, right: 12, top: cfg.yAxisName ? 26 : 12, bottom: Math.max(56, below || 0),
           containLabel: true }
       : { left: 8, right: 20, top: 34, bottom: 8, containLabel: true },
     xAxis: Object.assign(axisCommon(pal), { type: "time", splitLine: { show: false } }),
@@ -519,7 +615,7 @@ function distOptions(cfg, pal, narrow) {
    Grouped vertical bars: two flows measured in the same unit over the same
    months, side by side rather than stacked — they are different acts and their
    sum means nothing. Zero baseline always; a bar axis is never truncated. */
-function colsOptions(cfg, pal, narrow) {
+function colsOptions(cfg, pal, narrow, below) {
   const dp = cfg.dp === undefined ? 1 : cfg.dp;
   const suffix = cfg.unitSuffix ? " " + cfg.unitSuffix : "";
   const fmt = v => (v === null || v === undefined ? "—" : fmtNum(v, dp) + suffix);
@@ -534,7 +630,7 @@ function colsOptions(cfg, pal, narrow) {
     // cfg.gridRight: room for a long last category label ("FY Dec-2025"),
     // which is centred on the last bar and would otherwise run off the edge.
     grid: { left: 8, right: cfg.gridRight || 12, containLabel: true,
-            top: narrow ? 26 : 34, bottom: narrow ? 44 : 8 },
+            top: narrow ? 26 : 34, bottom: narrow ? Math.max(44, below || 0) : 8 },
     xAxis: Object.assign(axisCommon(pal), {
       type: "category", data: cfg.categories,
       splitLine: { show: false },
@@ -738,16 +834,30 @@ function rankOptions(cfg, pal, narrow) {
 /* mount a chart; returns {render, exportPNG, exportCSV, dispose} */
 function obsChart(el, kind, cfg) {
   let chart = null;
+  const layoutNarrow = width => {
+    if (width < (cfg.legendFloor || 520)) return true;
+    const lg = legendNamesAndValues(kind, cfg);
+    return !!lg && !legendFitsTop(lg.names, width, cfg, lg.values, lg.itemWidth, lg.itemGap);
+  };
+  let drawnNarrow = null;
   const optionsFor = (pal, widthPx) => {
     // Below this width the legend moves under the plot, where it can wrap.
     // 520 suits two or three short series names; a chart carrying six long
     // ones (partner countries, commodity groups) sets cfg.legendFloor higher,
     // because a legend wider than the plot prints over the y-axis name
     // instead of wrapping. Opt-in, so no existing chart moves.
-    const narrow = (widthPx || el.clientWidth) < (cfg.legendFloor || 520);
-    if (kind === "line") return lineOptions(cfg, pal, narrow);
-    if (kind === "stack") return stackOptions(cfg, pal, narrow);
-    if (kind === "cols") return colsOptions(cfg, pal, narrow);
+    // On top of that floor, a legend that is measured and found too long for
+    // one row beside the y-axis name goes underneath at any width, with the
+    // plot raised by its wrapped height. A chart whose series names the page
+    // does not know in advance (a research desk chart) needs no floor.
+    const width = widthPx || el.clientWidth;
+    const narrow = layoutNarrow(width);
+    const lg = legendNamesAndValues(kind, cfg);
+    const below = narrow && lg && width > 0 ? legendHeightBelow(lg.names, width, 11, lg.itemWidth,
+                                                   kind === "stack" ? 8 : 10) + 6 : 0;
+    if (kind === "line") return lineOptions(cfg, pal, narrow, below);
+    if (kind === "stack") return stackOptions(cfg, pal, narrow, below);
+    if (kind === "cols") return colsOptions(cfg, pal, narrow, below);
     if (kind === "dist") return distOptions(cfg, pal, narrow);
     if (kind === "rank") return rankOptions(cfg, pal, narrow);
     return barOptions(cfg, pal);
@@ -758,6 +868,7 @@ function obsChart(el, kind, cfg) {
     if (chart) chart.dispose();
     chart = echarts.init(el, null, { renderer: "canvas" });
     chart.setOption(optionsFor(readPalette()));
+    drawnNarrow = layoutNarrow(el.clientWidth);
   }
 
   /* Draw the chart offscreen at an export preset. Light theme by default:
@@ -774,7 +885,14 @@ function obsChart(el, kind, cfg) {
       type: "text", left: 10, bottom: 6,
       style: { text: cfg.sourceLine || "", fontSize: 11, fill: pal.muted },
     }];
-    opts.grid.bottom = 30;
+    // The source line takes the bottom strip, so a legend drawn under the
+    // plot moves up above it and the plot moves up with it.
+    if (opts.legend && opts.legend.bottom !== undefined && opts.legend.show !== false) {
+      opts.legend.bottom = 24;
+      opts.grid.bottom += 24;
+    } else {
+      opts.grid.bottom = 30;
+    }
     tmp.setOption(opts);
     const url = tmp.getDataURL({
       pixelRatio: size.out / size.w,
@@ -882,7 +1000,20 @@ function obsChart(el, kind, cfg) {
     URL.revokeObjectURL(a.href);
   }
 
-  window.addEventListener("resize", () => { if (chart) chart.resize(); });
+  // A resize that changes where the legend belongs redraws the options; any
+  // other just resizes. A chart whose legend a caller has hidden (thumbnails,
+  // the desk's chart picker) keeps what the caller made of it.
+  window.addEventListener("resize", () => {
+    if (!chart) return;
+    const now = layoutNarrow(el.clientWidth);
+    const lg = chart.getOption().legend;
+    const hidden = lg && lg[0] && lg[0].show === false;
+    if (now !== drawnNarrow && !hidden && el.clientWidth > 0) {
+      chart.setOption(optionsFor(readPalette()), { notMerge: true });
+      drawnNarrow = now;
+    }
+    chart.resize();
+  });
   render();
   exportButton();
   const handle = { render, exportPNG, exportCSV, dispose: () => chart && chart.dispose() };
