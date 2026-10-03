@@ -427,12 +427,13 @@ class PhaseIsolationTest(unittest.TestCase):
     def setUp(self):
         self._saved = {n: getattr(backfill, n) for n in (
             "backfill_macro", "stamp_cycle", "backfill_gdp_vintages",
-            "backfill_equity", "backfill_sec", "refresh_us_companies")}
+            "backfill_equity", "backfill_sec", "refresh_us_companies", "refresh_us_pay")}
         self.addCleanup(lambda: [setattr(backfill, n, f) for n, f in self._saved.items()])
         self.ran = []
         backfill.backfill_macro = lambda ds: self.ran.append("macro")
         backfill.stamp_cycle = lambda: self.ran.append("stamp")
         backfill.refresh_us_companies = lambda: self.ran.append("us")
+        backfill.refresh_us_pay = lambda: self.ran.append("pay")
         backfill.backfill_equity = lambda d, m: self.ran.append("equity")
         backfill.backfill_sec = lambda q: self.ran.append("sec")
         for key in ("BACKFILL_DATASETS", "BACKFILL_GDP_VINTAGES",
@@ -455,6 +456,11 @@ class PhaseIsolationTest(unittest.TestCase):
         backfill.backfill_gdp_vintages = lambda: None
         backfill.main()
         self.assertLess(self.ran.index("us"), self.ran.index("equity"))
+
+    def test_us_pay_runs_before_the_long_history_phases(self):
+        backfill.backfill_gdp_vintages = lambda: None
+        backfill.main()
+        self.assertLess(self.ran.index("pay"), self.ran.index("equity"))
 
     def test_us_companies_can_be_switched_off(self):
         os.environ["BACKFILL_US_COMPANIES"] = "0"

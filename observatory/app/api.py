@@ -554,6 +554,11 @@ def health():
             equity = equity + sec_deep_api.health()
         except Exception:                                    # noqa: BLE001
             pass
+        try:
+            from . import us_pay_api
+            equity = equity + us_pay_api.health()
+        except Exception:                                    # noqa: BLE001
+            pass
 
         # The dataset manifests. A card that fails validation is quarantined
         # rather than fatal (see registry.py), so this is where it is noticed.

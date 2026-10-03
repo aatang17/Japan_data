@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>US Executive Pay · Plover Analytics</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/app.css">
+<style>
+/* page-local layout only — tokens and components come from app.css.
+   Same shapes as us-companies.html, so the two US company pages read alike. */
+.co-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 14px; margin: 18px 0 4px; }
+.co-head h1 { margin: 0; }
+.co-code { font-family: var(--obs-mono, monospace); color: var(--obs-text-muted); font-size: 15px; }
+.filing-meta { font-size: 12.5px; color: var(--obs-text-muted); margin: 6px 0 0; line-height: 1.6; }
+.mono { font-family: var(--obs-mono, monospace); }
+
+.fact-row { display: flex; flex-wrap: wrap; gap: 10px 44px; margin: 14px 0 4px;
+  padding-left: 14px; border-left: 2px solid var(--obs-border); }
+.fact-row div { margin: 0; }
+.fact-row dt { font-size: 12px; font-weight: 600; color: var(--obs-text-muted);
+  text-transform: uppercase; letter-spacing: 0.04em; margin: 0 0 3px; }
+.fact-row dd { margin: 0; font-size: 21px; font-weight: 600; color: var(--obs-ink);
+  font-variant-numeric: tabular-nums; line-height: 1.15; }
+.fact-row .qual { display: block; font-size: 12px; font-weight: 400;
+  color: var(--obs-text-muted); margin-top: 2px; }
+.facts-foot { font-size: 12px; color: var(--obs-text-muted); margin: 8px 0 0; }
+
+.sec-note { font-size: 12.5px; color: var(--obs-text-muted); margin: 0; line-height: 1.55; text-wrap: pretty; }
+.sec-note b { color: var(--obs-ink); font-weight: 600; }
+.chart-foot { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline;
+  font-size: 12px; color: var(--obs-text-faint); margin-top: 4px; }
+#pv-chart { width: 100%; height: 360px; }
+
+.tbl-fin { width: 100%; border-collapse: collapse; }
+.tbl-fin th, .tbl-fin td { padding: 7px 10px; font-size: 13px; border-bottom: 1px solid var(--obs-grid);
+  white-space: nowrap; }
+.tbl-fin thead th { font-size: 11px; font-weight: 600; color: var(--obs-text-muted);
+  text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid var(--obs-border); text-align: left; }
+.tbl-fin .r, .tbl-fin th.r { text-align: right; font-variant-numeric: tabular-nums; }
+.tbl-fin tbody tr:hover td { background: var(--obs-surface-subtle); }
+.tbl-fin a { color: var(--obs-primary); text-decoration: none; }
+.tbl-fin a:hover { text-decoration: underline; }
+.tbl-fin .unit { color: var(--obs-text-muted); font-weight: 400; }
+/* A unit in an uppercase header keeps its case: $m is millions, $M is not a unit. */
+.tbl-fin thead th .u { text-transform: none; letter-spacing: 0; font-weight: 400; }
+.tbl-fin td.muted { color: var(--obs-text-muted); }
+.tbl-fin td.lbl { white-space: normal; min-width: 220px; }
+.tbl-fin td.lbl.person { padding-left: 26px; color: var(--obs-text); }
+.tbl-fin tr.heading td { font-weight: 600; color: var(--obs-ink); background: var(--obs-surface-subtle);
+  font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.04em; }
+.tbl-fin td.ceo { max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+/* Full CEO names widen the list: number headers wrap to two lines so every
+   column fits at desktop width. */
+#ix-table thead th.r { white-space: normal; vertical-align: bottom; min-width: 72px; }
+@media (max-width: 700px) {
+  #pv-chart { height: 300px; }
+  .tbl-fin td.lbl { min-width: 160px; }
+  .fact-row { gap: 10px 28px; }
+}
+</style>
+</head>
+<body class="page-wide">
+
+<header class="site-header" data-section="us-companies" data-page="us-pay"></header>
+<script src="assets/nav.js"></script>
+
+<main class="container">
+  <div id="stale-banner"></div>
+
+  <!-- index view -->
+  <section id="index-view">
+    <div class="page-head">
+      <h1>US Executive Pay</h1>
+      <p class="page-sub">What each S&amp;P 500 company paid its chief executive, and what it
+      returned to shareholders, from the pay-versus-performance table the SEC requires in every
+      proxy statement since 2023. Exactly as the company tagged it.</p>
+    </div>
+
+    <div class="strip" id="stat-strip"><div class="strip-grid cols-4">
+      <div class="strip-cell skeleton" style="min-height:96px"></div>
+      <div class="strip-cell skeleton" style="min-height:96px"></div>
+      <div class="strip-cell skeleton" style="min-height:96px"></div>
+      <div class="strip-cell skeleton" style="min-height:96px"></div>
+    </div></div>
+
+    <h2>CEO Pay by Company <span class="h2-note" id="ix-note"></span></h2>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Which filed value" id="ix-basis">
+        <button type="button" data-basis="latest" aria-pressed="true">Latest filed</button>
+        <button type="button" data-basis="first" aria-pressed="false">As first reported</button>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="ix-csv">Download CSV</button>
+    </div>
+    <p class="sec-note" style="margin:0 0 8px" id="ix-explain"></p>
+    <div class="table-wrap"><table class="tbl-fin" id="ix-table"></table></div>
+    <details class="calc"><summary>Show calculation</summary>
+      <div class="calc-body" id="ix-calc"></div>
+    </details>
+  </section>
+
+  <!-- company view -->
+  <section id="company-view" hidden>
+    <p style="margin:16px 0 0"><a href="us-pay.html">← All S&amp;P 500 companies</a></p>
+    <div class="co-head">
+      <h1 id="co-name"></h1>
+      <span class="co-code" id="co-code"></span>
+    </div>
+    <p class="filing-meta" id="co-meta"></p>
+    <dl class="fact-row" id="co-facts"></dl>
+    <p class="facts-foot" id="co-facts-foot"></p>
+
+    <h2>Pay Versus Performance <span class="h2-note" id="pv-note"></span></h2>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Which filed value" id="pv-basis">
+        <button type="button" data-basis="latest" aria-pressed="true">Latest filed</button>
+        <button type="button" data-basis="first" aria-pressed="false">As first reported</button>
+      </div>
+      <label for="pv-chart-select">Chart</label>
+      <select id="pv-chart-select" aria-label="Chart measure">
+        <option value="pay">CEO pay ($m)</option>
+        <option value="tsr">Shareholder return (value of $100)</option>
+        <option value="neo">Other executives' average pay ($m)</option>
+      </select>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="pv-png">Download PNG</button>
+      <button type="button" class="btn" id="pv-csv">Download CSV</button>
+    </div>
+    <div class="chart-block">
+      <div id="pv-chart"><div class="skeleton" style="width:100%;height:100%"></div></div>
+      <div class="chart-foot"><span id="pv-source"></span></div>
+    </div>
+    <p class="sec-note" style="margin:12px 0 8px" id="pv-explain"></p>
+    <div class="table-wrap"><table class="tbl-fin" id="pv-table" data-no-enhance></table></div>
+    <details class="calc"><summary>Show calculation</summary>
+      <div class="calc-body" id="pv-calc"></div>
+    </details>
+
+    <h2>Proxy Statements Read <span class="h2-note" id="px-note"></span></h2>
+    <div class="table-wrap"><table class="tbl-fin" id="px-table" data-no-enhance></table></div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="inner">
+    Source: U.S. Securities and Exchange Commission, EDGAR — each company's proxy statement
+    (DEF 14A), pay-versus-performance table as tagged under Item 402(v). Members: the S&amp;P 500
+    as held by State Street's SPDR S&amp;P 500 ETF (SPY). Every file is archived with its SHA-256;
+    nothing is recomputed. Missing is —, never zero.
+    <a href="methodology.html">Methodology</a> · <a href="api.html">API</a>
+  </div>
+</footer>
+
+<script src="assets/echarts.min.js"></script>
+<script src="assets/format.js"></script>
+<script src="assets/charts.js"></script>
+<script src="assets/sortable.js"></script>
+<script src="assets/us-pay.js"></script>
+</body>
+</html>

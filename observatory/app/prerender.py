@@ -243,6 +243,9 @@ DESCRIPTIONS = {
     "us-companies.html":
         "Large US companies' SEC filings since 2009 — revenue, profit, cash flows and every "
         "filed concept, as latest filed, as first reported or as known on any date.",
+    "us-pay.html":
+        "What every S&P 500 company paid its CEO and what it returned to shareholders, from "
+        "the pay-versus-performance table in each proxy statement since 2023, as filed.",
     "banks.html":
         "Japanese banks — non-performing loans, earnings and per-bank statements, from the "
         "Financial Services Agency and the Japanese Bankers Association.",

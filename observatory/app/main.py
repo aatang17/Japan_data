@@ -44,6 +44,7 @@ from .risk_api import router as risk_router  # noqa: E402
 from . import sec_api  # noqa: E402
 from .sec_api import router as sec_router  # noqa: E402
 from .sec_deep_api import router as sec_deep_router  # noqa: E402
+from .us_pay_api import router as us_pay_router  # noqa: E402
 from .catalog_api import router as catalog_router  # noqa: E402
 from .apportionment_api import router as representation_router  # noqa: E402
 from .company_api import router as company_router  # noqa: E402
@@ -209,6 +210,7 @@ app.include_router(equity_router)
 # router for the same reason as the equity ones.
 app.include_router(sec_router)
 app.include_router(sec_deep_router)
+app.include_router(us_pay_router)
 # The catalog of manifests ahead of the core router, so its literal
 # /api/v1/catalog/… paths can never be shadowed by /{dataset}/… catch-alls.
 # /api/v1/company/{code} ahead of the core router, so it beats the

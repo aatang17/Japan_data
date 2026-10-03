@@ -41,7 +41,11 @@ Environment (all optional):
   BACKFILL_SEC_QUARTERS     quarterly SEC data sets to hold in all (default 12; 0 = none)
   BACKFILL_US_COMPANIES     0 to skip the daily pull of the US deep-coverage
                             companies (default: on; needs EDGAR_USER_AGENT)
+  BACKFILL_US_PAY           0 to skip the daily check of S&P 500 proxy
+                            statements for executive pay (default: on;
+                            needs EDGAR_USER_AGENT)
 """
+import datetime
 import errno
 import os
 import pathlib
@@ -544,6 +548,78 @@ def refresh_us_companies():
                  None if rc == 0 else "some companies failed; the rest landed")
 
 
+def _px_unchecked(path, since):
+    """(members of the latest S&P 500 snapshot not checked since `since`,
+    checks recorded since `since`); (None, 0) before the first pull."""
+    con = duckdb.connect(str(path), read_only=True)
+    try:
+        names = {r[0] for r in con.execute(
+            "SELECT table_name FROM duckdb_tables()").fetchall()}
+        if not {"us_index_members", "sec_px_checks"} <= names:
+            return None, 0
+        return con.execute("""
+            SELECT (SELECT count(*) FROM us_index_members m
+                     WHERE m.snapshot_id = (SELECT max(snapshot_id) FROM us_index_snapshots)
+                       AND NOT EXISTS (SELECT 1 FROM sec_px_checks c
+                                       WHERE c.cik = m.cik AND c.checked_at >= ?)),
+                   (SELECT count(*) FROM sec_px_checks WHERE checked_at >= ?)""",
+                           [since, since]).fetchone()
+    finally:
+        con.close()
+
+
+def refresh_us_pay(per_slice=100, max_slices=8):
+    """Check every S&P 500 member's proxy statements for executive pay.
+
+    equity/sec_proxy_pay.py stores the day's member list, then checks the
+    least recently checked companies for new proxies and reads any it does
+    not hold. A slice of 100 is a few minutes on a quiet day and longer in
+    proxy season or on a fresh volume; each slice runs on a copy of
+    data/sec.duckdb that is swapped in, so a restart mid-cycle keeps every
+    finished slice. The cycle ends when every member has been checked since
+    it began.
+    """
+    if not os.environ.get("EDGAR_USER_AGENT"):
+        log("ATTENTION no EDGAR_USER_AGENT; the SEC refuses undeclared clients, so "
+            "executive pay was not checked")
+        record_check("sec-proxy-pay", "failed", "EDGAR_USER_AGENT not set")
+        return
+    work = DATA_DIR / "sec.pay.duckdb"
+    script = ROOT / "equity" / "sec_proxy_pay.py"
+    began = datetime.datetime.utcnow().replace(microsecond=0)
+    for n in range(1, max_slices + 1):
+        if _stopping:
+            return
+        if LIVE_SEC.exists():
+            if fresh_copy(LIVE_SEC, work) is None:
+                record_check("sec-proxy-pay", "failed", "no working copy of sec.duckdb")
+                return
+        else:
+            _discard(work)
+        _, before = _px_unchecked(work, began) if work.exists() else (None, 0)
+        started = time.time()
+        cmd = [sys.executable, str(script), "--db", str(work), "--limit", str(per_slice)]
+        if n > 1:
+            cmd.append("--skip-members")        # the member list is stored once a cycle
+        rc = _run(cmd, dict(os.environ), ROOT)
+        took = time.time() - started
+        left, after = _px_unchecked(work, began) if work.exists() and rc != -1 else (None, 0)
+        if after <= before:
+            log("US pay slice %d: nothing recorded (exit %s, %.0fs); served data untouched"
+                % (n, rc, took))
+            _discard(work)
+            record_check("sec-proxy-pay", "failed", "slice %d exited %s, nothing recorded" % (n, rc))
+            return
+        swap(work, LIVE_SEC)
+        log("US pay slice %d landed (%.0fs, exit %s): %d companies checked, %s still to check"
+            % (n, took, rc, after - before, left))
+        if not left:
+            record_check("sec-proxy-pay", "published" if rc == 0 else "failed",
+                         None if rc == 0 else "some companies failed; the rest landed")
+            return
+    record_check("sec-proxy-pay", "failed", "cycle ended with members unchecked")
+
+
 def stamp_cycle():
     """Mark the end of a refresh cycle, and say what it left behind.
 
@@ -607,6 +683,10 @@ def main():
     # the history phases below, which can run until the daily restart.
     if os.environ.get("BACKFILL_US_COMPANIES", "1") not in ("", "0") and not _stopping:
         _phase("US companies", refresh_us_companies)
+    # Executive pay from every S&P 500 member's proxy: current data too, and
+    # sliced so a restart keeps what landed.
+    if os.environ.get("BACKFILL_US_PAY", "1") not in ("", "0") and not _stopping:
+        _phase("US pay", refresh_us_pay)
     # Current data before history: the equity extractors carry this week's
     # filings, the GDP archive is a one-off load of 2002-2019 releases that is
     # already complete on the production volume.
