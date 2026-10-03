@@ -39,7 +39,6 @@
   },
   "not_run": {
     "desk.js#data-f=q": "Inside the signed-in desk's chart settings, after a dataset is chosen. Not covered yet: needs a browser login and a draft.",
-    "desk-research.js#dk-rs-wq": "Web search through an outside service (BRAVE_SEARCH_API_KEY); results are not ours to test.",
     "sortable.js#class=table-filter": "Filters the rows a table already shows; there is nothing to fetch.",
     "assistant.js#cat-q": "Filters the specialists already listed; there is nothing to fetch."
   },

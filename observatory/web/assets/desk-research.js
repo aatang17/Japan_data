@@ -15,8 +15,9 @@
    Research panel
      Plover data: search series and companies, insert a chart, insert a
      latest value with a footnote saying where it came from, or copy a chart
-     from a company's pages. Web: search (once the server has a search key),
-     read a page as text, cite it as a footnote or quote from it.
+     from a company's pages. Web page: read a page by its address as text,
+     cite it as a footnote or quote from it. Searching the web is left to the
+     writer's own Claude or Codex over /mcp/research.
 
    Loaded before desk.js; uses its helpers ($, S, api, send, insertBlock …)
    only inside functions, which run after both files have loaded. */
@@ -488,17 +489,17 @@ function renderResearchPane() {
   box.innerHTML =
     '<div class="dk-seg" role="tablist">' +
     '<button type="button" role="tab" aria-selected="true" data-rs="data">Plover Data</button>' +
-    '<button type="button" role="tab" aria-selected="false" data-rs="web">Web</button></div>' +
+    '<button type="button" role="tab" aria-selected="false" data-rs="web">Web Page</button></div>' +
     '<div id="dk-rs-data">' +
     '<form class="dk-rs-form" id="dk-rs-dform"><input type="search" id="dk-rs-dq" placeholder="Series or company, e.g. core CPI, 7203" aria-label="Search Plover data">' +
     '<button type="submit" class="dk-mini">Search</button></form>' +
     '<div id="dk-rs-dres" class="dk-rs-res"><p class="hint">Find a series to chart or quote, or a company whose charts to copy. ' +
     'A value is inserted where your cursor was, with a footnote naming its source and date.</p></div></div>' +
     '<div id="dk-rs-web" hidden>' +
-    '<p class="hint" id="dk-rs-wstatus"></p>' +
-    '<form class="dk-rs-form" id="dk-rs-wform" hidden><input type="search" id="dk-rs-wq" placeholder="Search the web" aria-label="Search the web">' +
-    '<button type="submit" class="dk-mini">Search</button></form>' +
-    '<form class="dk-rs-form" id="dk-rs-rform"><input type="url" id="dk-rs-url" placeholder="Or paste an address to read" aria-label="Page address">' +
+    '<p class="hint">Paste a page address to read it here, then cite it as a footnote or quote from it. ' +
+    "To search the web, ask your own Claude or Codex: connected to the desk, it searches and writes " +
+    "into the draft.</p>" +
+    '<form class="dk-rs-form" id="dk-rs-rform"><input type="url" id="dk-rs-url" placeholder="https://\u2026" aria-label="Page address">' +
     '<button type="submit" class="dk-mini">Read</button></form>' +
     '<div id="dk-rs-wres" class="dk-rs-res"></div></div>';
 
@@ -510,15 +511,7 @@ function renderResearchPane() {
     });
   });
   $("#dk-rs-dform").addEventListener("submit", function (e) { e.preventDefault(); dataSearch($("#dk-rs-dq").value); });
-  $("#dk-rs-wform").addEventListener("submit", function (e) { e.preventDefault(); webSearch($("#dk-rs-wq").value); });
   $("#dk-rs-rform").addEventListener("submit", function (e) { e.preventDefault(); webRead($("#dk-rs-url").value); });
-  api("/research/web/status").then(function (s) {
-    $("#dk-rs-wform").hidden = !s.search;
-    $("#dk-rs-wstatus").textContent = s.search
-      ? "Search the web, read a page here, then cite it or quote from it."
-      : "Web search switches on when a search key is added to the server (BRAVE_SEARCH_API_KEY). " +
-        "You can already read and cite any page by its address.";
-  }).catch(function () {});
 }
 
 /* ---- Plover data ---- */
@@ -615,32 +608,6 @@ function insertValue(s, btn) {
 }
 
 /* ---- the web ---- */
-
-function webSearch(q) {
-  var res = $("#dk-rs-wres");
-  if (!q.trim()) return;
-  res.innerHTML = '<p class="muted">Searching…</p>';
-  api("/research/web/search?q=" + encodeURIComponent(q)).then(function (r) {
-    S.rsWeb = r.results;
-    res.innerHTML = r.results.length ? '<ul class="dk-rs-list web">' + r.results.map(function (x, i) {
-      return '<li><a href="' + escapeHtml(x.url) + '" target="_blank" rel="noopener noreferrer" class="dk-rs-title">' +
-        escapeHtml(x.title || x.url) + "</a>" +
-        '<span class="dk-rs-site">' + escapeHtml(x.site || "") + (x.age ? " · " + escapeHtml(x.age) : "") + "</span>" +
-        '<span class="dk-rs-snip">' + escapeHtml(x.snippet || "") + "</span>" +
-        '<span class="dk-rs-acts"><button type="button" class="dk-mini" data-wread="' + i + '">Read</button>' +
-        '<button type="button" class="dk-mini" data-wcite="' + i + '">Cite</button></span></li>';
-    }).join("") + "</ul>" : '<p class="muted">No results.</p>';
-    $all("[data-wread]", res).forEach(function (b) {
-      b.addEventListener("click", function () { webRead(r.results[Number(b.getAttribute("data-wread"))].url); });
-    });
-    $all("[data-wcite]", res).forEach(function (b) {
-      b.addEventListener("click", function () {
-        var x = r.results[Number(b.getAttribute("data-wcite"))];
-        citePage({ title: x.title, site: x.site, url: x.url, published: "", author: "" });
-      });
-    });
-  }).catch(function (err) { res.innerHTML = '<p class="bad">' + escapeHtml(err.message) + "</p>"; });
-}
 
 function citation(page) {
   var when = page.published && /^\d{4}-\d{2}-\d{2}/.test(page.published) ? ", " + dateLong(page.published) : "";

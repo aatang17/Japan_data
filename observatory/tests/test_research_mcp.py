@@ -227,16 +227,6 @@ class WebGuardTest(unittest.TestCase):
             with self.assertRaises(research_web.WebError, msg=u):
                 research_web._check_url(u)
 
-    def test_search_off_without_key(self):
-        old = os.environ.pop("BRAVE_SEARCH_API_KEY", None)
-        try:
-            with self.assertRaises(research_web.WebError) as cm:
-                research_web.search("cpi", "me")
-            self.assertIn("BRAVE_SEARCH_API_KEY", str(cm.exception))
-        finally:
-            if old is not None:
-                os.environ["BRAVE_SEARCH_API_KEY"] = old
-
     def test_reader_extracts_text(self):
         p = research_web._Reader()
         p.feed('<html><head><title>T</title><meta property="og:site_name" content="BoJ">'

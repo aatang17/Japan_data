@@ -357,7 +357,7 @@ def substack(article_id: int, request: Request):
 
 
 # ---------------------------------------------------------------------------
-# research panel: Plover data and the web
+# research panel: Plover data, and reading a web page
 
 # Company pages a chart can be copied from, with the parameter each one reads
 # its company from (company.html takes `code`; the dataset pages take `c`).
@@ -402,23 +402,6 @@ def data_search(request: Request, q: str = ""):
                           "pages": [{"label": lab, "url": tpl % c["sec_code"]}
                                     for lab, tpl in COMPANY_PAGES]})
     return {"series": series, "companies": companies}
-
-
-@router.get("/web/status")
-def web_status(request: Request):
-    _writer(request)
-    from . import research_web
-    return {"search": bool(research_web.search_key())}
-
-
-@router.get("/web/search")
-def web_search(request: Request, q: str = ""):
-    person = _writer(request)
-    from . import research_web
-    try:
-        return {"results": research_web.search(q, _who(person))}
-    except research_web.WebError as exc:
-        raise HTTPException(400, str(exc))
 
 
 class ReadBody(BaseModel):

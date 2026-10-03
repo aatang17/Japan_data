@@ -1,12 +1,9 @@
 # -*- coding: utf-8 -*-
-"""The research panel's reach outside Plover: web search, and reading a page.
+"""The research panel's reach outside Plover: reading a page.
 
-Search
-------
-Brave Search's web API, one HTTP call over stdlib urllib. Switched on by
-``BRAVE_SEARCH_API_KEY``; without it search answers "not configured" and the
-panel says so — reading a page from its address still works. Each writer gets
-60 searches an hour, which bounds what a stuck script could cost.
+Web search is left to the writers' own Claude or Codex, which search the web
+themselves and write into a draft over /mcp/research; the server runs no
+search engine of its own.
 
 Reading a page
 --------------
@@ -34,78 +31,21 @@ it as text.
 """
 import html
 import ipaddress
-import json
-import os
 import re
 import socket
-import time
 import urllib.error
 import urllib.parse
 import urllib.request
 from html.parser import HTMLParser
 
-BRAVE_ENDPOINT = "https://api.search.brave.com/res/v1/web/search"
-SEARCHES_PER_HOUR = 60
 MAX_BYTES = 3 * 1024 * 1024
 TIMEOUT = 12
 MAX_REDIRECTS = 5
 TEXT_MAX = 60000
 UA = "Mozilla/5.0 (compatible; PloverResearch/1.0; +https://ploveranalytics.com/research)"
 
-_hits = {}
-
-
 class WebError(ValueError):
     """Worded for the writer."""
-
-
-def search_key():
-    return os.environ.get("BRAVE_SEARCH_API_KEY", "").strip()
-
-
-def _rate_ok(who):
-    now = time.time()
-    hits = [t for t in _hits.get(who, []) if now - t < 3600]
-    if len(hits) >= SEARCHES_PER_HOUR:
-        _hits[who] = hits
-        return False
-    hits.append(now)
-    _hits[who] = hits
-    return True
-
-
-def _strip(text):
-    return html.unescape(re.sub(r"<[^>]+>", "", text or "")).strip()
-
-
-def search(query, who):
-    key = search_key()
-    if not key:
-        raise WebError("Web search is not switched on: add BRAVE_SEARCH_API_KEY to the server "
-                       "settings. Reading a page from its address works without it.")
-    query = (query or "").strip()[:400]
-    if not query:
-        raise WebError("Type something to search for.")
-    if not _rate_ok(who):
-        raise WebError("You have run %d searches in the last hour; wait a little."
-                       % SEARCHES_PER_HOUR)
-    url = BRAVE_ENDPOINT + "?" + urllib.parse.urlencode({"q": query, "count": 12})
-    req = urllib.request.Request(url, headers={"Accept": "application/json",
-                                               "X-Subscription-Token": key, "User-Agent": UA})
-    try:
-        with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
-            body = json.loads(r.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
-        raise WebError("The search service refused the request (HTTP %d)." % exc.code)
-    except Exception:  # noqa: BLE001
-        raise WebError("The search service could not be reached. Try again in a moment.")
-    out = []
-    for r in ((body.get("web") or {}).get("results") or [])[:12]:
-        u = r.get("url") or ""
-        out.append({"title": _strip(r.get("title")), "url": u,
-                    "site": (r.get("profile") or {}).get("name") or urllib.parse.urlsplit(u).hostname,
-                    "snippet": _strip(r.get("description")), "age": r.get("age") or ""})
-    return out
 
 
 # ---------------------------------------------------------------------------

@@ -324,17 +324,24 @@ function keySteps(kind, endpoint, token) {
     "Copy it now: it is shown once. Anyone holding it can edit drafts as you, so keep it out of " +
     "shared files.";
   if (kind === "Claude Code") {
-    return head + block("Run in a terminal",
-      "claude mcp add --transport http plover-research " + endpoint +
+    // --scope user: available in every folder, not only the one the command
+    // was run in (Claude Code's default is the current folder).
+    return head + block("Run once in a terminal",
+      "claude mcp add --scope user --transport http plover-research " + endpoint +
       ' --header "Authorization: Bearer ' + token + '"') +
-      '<p class="hint-line">Then start <code>claude</code> and ask, for example: “Draft a ' +
-      "PloverResearch note on core CPI with a chart.” Type <code>/mcp</code> to check it is connected.</p></div>";
+      '<p class="hint-line">Then start <code>claude</code> in any folder and type <code>/mcp</code>: ' +
+      "plover-research should show as connected. Ask, for example: \u201cResearch the BoJ\u2019s " +
+      "latest decision and draft a PloverResearch note with a chart of the 10-year JGB yield.\u201d</p></div>";
   }
   if (kind === "Codex") {
-    return head + block("1. Add to your shell profile (~/.zshrc)", 'export PLOVER_RESEARCH_KEY="' + token + '"') +
-      block("2. Add to ~/.codex/config.toml",
-        '[mcp_servers.plover-research]\nurl = "' + endpoint + '"\nbearer_token_env_var = "PLOVER_RESEARCH_KEY"') +
-      '<p class="hint-line">Open a new terminal and start <code>codex</code>.</p></div>';
+    // The key goes in the config itself: the Codex app does not read a shell
+    // profile, so an environment variable set in ~/.zshrc never reaches it.
+    return head + block("Add to ~/.codex/config.toml (works in the Codex app and the terminal)",
+        '[mcp_servers.plover-research]\nurl = "' + endpoint + '"\nhttp_headers = { "Authorization" = "Bearer ' +
+        token + '" }') +
+      '<p class="hint-line">Restart Codex, then ask it to list the PloverResearch articles. If Codex ' +
+      "answers that a model is not supported, set <code>model</code> in the same file to one your " +
+      "ChatGPT plan offers.</p></div>";
   }
   return head + block("Address", endpoint) + block("Header", "Authorization: Bearer " + token) +
     '<p class="hint-line">Transport: Streamable HTTP (stateless JSON-RPC over POST).</p></div>';
