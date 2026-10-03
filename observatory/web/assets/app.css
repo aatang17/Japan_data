@@ -1511,88 +1511,12 @@ body.has-consent-bar .site-footer { margin-bottom: 76px; }
   .connect-client-how { flex: 0 0 100%; order: 3; }
 }
 
-/* ---------- second-tier navigation ---------- */
-
-/* Sections live in the navy bar; a section with more than one page gets this
-   strip under it. Sticky on desktop — the navy bar alone says "Equities" but
-   not where else the section goes, and the strip vanishing on scroll made the
-   other pages undiscoverable. Phones keep it non-sticky: two fixed bars would
-   eat a fifth of the screen. */
-.site-subnav {
-  position: relative; /* the section menu hangs from the strip */
-  background: var(--obs-surface);
-  border-bottom: 1px solid var(--obs-border);
-}
-@media (min-width: 769px) {
-  .site-subnav {
-    position: sticky;
-    top: 52px; /* .site-header .inner height; its border paints over the seam */
-    z-index: 40;
-  }
-}
-.site-subnav .inner {
-  max-width: 1240px;
-  margin: 0 auto;
-  padding: 0 20px;
-  height: 38px;
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  overflow-x: auto;
-}
-body.page-wide .site-subnav .inner { max-width: 1360px; }
-.site-subnav a {
-  font-size: 13px;
-  color: var(--obs-text-muted);
-  white-space: nowrap;
-  padding: 3px 1px;
-}
-.site-subnav a:hover { color: var(--obs-ink); text-decoration: none; }
-.site-subnav .subnav-sec {
-  font: inherit; font-size: 13px; color: var(--obs-text-muted);
-  background: none; border: 0; border-bottom: 2px solid transparent;
-  padding: 3px 1px; margin-bottom: -2px; cursor: pointer; white-space: nowrap;
-}
-.site-subnav .subnav-sec .caret { font-size: 10px; margin-left: 2px; }
-.site-subnav .subnav-sec:hover,
-.site-subnav .subnav-sec[aria-expanded="true"] { color: var(--obs-ink); }
-.site-subnav .subnav-sec[aria-current="true"] {
-  color: var(--obs-ink); font-weight: 600; border-bottom-color: var(--obs-primary);
-}
-.site-subnav .subnav-sec:focus-visible { outline: 2px solid var(--obs-primary); outline-offset: 2px; }
-
-/* A section's pages, and each page's in-page views indented under it. One
-   border, no shadow; long sections (Equities) run in columns. */
-.subnav-panel {
-  position: absolute; top: calc(100% + 1px); z-index: 45;
-  min-width: 220px; max-width: calc(100vw - 16px);
-  background: var(--obs-surface); border: 1px solid var(--obs-border); border-radius: 3px;
-  padding: 6px 0;
-}
-.subnav-panel.wide { columns: 3 200px; column-gap: 0; width: 660px; }
-.subnav-panel .grp { break-inside: avoid; padding: 2px 0; }
-.site-subnav .subnav-panel a {
-  display: block; padding: 5px 14px; font-size: 13px; color: var(--obs-ink);
-  border: 0; margin: 0;
-}
-.site-subnav .subnav-panel a.view { padding-left: 26px; font-size: 12.5px; color: var(--obs-text-muted); }
-.site-subnav .subnav-panel a:hover { background: var(--obs-surface-subtle); color: var(--obs-ink); }
-.site-subnav .subnav-panel a[aria-current="page"] {
-  font-weight: 600; color: var(--obs-primary); border: 0; margin: 0;
-}
-
 /* Where the reader is, in words: market / section / page. */
 .crumbs { font-size: 12px; color: var(--obs-text-muted); margin: 0 0 10px; }
 .crumbs a { color: inherit; }
 .crumbs a:hover { color: var(--obs-primary); }
 .crumbs [aria-current] { color: var(--obs-ink); }
 .crumbs .sep { margin: 0 7px; }
-.site-subnav a[aria-current="page"] {
-  color: var(--obs-ink);
-  font-weight: 600;
-  border-bottom: 2px solid var(--obs-primary);
-  margin-bottom: -2px;
-}
 
 /* ---------- page tabs (third nav tier) ----------
    The views of one destination — Inflation's headline page and its item
@@ -2518,4 +2442,186 @@ details.readable .source-line a { color: var(--obs-primary); }
    full row is still in the table's CSV and on a wider screen. */
 @media (max-width: 700px) {
   table.data .narrow-hide { display: none; }
+}
+
+/* ---------- header: Data ▾ · Research, and the phone menu ----------
+   Wide screens: brand, then the two products (Data opens the markets),
+   Docs and the controls on the right; there is no strip below. Phones (≤768px): brand and a hamburger only; everything else,
+   sections included, is in the menu. */
+
+/* The drawn chevron on every menu button; it turns over when open. */
+.chev { flex: 0 0 auto; width: 14px; height: 14px; transition: transform .15s; }
+[aria-expanded="true"] > .chev { transform: rotate(180deg); }
+
+.site-nav .nav-dd { position: relative; display: inline-flex; }
+.nav-dd-btn {
+  font: inherit; color: var(--obs-header-text);
+  background: none; border: 0; border-bottom: 2px solid transparent;
+  padding: 4px 2px; margin-bottom: -2px; cursor: pointer; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.nav-dd-btn .chev { width: 16px; height: 16px; }
+.nav-dd-btn:hover, .nav-dd-btn[aria-expanded="true"] { color: var(--obs-header-ink); }
+.nav-dd-btn[aria-current="true"] {
+  color: var(--obs-header-ink); font-weight: 600; border-bottom-color: var(--obs-header-accent);
+}
+.nav-dd-menu {
+  position: absolute; top: calc(100% + 12px); left: -14px; z-index: 60;
+  min-width: 200px; padding: 6px 0;
+  background: var(--obs-surface); border: 1px solid var(--obs-border); border-radius: 3px;
+}
+.nav-dd-menu[hidden] { display: none; }
+.site-nav .nav-dd-menu a {
+  display: block; padding: 8px 16px; font-size: 15px; font-weight: 400;
+  color: var(--obs-ink); border: 0; margin: 0;
+}
+.site-nav .nav-dd-menu a:hover { background: var(--obs-surface-subtle); color: var(--obs-ink); }
+.site-nav .nav-dd-menu a[aria-current="page"] { font-weight: 600; color: var(--obs-primary); }
+
+/* Docs: a short menu hung from the right of the bar. */
+.nav-dd-docs { position: relative; display: inline-flex; }
+.nav-dd-docs .nav-dd-menu { left: auto; right: -8px; }
+.nav-dd-docs .nav-dd-menu a {
+  display: block; padding: 8px 16px; font-size: 15px; color: var(--obs-ink); white-space: nowrap;
+}
+.nav-dd-docs .nav-dd-menu a:hover { background: var(--obs-surface-subtle); text-decoration: none; }
+.nav-dd-docs .nav-dd-menu a[aria-current="page"] { font-weight: 600; color: var(--obs-primary); }
+
+/* Data: the whole catalogue in one panel the width of the bar — each market
+   a block, each section a heading over its pages. Japan's sections run in
+   columns; the United States has fewer and takes one. */
+.site-header .inner { position: relative; }
+.site-nav .nav-dd-mega { position: static; }
+.nav-dd-menu.mega {
+  left: 20px; right: 20px; top: 100%; max-width: 1200px; margin: 0 auto;
+  padding: 18px 24px 20px; gap: 0 40px;
+  max-height: calc(100vh - 90px); overflow-y: auto;
+}
+.nav-dd-menu.mega:not([hidden]) { display: grid; grid-template-columns: 3fr 1fr; }
+.mega-mkt { display: block; min-width: 0; }
+.site-nav .mega a.mega-mkt-h {
+  padding: 0 0 8px; margin: 0 0 6px; font-size: 13px; font-weight: 600;
+  letter-spacing: .06em; text-transform: uppercase; color: var(--obs-text-muted);
+  border-bottom: 1px solid var(--obs-border);
+}
+.site-nav .mega a.mega-mkt-h[aria-current] { color: var(--obs-primary); }
+.mega-secs { display: block; columns: 3 190px; column-gap: 28px; }
+.mega-us .mega-secs { columns: 1; }
+.mega-sec { display: block; break-inside: avoid; padding: 8px 0 6px; }
+.site-nav .mega a { padding: 4px 0; font-size: 14.5px; }
+.site-nav .mega a:hover { background: none; color: var(--obs-primary); }
+.site-nav .mega a.mega-sec-h { font-weight: 600; font-size: 15.5px; }
+.site-nav .mega a.mega-sec-h[aria-current] { color: var(--obs-primary); }
+
+/* One market at a time behind two tabs, and a preview pane on the right:
+   the page under the pointer, its main series drawn small with the latest
+   value (nav.js megaPreview, data from /api/v1/catalog/previews). */
+.nav-dd-menu.mega:not([hidden]) { grid-template-columns: minmax(0, 1fr) 300px; gap: 0 32px; }
+.mega-main { display: block; min-width: 0; }
+.mega-mkt[hidden] { display: none; }
+.mega-tabs { display: flex; gap: 4px; margin: 0 0 12px; border-bottom: 1px solid var(--obs-border); }
+.mega-tab { font: inherit; font-size: 14px; font-weight: 600; color: var(--obs-text-muted); cursor: pointer;
+  background: none; border: 0; border-bottom: 2px solid transparent; padding: 6px 12px 9px; margin-bottom: -1px; }
+.mega-tab:hover { color: var(--obs-ink); }
+.mega-tab[aria-selected="true"] { color: var(--obs-primary); border-bottom-color: var(--obs-primary); }
+.site-nav .mega a.mega-mkt-h { border: 0; padding: 2px 0 6px; margin: 0; font-size: 12.5px;
+  color: var(--obs-primary); text-transform: none; letter-spacing: 0; font-weight: 600; }
+.site-nav .mega a.mega-mkt-h::after { content: " \2192"; }
+.mega-us .mega-secs { columns: 3 190px; }
+.site-nav .mega .mega-secs a:focus-visible { outline: 2px solid var(--obs-primary); outline-offset: 1px; }
+
+.mega-preview { display: flex; flex-direction: column; min-width: 0; align-self: start;
+  position: sticky; top: 0; padding: 14px 0 4px 24px; border-left: 1px solid var(--obs-border);
+  min-height: 300px; }
+.mega-preview > span { display: block; }
+.mega-preview > .mp-figure, .mega-preview > .mp-axis { display: flex; }
+.mp-sec { font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--obs-text-muted); min-height: 14px; }
+.mp-title { font-size: 17px; font-weight: 700; color: var(--obs-ink); margin: 2px 0 12px; }
+.mp-figure { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.mp-value { font-size: 28px; font-weight: 700; color: var(--obs-ink); font-variant-numeric: tabular-nums;
+  letter-spacing: -0.5px; line-height: 1.1; }
+.mp-unit { font-size: 12.5px; color: var(--obs-text-muted); font-variant-numeric: tabular-nums; }
+.mp-series { font-size: 12.5px; color: var(--obs-text); margin: 4px 0 10px; }
+.mp-spark { display: block; width: 100%; height: 76px; overflow: visible; }
+.mp-spark path { fill: none; stroke: var(--obs-series-1); stroke-width: 2; vector-effect: non-scaling-stroke;
+  stroke-linejoin: round; stroke-linecap: round; }
+.mp-spark circle { fill: var(--obs-series-1); }
+.mp-spark .mp-zero { stroke: var(--obs-text-faint); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.mp-axis { display: flex; justify-content: space-between; font-size: 11px; color: var(--obs-text-muted);
+  margin-top: 4px; font-variant-numeric: tabular-nums; }
+.mp-src { font-size: 11px; color: var(--obs-text-muted); line-height: 1.4; margin-top: 10px;
+  display: -webkit-box !important; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.mp-text { font-size: 13.5px; color: var(--obs-text); line-height: 1.5; }
+.mp-wait { color: var(--obs-text-muted); }
+.mp-through { font-size: 12.5px; font-weight: 600; color: var(--obs-ink); margin-top: 12px;
+  font-variant-numeric: tabular-nums; }
+.site-nav .mega a.mp-open { margin-top: 14px; padding: 0; font-size: 13.5px; font-weight: 600;
+  color: var(--obs-primary); }
+.site-nav .mega a.mp-open:hover { text-decoration: underline; }
+@media (max-width: 1000px) {
+  .nav-dd-menu.mega:not([hidden]) { grid-template-columns: minmax(0, 1fr) 240px; }
+  .mega-secs, .mega-us .mega-secs { columns: 2 170px; }
+}
+
+/* Larger bar on every wide screen. */
+@media (min-width: 769px) {
+  .site-header .inner { height: 72px; gap: 32px; }
+  .brand { font-size: 19px; gap: 10px; }
+  .brand-mark { width: 28px; height: 28px; }
+  .site-nav { font-size: 18px; gap: 30px; }
+  .nav-dd-docs .nav-dd-menu { top: calc(100% + 22px); }
+  .header-link { font-size: 16px; }
+  .header-asof { font-size: 14px; }
+  .header-right { gap: 18px; }
+  .theme-toggle { font-size: 15px; padding: 6px 14px; border-radius: 4px; }
+}
+
+.nav-burger, .mnav { display: none; }
+@media (max-width: 768px) {
+  .site-header .inner {
+    height: 60px; min-height: 0; flex-wrap: nowrap; padding: 0 16px; gap: 12px;
+  }
+  .brand { font-size: 18px; gap: 9px; }
+  .brand-mark { width: 24px; height: 24px; }
+  .site-header .site-nav,
+  .site-header .header-right { display: none; }
+  .nav-burger {
+    display: inline-flex; align-items: center; justify-content: center;
+    margin-left: auto; width: 44px; height: 44px; padding: 0; flex-shrink: 0;
+    background: none; border: 1px solid var(--obs-header-border); border-radius: 4px;
+    color: var(--obs-header-ink); cursor: pointer;
+  }
+  .nav-burger:hover { border-color: var(--obs-header-ink); }
+
+  .site-header.nav-open .mnav {
+    display: block; position: absolute; top: 100%; left: 0; right: 0; z-index: 60;
+    max-height: calc(100vh - 60px); overflow-y: auto; overscroll-behavior: contain;
+    background: var(--obs-surface); color: var(--obs-ink);
+    border-bottom: 1px solid var(--obs-border);
+    padding: 4px 16px 16px;
+  }
+  .mnav-group { padding: 10px 0; border-bottom: 1px solid var(--obs-border); }
+  .mnav-group:last-child { border-bottom: 0; }
+  .mnav-label {
+    font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--obs-text-muted); padding: 4px 0 6px;
+  }
+  .mnav a, .mnav-sec, .mnav-theme {
+    display: flex; align-items: center; justify-content: space-between; width: 100%;
+    min-height: 44px; padding: 0; font: inherit; font-size: 17px;
+    color: var(--obs-ink); background: none; border: 0; text-align: left; cursor: pointer;
+  }
+  .mnav a:hover { text-decoration: none; color: var(--obs-primary); }
+  .mnav a[aria-current="page"] { font-weight: 600; color: var(--obs-primary); }
+  .mnav-sec .chev { width: 18px; height: 18px; color: var(--obs-text-muted); }
+  .mnav-sec[aria-expanded="true"] { font-weight: 600; }
+  .mnav-pages { padding: 0 0 6px 14px; border-left: 2px solid var(--obs-border); margin-left: 2px; }
+  .mnav-pages[hidden] { display: none; }
+  .mnav-pages a { font-size: 16px; min-height: 40px; }
+  .mnav-pages a.view { font-size: 15px; padding-left: 14px; color: var(--obs-text-muted); }
+  .mnav-theme {
+    justify-content: center; margin-top: 10px; font-size: 15px;
+    border: 1px solid var(--obs-border); border-radius: 4px;
+  }
 }

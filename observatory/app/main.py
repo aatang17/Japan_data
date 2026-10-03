@@ -21,6 +21,10 @@ env.load()
 
 from . import api  # noqa: E402 — must follow env.load()
 from .admin_api import router as admin_router  # noqa: E402
+from . import research_backup  # noqa: E402
+from .research_api import router as research_admin_router  # noqa: E402
+from .research_pages import router as research_router  # noqa: E402
+from .research_mcp import router as research_mcp_router  # noqa: E402
 from . import accounts  # noqa: E402
 from . import assistant  # noqa: E402
 from .assistant import api as assistant_api  # noqa: E402
@@ -46,6 +50,7 @@ from .sec_api import router as sec_router  # noqa: E402
 from .sec_deep_api import router as sec_deep_router  # noqa: E402
 from .us_pay_api import router as us_pay_router  # noqa: E402
 from .catalog_api import router as catalog_router  # noqa: E402
+from .nav_preview import router as nav_preview_router  # noqa: E402
 from .apportionment_api import router as representation_router  # noqa: E402
 from .company_api import router as company_router  # noqa: E402
 from . import registry  # noqa: E402
@@ -122,17 +127,22 @@ async def lifespan(app):
     # names a path that does not exist is quarantined and reported on
     # /catalog/health — never a reason for the port not to open.
     registry.bind(app)
-    await cache.warm(app, api.warm_paths())
+    # The Data menu's previews too: every page header fetches them on first open.
+    await cache.warm(app, api.warm_paths() + ["/api/v1/catalog/previews"])
     # Watches ingest health for as long as we serve, and — only under
     # start.sh, which sets REFRESH_SUPERVISED — ends the process once a day so
     # the supervisor can re-run the ingests. See refresh.py.
     task = asyncio.ensure_future(refresh.run())
+    # Off-volume copies of the research desk and staff accounts: the only
+    # data on the volume that cannot be downloaded again. See research_backup.
+    backup = asyncio.ensure_future(research_backup.loop())
     try:
         yield
     finally:
-        task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await task
+        for t in (task, backup):
+            t.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await t
 
 
 # The human reference is /api.html, rendered from this schema and the dataset
@@ -222,6 +232,8 @@ app.include_router(company_router)
 # ahead of the core router for the same reason: /{dataset}/… would swallow it.
 app.include_router(visits_router)
 app.include_router(catalog_router)
+# What the header's Data menu shows for each page (cached like /api/v1).
+app.include_router(nav_preview_router)
 app.include_router(representation_router)
 app.include_router(router)
 # /mcp sits outside /api/v1 on purpose: the response cache only touches GETs
@@ -230,6 +242,15 @@ app.include_router(mcp_router)
 # /admin/api also sits outside /api/v1: authenticated responses must never be
 # served from (or into) the shared response cache.
 app.include_router(admin_router)
+# The research desk (admin, Writing permission) and PloverResearch's public
+# pages. The public routes are server-rendered HTML outside /api/v1, so a
+# newly published article is never held back by the dataset response cache;
+# they must sit ahead of the static mount, which answers every other path.
+app.include_router(research_admin_router)
+app.include_router(research_router)
+# /mcp/research: the drafting desk for a writer's own Claude Code or Codex,
+# behind a personal key. Outside /api/v1, so never cached.
+app.include_router(research_mcp_router)
 # Accounts only exist where ACCOUNTS_ENABLED says so. Absent, every
 # /api/v1/account/… path 404s, and the sign-in page reads that as "not switched
 # on" rather than showing a form that cannot work. Its responses are per-reader

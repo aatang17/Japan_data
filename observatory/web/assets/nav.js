@@ -32,6 +32,12 @@
    yet when this script runs. A page with no placeholder simply gets no tabs. */
 
 var NAV_BRAND = "Plover Analytics";
+// The one dropdown arrow, used on every menu button. A drawn chevron rather
+// than the "▾" glyph: at header sizes the glyph read as a speck.
+var NAV_CHEVRON =
+  '<svg class="chev" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true" focusable="false">' +
+  '<path d="M2.5 4.25 6 7.75l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.8" ' +
+  'stroke-linecap="round" stroke-linejoin="round"/></svg>';
 // Simplified Plover Analytics mark for the header. Decorative: the adjacent
 // text already names the brand, so it is aria-hidden rather than repeating it
 // to a screen reader.
@@ -78,6 +84,8 @@ var NAV_SECTIONS = [
       // The national accounts and the corporate survey are the two
       // activity datasets: what the economy produced, and what companies
       // earned and invested doing it. They sit before the balance sheets.
+      // Labour sits after Inflation: unemployment, job openings and wages
+      // are the other half of what the Bank of Japan reads each month.
       { id: "gdp", label: "GDP", href: "gdp.html" },
       // Public finance sits beside the national accounts: the general
       // account is one legal account of one tier of government, and the
@@ -287,24 +295,120 @@ var NAV_SECTIONS = [
   if (market !== "us") market = "jp";
   var marketObj = NAV_MARKETS[market === "us" ? 1 : 0];
 
-  // First tier: the markets, in full words, and nothing else. The one
-  // question the navy bar answers is "which country am I looking at".
-  var markets = '<nav class="site-nav" aria-label="Market">' +
-    NAV_MARKETS.map(function (m) {
-      return '<a href="' + esc(m.entry) + '"' +
-        (!isDocs && m.id === market ? ' aria-current="page"' : "") + ">" +
-        esc(m.label) + "</a>";
-    }).join("") + "</nav>";
+  // First tier: the two products, Data and Research. Data opens the
+  // markets; the country the reader is in is named in the trail at the top
+  // of the content and marked in the Data menu.
+  var marketLinks = NAV_MARKETS.map(function (m) {
+    return '<a href="' + esc(m.entry) + '"' +
+      (!isDocs && m.id === market ? ' aria-current="page"' : "") + ">" +
+      esc(m.label) + "</a>";
+  }).join("");
+  var onData = !!section && !isDocs;
+  // PloverResearch spans every market. Absolute: its pages live under /research/.
+  var onResearch = pageId === "research";
+  var primary = '<nav class="site-nav" aria-label="Main">' +
+    '<span class="nav-dd nav-dd-mega">' +
+    '<button type="button" class="nav-dd-btn" aria-haspopup="true" aria-expanded="false"' +
+      ' aria-controls="nav-data-menu"' + (onData ? ' aria-current="true"' : "") + ">Data" +
+      NAV_CHEVRON + "</button>" +
+    '<span class="nav-dd-menu mega" id="nav-data-menu" hidden></span></span>' +
+    '<a href="/research"' + (onResearch ? ' aria-current="page"' : "") + ">Research</a>" +
+    "</nav>";
 
+  var docs = NAV_SECTIONS.filter(function (s) { return s.market === "shared"; })[0];
   header.innerHTML =
-    '<div class="inner">' + brand + markets +
+    '<div class="inner">' + brand + primary +
+    // Phones: the whole navigation, sections included, folds into this menu.
+    '<button class="nav-burger" type="button" aria-label="Menu" aria-expanded="false" ' +
+      'aria-controls="mnav"><svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" ' +
+      'focusable="false"><path d="M3 6h18M3 12h18M3 18h18" fill="none" stroke="currentColor" ' +
+      'stroke-width="2.2" stroke-linecap="round"/></svg></button>' +
     '<div class="header-right">' +
-    '<a class="header-link" href="connect.html"' +
-      (isDocs ? ' aria-current="page"' : "") + ">Docs</a>" +
+    // Docs: a short menu of its pages, since there is no strip to hold them.
+    '<span class="nav-dd nav-dd-docs">' +
+    '<button type="button" class="nav-dd-btn header-link" aria-haspopup="true" aria-expanded="false"' +
+      ' aria-controls="nav-docs-menu"' + (isDocs ? ' aria-current="true"' : "") + ">Docs" +
+      NAV_CHEVRON + "</button>" +
+    '<span class="nav-dd-menu" id="nav-docs-menu" hidden>' +
+    docs.pages.map(function (p) {
+      return '<a href="' + esc(p.href) + '"' + (p.id === pageId ? ' aria-current="page"' : "") +
+        ">" + esc(p.label) + "</a>";
+    }).join("") + "</span></span>" +
     '<span class="header-asof" id="header-asof"></span>' +
     '<span class="header-account" id="header-account"></span>' +
     '<button class="theme-toggle" type="button">Dark Mode</button>' +
-    "</div></div>";
+    "</div></div>" +
+    '<div class="mnav" id="mnav"></div>';
+
+  // Data and Docs menus (wide screens). One open at a time.
+  (function dropdowns() {
+    var dds = Array.prototype.slice.call(header.querySelectorAll(".nav-dd"));
+    function set(dd, open) {
+      dd.querySelector(".nav-dd-menu").hidden = !open;
+      dd.querySelector(".nav-dd-btn").setAttribute("aria-expanded", open ? "true" : "false");
+    }
+    dds.forEach(function (dd) {
+      dd.querySelector(".nav-dd-btn").addEventListener("click", function (e) {
+        e.stopPropagation();
+        var open = dd.querySelector(".nav-dd-menu").hidden;
+        dds.forEach(function (o) { set(o, false); });
+        set(dd, open);
+      });
+    });
+    document.addEventListener("click", function (e) {
+      dds.forEach(function (dd) {
+        if (!dd.querySelector(".nav-dd-menu").contains(e.target)) set(dd, false);
+      });
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key !== "Escape") return;
+      dds.forEach(function (dd) {
+        if (!dd.querySelector(".nav-dd-menu").hidden) {
+          set(dd, false);
+          dd.querySelector(".nav-dd-btn").focus();
+        }
+      });
+    });
+  })();
+
+  // Hamburger (phones). The menu's contents are filled in below, once the
+  // market's sections are known.
+  (function burger() {
+    var btn = header.querySelector(".nav-burger");
+    var theme = header.querySelector(".header-right .theme-toggle");
+    function set(open) {
+      header.classList.toggle("nav-open", open);
+      btn.setAttribute("aria-expanded", open ? "true" : "false");
+      // The page's theme script binds the bar's toggle; the menu's copy
+      // relays to it and borrows its label.
+      var mt = header.querySelector(".mnav-theme");
+      if (open && mt && theme) mt.textContent = theme.textContent;
+    }
+    btn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      set(!header.classList.contains("nav-open"));
+    });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape") set(false); });
+    document.addEventListener("click", function (e) {
+      if (!header.contains(e.target)) set(false);
+    });
+    header.addEventListener("click", function (e) {
+      if (e.target.closest(".mnav-theme") && theme) {
+        theme.click();
+        e.target.closest(".mnav-theme").textContent = theme.textContent;
+        return;
+      }
+      var sec = e.target.closest(".mnav-sec");
+      if (sec) {
+        var open = sec.getAttribute("aria-expanded") !== "true";
+        sec.setAttribute("aria-expanded", open ? "true" : "false");
+        sec.nextElementSibling.hidden = !open;
+      }
+    });
+    window.addEventListener("resize", function () {
+      if (window.innerWidth > 768) set(false);
+    });
+  })();
 
   // The account control asks the server who is signed in, and renders nothing
   // at all where accounts are not switched on — a "Sign in" link to a feature
@@ -326,6 +430,19 @@ var NAV_SECTIONS = [
       .then(function (me) {
         if (!me) return;
         var here = location.pathname.replace(/^\//, "") + location.search;
+        var mslot = document.getElementById("mnav-account");
+        if (mslot) {
+          mslot.innerHTML = me.email
+            ? '<a href="#" data-do="signout">Sign out</a>'
+            : '<a href="signin.html?returnTo=' + encodeURIComponent(here) + '">Sign in</a>';
+          mslot.addEventListener("click", function (e) {
+            if (!e.target.closest("[data-do='signout']")) return;
+            e.preventDefault();
+            fetch("/api/v1/account/signout", { method: "POST" })
+              .then(function () { location.reload(); })
+              .catch(function () { location.reload(); });
+          });
+        }
         if (!me.email) {
           slot.innerHTML = '<a href="signin.html?returnTo=' + encodeURIComponent(here) +
             '">Sign in</a>';
@@ -379,97 +496,233 @@ var NAV_SECTIONS = [
     return false;
   }
 
-  // Second tier: the current market's sections (or, on a Docs page, the
-  // Docs pages). A section with one page is a plain link; a section with more
-  // opens a menu of its pages, and a page's in-page views are listed under it
-  // so everything in the market is two clicks from anywhere.
+  // Second tier: every market's sections and their pages, in the Data
+  // menu. There is no strip under the bar: the whole data catalogue is one
+  // click away from anywhere, and the page keeps the screen.
   var stripSections = isDocs ? [] : NAV_SECTIONS.filter(function (s) {
     return s.market === market;
   });
-  var sub = document.createElement("nav");
-  sub.className = "site-subnav";
-  sub.setAttribute("aria-label", isDocs ? "Docs" : marketObj.label + " sections");
-  var items = isDocs
-    ? section.pages.map(function (p) {
-        return '<a href="' + esc(p.href) + '"' +
-          (owns(p) ? ' aria-current="page"' : "") + ">" + esc(p.label) + "</a>";
-      })
-    : stripSections.map(function (s, n) {
+  // The Data menu: one market at a time behind two tabs, its sections in
+  // columns, and a preview pane on the right that shows the page under the
+  // pointer — its main series as a small chart with the latest value — from
+  // /api/v1/catalog/previews, fetched once on first open.
+  var dataMenu = header.querySelector("#nav-data-menu");
+  dataMenu.innerHTML =
+    '<span class="mega-main">' +
+    '<span class="mega-tabs" role="tablist" aria-label="Market">' +
+    NAV_MARKETS.map(function (m) {
+      return '<button type="button" role="tab" class="mega-tab" data-mkt="' + esc(m.id) + '"' +
+        ' aria-selected="' + (m.id === market) + '">' + esc(m.label) + "</button>";
+    }).join("") + "</span>" +
+    NAV_MARKETS.map(function (m) {
+      return '<span class="mega-mkt mega-' + esc(m.id) + '" data-mkt="' + esc(m.id) + '"' +
+        (m.id === market ? "" : " hidden") + ">" +
+        '<a class="mega-mkt-h" href="' + esc(m.entry) + '"' +
+          (!isDocs && m.id === market ? ' aria-current="true"' : "") + ">" +
+          esc(m.label) + " overview</a>" +
+        '<span class="mega-secs">' +
+        NAV_SECTIONS.filter(function (s) { return s.market === m.id; }).map(function (s) {
+          return '<span class="mega-sec">' +
+            '<a class="mega-sec-h" href="' + esc(s.entry || s.pages[0].href) + '"' +
+              ' data-sec="' + esc(s.label) + '" data-label="' + esc(s.label) + '"' +
+              (s === section ? ' aria-current="true"' : "") + ">" + esc(s.label) + "</a>" +
+            (s.pages.length > 1 ? s.pages.map(function (p) {
+              return '<a href="' + esc(p.href) + '" data-sec="' + esc(s.label) + '" data-label="' +
+                esc(p.label) + '"' + (owns(p) ? ' aria-current="page"' : "") + ">" +
+                esc(p.label) + "</a>";
+            }).join("") : "") + "</span>";
+        }).join("") + "</span></span>";
+    }).join("") +
+    "</span>" +
+    '<span class="mega-preview" aria-live="polite"></span>';
+
+  (function megaPreview() {
+    var pane = dataMenu.querySelector(".mega-preview");
+    var btn = header.querySelector(".nav-dd-mega .nav-dd-btn");
+    var previews = null;
+    var loading = null;
+    var shown = null;
+    var touchArmed = null;
+    var lastPointer = "mouse";
+    var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    var DEFAULT = { jp: "/cpi.html", us: "/us-inflation.html" };
+
+    function pathOf(href) {
+      try { return new URL(href, location.origin + "/").pathname; } catch (e) { return href; }
+    }
+    function load() {
+      if (previews || loading) return loading;
+      loading = fetch("/api/v1/catalog/previews", { headers: { Accept: "application/json" } })
+        .then(function (r) { return r.ok ? r.json() : { pages: {} }; })
+        .then(function (d) { previews = d.pages || {}; })
+        .catch(function () { previews = {}; });
+      return loading;
+    }
+    function period(iso, freq) {
+      if (!iso) return "";
+      var y = iso.slice(0, 4), m = Number(iso.slice(5, 7)), d = Number(iso.slice(8, 10));
+      if (freq === "daily") return d + " " + MONTHS[m - 1] + " " + y;
+      if (freq === "quarterly") return "Q" + Math.ceil(m / 3) + " " + y;
+      if (freq === "annual" || freq === "fiscal_year") return y;
+      return MONTHS[m - 1] + " " + y;
+    }
+    // As published: every decimal kept, thousands grouped, a true minus.
+    function num(v, dp) {
+      var t = dp === undefined ? String(Math.abs(v)) : Math.abs(v).toFixed(dp);
+      var parts = t.split(".");
+      parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+      return (v < 0 ? "−" : "") + parts.join(".");
+    }
+    function spark(points) {
+      var W = 260, H = 76, P = 3;
+      var vals = points.map(function (p) { return p[1]; }).filter(function (v) { return v !== null; });
+      if (vals.length < 3) return "";
+      var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
+      if (hi === lo) { hi += 1; lo -= 1; }
+      var n = points.length;
+      function x(i) { return P + (W - 2 * P) * (n === 1 ? 0 : i / (n - 1)); }
+      function y(v) { return P + (H - 2 * P) * (1 - (v - lo) / (hi - lo)); }
+      var d = "", pen = false, last = null;
+      points.forEach(function (p, i) {
+        if (p[1] === null) { pen = false; return; }   // a gap stays a gap
+        d += (pen ? "L" : "M") + x(i).toFixed(1) + " " + y(p[1]).toFixed(1);
+        pen = true;
+        last = [x(i), y(p[1])];
+      });
+      var zero = lo < 0 && hi > 0
+        ? '<line class="mp-zero" x1="0" x2="' + W + '" y1="' + y(0).toFixed(1) + '" y2="' + y(0).toFixed(1) + '"/>' : "";
+      return '<svg class="mp-spark" viewBox="0 0 ' + W + " " + H + '" preserveAspectRatio="none" ' +
+        'aria-hidden="true" focusable="false">' + zero + '<path d="' + d + '"/>' +
+        (last ? '<circle cx="' + last[0].toFixed(1) + '" cy="' + last[1].toFixed(1) + '" r="2.6"/>' : "") +
+        "</svg>";
+    }
+    function render(link) {
+      var path = pathOf(link.getAttribute("href"));
+      var pv = previews && previews[path];
+      var label = link.getAttribute("data-label") || link.textContent;
+      var sec = link.getAttribute("data-sec") || "";
+      var head = '<span class="mp-sec">' + esc(sec !== label ? sec : "") + "</span>" +
+        '<span class="mp-title">' + esc(label) + "</span>";
+      var body = "";
+      if (pv && pv.kind === "series") {
+        var yoy = pv.measure === "yoy";
+        var pct = yoy || pv.unit === "%";
+        var big = num(pv.latest.value, yoy ? 1 : undefined) + (pct ? "%" : "");
+        var unit = yoy ? "on a year earlier" : (pct ? "" : pv.unit || "");
+        body = '<span class="mp-figure"><span class="mp-value">' + esc(big) + "</span>" +
+          '<span class="mp-unit">' + esc((unit ? unit + " · " : "") + period(pv.latest.period, pv.frequency)) +
+          "</span></span>" +
+          // a figure the page calculates (a world total, a net flow) says so
+          '<span class="mp-series">' + esc(pv.name) +
+            (pv.trust === "derived" && !yoy ? " \u00b7 calculated" : "") + "</span>" +
+          spark(pv.points) +
+          (pv.points.length > 2 ? '<span class="mp-axis"><span>' + esc(period(pv.points[0][0], pv.frequency)) +
+            "</span><span>" + esc(period(pv.points[pv.points.length - 1][0], pv.frequency)) + "</span></span>" : "") +
+          '<span class="mp-src">' + esc(pv.credit || "") + "</span>";
+      } else if (pv && pv.kind === "text") {
+        body = '<span class="mp-text">' + esc(pv.text) + "</span>" +
+          (pv.through ? '<span class="mp-through">Filings read through ' +
+            esc(period(pv.through, "daily")) + "</span>" : "");
+      } else if (!previews) {
+        body = '<span class="mp-text mp-wait">Loading…</span>';
+      } else {
+        body = '<span class="mp-text">Open the page to see its data.</span>';
+      }
+      pane.innerHTML = head + body +
+        '<a class="mp-open" href="' + esc(link.getAttribute("href")) + '">Open ' + esc(label) +
+        '<span aria-hidden="true"> →</span></a>';
+      shown = link;
+    }
+    function show(link) {
+      if (!link || link === shown) return;
+      render(link);
+      if (!previews) load().then(function () { if (shown === link) render(link); });
+    }
+    function defaultFor(mkt) {
+      var cur = dataMenu.querySelector('.mega-mkt[data-mkt="' + mkt + '"] a[aria-current="page"]');
+      // a page link before a section heading that points at the same page
+      return cur || dataMenu.querySelector('.mega-mkt[data-mkt="' + mkt + '"] a:not(.mega-sec-h)[href$="' +
+        DEFAULT[mkt].slice(1) + '"]') || dataMenu.querySelector('.mega-mkt[data-mkt="' + mkt + '"] a[href$="' +
+        DEFAULT[mkt].slice(1) + '"]') || dataMenu.querySelector('.mega-mkt[data-mkt="' + mkt + '"] .mega-sec a');
+    }
+    function selectMarket(mkt) {
+      Array.prototype.forEach.call(dataMenu.querySelectorAll(".mega-tab"), function (t) {
+        t.setAttribute("aria-selected", String(t.getAttribute("data-mkt") === mkt));
+      });
+      Array.prototype.forEach.call(dataMenu.querySelectorAll(".mega-mkt"), function (b) {
+        b.hidden = b.getAttribute("data-mkt") !== mkt;
+      });
+      shown = null;
+      show(defaultFor(mkt));
+    }
+    if (btn) btn.addEventListener("click", function () {
+      load();
+      if (!shown) show(defaultFor(market));
+    });
+    dataMenu.addEventListener("click", function (e) {
+      var tab = e.target.closest(".mega-tab");
+      if (tab) { e.stopPropagation(); selectMarket(tab.getAttribute("data-mkt")); return; }
+      // touch: the first tap on a page previews it, the second opens it
+      var a = e.target.closest(".mega-secs a");
+      if (a && lastPointer === "touch" && touchArmed !== a) {
+        e.preventDefault();
+        touchArmed = a;
+        show(a);
+      }
+    });
+    dataMenu.addEventListener("pointerdown", function (e) { lastPointer = e.pointerType || "mouse"; });
+    dataMenu.addEventListener("mouseover", function (e) {
+      var a = e.target.closest(".mega-secs a");
+      if (a && lastPointer !== "touch") show(a);
+    });
+    dataMenu.addEventListener("focusin", function (e) {
+      var a = e.target.closest(".mega-secs a");
+      if (a) show(a);
+    });
+    dataMenu.addEventListener("keydown", function (e) {
+      var tab = e.target.closest(".mega-tab");
+      if (!tab || (e.key !== "ArrowRight" && e.key !== "ArrowLeft")) return;
+      var tabs = Array.prototype.slice.call(dataMenu.querySelectorAll(".mega-tab"));
+      var next = tabs[(tabs.indexOf(tab) + (e.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length];
+      next.focus();
+      selectMarket(next.getAttribute("data-mkt"));
+    });
+  })();
+
+  // The phone menu: Data, the sections of the market in view (each opening
+  // to its pages, the current one already open), then Research and Docs.
+  function pageLinks(s) {
+    return s.pages.map(function (p) {
+      var views = (p.tabs || []).filter(function (t) { return t.href !== p.href; });
+      return '<a href="' + esc(p.href) + '"' + (owns(p) ? ' aria-current="page"' : "") + ">" +
+        esc(p.label) + "</a>" +
+        views.map(function (t) {
+          return '<a class="view" href="' + esc(t.href) + '"' +
+            (t.id === pageId ? ' aria-current="page"' : "") + ">" + esc(t.label) + "</a>";
+        }).join("");
+    }).join("");
+  }
+  var mSections = isDocs
+    ? pageLinks(section)
+    : stripSections.map(function (s) {
         var current = s === section;
         if (s.pages.length === 1) {
           return '<a href="' + esc(s.pages[0].href) + '"' +
             (current ? ' aria-current="page"' : "") + ">" + esc(s.label) + "</a>";
         }
-        return '<button type="button" class="subnav-sec" data-sec="' + n + '"' +
-          ' aria-expanded="false" aria-haspopup="true"' +
-          (current ? ' aria-current="true"' : "") + ">" + esc(s.label) +
-          ' <span class="caret" aria-hidden="true">\u25be</span></button>';
-      });
-  sub.innerHTML = '<div class="inner">' + items.join("") + "</div>" +
-    '<div class="subnav-panel" hidden></div>';
-  header.parentNode.insertBefore(sub, header.nextSibling);
-
-  var inner = sub.firstChild;
-  var panel = sub.lastChild;
-  var openBtn = null;
-
-  function closePanel() {
-    if (!openBtn) return;
-    openBtn.setAttribute("aria-expanded", "false");
-    openBtn = null;
-    panel.hidden = true;
-  }
-
-  function openPanel(btn) {
-    var s = stripSections[Number(btn.getAttribute("data-sec"))];
-    var count = 0;
-    panel.innerHTML = s.pages.map(function (p) {
-      count += 1 + (p.tabs ? p.tabs.length - 1 : 0);
-      var views = (p.tabs || []).filter(function (t) { return t.href !== p.href; });
-      return '<div class="grp"><a href="' + esc(p.href) + '"' +
-        (owns(p) ? ' aria-current="page"' : "") + ">" + esc(p.label) + "</a>" +
-        views.map(function (t) {
-          return '<a class="view" href="' + esc(t.href) + '"' +
-            (t.id === pageId ? ' aria-current="page"' : "") + ">" + esc(t.label) + "</a>";
-        }).join("") + "</div>";
-    }).join("");
-    panel.className = "subnav-panel" + (count > 14 ? " wide" : "");
-    panel.hidden = false;
-    // Under its button, but never past the right edge of the viewport. The
-    // panel is a child of the strip, not of the scrolling row, so the row's
-    // sideways scroll on a phone can never clip it.
-    var sr = sub.getBoundingClientRect(), br = btn.getBoundingClientRect();
-    var left = Math.max(8, Math.min(br.left - sr.left - 12,
-                                    sr.width - panel.offsetWidth - 8));
-    panel.style.left = left + "px";
-    btn.setAttribute("aria-expanded", "true");
-    openBtn = btn;
-  }
-
-  inner.addEventListener("click", function (e) {
-    var btn = e.target.closest(".subnav-sec");
-    if (!btn) return;
-    e.stopPropagation();
-    if (openBtn === btn) { closePanel(); return; }
-    closePanel();
-    openPanel(btn);
-  });
-  document.addEventListener("click", function (e) {
-    if (openBtn && !panel.contains(e.target)) closePanel();
-  });
-  document.addEventListener("keydown", function (e) {
-    if (e.key === "Escape" && openBtn) { var b = openBtn; closePanel(); b.focus(); }
-  });
-  window.addEventListener("resize", closePanel);
-  inner.addEventListener("scroll", closePanel);
-
-  // The strip scrolls sideways on a phone, and a market's later sections sit
-  // off-screen — so the one you are in can be invisible. Bring it into view
-  // once, without scrolling the document itself.
-  var here = inner.querySelector('[aria-current]');
-  if (here && inner.scrollWidth > inner.clientWidth) {
-    inner.scrollLeft = Math.max(0, here.offsetLeft - 20);
-  }
+        return '<button type="button" class="mnav-sec" aria-expanded="' + current + '">' +
+          esc(s.label) + NAV_CHEVRON + "</button>" +
+          '<div class="mnav-pages"' + (current ? "" : " hidden") + ">" + pageLinks(s) + "</div>";
+      }).join("");
+  header.querySelector(".mnav").innerHTML =
+    '<div class="mnav-group"><div class="mnav-label">Data</div>' + marketLinks + "</div>" +
+    '<div class="mnav-group"><div class="mnav-label">' +
+      esc(isDocs ? "Docs" : marketObj.label) + "</div>" + mSections + "</div>" +
+    '<div class="mnav-group">' +
+      '<a href="/research"' + (onResearch ? ' aria-current="page"' : "") + ">Research</a>" +
+      (isDocs ? "" : '<a href="connect.html">Docs</a>') +
+      '<span id="mnav-account"></span>' +
+      '<button type="button" class="mnav-theme">Dark Mode</button></div>';
 
   // The trail at the top of the content: market, section, page. It is what
   // the brand suffix used to do — name the place in words a screenshot keeps
@@ -550,7 +803,9 @@ var NAV_SECTIONS = [
   }
 
   function build() {
-    if (document.body.classList.contains("page-home")) return;
+    // landing pages that are an index, not a document, opt out with no-toc
+    if (document.body.classList.contains("page-home") ||
+        document.body.classList.contains("no-toc")) return;
     var main = document.querySelector("main");
     if (!main) return;
     heads = Array.prototype.filter.call(main.querySelectorAll("h2"), function (h) {

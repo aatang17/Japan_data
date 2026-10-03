@@ -11,20 +11,45 @@
 
 var ROOT = document.getElementById("admin-root");
 
+/* `perm` is the permission a page needs (app/staff.py). The menu shows only
+   what the signed-in person can open; the API refuses the rest regardless. */
 var ADMIN_NAV = [
   { group: "Operations", pages: [
-    { id: "health", label: "Ingest Health", hash: "#health" },
-    { id: "vintages", label: "Release History", hash: "#vintages" },
-    { id: "traffic", label: "Traffic", hash: "#traffic" },
+    { id: "health", label: "Ingest Health", hash: "#health", perm: "operations" },
+    { id: "vintages", label: "Release History", hash: "#vintages", perm: "operations" },
+    { id: "traffic", label: "Traffic", hash: "#traffic", perm: "operations" },
+  ]},
+  { group: "Research", pages: [
+    { id: "articles", label: "Articles", hash: "#articles", perm: "writing" },
   ]},
   { group: "Classification", pages: [
-    { id: "queue", label: "Classification Queue", hash: "#queue" },
-    { id: "parties", label: "Party Profiles", hash: "#parties" },
+    { id: "queue", label: "Classification Queue", hash: "#queue", perm: "classification" },
+    { id: "parties", label: "Party Profiles", hash: "#parties", perm: "classification" },
   ]},
   { group: "System", pages: [
-    { id: "audit", label: "Audit Log", hash: "#audit" },
+    { id: "team", label: "Team", hash: "#team", perm: "team" },
+    { id: "audit", label: "Audit Log", hash: "#audit", perm: "operations" },
+    { id: "account", label: "My Account", hash: "#account", perm: null },
   ]},
 ];
+
+/* The signed-in person, from /admin/api/session or /login. */
+var ME = null;
+
+function can(perm) {
+  return !perm || !!(ME && ME.permissions.indexOf(perm) !== -1);
+}
+
+function allowedPages() {
+  var out = [];
+  ADMIN_NAV.forEach(function (g) {
+    g.pages.forEach(function (p) {
+      if (p.id === "account" && ME && ME.shared) return;
+      if (can(p.perm)) out.push(p);
+    });
+  });
+  return out;
+}
 
 /* raw enum -> Title-Case label + badge tone; never render the slug */
 var RELEASE_STATUS = {
@@ -38,6 +63,19 @@ var AUDIT_ACTIONS = {
   party_deleted: { label: "Profile Deleted", cls: "badge-warn" },
   party_exported: { label: "Classification Exported", cls: "badge-neutral" },
   login: { label: "Signed In", cls: "badge-ok" },
+  password_set: { label: "Password Set", cls: "badge-ok" },
+  password_changed: { label: "Password Changed", cls: "badge-info" },
+  staff_added: { label: "Person Added", cls: "badge-info" },
+  staff_changed: { label: "Person Changed", cls: "badge-info" },
+  setup_link_issued: { label: "Setup Link Issued", cls: "badge-neutral" },
+  article_created: { label: "Article Created", cls: "badge-neutral" },
+  article_imported: { label: "Article Imported", cls: "badge-neutral" },
+  article_deleted: { label: "Draft Deleted", cls: "badge-warn" },
+  article_published: { label: "Article Published", cls: "badge-ok" },
+  article_withdrawn: { label: "Article Withdrawn", cls: "badge-warn" },
+  article_reinstated: { label: "Article Reinstated", cls: "badge-info" },
+  image_uploaded: { label: "Image Uploaded", cls: "badge-neutral" },
+  backup_run: { label: "Backup Run", cls: "badge-neutral" },
   logout: { label: "Signed Out", cls: "badge-neutral" },
   login_failed: { label: "Failed Login", cls: "badge-danger" },
   login_locked_out: { label: "Locked Out", cls: "badge-danger" },
@@ -115,22 +153,31 @@ function renderDisabled() {
   ROOT.innerHTML =
     '<div class="admin-login-wrap"><div class="admin-login-card">' +
     "<h1>Admin Console</h1>" +
-    '<p class="sub">The admin console is switched off on this deployment: no admin ' +
-    "password is configured. Set <code>ADMIN_PASSWORD</code> in the server environment " +
-    "(or in <code>.env</code> locally) and restart to enable it.</p>" +
+    '<p class="sub">The admin console is switched off on this deployment: there are no ' +
+    "accounts yet and no shared admin password. Set <code>ADMIN_PASSWORD</code> in the " +
+    "server environment (or in <code>.env</code> locally), restart, sign in with it and " +
+    "add the first account on the Team page.</p>" +
     '<a class="btn" href="index.html">Back to Plover Analytics</a>' +
     "</div></div>";
 }
 
+var SHARED_PASSWORD_ON = false;
+
 function renderLogin(message) {
+  ME = null;
   ROOT.innerHTML =
     '<div class="admin-login-wrap"><div class="admin-login-card">' +
     "<h1>Admin Console</h1>" +
     '<p class="sub">Plover Analytics — internal operations. Sign in to continue.</p>' +
     '<div id="login-alert"></div>' +
     '<form id="login-form">' +
+    '<label for="login-email">Email</label>' +
+    '<input type="email" id="login-email" autocomplete="username"' +
+    (SHARED_PASSWORD_ON ? "" : " required") + ">" +
     '<label for="login-pw">Password</label>' +
     '<input type="password" id="login-pw" autocomplete="current-password" required>' +
+    (SHARED_PASSWORD_ON
+      ? '<p class="login-hint">To use the shared admin password, leave Email empty.</p>' : "") +
     '<button type="submit" class="btn btn-primary" id="login-btn">Sign In</button>' +
     "</form></div></div>";
   if (message) showLoginAlert(message);
@@ -140,15 +187,16 @@ function renderLogin(message) {
     var btn = document.getElementById("login-btn");
     btn.disabled = true;
     btn.textContent = "Signing in…";
-    post("/login", { password: document.getElementById("login-pw").value })
-      .then(function () { renderShell(); route(); })
+    post("/login", { email: document.getElementById("login-email").value,
+                     password: document.getElementById("login-pw").value })
+      .then(function (res) { ME = res.user; renderShell(); route(); })
       .catch(function (err) {
         btn.disabled = false;
         btn.textContent = "Sign In";
         showLoginAlert(err.message);
       });
   });
-  document.getElementById("login-pw").focus();
+  document.getElementById("login-email").focus();
 }
 
 function showLoginAlert(message) {
@@ -159,9 +207,12 @@ function showLoginAlert(message) {
 /* ---------- shell ---------- */
 
 function renderShell() {
+  var allowed = allowedPages();
   var nav = ADMIN_NAV.map(function (g) {
+    var pages = g.pages.filter(function (p) { return allowed.indexOf(p) !== -1; });
+    if (!pages.length) return "";
     return '<div class="admin-nav-group">' + escapeHtml(g.group) + "</div>" +
-      g.pages.map(function (p) {
+      pages.map(function (p) {
         return '<a class="admin-nav-item" data-view="' + p.id + '" href="' + p.hash + '">' +
           escapeHtml(p.label) + "</a>";
       }).join("");
@@ -175,6 +226,8 @@ function renderShell() {
     '<button type="button" class="admin-menu-btn" id="admin-menu-btn">Menu</button>' +
     '<nav class="admin-nav" aria-label="Admin">' + nav + "</nav>" +
     '<div class="admin-side-foot">' +
+    (ME ? '<span class="side-who" title="' + escapeHtml(ME.email || "") + '">' +
+      escapeHtml(ME.name) + "</span>" : "") +
     '<a class="side-btn" href="index.html">View Site</a>' +
     '<button type="button" class="theme-toggle side-btn">Dark Mode</button>' +
     '<button type="button" class="side-btn" id="sign-out">Sign Out</button>' +
@@ -197,9 +250,15 @@ function renderShell() {
 }
 
 function route() {
-  var hash = location.hash || "#health";
+  var allowed = allowedPages();
+  var fallback = allowed.length ? allowed[0].id : "account";
+  var hash = location.hash || "#" + fallback;
   var parts = hash.slice(1).split("/");
-  var view = parts[0] || "health";
+  var view = parts[0] || fallback;
+  var known = ADMIN_NAV.some(function (g) {
+    return g.pages.some(function (p) { return p.id === view; });
+  });
+  if (!known || !allowed.some(function (p) { return p.id === view; })) view = fallback;
   var arg = parts[1] || null;
   /* #parties/new/<edinet-code> carries the filer to prefill from. */
   var arg2 = parts[2] || null;
@@ -213,14 +272,19 @@ function route() {
   var target = document.getElementById("admin-view");
   if (!target) return;
   disposeTrafficChart();  // the view about to be replaced may own it
-  if (view === "vintages") viewVintages(target, arg);
+  if (view === "articles") viewArticles(target);
+  else if (view === "team") viewTeam(target);
+  else if (view === "account") viewAccount(target);
+  else if (view === "vintages") viewVintages(target, arg);
   else if (view === "traffic") viewTraffic(target, arg);
   else if (view === "audit") viewAudit(target);
   else if (view === "queue") viewQueue(target);
   else if (view === "parties") {
     if (arg) viewPartyDetail(target, arg, arg2);
     else viewParties(target);
-  } else viewHealth(target);
+  } else if (view === "health") viewHealth(target);
+  else target.innerHTML = '<p class="table-empty">Your account has no pages yet. Ask ' +
+    "someone with the Team permission to give you one.</p>";
 }
 
 /* ---------- ingest health ---------- */
@@ -1127,6 +1191,7 @@ function viewAudit(target) {
         '<td class="num">' + fmtStamp(e.at) + "</td>" +
         "<td>" + badge(AUDIT_ACTIONS, e.action) + "</td>" +
         "<td>" + escapeHtml(e.detail || "") + "</td>" +
+        "<td>" + escapeHtml(e.by || MISSING) + "</td>" +
         '<td class="mono">' + escapeHtml(e.ip || MISSING) + "</td></tr>";
     }).join("");
     target.innerHTML =
@@ -1137,7 +1202,7 @@ function viewAudit(target) {
       (entries.length
         ? '<div class="table-wrap"><table class="data" data-no-enhance>' +
           '<thead><tr><th class="num">When (UTC)</th><th>Action</th><th>Detail</th>' +
-          "<th>Address</th></tr></thead><tbody>" + rows + "</tbody></table></div>" +
+          "<th>By</th><th>Address</th></tr></thead><tbody>" + rows + "</tbody></table></div>" +
           (entries.length === 200
             ? '<p class="table-empty">Showing the most recent 200 entries.</p>' : "")
         : '<p class="table-empty">No admin activity recorded yet.</p>');
@@ -1149,14 +1214,22 @@ function viewAudit(target) {
 /* ---------- boot ---------- */
 
 window.addEventListener("hashchange", function () {
+  if (/^#setup=/.test(location.hash || "")) { location.reload(); return; }
   if (document.getElementById("admin-view")) route();
 });
 
 initThemeToggle();
-api("/session").then(function (s) {
-  if (!s.enabled) renderDisabled();
-  else if (!s.authenticated) renderLogin("");
-  else { renderShell(); route(); }
-}).catch(function () {
-  renderLogin("");
-});
+(function boot() {
+  /* A setup link: admin.html#setup=<token>. The token stays in the fragment,
+     which the browser never sends to a server. */
+  var m = /^#setup=([A-Za-z0-9_\-]+)$/.exec(location.hash || "");
+  if (m) { renderSetup(m[1]); return; }
+  api("/session").then(function (s) {
+    SHARED_PASSWORD_ON = !!s.shared_password;
+    if (!s.enabled) renderDisabled();
+    else if (!s.authenticated) renderLogin("");
+    else { ME = s.user; renderShell(); route(); }
+  }).catch(function () {
+    renderLogin("");
+  });
+})();

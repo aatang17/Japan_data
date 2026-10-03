@@ -1,16 +1,18 @@
-"""Internal admin API: login, ingest health, release history, audit log.
+"""Internal admin API: login, team, ingest health, release history, audit log.
 
 Everything here is read-only against the DuckDB store — the one-writer rule
 (see CLAUDE.md, Ingest Guardrails 5) holds: the serving process never writes
-to the database. The only thing the admin surface writes anywhere is its own
-audit trail, an append-only JSONL file under data/admin/, which survives
-redeploys because data/ is the mounted volume.
+to the database. What the admin surface writes lives beside it on the volume:
+its append-only audit trail (JSONL under data/admin/), the staff accounts
+(app/staff.py, SQLite) and the party curation file.
 
-Auth is a single shared password in ADMIN_PASSWORD (environment or .env).
-With it unset the whole surface answers 503 and the admin page says so —
-there is no default credential. A successful login sets an HttpOnly cookie
-signed with a per-boot secret, so every deploy or restart signs everyone out;
-for a one-operator internal tool that is a feature, not a bug.
+Auth is one login per person (app/staff.py): an email, a password and a set
+of permissions — team, operations, classification, writing — checked on every
+endpoint. Sessions are stored server side, so a deploy does not sign anyone
+out. The shared ADMIN_PASSWORD still signs in, as "Shared password" with
+every permission, so a deployment with no accounts yet can create its first
+one; its cookie is signed with a per-boot secret exactly as before. With
+neither a shared password nor any account the whole surface answers 503.
 
 Paths live under /admin/api on purpose: the response cache only touches GETs
 under /api/v1, so nothing authenticated can ever be served from cache.
@@ -22,12 +24,14 @@ import json
 import os
 import time
 
+from typing import Optional
+
 import duckdb
 
 from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel
 
-from . import db, filer_labels, parties, seo, vintages, visits
+from . import db, filer_labels, parties, seo, staff, vintages, visits
 from .api import ADAPTERS, health
 from .equity_api import DB_PATH as EQUITY_DB_PATH
 
@@ -36,21 +40,30 @@ router = APIRouter(prefix="/admin/api", include_in_schema=False)
 ADMIN_DIR = db.DATA_DIR / "admin"
 AUDIT_PATH = ADMIN_DIR / "audit.jsonl"
 
-COOKIE = "obs_admin"
+COOKIE = "obs_admin"            # shared-password session (per-boot signature)
+STAFF_COOKIE = "obs_staff"      # a person's session (stored, survives restarts)
 SESSION_HOURS = 12
 # Per-boot signing secret: restarting the server invalidates every session.
 _SECRET = os.urandom(32)
 
-# Login attempts per IP, sliding window — same in-process shape as the /ask
-# rate limit: it bounds one worker, which is the whole deployment.
+# Failed sign-ins per IP and per email, sliding window — same in-process
+# shape as the /ask rate limit: it bounds one worker, which is the whole
+# deployment. Only failures count: two colleagues behind one office address
+# signing in, then one typo, must not lock the office out.
 LOGIN_WINDOW_SECONDS = 300
 LOGIN_MAX_PER_WINDOW = 5
 _LOGIN_HITS = {}
+
+PERMISSION_LABELS = dict(staff.PERMISSIONS)
 
 
 def _password():
     value = os.environ.get("ADMIN_PASSWORD", "").strip()
     return value or None
+
+
+def _enabled():
+    return _password() is not None or staff.count() > 0
 
 
 def _sign(expiry):
@@ -70,34 +83,57 @@ def _token_valid(token):
     return hmac.compare_digest(_sign(expiry), token)
 
 
-def _require_admin(request):
-    if _password() is None:
-        raise HTTPException(503, "Admin is disabled: ADMIN_PASSWORD is not set")
-    if not _token_valid(request.cookies.get(COOKIE)):
+def current_person(request):
+    """Who is signed in, or None: a person's session first, then the shared
+    password's (which stops working the moment ADMIN_PASSWORD is removed)."""
+    person = staff.session_person(request.cookies.get(STAFF_COOKIE))
+    if person is not None:
+        return person
+    if _password() is not None and _token_valid(request.cookies.get(COOKIE)):
+        return staff.shared_person()
+    return None
+
+
+def _require_admin(request, permission=None):
+    """The signed-in person, or a 503/401/403 that says which."""
+    if not _enabled():
+        raise HTTPException(503, "Admin is disabled: no accounts and no ADMIN_PASSWORD")
+    person = current_person(request)
+    if person is None:
         raise HTTPException(401, "Not signed in")
+    if permission and permission not in person["permissions"]:
+        raise HTTPException(
+            403, "Your account does not have the %s permission. Ask someone on the "
+                 "team to add it." % PERMISSION_LABELS.get(permission, permission))
+    return person
 
 
 def _client_ip(request):
     return request.client.host if request.client else "unknown"
 
 
-def _too_many_attempts(ip):
+def _blocked(*keys):
+    """True when any key has used up its failures in the window."""
     now = time.monotonic()
     cutoff = now - LOGIN_WINDOW_SECONDS
     for stale in [k for k, hits in _LOGIN_HITS.items() if not hits or hits[-1] < cutoff]:
         del _LOGIN_HITS[stale]
-    hits = [t for t in _LOGIN_HITS.get(ip, []) if t >= cutoff]
-    if len(hits) >= LOGIN_MAX_PER_WINDOW:
-        _LOGIN_HITS[ip] = hits
-        return True
-    hits.append(now)
-    _LOGIN_HITS[ip] = hits
+    for key in keys:
+        if key and len([t for t in _LOGIN_HITS.get(key, []) if t >= cutoff]) >= LOGIN_MAX_PER_WINDOW:
+            return True
     return False
+
+
+def _failed(*keys):
+    now = time.monotonic()
+    for key in keys:
+        if key:
+            _LOGIN_HITS.setdefault(key, []).append(now)
 
 
 # --- audit trail -------------------------------------------------------------
 
-def audit(action, detail, ip):
+def audit(action, detail, ip, by=None):
     """Append one action to the audit trail. Never raises: an unwritable log
     must not take the admin surface down, but it is loudly reported."""
     entry = {
@@ -106,6 +142,7 @@ def audit(action, detail, ip):
         "action": action,
         "detail": detail,
         "ip": ip,
+        "by": by,
     }
     try:
         ADMIN_DIR.mkdir(parents=True, exist_ok=True)
@@ -135,20 +172,47 @@ def _read_audit(limit):
 # --- session -----------------------------------------------------------------
 
 class LoginBody(BaseModel):
+    email: str = ""
     password: str
+
+
+def _person_payload(person):
+    return {"id": person["id"], "name": person["name"], "email": person["email"],
+            "permissions": person["permissions"], "shared": bool(person.get("shared"))}
+
+
+def _set_staff_cookie(request, response, token):
+    response.set_cookie(
+        STAFF_COOKIE, token, max_age=staff.SESSION_MAX_SECONDS, path="/admin",
+        httponly=True, samesite="strict", secure=seo.is_https(request))
 
 
 @router.post("/login")
 def login(body: LoginBody, request: Request, response: Response):
-    if _password() is None:
-        raise HTTPException(503, "Admin is disabled: ADMIN_PASSWORD is not set")
+    if not _enabled():
+        raise HTTPException(503, "Admin is disabled: no accounts and no ADMIN_PASSWORD")
     ip = _client_ip(request)
-    if _too_many_attempts(ip):
-        audit("login_locked_out", "too many attempts", ip)
+    email = staff.normalise_email(body.email)
+    email_key = "email:" + email if email else None
+    if _blocked(ip, email_key):
+        audit("login_locked_out", "too many attempts" + (" for " + email if email else ""), ip)
         raise HTTPException(429, "Too many attempts — wait a few minutes")
+    if email:
+        person = staff.authenticate(email, body.password)
+        if person is None:
+            _failed(ip, email_key)
+            audit("login_failed", "wrong email or password (%s)" % email, ip)
+            raise HTTPException(401, "Wrong email or password")
+        _set_staff_cookie(request, response, staff.start_session(person["id"], ip))
+        response.delete_cookie(COOKIE, path="/admin")
+        audit("login", "signed in", ip, by=staff.actor_label(person))
+        return {"ok": True, "user": _person_payload(person)}
+    if _password() is None:
+        raise HTTPException(401, "Enter your email address and password")
     if not hmac.compare_digest(body.password.encode("utf-8"),
                                _password().encode("utf-8")):
-        audit("login_failed", "wrong password", ip)
+        _failed(ip)
+        audit("login_failed", "wrong shared password", ip)
         raise HTTPException(401, "Wrong password")
     expiry = int(time.time()) + SESSION_HOURS * 3600
     # seo.is_https, not request.url.scheme: behind the platform's proxy the
@@ -158,17 +222,20 @@ def login(body: LoginBody, request: Request, response: Response):
         COOKIE, _sign(expiry), max_age=SESSION_HOURS * 3600, path="/admin",
         httponly=True, samesite="strict",
         secure=seo.is_https(request))
-    audit("login", "signed in", ip)
+    audit("login", "signed in with the shared password", ip, by="shared password")
     expires = datetime.datetime.fromtimestamp(expiry, datetime.timezone.utc)
-    return {"ok": True,
+    return {"ok": True, "user": _person_payload(staff.shared_person()),
             "expires_at": expires.replace(tzinfo=None).isoformat() + "Z"}
 
 
 @router.post("/logout")
 def logout(request: Request, response: Response):
+    person = current_person(request)
+    staff.end_session(request.cookies.get(STAFF_COOKIE))
+    response.delete_cookie(STAFF_COOKIE, path="/admin")
     response.delete_cookie(COOKIE, path="/admin")
-    if _token_valid(request.cookies.get(COOKIE)):
-        audit("logout", "signed out", _client_ip(request))
+    if person is not None:
+        audit("logout", "signed out", _client_ip(request), by=staff.actor_label(person))
     return {"ok": True}
 
 
@@ -176,10 +243,195 @@ def logout(request: Request, response: Response):
 def session(request: Request):
     """Lets the page decide between the login screen and the dashboard
     without a failed request in the console."""
-    if _password() is None:
+    if not _enabled():
         return {"enabled": False, "authenticated": False}
+    person = current_person(request)
     return {"enabled": True,
-            "authenticated": _token_valid(request.cookies.get(COOKIE))}
+            "authenticated": person is not None,
+            "user": _person_payload(person) if person else None,
+            "shared_password": _password() is not None,
+            "permissions": [{"key": k, "label": v} for k, v in staff.PERMISSIONS]}
+
+
+# --- setup links and passwords -------------------------------------------------
+
+class SetupCheck(BaseModel):
+    token: str
+
+
+class SetupBody(BaseModel):
+    token: str
+    password: str
+
+
+@router.post("/setup/check")
+def setup_check(body: SetupCheck):
+    """Who a setup link is for. POST, so the token never sits in a log line."""
+    person = staff.setup_target(body.token)
+    if person is None:
+        raise HTTPException(410, "This setup link has expired or has already been used. "
+                                 "Ask for a new one.")
+    return {"name": person["name"], "email": person["email"]}
+
+
+@router.post("/setup")
+def setup_complete(body: SetupBody, request: Request, response: Response):
+    ip = _client_ip(request)
+    if _blocked(ip):
+        raise HTTPException(429, "Too many attempts — wait a few minutes")
+    try:
+        person = staff.complete_setup(body.token, body.password)
+    except staff.StaffError as exc:
+        if staff.setup_target(body.token) is None:
+            _failed(ip)       # a guessed or spent token, not a weak password
+        raise HTTPException(400, str(exc))
+    _set_staff_cookie(request, response, staff.start_session(person["id"], ip))
+    response.delete_cookie(COOKIE, path="/admin")
+    audit("password_set", "chose a password from a setup link", ip,
+          by=staff.actor_label(person))
+    return {"ok": True, "user": _person_payload(person)}
+
+
+class PasswordBody(BaseModel):
+    current: str
+    new: str
+
+
+@router.post("/me/password")
+def change_password(body: PasswordBody, request: Request):
+    person = _require_admin(request)
+    if person.get("shared"):
+        raise HTTPException(400, "The shared password is changed in the server settings, "
+                                 "not here.")
+    try:
+        staff.change_password(person["id"], body.current, body.new,
+                              keep_session_hash=person.get("session_hash"))
+    except staff.StaffError as exc:
+        raise HTTPException(400, str(exc))
+    audit("password_changed", "changed their password", _client_ip(request),
+          by=staff.actor_label(person))
+    return {"ok": True}
+
+
+# --- personal keys for Claude / Codex ------------------------------------------
+
+def _mcp_url(request):
+    base = seo.SITE_BASE_URL if seo.is_https(request) else str(request.base_url).rstrip("/")
+    return base + "/mcp/research"
+
+
+def _own_person(request):
+    person = _require_admin(request, "writing")
+    if person.get("shared"):
+        raise HTTPException(400, "Sign in with your own account to make a key: a key acts "
+                                 "as a person, and the shared password is nobody.")
+    return person
+
+
+@router.get("/me/keys")
+def my_keys(request: Request):
+    person = _own_person(request)
+    return {"keys": staff.list_keys(person["id"]), "endpoint": _mcp_url(request)}
+
+
+class KeyBody(BaseModel):
+    label: str = ""
+
+
+@router.post("/me/keys")
+def make_key(body: KeyBody, request: Request):
+    person = _own_person(request)
+    try:
+        made = staff.create_key(person["id"], body.label)
+    except staff.StaffError as exc:
+        raise HTTPException(400, str(exc))
+    audit("key_created", made["label"], _client_ip(request), by=staff.actor_label(person))
+    made["endpoint"] = _mcp_url(request)
+    return made
+
+
+@router.delete("/me/keys/{key_id}")
+def drop_key(key_id: int, request: Request):
+    person = _own_person(request)
+    try:
+        staff.revoke_key(person["id"], key_id)
+    except staff.StaffError as exc:
+        raise HTTPException(404, str(exc))
+    audit("key_revoked", "key %d" % key_id, _client_ip(request), by=staff.actor_label(person))
+    return {"revoked": key_id}
+
+
+# --- team ----------------------------------------------------------------------
+
+def _setup_url(request, token):
+    # Fragment, not query: a fragment is never sent to a server, so the token
+    # stays out of access logs and Referer headers.
+    base = seo.SITE_BASE_URL if seo.is_https(request) else str(request.base_url).rstrip("/")
+    return base + "/admin.html#setup=" + token
+
+
+@router.get("/team")
+def team_list(request: Request):
+    _require_admin(request, "team")
+    return {"people": staff.list_all(),
+            "shared_password": _password() is not None,
+            "permissions": [{"key": k, "label": v} for k, v in staff.PERMISSIONS]}
+
+
+class NewPerson(BaseModel):
+    email: str
+    name: str
+    permissions: list
+
+
+@router.post("/team")
+def team_add(body: NewPerson, request: Request):
+    actor = _require_admin(request, "team")
+    try:
+        person, token = staff.create(body.email, body.name, body.permissions,
+                                     staff.actor_label(actor))
+    except staff.StaffError as exc:
+        raise HTTPException(400, str(exc))
+    audit("staff_added", "%s (%s): %s" % (person["name"], person["email"],
+                                          ", ".join(person["permissions"]) or "no permissions"),
+          _client_ip(request), by=staff.actor_label(actor))
+    return {"person": person, "setup_url": _setup_url(request, token),
+            "expires_hours": staff.SETUP_TTL_SECONDS // 3600}
+
+
+class PersonChange(BaseModel):
+    name: Optional[str] = None
+    permissions: Optional[list] = None
+    status: Optional[str] = None
+
+
+@router.put("/team/{staff_id}")
+def team_update(staff_id: int, body: PersonChange, request: Request):
+    actor = _require_admin(request, "team")
+    try:
+        person = staff.update(staff_id, actor["id"], name=body.name,
+                              permissions=body.permissions, status=body.status)
+    except staff.StaffError as exc:
+        raise HTTPException(400, str(exc))
+    audit("staff_changed", "%s: %s, %s" % (person["email"], person["status"],
+                                           ", ".join(person["permissions"]) or "no permissions"),
+          _client_ip(request), by=staff.actor_label(actor))
+    return {"person": person}
+
+
+@router.post("/team/{staff_id}/setup-link")
+def team_setup_link(staff_id: int, request: Request):
+    actor = _require_admin(request, "team")
+    person = staff.get(staff_id)
+    if person is None:
+        raise HTTPException(404, "No such person")
+    if person["status"] != "active":
+        raise HTTPException(400, "Enable the account before issuing a setup link")
+    token = staff.issue_setup(staff_id, staff.actor_label(actor))
+    audit("setup_link_issued", person["email"], _client_ip(request),
+          by=staff.actor_label(actor))
+    return {"setup_url": _setup_url(request, token),
+            "expires_hours": staff.SETUP_TTL_SECONDS // 3600}
 
 
 # --- ingest health -----------------------------------------------------------
@@ -188,7 +440,7 @@ def session(request: Request):
 def overview(request: Request):
     """The public health check, widened with what an operator needs next:
     the artifact behind each live release and its validation summary."""
-    _require_admin(request)
+    _require_admin(request, "operations")
     report = health()
     con = db.read_cursor()
     extra = {}
@@ -230,7 +482,7 @@ def releases(dataset, request: Request):
     """Every stored release of one dataset, newest first, with what each one
     changed. The counts come straight from observation_vintages, so a release
     that merely republished unchanged data shows zero — which is the truth."""
-    _require_admin(request)
+    _require_admin(request, "operations")
     if dataset not in ADAPTERS:
         raise HTTPException(404, "Unknown dataset '%s'" % dataset)
     con = db.read_cursor()
@@ -277,7 +529,7 @@ def release_changes(dataset, release_id: int, request: Request):
     """What one release did, split the way an operator reads it: values that
     REVISED an earlier vintage (with the prior value alongside), values for
     new periods, and withdrawals. Lists are capped; the counts never are."""
-    _require_admin(request)
+    _require_admin(request, "operations")
     if dataset not in ADAPTERS:
         raise HTTPException(404, "Unknown dataset '%s'" % dataset)
     con = db.read_cursor()
@@ -333,7 +585,7 @@ def release_changes(dataset, release_id: int, request: Request):
 
 @router.get("/audit")
 def audit_log(request: Request, limit: int = 200):
-    _require_admin(request)
+    _require_admin(request, "operations")
     return {"entries": _read_audit(max(1, min(limit, 1000)))}
 
 
@@ -344,7 +596,7 @@ def visits_live(request: Request):
     """Who is on the site in the last few minutes. Held in the server's
     memory, never written down, and gone when it restarts — the one figure
     here that cannot be asked about yesterday."""
-    _require_admin(request)
+    _require_admin(request, "operations")
     return visits.live()
 
 
@@ -352,7 +604,7 @@ def visits_live(request: Request):
 def visit_summary(request: Request, days: int = 30):
     """Readership counted by the server itself, from the append-only visit log
     on the volume. See app/visits.py for what a "visitor" means here."""
-    _require_admin(request)
+    _require_admin(request, "operations")
     return visits.summary(days)
 
 
@@ -465,9 +717,13 @@ async def _json_body(request):
 
 
 def _party_actor(request):
-    """Who made the edit. One shared password means the honest answer is the
-    address it came from -- better an accurate IP than a fictional username."""
-    return "admin@" + _client_ip(request)
+    """Who made the edit: the signed-in person's email, or for the shared
+    password the address it came from -- an accurate IP beats a fictional
+    username."""
+    person = current_person(request)
+    if person is None or person.get("shared"):
+        return "admin@" + _client_ip(request)
+    return person["email"]
 
 
 def _party_or_404(party_id):
@@ -479,7 +735,7 @@ def _party_or_404(party_id):
 
 @router.get("/parties/vocab")
 def party_vocab(request: Request):
-    _require_admin(request)
+    _require_admin(request, "classification")
     return parties.vocab_payload()
 
 
@@ -491,7 +747,7 @@ def party_candidates(request: Request, min_filings: int = 5,
     with the type DERIVED from its own 事業内容 and with the profile it already
     has, if any. The derived label is a starting point for the operator, never
     a value that gets saved on its behalf."""
-    _require_admin(request)
+    _require_admin(request, "classification")
     rows = _lvh_entities()
     index = parties.alias_index()
     doc = parties.load()
@@ -539,7 +795,7 @@ def party_candidates(request: Request, min_filings: int = 5,
 @router.get("/parties")
 def party_list(request: Request, q: str = "", party_class: str = "",
                tier: str = "", limit: int = 500):
-    _require_admin(request)
+    _require_admin(request, "classification")
     doc = parties.load()
     needle = (q or "").strip().lower()
     items = []
@@ -567,14 +823,14 @@ def party_export(request: Request):
     """Copy the live store over the git-tracked seed, so hand-typed curation
     is versioned and survives the volume. Deliberately manual and deliberately
     one-way: the seed only ever loads into an ABSENT store."""
-    _require_admin(request)
+    _require_admin(request, "classification")
     doc = parties.load()
     parties.SEED_PATH.parent.mkdir(parents=True, exist_ok=True)
     payload = json.dumps(doc, ensure_ascii=False, indent=2, sort_keys=True)
     with open(str(parties.SEED_PATH), "w", encoding="utf-8") as f:
         f.write(payload + "\n")
     audit("party_exported", "%d parties -> %s"
-          % (len(doc["parties"]), parties.SEED_PATH.name), _client_ip(request))
+          % (len(doc["parties"]), parties.SEED_PATH.name), _client_ip(request), by=_party_actor(request))
     return {"path": str(parties.SEED_PATH), "parties": len(doc["parties"]),
             "bytes": len(payload) + 1,
             "note": "Commit observatory/curation/parties.json to version this."}
@@ -582,7 +838,7 @@ def party_export(request: Request):
 
 @router.get("/parties/{party_id}")
 def party_detail(party_id: str, request: Request):
-    _require_admin(request)
+    _require_admin(request, "classification")
     doc = _party_or_404(party_id)
     party = parties.decorate(doc, party_id)
     party["evidence"] = _party_evidence(party)
@@ -591,20 +847,20 @@ def party_detail(party_id: str, request: Request):
 
 @router.post("/parties")
 async def party_create(request: Request):
-    _require_admin(request)
+    _require_admin(request, "classification")
     body = await _json_body(request)
     try:
         party = parties.create(body, _party_actor(request))
     except parties.ProfileError as exc:
         raise HTTPException(400, str(exc))
     audit("party_created", "%s (%s)" % (party["party_id"], party["display"]),
-          _client_ip(request))
+          _client_ip(request), by=_party_actor(request))
     return party
 
 
 @router.put("/parties/{party_id}")
 async def party_update(party_id: str, request: Request):
-    _require_admin(request)
+    _require_admin(request, "classification")
     _party_or_404(party_id)
     body = await _json_body(request)
     try:
@@ -612,17 +868,17 @@ async def party_update(party_id: str, request: Request):
     except parties.ProfileError as exc:
         raise HTTPException(400, str(exc))
     audit("party_updated", "%s (%s)" % (party_id, party["display"]),
-          _client_ip(request))
+          _client_ip(request), by=_party_actor(request))
     return party
 
 
 @router.delete("/parties/{party_id}")
 def party_delete(party_id: str, request: Request):
-    _require_admin(request)
+    _require_admin(request, "classification")
     _party_or_404(party_id)
     try:
         parties.delete(party_id)
     except parties.ProfileError as exc:
         raise HTTPException(409, str(exc))
-    audit("party_deleted", party_id, _client_ip(request))
+    audit("party_deleted", party_id, _client_ip(request), by=_party_actor(request))
     return {"deleted": party_id}

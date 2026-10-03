@@ -44,7 +44,7 @@ SITE_BASE_URL = os.environ.get(
 # Paths no crawler should spend itself on. /api/ is deliberately absent:
 # every page draws its numbers from it after load, and a crawler that is
 # forbidden the API renders a page of empty charts and indexes that.
-DISALLOWED = ("/admin.html", "/admin/")
+DISALLOWED = ("/admin.html", "/admin/", "/desk.html")
 
 _NOINDEX = re.compile(
     r"<meta[^>]+name=[\"']robots[\"'][^>]*content=[\"'][^\"']*noindex",
@@ -248,15 +248,16 @@ def _urlset(urls, lastmods=None):
 
 @router.get("/sitemap.xml", include_in_schema=False)
 def sitemap():
-    """An index of the two sitemaps, not a list of pages.
+    """An index of the sitemaps, not a list of pages.
 
-    Split so that Search Console reports the two halves separately: the 46
-    built pages and the four thousand company pages are indexed at very
-    different rates, and one combined number would hide which. The companies
+    Split so that Search Console reports the parts separately: the built
+    pages, the PloverResearch articles and the four thousand company pages
+    are indexed at very different rates, and one combined number would hide
+    which. The companies
     half is omitted rather than served empty when the equity database is
     unreadable, so a crawler is never told the answer is "none".
     """
-    parts = [SITE_BASE_URL + "/sitemap-pages.xml"]
+    parts = [SITE_BASE_URL + "/sitemap-pages.xml", SITE_BASE_URL + "/sitemap-research.xml"]
     if company_urls():
         parts.append(SITE_BASE_URL + "/sitemap-companies.xml")
     body = ["<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
@@ -459,6 +460,9 @@ def llms_txt():
             md = url[:-len(".html")] + ".md" if url.endswith(".html") else url + "index.md"
             parts.append("- %s (Markdown: %s)" % (url, md))
         parts.append("")
+
+    from . import research_pages
+    parts.extend(research_pages.llms_section())
 
     companies = company_urls()
     parts.append("## Company pages")

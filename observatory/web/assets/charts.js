@@ -885,7 +885,15 @@ function obsChart(el, kind, cfg) {
   window.addEventListener("resize", () => { if (chart) chart.resize(); });
   render();
   exportButton();
-  return { render, exportPNG, exportCSV, dispose: () => chart && chart.dispose() };
+  const handle = { render, exportPNG, exportCSV, dispose: () => chart && chart.dispose() };
+  /* Every chart a page draws, with the config it is drawn from now. The
+     research desk opens a pasted Plover page out of sight and reads this to
+     copy a chart — its data included — into an article. Read-only use; the
+     page itself never looks at it. */
+  (window.__obsCharts = window.__obsCharts || []).push({
+    el, kind, get cfg() { return cfg; },
+  });
+  return handle;
 }
 
 /* tiny inline-SVG sparkline; gaps in the data stay gaps */

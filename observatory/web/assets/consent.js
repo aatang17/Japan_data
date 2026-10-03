@@ -19,8 +19,9 @@
   var HEARTBEAT_MS = 60000;
   var METHODOLOGY = "methodology.html#cookies";
 
-  /* The console is not readership and never asks its reader anything. */
-  if (/\/admin(\.html)?$/.test(location.pathname)) return;
+  /* The console and the research desk are not readership and never ask
+     their reader anything. */
+  if (/\/(admin|desk)(\.html)?$/.test(location.pathname)) return;
 
   function cookie(name) {
     var parts = ("; " + document.cookie).split("; " + name + "=");
