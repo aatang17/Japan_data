@@ -133,6 +133,7 @@ def page(title, description, canonical, main, data=None, robots=None, ld=None,
         '<html lang="en">',
         "<head>",
         '<meta charset="utf-8">',
+        '<script src="/assets/lock.js"></script>',  # one click, one request: see prerender.LOCK_SCRIPT
         '<meta name="viewport" content="width=device-width, initial-scale=1">',
         '<base href="/">',
         "<title>%s</title>" % esc(title),

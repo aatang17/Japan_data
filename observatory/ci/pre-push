@@ -22,3 +22,9 @@ echo "pre-push: registry"
 
 echo "pre-push: suite (full data)"
 "$PY" ci/suite.py --mode full
+
+# Use the site like a reader before it ships: type every search box's own
+# examples into a hidden browser, and click a write button ten times to check
+# it sends once. Needs the data and Chrome, which only this machine has.
+echo "pre-push: reader checks (search examples, one click one request)"
+"$PY" ci/search_examples.py

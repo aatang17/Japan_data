@@ -401,25 +401,68 @@ def describe_dataset(dataset):
     return _dumps(m)
 
 
+def _series_labels(dataset):
+    """The plain names a dataset's page gives its key series ("Headline CPI",
+    "Core CPI (less fresh food)"), keyed by code or official Japanese name."""
+    pres = getattr(api.ADAPTERS.get(dataset), "PRESENTATION", None) or {}
+    out = {}
+    for r in pres.get("main_series") or []:
+        key = r.get("code") or r.get("name_ja")
+        if key and r.get("label"):
+            out[key] = r["label"]
+    return out
+
+
+# A search that names only the dataset ("CPI", "unemployment") lists this
+# many of its series, key series first.
+DATASET_HIT_SERIES = 3
+
+
 def _series_hits(dataset, needle, limit):
+    """Series matching needle, each with a rank: 0 its code, 1 the phrase in the
+    series' own name, 2 every word found across the series and dataset names,
+    3 the dataset alone matches. Series names rarely repeat their dataset's
+    ("All items", not "All items CPI"), so ranks 2 and 3 are what let a
+    search for "CPI" or "food CPI" find anything."""
     con = api._con()
     try:
         smap = api._series_map(con, dataset)
     finally:
         con.close()
+    m = registry.get(dataset) or {}
+    about = " ".join([dataset.replace("-", " "), (m.get("name") or {}).get("en") or "",
+                      (m.get("name") or {}).get("ja") or ""]).lower()
+    labels = _series_labels(dataset)
     needle = needle.lower()
+    words = needle.split()
     hits = []
+    whole = []
     for s in smap:
-        exact = needle == s["code"].lower()
-        if exact or needle in (s["name_en"] or "").lower() or needle in (s["name_ja"] or "").lower():
+        label = labels.get(s["code"]) or labels.get(s["name_ja"]) or ""
+        own = " ".join([s["name_en"] or "", s["name_ja"] or "", label]).lower()
+        if needle == s["code"].lower():
+            rank = 0
+        elif needle in own:
+            rank = 1
+        elif words and any(w in own for w in words) and all(w in own or w in about for w in words):
+            rank = 2
+        elif words and all(w in about for w in words):
+            whole.append((not label, len(whole), s))
+            continue
+        else:
+            continue
+        hits.append({"kind": "series", "dataset": dataset, "code": s["code"],
+                     "name_en": s["name_en"], "name_ja": s["name_ja"],
+                     "unit": s.get("unit"), "rank": rank})
+    whole.sort(key=lambda t: t[:2])
+    if not hits:
+        for _, _, s in whole[:DATASET_HIT_SERIES]:
             hits.append({"kind": "series", "dataset": dataset, "code": s["code"],
                          "name_en": s["name_en"], "name_ja": s["name_ja"],
-                         "unit": s.get("unit"), "exact": exact})
-        if len(hits) >= limit * 4:
-            break
-    hits.sort(key=lambda h: (not h["exact"], h["name_en"] or ""))
-    for h in hits:
-        h.pop("exact", None)
+                         "unit": s.get("unit"), "rank": 3})
+    # among word matches the shortest name is the closest: "Food" before
+    # "All items, less fresh food" for "food CPI"
+    hits.sort(key=lambda h: (h["rank"], len(h["name_en"] or "") if h["rank"] == 2 else 0))
     return hits[:limit]
 
 
@@ -477,6 +520,9 @@ def search(query, dataset="", limit=SEARCH_LIMIT):
                   key=lambda r: (needle != (r["sec_code"] or ""), -len(r["datasets"]),
                                  r["name"] or ""))
     company_rows = rows[:limit]
+    series.sort(key=lambda h: h["rank"])  # stable: datasets keep registry order within a rank
+    for h in series:
+        h.pop("rank", None)
     series_rows = series[:limit]
     return _dumps({"tool": "search", "query": needle,
                    "companies": company_rows, "series": series_rows,

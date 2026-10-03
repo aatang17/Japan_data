@@ -210,6 +210,116 @@ def no_external_assets():
 
 
 # ---------------------------------------------------------------------------
+# one click, one request
+# ---------------------------------------------------------------------------
+#
+# 2026-10-03: Create Key had no lock, the reply was slow, and ten clicks made
+# ten live keys. web/assets/lock.js now switches off any control whose click
+# sends a change until the server answers. It works only if every page loads
+# it and every write goes through window.fetch, which it wraps.
+
+def _front_end_scripts():
+    """(name, text) for every script we wrote: asset files and inline blocks."""
+    out = []
+    for path in sorted(ROOT.glob("web/assets/*.js")):
+        if path.name.startswith("echarts") or path.name == "lock.js":
+            continue
+        out.append((path.name, path.read_text(encoding="utf-8", errors="replace")))
+    for path in sorted(ROOT.glob("web/*.html")):
+        text = path.read_text(encoding="utf-8", errors="replace")
+        for m in re.finditer(r"(?is)<script(?![^>]*\bsrc=)[^>]*>(.*?)</script>", text):
+            out.append((path.name, m.group(1)))
+    return out
+
+
+@check("every page the server sends carries the one-click-one-request lock")
+def pages_carry_the_lock():
+    problems = []
+    lock = ROOT / "web" / "assets" / "lock.js"
+    if not lock.exists() or "window.fetch = function" not in lock.read_text(encoding="utf-8"):
+        problems.append("web/assets/lock.js is missing or no longer wraps window.fetch")
+    pre = (ROOT / "app" / "prerender.py").read_text(encoding="utf-8")
+    body = pre[pre.find("def inject("):pre.find("def _inject(")]
+    if "LOCK_SCRIPT" not in body:
+        problems.append("app/prerender.py: inject() no longer adds LOCK_SCRIPT to every page")
+    if "/assets/lock.js" not in (ROOT / "app" / "research_pages.py").read_text(encoding="utf-8"):
+        problems.append("app/research_pages.py: the research pages no longer load lock.js")
+    return problems
+
+
+# Ways to send a request that lock.js cannot see.
+_AROUND_THE_LOCK = [
+    (re.compile(r"\bXMLHttpRequest\b"), "uses XMLHttpRequest — use fetch, which lock.js wraps"),
+    (re.compile(r"\bfetch\s*\.\s*(bind|call|apply)\b"), "keeps its own copy of fetch"),
+    (re.compile(r"(?<![=!<>])(=|:)\s*(window\.)?fetch\b(?!\s*\()"), "keeps its own copy of fetch"),
+    (re.compile(r"\$\.(ajax|post)\b|\baxios\b"), "uses a request library — use fetch"),
+]
+
+
+@check("no front-end code sends a change around the lock")
+def writes_go_through_the_lock():
+    problems = []
+    for name, text in _front_end_scripts():
+        for pat, why in _AROUND_THE_LOCK:
+            m = pat.search(text)
+            if m:
+                problems.append("%s:%d: %s" % (name, text[:m.start()].count("\n") + 1, why))
+    return problems
+
+
+# ---------------------------------------------------------------------------
+# every search box is tried the way a reader uses it
+# ---------------------------------------------------------------------------
+#
+# 2026-10-03: the desk's search box said "e.g. core CPI" and found nothing for
+# it. ci/search_examples.py types every box's own examples into a real browser
+# before each push; this makes sure no box is missing from its list.
+
+_INPUT = re.compile(r"<input\b[^>]*>", re.I | re.S)
+
+
+def _search_box_key(file_name, tag):
+    for attr in ("id", "data-f", "class"):
+        m = re.search(r"\b%s=\\?[\"']([^\"'\\ ]*)" % attr, tag)
+        if m and m.group(1):
+            return "%s#%s" % (file_name, m.group(1) if attr == "id" else "%s=%s" % (attr, m.group(1)))
+    return "%s#?" % file_name
+
+
+def search_box_keys():
+    keys = set()
+    for path in sorted(list(ROOT.glob("web/*.html")) + list(ROOT.glob("web/assets/*.js"))):
+        if path.name.startswith("echarts"):
+            continue
+        text = path.read_text(encoding="utf-8", errors="replace")
+        for m in _INPUT.finditer(text):
+            tag = m.group(0)
+            ph = re.search(r"placeholder=\\?[\"']([^\"'\\]*)", tag)
+            ph = ph.group(1) if ph else ""
+            if (re.search(r"type=\\?[\"']search", tag) or re.search(r"\be\.g\.", ph, re.I)
+                    or re.match(r"\s*(search|filter|find)\b", ph, re.I)):
+                keys.add(_search_box_key(path.name, tag))
+    return keys
+
+
+@check("every search box is listed in ci/search_boxes.json")
+def search_boxes_listed():
+    import json
+    manifest = json.loads((ROOT / "ci" / "search_boxes.json").read_text(encoding="utf-8"))
+    listed = set(b["key"] for b in manifest["boxes"])
+    for section in ("elsewhere", "not_run", "not_searches"):
+        listed.update(manifest.get(section, {}))
+    problems = []
+    for key in sorted(search_box_keys() - listed):
+        problems.append("%s: a search box with no reader check. Add it to ci/search_boxes.json "
+                        "'boxes' (url, input, area, hits), or to 'not_run' / 'not_searches' "
+                        "with the reason" % key)
+    for key in sorted(listed - search_box_keys()):
+        problems.append("%s: listed in ci/search_boxes.json but no longer on the site" % key)
+    return problems
+
+
+# ---------------------------------------------------------------------------
 # the laptop is 3.9 and the container is 3.12
 # ---------------------------------------------------------------------------
 

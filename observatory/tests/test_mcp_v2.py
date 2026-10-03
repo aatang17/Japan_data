@@ -219,6 +219,19 @@ class ToolTest(Base):
         self.assertTrue(data["series"])
         self.assertEqual(data["series"][0]["dataset"], "cpi-jp")
 
+    @unittest.skipUnless(_data.MACRO, _data.NO_MACRO)
+    def test_search_by_dataset_name_and_common_label(self):
+        # Series are named "All items", never "CPI": the word lives in the
+        # dataset name and the page's labels, and a search must still find it.
+        data, err = call(self.client, "search", query="CPI")
+        self.assertFalse(err)
+        self.assertEqual((data["series"][0]["dataset"], data["series"][0]["name_en"]),
+                         ("cpi-jp", "All items"))
+        data, err = call(self.client, "search", query="core CPI", dataset="cpi-jp")
+        self.assertEqual(data["series"][0]["name_en"], "All items, less fresh food")
+        data, err = call(self.client, "search", query="food CPI", dataset="cpi-jp")
+        self.assertEqual(data["series"][0]["name_en"], "Food")
+
     @unittest.skipUnless(_data.EQUITY, _data.NO_EQUITY)
     def test_screen_rejects_unknown_sort_with_the_valid_list(self):
         # A company dataset answers with its own screen ids.

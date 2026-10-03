@@ -151,5 +151,30 @@ class PrerenderTest(unittest.TestCase):
             self.assertTrue((WEB / name).exists(), "%s is described but absent" % name)
 
 
+class LockOnEveryPage(unittest.TestCase):
+    """One click, one request: web/assets/lock.js is first in every page's
+    head, ahead of any script that could send a change."""
+
+    def test_every_page_gets_the_lock_first(self):
+        for path in sorted(WEB.glob("*.html")):
+            html = path.read_text(encoding="utf-8")
+            if "<head" not in html.lower():
+                continue  # a bare verification file, with no scripts at all
+            with self.subTest(page=path.name):
+                out = prerender.inject(html, path.name)
+                self.assertEqual(out.count("/assets/lock.js"), 1)
+                first_script = re.search(r"<script[^>]*>", out).group(0)
+                self.assertIn("lock.js", first_script)
+
+    def test_the_lock_survives_a_failing_annotation(self):
+        real = prerender._inject
+        prerender._inject = lambda *a, **k: 1 / 0
+        try:
+            out = prerender.inject("<html><head></head><body></body></html>", "x.html")
+        finally:
+            prerender._inject = real
+        self.assertIn("lock.js", out)
+
+
 if __name__ == "__main__":
     unittest.main()

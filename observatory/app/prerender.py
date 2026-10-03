@@ -891,6 +891,14 @@ _HAS_ICON = re.compile(r'(?is)<link[^>]+rel=["\']icon["\']')
 CONSENT_SCRIPT = '<script src="/assets/consent.js" defer></script>'
 _HAS_CONSENT = re.compile(r'(?is)<script[^>]+consent\.js')
 
+# One click, one request (web/assets/lock.js): first thing in the head and not
+# deferred, so it is in place before any script on the page can send a change.
+# Written into every page here for the same reason as the banner: a new page
+# must never be able to ship with buttons that send twice.
+LOCK_SCRIPT = '<script src="/assets/lock.js"></script>'
+_HAS_LOCK = re.compile(r'(?is)<script[^>]+lock\.js')
+_HEAD_START = re.compile(r'(?i)<head(\s[^>]*)?>')
+
 # Where a page's own numbers can be read as JSON. A dataset page is answered
 # by its manifest's summary endpoint; an entity page by the endpoint that
 # serves that one entity.
@@ -1035,6 +1043,9 @@ def SITE_BASE_URL_FOR_JSONLD():
 
 def inject(html, page_name, canonical=None, query_string=""):
     """Serve-time additions for one HTML page. Never raises."""
+    # Outside the try: whatever else fails, the page still gets its lock.
+    if not _HAS_LOCK.search(html):
+        html = _HEAD_START.sub(lambda m: m.group(0) + "\n" + LOCK_SCRIPT, html, count=1)
     try:
         return _inject(html, page_name, canonical, query_string)
     except Exception:  # noqa: BLE001 — a page that renders beats an annotated one

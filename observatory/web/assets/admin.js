@@ -124,7 +124,9 @@ function fmtBytes(b) {
 function api(path, opts) {
   return fetch("/admin/api" + path, Object.assign({ credentials: "same-origin" }, opts || {}))
     .then(function (r) {
-      if (r.status === 401) { renderLogin(""); throw new Error("Signed out"); }
+      // A 401 from the sign-in itself is a wrong password, not an expired session:
+      // let its message through, and keep what the person typed.
+      if (r.status === 401 && path !== "/login") { renderLogin(""); throw new Error("Signed out"); }
       if (!r.ok) {
         return r.json().catch(function () { return {}; }).then(function (b) {
           throw new Error(b.detail || "The request failed (" + r.status + ")");

@@ -135,7 +135,9 @@ it saves you. Before sending, re-read it and cut.
 - **Cut any sentence that only proves you did the work.** I assume you did it.
 - After finishing a task: **What changed** (max 4 plain-English bullets) · **What to
   expect** (max 2 lines: which page/URL, what I'll see) · **What to be aware of** (only
-  genuinely useful flags; "Nothing to flag." if none). No other sections.
+  genuinely useful flags; "Nothing to flag." if none). When the product changed, add
+  one line **Tried as a user:** what you typed and clicked, and what happened (the done
+  gate requires it). No other sections.
 
 ---
 
@@ -159,6 +161,27 @@ cd observatory
   except the ask box works without it.
 - Frontend is vanilla JS + vendored ECharts (`web/assets/echarts.min.js`). No new runtime
   dependencies, no CDN references, no build step.
+
+## Checks that run every time
+
+Mechanical, not memory. Added 2026-10-03 after the desk search found nothing for
+"CPI" and ten clicks on Create Key made ten keys. Fix the code, never the check.
+
+| Check | What it catches | When |
+| --- | --- | --- |
+| `.claude/hooks/check-syntax.py` | a Python, JS, page-script or JSON file that no longer parses | after every file Claude edits |
+| `.claude/hooks/done-gate.py` | guards, the tests naming a changed module, the browser checks for a changed page, and a missing **Tried as a user:** line | every time Claude ends a turn that changed code |
+| `web/assets/lock.js` (added to every page by the server) | double clicks: a control whose click sends a change is off until the server answers; the same change in flight is never sent twice | in the browser, always |
+| `ci/guards.py` | a page without the lock, a write that bypasses it, a search box missing from `ci/search_boxes.json` | GitHub on every push, the pre-push hook, the done gate |
+| `ci/search_examples.py` | a search box whose own examples (or obvious queries) find nothing; ten clicks sending more than one request | the pre-push hook, the done gate for changed pages |
+
+- **Use it like a user before calling it done.** After the endpoint and screenshot checks,
+  try the first things a real person would do: the obvious input, the example shown on
+  screen, a double-click, a slow reply, an empty result, an error. Report what you tried.
+- A new search box goes into `ci/search_boxes.json` with the selector its results appear
+  in. The guard will not let it ship otherwise.
+- The gate's one exit for a failure that is not yours (another session's file): say so to
+  me in the reply, on a line starting `GATE: not mine`, naming the file.
 
 ## Deploy (Railway)
 
@@ -207,6 +230,11 @@ All UI rules live in the **`ui-ux-design` skill**. P0 rules repeated for visibil
   chose, or on the PID you started. This rule covers Chrome, Chromium, Safari, Edge and
   the Playwright MCP browsers. The same applies to any long-lived app I might be using;
   scope every `pkill` to something only your own process matches.
+- **Buttons that create, send or delete switch off until the server answers.**
+  (2026-10-03: a slow reply turned 10 clicks on Create Key into 10 live keys.)
+- **Test a search with what people will actually type** before calling it done: the
+  box's own example, plus short names like CPI, GDP or a stock code, against real data.
+  (2026-10-03: the desk search found nothing for "CPI".)
 
 ## Ingest Guardrails (P0)
 

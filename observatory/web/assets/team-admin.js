@@ -246,6 +246,11 @@ function viewAccount(target) {
       '<div id="key-out"></div>');
     loadKeys();
     document.getElementById("key-make").addEventListener("click", function () {
+      // one click, one key: the button stays off until the server answers
+      var btn = this;
+      if (btn.disabled) return;
+      btn.disabled = true;
+      btn.textContent = "Creating…";
       var kind = document.getElementById("key-kind").value;
       post("/me/keys", { label: kind }).then(function (k) {
         document.getElementById("key-out").innerHTML = keySteps(kind, k.endpoint, k.token);
@@ -254,6 +259,9 @@ function viewAccount(target) {
       }).catch(function (err) {
         document.getElementById("key-out").innerHTML =
           '<div class="login-alert" role="alert">' + escapeHtml(err.message) + "</div>";
+      }).then(function () {
+        btn.disabled = false;
+        btn.textContent = "Create Key";
       });
     });
   }
@@ -293,7 +301,10 @@ function loadKeys() {
       : '<p class="table-empty">No keys yet.</p>';
     Array.prototype.forEach.call(box.querySelectorAll("[data-revoke]"), function (b) {
       b.addEventListener("click", function () {
-        api("/me/keys/" + b.getAttribute("data-revoke"), { method: "DELETE" }).then(loadKeys);
+        if (b.disabled) return;
+        b.disabled = true;
+        api("/me/keys/" + b.getAttribute("data-revoke"), { method: "DELETE" })
+          .then(loadKeys, function () { b.disabled = false; });
       });
     });
   }).catch(function (err) { box.innerHTML = loadFailed("your keys", err); });
