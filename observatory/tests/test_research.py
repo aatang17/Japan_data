@@ -469,5 +469,16 @@ class DeskTest(Base):
         copy.close()
 
 
+class FootnoteMarkdownTest(unittest.TestCase):
+    def test_formatting_in_a_note_stays_out_of_its_markup(self):
+        from app import research_doc as rd
+        d = rd.import_markdown("# T\n\nText *x*[^1].\n\n[^1]: Plover, *CPI*, <em>Cat</em>, "
+                               "[BoJ](https://boj.or.jp).")
+        html = d["blocks"][0]["html"]
+        self.assertIn('<sup data-note="Plover, CPI, Cat, BoJ (https://boj.or.jp)."></sup>', html)
+        self.assertIn("<em>x</em>", html)
+        self.assertNotIn("&lt;em", html)
+
+
 if __name__ == "__main__":
     unittest.main()

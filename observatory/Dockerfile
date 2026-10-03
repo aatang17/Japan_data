@@ -10,15 +10,40 @@ RUN apt-get update && apt-get install -y --no-install-recommends poppler-utils \
 # OpenAI's Codex CLI, for desks answered on their owner's ChatGPT plan
 # (app/assistant/codex.py). Pinned by version and SHA-256: a changed download
 # fails the build rather than shipping. Codex runs with its shell and every
-# other built-in tool off; its only tools are ours.
-ARG CODEX_VERSION=0.144.3
-ARG CODEX_SHA256=b9b4ae8e9b561c64dfbc5ef52c6319cba750ac87de3c7f55885026231e3aea89
+# other built-in tool off; its only tools are ours. Also the research desk's
+# AI tab (app/research_ai.py). 0.160 is the first release that lists the
+# GPT-6 models for a ChatGPT plan.
+ARG CODEX_VERSION=0.160.0
+ARG CODEX_SHA256=306865417d4ee7a927785852910a527f41e1e159add390ac5ae3accb67d44a13
 RUN python -c "import urllib.request; urllib.request.urlretrieve('https://github.com/openai/codex/releases/download/rust-v${CODEX_VERSION}/codex-x86_64-unknown-linux-musl.tar.gz', '/tmp/codex.tgz')" \
     && echo "${CODEX_SHA256}  /tmp/codex.tgz" | sha256sum -c - \
     && tar -xzf /tmp/codex.tgz -C /tmp \
     && install -m 0755 /tmp/codex-x86_64-unknown-linux-musl /usr/local/bin/codex \
     && rm -f /tmp/codex.tgz /tmp/codex-x86_64-unknown-linux-musl \
     && codex --version
+
+# Codex's code-mode host, from the same release, next to codex where Codex
+# looks for it. From 0.160 every ChatGPT-plan model but gpt-5.5 calls tools
+# through it: model-written JavaScript in a V8 sandbox whose only built-ins
+# are the tools we offer (no files, processes, network or imports).
+ARG CODEX_HOST_SHA256=ac6cd6288f0e39f46a33eba1cfd37711651f14f33dbc73d6a1b82eb45e038cac
+RUN python -c "import urllib.request; urllib.request.urlretrieve('https://github.com/openai/codex/releases/download/rust-v${CODEX_VERSION}/codex-code-mode-host-x86_64-unknown-linux-musl.tar.gz', '/tmp/host.tgz')" \
+    && echo "${CODEX_HOST_SHA256}  /tmp/host.tgz" | sha256sum -c - \
+    && tar -xzf /tmp/host.tgz -C /tmp \
+    && install -m 0755 /tmp/codex-code-mode-host-x86_64-unknown-linux-musl /usr/local/bin/codex-code-mode-host \
+    && rm -f /tmp/host.tgz /tmp/codex-code-mode-host-x86_64-unknown-linux-musl
+
+# Anthropic's Claude Code, for the research desk's AI tab on a writer's own
+# Claude plan (app/research_ai.py). The native binary, pinned by version and
+# by the SHA-256 in Anthropic's release manifest for linux-x64. It runs with
+# its built-in tools cut to web search and page fetch; the rest are ours.
+ARG CLAUDE_CODE_VERSION=2.1.278
+ARG CLAUDE_CODE_SHA256=5c4735937844e84f8a93306e841a5b0e12252909b07870f789b190468da147ab
+RUN python -c "import urllib.request; urllib.request.urlretrieve('https://downloads.claude.ai/claude-code-releases/${CLAUDE_CODE_VERSION}/linux-x64/claude', '/tmp/claude')" \
+    && echo "${CLAUDE_CODE_SHA256}  /tmp/claude" | sha256sum -c - \
+    && install -m 0755 /tmp/claude /usr/local/bin/claude \
+    && rm -f /tmp/claude \
+    && DISABLE_AUTOUPDATER=1 claude --version
 
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt

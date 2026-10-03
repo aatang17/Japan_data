@@ -40,12 +40,20 @@ APP_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 LOGIN_TIMEOUT = 15 * 60          # Codex's one-time code expires in fifteen minutes
 
 # Built-in Codex features switched off for every run: everything that could
-# act on this machine or reach outside it. All exist in the pinned 0.144.3.
+# act on this machine or reach outside it. All exist in the pinned 0.160.0,
+# which also turns on a background helper, automations, worktrees and reading
+# image files by default — off here too. The code-mode host stays ON: from
+# 0.160 every ChatGPT-plan model but gpt-5.5 calls tools by writing a little
+# JavaScript that runs in Codex's V8 sandbox, whose only built-ins are the
+# tools offered here, timers and a scratch store (no files, processes,
+# network or imports). Off, those models see no tools at all.
 DISABLE = ("shell_tool", "unified_exec", "shell_snapshot", "browser_use", "browser_use_external",
            "browser_use_full_cdp_access", "computer_use", "in_app_browser", "image_generation",
            "apps", "plugins", "remote_plugin", "plugin_sharing", "multi_agent", "goals", "hooks",
-           "skill_mcp_dependency_install", "code_mode_host", "tool_suggest",
-           "workspace_dependencies")
+           "skill_mcp_dependency_install", "tool_suggest", "multi_agent_v2",
+           "workspace_dependencies", "daemon_auto_start", "in_app_local_automation", "worktrees",
+           "view_image", "skill_search", "realtime_conversation", "chronicle", "in_app_chat",
+           "in_app_dictation", "in_app_updates")
 # Settings the tool server needs to find the data; none of them is a secret.
 MCP_ENV = ("WORKSPACE_DB", "OBSERVATORY_DATA_DIR", "OBSERVATORY_DB_PATH", "EQUITY_DB_PATH",
            "SEC_DB_PATH", "MCP_TOOLSET", "INTERNAL_COHORTS", "ACCOUNTS_ENABLED",

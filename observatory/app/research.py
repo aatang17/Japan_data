@@ -304,6 +304,22 @@ def history(article_id):
              "saved_by": r["saved_by"], "label": r["label"]} for r in rows]
 
 
+def mark(article_id, actor, label):
+    """Copy the current draft into its history under a label, without saving a
+    new revision — the restore point before an AI run. Returns the history id."""
+    c = conn()
+    with _lock:
+        row = c.execute("SELECT revision, draft FROM articles WHERE id = ?",
+                        (article_id,)).fetchone()
+        if row is None:
+            raise ResearchError("No such article.")
+        cur = c.execute("INSERT INTO draft_history (article_id, revision, saved_at, saved_by, "
+                        "draft, label) VALUES (?, ?, ?, ?, ?, ?)",
+                        (article_id, row["revision"], _now(), actor, row["draft"], label))
+        c.commit()
+    return cur.lastrowid
+
+
 def history_draft(article_id, history_id):
     row = conn().execute("SELECT draft FROM draft_history WHERE article_id = ? AND id = ?",
                          (article_id, history_id)).fetchone()

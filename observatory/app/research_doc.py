@@ -873,17 +873,35 @@ _MD_CHART_PLACEHOLDER = re.compile(
 _MD_TABLE_SEP = re.compile(r"^\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$")
 
 
+def _note_plain(text):
+    """A footnote is plain text: Markdown or HTML formatting in one is dropped."""
+    text = re.sub(r"<[^>]+>", "", text or "")
+    text = re.sub(r"\[([^\]]+)\]\(([^)\s]+)\)", r"\1 (\2)", text)
+    text = re.sub(r"(\*\*|`)", "", text)
+    text = re.sub(r"(?<![\w*])\*(?!\s)(.+?)(?<!\s)\*(?![\w*])", r"\1", text)
+    return html.unescape(text).strip()
+
+
 def _md_to_inline(text, notes):
     out = esc(text).replace("&#x27;", "'")
-    out = re.sub(r"\[\^([^\]]+)\]",
-                 lambda m: '<sup data-note="%s"></sup>' % esc(notes.get(m.group(1), ""))
-                 if notes.get(m.group(1)) else "", out)
+    # footnote markers become placeholders until the formatting below has run,
+    # so a "*" inside a note is never turned into markup in its attribute
+    held = []
+
+    def hold(m):
+        note = _note_plain(notes.get(m.group(1), ""))
+        if not note:
+            return ""
+        held.append('<sup data-note="%s"></sup>' % esc(note))
+        return "\x00%d\x00" % (len(held) - 1)
+    out = re.sub(r"\[\^([^\]]+)\]", hold, out)
     out = re.sub(r"`([^`]+)`", r"<code>\1</code>", out)
     out = re.sub(r"\[([^\]]+)\]\(([^)\s]+)\)",
                  lambda m: '<a href="%s">%s</a>' % (m.group(2), m.group(1)), out)
     out = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", out)
     out = re.sub(r"(?<![\w*])\*(?!\s)(.+?)(?<!\s)\*(?![\w*])", r"<em>\1</em>", out)
     out = re.sub(r"(?<![\w])_(?!\s)(.+?)(?<!\s)_(?![\w])", r"<em>\1</em>", out)
+    out = re.sub("\x00(\\d+)\x00", lambda m: held[int(m.group(1))], out)
     return clean_inline(out)
 
 

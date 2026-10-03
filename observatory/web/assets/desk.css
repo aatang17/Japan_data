@@ -240,8 +240,8 @@ sup.dk-fn[data-note=""]::after { content: "[?]"; color: var(--obs-warn); }
 .dk-side { position: sticky; top: 72px; background: var(--obs-surface); border: 1px solid var(--obs-border);
   border-radius: 3px; max-height: calc(100vh - 92px); overflow-y: auto; }
 .dk-tabs { display: flex; border-bottom: 1px solid var(--obs-border); }
-.dk-tab { flex: 1; font: inherit; font-size: 12.5px; font-weight: 600; color: var(--obs-text-muted);
-  background: none; border: 0; border-bottom: 2px solid transparent; padding: 10px 4px; cursor: pointer; }
+.dk-tab { flex: 1 1 auto; font: inherit; font-size: 12px; font-weight: 600; color: var(--obs-text-muted);
+  background: none; border: 0; border-bottom: 2px solid transparent; padding: 10px 6px; cursor: pointer; white-space: nowrap; }
 .dk-tab[aria-selected="true"] { color: var(--obs-primary); border-bottom-color: var(--obs-primary); }
 .dk-pane { padding: 16px; font-size: 13px; }
 .dk-pane .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px; }
@@ -266,6 +266,42 @@ sup.dk-fn[data-note=""]::after { content: "[?]"; color: var(--obs-warn); }
 .dk-history li, .dk-versions li { padding: 8px 0; border-bottom: 1px solid var(--obs-border); font-size: 12.5px; }
 .dk-v-note { display: block; color: var(--obs-text); margin-top: 2px; }
 .bad { color: var(--obs-trust-stale); }
+
+/* ---------- AI tab ---------- */
+.dk-paused { opacity: 0.6; }
+#dk-pane-ai .hint { margin: 0 0 14px; }
+#dk-pane-ai .field { margin-bottom: 12px; }
+#dk-ai-model-other { margin-top: 6px; }
+#dk-ai-model-note:empty { display: none; }
+.dk-ai-using { display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
+  padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--obs-border); color: var(--obs-text); }
+.dk-ai-using .mono { font-size: 11.5px; color: var(--obs-text-muted); }
+.dk-ai-form { display: flex; flex-direction: column; gap: 6px; }
+.dk-ai-ex { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0 4px; }
+.dk-ai-form .btn-primary { align-self: flex-start; }
+.dk-ai-head { display: flex; justify-content: space-between; align-items: baseline; margin-top: 18px;
+  padding-top: 12px; border-top: 1px solid var(--obs-border); }
+.dk-ai-head .num { font-size: 12px; font-variant-numeric: tabular-nums; }
+.dk-ai-steps { list-style: none; padding: 0; margin: 8px 0; font-size: 12.5px; color: var(--obs-text); }
+.dk-ai-steps li { padding: 4px 0 4px 14px; position: relative; overflow-wrap: anywhere; }
+.dk-ai-steps li::before { content: ""; position: absolute; left: 2px; top: 11px; width: 5px; height: 1px;
+  background: var(--obs-text-muted); }
+.dk-ai-reply { margin: 10px 0; padding: 10px 12px; border-left: 3px solid var(--obs-primary);
+  background: var(--obs-surface-subtle); color: var(--obs-ink); line-height: 1.5; }
+.dk-ai-prov { border: 0; padding: 0; margin: 0 0 12px; display: flex; flex-direction: column; gap: 6px; }
+.dk-ai-prov label { display: flex; gap: 6px; align-items: center; color: var(--obs-ink); }
+.dk-ai-ok { font-size: 11px; font-weight: 600; color: var(--obs-trust-official);
+  border: 1px solid currentColor; border-radius: 3px; padding: 0 5px; }
+.dk-ai-ok-line { color: var(--obs-trust-official); font-weight: 600; margin: 0 0 12px; }
+.dk-pane input[type="password"] { font: inherit; font-size: 13px; color: var(--obs-ink); background: var(--obs-surface);
+  border: 1px solid var(--obs-border); border-radius: 3px; padding: 6px 8px; box-sizing: border-box; width: 100%; }
+.dk-pane input[type="password"]:focus { outline: none; border-color: var(--obs-primary); box-shadow: 0 0 0 2px var(--obs-focus-soft); }
+.dk-pane code { font-size: 12px; background: var(--obs-surface-subtle); padding: 0 3px; border-radius: 2px; }
+.dk-ai-acts { display: flex; gap: 6px; flex-wrap: wrap; }
+.dk-ai-acts .btn { margin-top: 0; }
+.dk-ai-acts .btn-danger { color: var(--obs-trust-stale); border-color: var(--obs-trust-stale); }
+.dk-ai-code { font-size: 20px; font-weight: 700; letter-spacing: 0.08em; color: var(--obs-ink); margin: 4px 0 8px; }
+.dk-ai-steps-how { padding-left: 18px; margin: 6px 0; overflow-wrap: anywhere; }
 
 /* ---------- toast, dialogs ---------- */
 .dk-toast { position: fixed; left: 20px; bottom: 20px; z-index: 70; display: flex; gap: 12px; align-items: center;

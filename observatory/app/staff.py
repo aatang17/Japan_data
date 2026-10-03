@@ -107,6 +107,17 @@ CREATE TABLE IF NOT EXISTS staff_keys (
   revoked_at INTEGER
 );
 CREATE INDEX IF NOT EXISTS staff_keys_staff ON staff_keys (staff_id);
+CREATE TABLE IF NOT EXISTS staff_ai (
+  staff_id INTEGER PRIMARY KEY,
+  provider TEXT,
+  model TEXT,
+  key_ct TEXT,
+  key_last4 TEXT,
+  claude_token_ct TEXT,
+  codex_auth_ct TEXT,
+  codex_email TEXT,
+  updated_at INTEGER
+);
 CREATE TABLE IF NOT EXISTS staff_setup_tokens (
   token_hash TEXT PRIMARY KEY,
   staff_id INTEGER NOT NULL,
@@ -514,6 +525,40 @@ def key_person(token):
     person = _public(row)
     person["key_label"] = row["key_label"]
     return person
+
+
+# ---------------------------------------------------------- AI provider settings
+#
+# Which model the research desk's AI tab uses for a person, and their own
+# credentials for it: an API key, a Claude Code token or a Codex sign-in. Each
+# secret is sealed with the assistant keychain (ASSISTANT_SECRET) before it is
+# stored; only its last four characters are kept readable, for display.
+
+AI_FIELDS = ("provider", "model", "key_ct", "key_last4", "claude_token_ct", "codex_auth_ct",
+             "codex_email")
+
+
+def ai_settings(staff_id):
+    row = conn().execute("SELECT * FROM staff_ai WHERE staff_id = ?", (staff_id,)).fetchone()
+    return dict(row) if row else {"staff_id": staff_id, "provider": None, "model": None,
+                                  "key_ct": None, "key_last4": None, "claude_token_ct": None,
+                                  "codex_auth_ct": None, "codex_email": None}
+
+
+def set_ai(staff_id, **fields):
+    bad = [k for k in fields if k not in AI_FIELDS]
+    if bad:
+        raise StaffError("Unknown setting: %s." % ", ".join(bad))
+    c = conn()
+    with _lock:
+        if not c.execute("SELECT 1 FROM staff_ai WHERE staff_id = ?", (staff_id,)).fetchone():
+            c.execute("INSERT INTO staff_ai (staff_id, updated_at) VALUES (?, ?)", (staff_id, _now()))
+        if fields:
+            c.execute("UPDATE staff_ai SET %s, updated_at = ? WHERE staff_id = ?"
+                      % ", ".join("%s = ?" % k for k in fields),
+                      list(fields.values()) + [_now(), staff_id])
+        c.commit()
+    return ai_settings(staff_id)
 
 
 def shared_person():
