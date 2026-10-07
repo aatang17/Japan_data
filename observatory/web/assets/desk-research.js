@@ -663,7 +663,18 @@ function webRead(url) {
   if (!(url || "").trim()) return;
   res.innerHTML = '<p class="muted">Reading the page…</p>';
   send("POST", "/research/web/read", { url: url.trim() }).then(showPage)
-    .catch(function (err) { res.innerHTML = '<p class="bad">' + escapeHtml(err.message) + "</p>"; });
+    .catch(function (err) {
+      var host = "";
+      try { host = new URL(url.trim()).hostname.replace(/^www\./, ""); } catch (e) { /* not an address */ }
+      res.innerHTML = '<p class="bad">' + escapeHtml(/answered HTTP 40[13]/.test(err.message) && host
+        ? host + " does not let Plover read its pages." : err.message) + "</p>";
+      // The site turned the server away (FT and WSJ always do): the writer can
+      // still paste the article from their own browser.
+      if (/answered HTTP|could not be reached|redirected too many/.test(err.message)) {
+        res.insertAdjacentHTML("beforeend", pasteBoxHtml("If you can read it in your browser, paste it here.", url.trim(), true));
+        wirePasteBox({ url: url.trim() });
+      }
+    });
 }
 
 /* A page in the reader: one read by address, or one sent from the writer's
@@ -677,10 +688,12 @@ function showPage(page) {
     '<p class="dk-reader-src"><a href="' + escapeHtml(page.url) + '" target="_blank" rel="noopener noreferrer">' +
     escapeHtml(page.site || page.url) + "</a>" + (page.published ? " · " + escapeHtml(dateLong(page.published) || page.published) : "") + "</p>" +
     '<p class="dk-reader-title">' + escapeHtml(page.title || page.url) + "</p>" +
-    (page.sent ? '<p class="dk-reader-sent">Sent from your browser on ' + escapeHtml(dateLong(new Date(page.sent_at * 1000).toISOString())) +
-      (page.selection ? ": the passage you selected" : "") + ".</p>"
-      : (!page.pdf && chars < 1500 ? '<p class="dk-reader-sent">Only a short part of this page came through. If the site needs a ' +
-        "subscription, open the article in your browser and use Send to Plover, below.</p>" : "")) +
+    (page.sent ? '<p class="dk-reader-sent">Your own copy' + (page.selection ? " of a passage" : "") + ", saved on " +
+      escapeHtml(new Date(page.sent_at * 1000).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })) + ".</p>"
+      : (page.pdf ? "" : pasteBoxHtml(isPaidSite(page.url)
+        ? siteName(page) + " articles need your subscription, so only the start came through."
+        : (chars < 1500 ? "Only the start of this page came through." : ""), page.url,
+        isPaidSite(page.url) || chars < 1500))) +
     '<div class="dk-reader-acts"><button type="button" class="dk-mini" id="dk-rd-cite">Cite This Page</button>' +
     '<button type="button" class="dk-mini" id="dk-rd-quote">Quote Selection</button></div>' +
     '<div class="dk-reader-text" id="dk-reader-text">' +
@@ -690,6 +703,7 @@ function showPage(page) {
           : (b.kind === "quote" ? "<blockquote>" + escapeHtml(b.text) + "</blockquote>" : "<p>" + escapeHtml(b.text) + "</p>");
       }).join("") || "<p>No readable text was found on this page.</p>") +
     "</div></div>";
+  if (!page.sent && !page.pdf) wirePasteBox(page);
   $("#dk-rd-cite").addEventListener("click", function () { citePage(page); });
   $("#dk-rd-quote").addEventListener("click", function () {
     var s = window.getSelection();

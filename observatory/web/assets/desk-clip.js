@@ -1,9 +1,14 @@
-/* Research Desk, part three: Send to Plover — reading pages the writer
-   subscribes to.
+/* Research Desk, part three: reading pages the writer subscribes to.
 
    The desk's page reader fetches from the server, with no login, so a paid
-   article (FT, WSJ, Nikkei) comes back as its teaser. Send to Plover is a
-   bookmark the writer drags to their bookmarks bar once. On an article they
+   article comes back as its teaser (Nikkei) or not at all (FT and WSJ refuse
+   the server). The common way round is the paste box: it appears under the
+   reader right then, the writer copies the article in their own browser and
+   pastes it, and the server keeps the tidied text against that address
+   (POST /clips/paste, app/research_clips.py).
+
+   Send to Plover is the faster way for someone who sends many: a bookmark
+   the writer drags to their bookmarks bar once. On an article they
    can read, clicking it runs ploverClip() in that page: it takes the
    article's text (or the passage selected), and opens /clip.html with the
    text in the address's #fragment, which no request carries to a server.
@@ -97,6 +102,86 @@ function bookmarkletHref() {
 
 /* ---------------------------------------------------------------- in the desk */
 
+/* Sites whose articles a logged-out reader sees only the start of. */
+var PAID_SITES = /(^|\.)(ft\.com|wsj\.com|nikkei\.com|bloomberg\.com|economist\.com|barrons\.com|nytimes\.com)$/i;
+
+function isPaidSite(url) {
+  try { return PAID_SITES.test(new URL(url).hostname); } catch (e) { return false; }
+}
+
+function siteName(page) {
+  if (page.site && !/^www\./.test(page.site) && page.site.indexOf(".") === -1) return page.site;
+  try { return new URL(page.url).hostname.replace(/^www\./, ""); } catch (e) { return page.site || "This site"; }
+}
+
+/* The keys to name, or null on a phone or tablet, which has none. */
+function pasteKeys() {
+  var ua = navigator.userAgent || "";
+  if (/iPhone|iPad|Android|Mobile/.test(ua) || (/Mac/.test(ua) && navigator.maxTouchPoints > 1)) return null;
+  return /Mac/.test(navigator.platform || ua)
+    ? ["\u2318A", "\u2318C", "\u2318V"] : ["Ctrl+A", "Ctrl+C", "Ctrl+V"];
+}
+
+/* The paste box under the reader. Open when the page is known to be cut
+   short; otherwise one button that opens it, for a page that turns out to be. */
+function pasteBoxHtml(lead, url, open) {
+  var k = pasteKeys();
+  return (open ? "" : '<p class="dk-artpaste-more"><button type="button" class="dk-mini" id="dk-artpaste-show">' +
+      "Text Cut Off? Paste the Article</button></p>") +
+    '<div class="dk-artpaste" id="dk-artpaste"' + (open ? "" : " hidden") + ">" +
+    (lead ? '<p class="dk-artpaste-lead">' + escapeHtml(lead) + "</p>" : "") +
+    '<ol class="dk-artpaste-steps">' +
+    '<li><a href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer">Open the article</a> in your browser, signed in.</li>' +
+    (k ? "<li>Press <kbd>" + k[0] + "</kbd>, then <kbd>" + k[1] + "</kbd>.</li>" +
+      "<li>Click the box below and press <kbd>" + k[2] + "</kbd>.</li></ol>"
+      : "<li>Select all of the article and copy it.</li><li>Tap the box below and paste.</li></ol>") +
+    '<textarea id="dk-artpaste-area" rows="2" placeholder="Paste the article here" aria-label="Paste the article here"></textarea>' +
+    '<p class="dk-artpaste-status" id="dk-artpaste-status" role="status" aria-live="polite"></p></div>';
+}
+
+function wirePasteBox(page) {
+  var show = $("#dk-artpaste-show"), area = $("#dk-artpaste-area"), status = $("#dk-artpaste-status");
+  if (!area) return;
+  if (show) {
+    show.addEventListener("click", function () {
+      show.parentNode.hidden = true;
+      $("#dk-artpaste").hidden = false;
+      area.focus();
+    });
+  }
+  function say(kind, text) {
+    status.className = "dk-artpaste-status " + kind;
+    status.textContent = text;
+  }
+  area.addEventListener("paste", function (e) {
+    var cd = e.clipboardData;
+    if (!cd) return;
+    e.preventDefault();
+    var html = cd.getData("text/html") || "", text = cd.getData("text/plain") || "";
+    if (!html.trim() && !text.trim()) {
+      var k = pasteKeys();
+      say("bad", "Nothing was copied yet. On the article, " + (k ? "press " + k[0] + " then " + k[1]
+        : "select all and copy") + ", then paste here again.");
+      return;
+    }
+    if (html.length > 10000000) html = "";   // past the server's cap: the plain text still works
+    area.disabled = true;
+    say("busy", "Reading what you pasted\u2026");
+    send("POST", "/research/clips/paste", {
+      url: page.url, title: page.title || "", site: page.site || "", published: page.published || "",
+      author: page.author || "", html: html, text: text,
+    }).then(function (clip) {
+      showPage(clip);
+      loadClips();
+      toast("Saved your copy of \u201c" + clip.title + "\u201d. Cite it or quote from it here.");
+    }).catch(function (err) {
+      area.disabled = false;
+      area.value = "";
+      say("bad", err.message);
+    });
+  });
+}
+
 /* The Send to Plover box and the list of sent pages, under Research › Web Page. */
 function renderClips() {
   var box = $("#dk-rs-clips");
@@ -104,12 +189,15 @@ function renderClips() {
   box.innerHTML =
     '<div class="dk-clip-how">' +
     '<p class="dk-clip-head">Paid sites: FT, WSJ, Nikkei</p>' +
-    '<p class="hint">The reader above sees what a logged-out visitor sees. To read an article you subscribe to, ' +
-    "drag this button to your bookmarks bar once:</p>" +
+    '<p class="hint">Read the article\u2019s address above. When only the start comes through, a box appears: ' +
+    "copy the article in your browser and paste it there. Your copy is kept for citing and quoting, " +
+    "and only you can see it.</p>" +
+    '<details class="dk-clip-bm"><summary>Send many articles? Use a bookmark instead</summary>' +
+    '<p class="hint">Drag this button to your bookmarks bar once:</p>' +
     '<p><a class="dk-clip-btn" id="dk-clip-bm" title="Drag me to your bookmarks bar">Send to Plover</a></p>' +
     '<p class="hint">Then, on the article in your browser, click the bookmark. The page appears here. ' +
-    "To send one passage, select it first.</p></div>" +
-    '<div class="dk-clip-list" id="dk-clip-list"><p class="muted">Loading your sent pages…</p></div>';
+    "To send one passage, select it first.</p></details></div>" +
+    '<div class="dk-clip-list" id="dk-clip-list"><p class="muted">Loading your saved articles\u2026</p></div>';
   var bm = $("#dk-clip-bm");
   bm.setAttribute("href", bookmarkletHref());
   bm.addEventListener("click", function (e) {
@@ -130,10 +218,10 @@ function loadClips(openId) {
   if (!list) return;
   api("/research/clips").then(function (r) {
     if (!r.clips.length) {
-      list.innerHTML = '<p class="muted">No pages sent yet.</p>';
+      list.innerHTML = '<p class="muted">No saved articles yet.</p>';
       return;
     }
-    list.innerHTML = '<p class="dk-clip-head">Sent from your browser</p><ul>' + r.clips.map(function (c) {
+    list.innerHTML = '<p class="dk-clip-head">Your saved articles</p><ul>' + r.clips.map(function (c) {
       return '<li data-clip="' + c.id + '"><button type="button" class="dk-clip-open" data-clip-open="' + c.id + '">' +
         '<span class="dk-clip-title">' + escapeHtml(c.title) + "</span>" +
         '<span class="dk-clip-meta">' + escapeHtml(c.site) + " · " + escapeHtml(clipWhen(c.sent_at)) + "</span></button>" +
@@ -153,7 +241,7 @@ function loadClips(openId) {
     });
     if (openId) openClip(openId);
   }).catch(function (err) {
-    list.innerHTML = '<p class="bad">Your sent pages could not be loaded: ' + escapeHtml(err.message) + "</p>";
+    list.innerHTML = '<p class="bad">Your saved articles could not be loaded: ' + escapeHtml(err.message) + "</p>";
   });
 }
 

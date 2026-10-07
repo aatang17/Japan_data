@@ -28,6 +28,16 @@ Text extraction is an HTMLParser pass that keeps headings, paragraphs, list
 items, quotations and table cells and drops navigation, scripts and forms.
 Nothing from the page is ever rendered as HTML in the desk: the panel shows
 it as text.
+
+Reading a pasted page
+---------------------
+FT and WSJ refuse the server outright and Nikkei serves it the teaser, so a
+writer who subscribes copies the article in their own browser (select all,
+copy) and pastes it into the desk. A whole-page copy carries the site's
+menus, "recommended" lists and newsletter boxes as well; read_pasted keeps
+the article: it drops blocks that are mostly link text, then keeps the
+longest run of real paragraphs. A short paste with no menus in it (a
+passage the writer selected) is kept whole.
 """
 import html
 import ipaddress
@@ -119,6 +129,7 @@ class _Reader(HTMLParser):
         self.buf = []
         self.blocks = []
         self.chars = 0
+        self.limit = TEXT_MAX
 
     def handle_starttag(self, tag, attrs):
         a = dict((k.lower(), v or "") for k, v in attrs)
@@ -156,7 +167,7 @@ class _Reader(HTMLParser):
     def _flush(self):
         if self.cur:
             text = re.sub(r"\s+", " ", "".join(self.buf)).strip()
-            if text and self.chars < TEXT_MAX and (self.cur.startswith("h") or len(text) > 1):
+            if text and self.chars < self.limit and (self.cur.startswith("h") or len(text) > 1):
                 kind = "h" if self.cur in ("h1", "h2", "h3", "h4") else (
                     "quote" if self.cur == "blockquote" else "p")
                 if not (self.blocks and self.blocks[-1]["text"] == text):
@@ -210,3 +221,119 @@ def read(url):
         "blocks": p.blocks[:600],
         "pdf": False,
     }
+
+
+# ---------------------------------------------------------------------------
+# reading a pasted page
+
+PASTE_MAX = 10 * 1024 * 1024   # characters of pasted HTML; past it, the plain text is used
+LINK_SHARE = 0.5               # a block this much link text is a menu or a headline list
+BODY_WEIGHT = 80               # a paragraph at least this long is article text
+GAP = 5                        # more short blocks than this in a row ends the article
+PASSAGE_WEIGHT = 3000          # a paste this short with no menus in it: a passage, kept whole
+PASTE_TEXT_MAX = 400000
+_CJK = re.compile(r"[\u3000-\u9fff\uac00-\ud7af\uff00-\uffef]")
+
+
+class _PasteReader(_Reader):
+    """_Reader that also measures how much of each block is link text."""
+
+    def __init__(self):
+        _Reader.__init__(self)
+        self.limit = PASTE_TEXT_MAX   # the menus before the article count too
+        self.in_a = 0
+        self.link_chars = 0
+        self.shares = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "a":
+            self.in_a += 1
+        _Reader.handle_starttag(self, tag, attrs)
+
+    def handle_endtag(self, tag):
+        if tag == "a" and self.in_a:
+            self.in_a -= 1
+        _Reader.handle_endtag(self, tag)
+
+    def handle_data(self, data):
+        if self.cur and not self.skip and self.in_a:
+            self.link_chars += len(re.sub(r"\s+", "", data))
+        _Reader.handle_data(self, data)
+
+    def _flush(self):
+        n = len(self.blocks)
+        total = len(re.sub(r"\s+", "", "".join(self.buf))) or 1
+        share = self.link_chars / float(total)
+        self.link_chars = 0
+        _Reader._flush(self)
+        if len(self.blocks) > n:
+            self.shares.append(share)
+
+
+def _weight(text):
+    """Length, with Japanese, Chinese and Korean characters counted half again:
+    a sentence of them carries more than the same number of Latin letters."""
+    return len(text) + 0.5 * len(_CJK.findall(text))
+
+
+def _article(blocks, links):
+    """(blocks, heading above them, whether this was a passage): the longest
+    run of article paragraphs. A short paste with no menus in it is a passage
+    the writer selected, kept whole, and so is one with no paragraph long
+    enough to tell. links[i] marks a block of mostly link text: never kept,
+    but it still counts as a break, so a "Recommended" list ends the article."""
+    if not any(links) and sum(_weight(b["text"]) for b in blocks) < PASSAGE_WEIGHT:
+        return blocks, None, True
+    body = [i for i, b in enumerate(blocks)
+            if not links[i] and b["kind"] != "h" and _weight(b["text"]) >= BODY_WEIGHT]
+    if not body:
+        return [b for b, link in zip(blocks, links) if not link], None, True
+    runs, run = [], [body[0]]
+    for i in body[1:]:
+        if i - run[-1] - 1 > GAP:
+            runs.append(run)
+            run = []
+        run.append(i)
+    runs.append(run)
+    best = max(runs, key=lambda r: sum(_weight(blocks[i]["text"]) for i in r))
+    start, end = best[0], best[-1]
+    heading = None
+    for i in range(start - 1, -1, -1):
+        if blocks[i]["kind"] == "h" and not links[i]:
+            heading = blocks[i]["text"]
+            break
+    return [b for b, link in zip(blocks[start:end + 1], links[start:end + 1]) if not link], heading, False
+
+
+def read_pasted(html_text, text):
+    """{title, blocks, selection} from what a writer pasted: the clipboard's
+    HTML when there is any, its plain text otherwise. title is the heading
+    just above the article, when there is one."""
+    html_text = html_text or ""
+    blocks, shares = [], []
+    if html_text and len(html_text) <= PASTE_MAX:
+        p = _PasteReader()
+        try:
+            p.feed(html_text)
+            p.close()
+        except Exception:  # noqa: BLE001 — a broken paste still gives what was read
+            pass
+        p._flush()
+        blocks, shares = p.blocks, p.shares
+    if all(share >= LINK_SHARE for share in shares):
+        blocks, shares = [], []
+        for line in re.split(r"\n+", text or ""):
+            line = re.sub(r"\s+", " ", line).strip()
+            if line:
+                blocks.append({"kind": "p", "text": line})
+                shares.append(0.0)
+    seen, unique, links = set(), [], []
+    for b, share in zip(blocks, shares):
+        if b["text"] not in seen:
+            seen.add(b["text"])
+            unique.append(b)
+            links.append(share >= LINK_SHARE)
+    if not any(not link for link in links):
+        return {"title": "", "blocks": [], "selection": False}
+    kept, heading, passage = _article(unique, links)
+    return {"title": heading or "", "blocks": kept, "selection": passage}

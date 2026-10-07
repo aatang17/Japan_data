@@ -1,6 +1,13 @@
 # -*- coding: utf-8 -*-
 """Pages a writer sends from their own browser: reading what they subscribe to.
 
+The common way in is a paste: the desk's reader is refused by FT and WSJ and
+served Nikkei's teaser, so it offers a box under the address the writer just
+tried; they copy the article in their own browser (select all, copy) and
+paste it there. POST /clips/paste tidies what was pasted
+(research_web.read_pasted) and keeps it like any sent page, against that
+address. The bookmark below is the faster way for someone who sends many.
+
 The desk's page reader (research_web.py) fetches a page from the server, with
 no login, so an FT, WSJ or Nikkei article comes back as its teaser. "Send to
 Plover" is a bookmark the writer keeps in their own browser: on a page they
@@ -36,7 +43,7 @@ from typing import List
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
-from . import research
+from . import research, research_web
 
 KEEP = 50
 TEXT_MAX = 120000          # characters across all blocks
@@ -90,11 +97,14 @@ def match_key(url):
     return "%s://%s%s" % (p.scheme.lower(), (p.netloc or "").lower(), p.path.rstrip("/") or "/")
 
 
-def _check_url(url):
+BAD_ADDRESS = "The page's address did not come through. Click Send to Plover again on the page."
+
+
+def _check_url(url, message=BAD_ADDRESS):
     url = (url or "").strip()
     p = urllib.parse.urlsplit(url)
     if p.scheme not in ("http", "https") or not p.netloc or len(url) > 2000:
-        raise ClipError("The page's address did not come through. Click Send to Plover again on the page.")
+        raise ClipError(message)
     return url
 
 
@@ -137,6 +147,17 @@ def add(staff_id, url, title, site, published, author, blocks, selection=False):
                   "WHERE staff_id = ? ORDER BY created_at DESC, id DESC LIMIT ?)",
                   (staff_id, staff_id, KEEP))
     return get(staff_id, new_id)
+
+
+def add_pasted(staff_id, url, title, site, published, author, html_text, text):
+    """A page the writer pasted, tidied to its article, kept against url."""
+    url = _check_url(url, "Read the article's address above first, then paste the article here.")
+    page = research_web.read_pasted(html_text, text)
+    if not page["blocks"]:
+        raise ClipError("Nothing readable was pasted. On the article, press \u2318A then \u2318C "
+                        "(Ctrl+A, Ctrl+C on Windows), then paste here again.")
+    return add(staff_id, url, title or page["title"], site, published, author,
+               page["blocks"], page["selection"])
 
 
 def list_for(staff_id):
@@ -201,6 +222,26 @@ def send_clip(body: ClipBody, request: Request):
     try:
         return add(person["id"], body.url, body.title, body.site, body.published, body.author,
                    [{"kind": b.kind, "text": b.text} for b in body.blocks], body.selection)
+    except ClipError as exc:
+        raise HTTPException(400, str(exc))
+
+
+class PasteBody(BaseModel):
+    url: str
+    title: str = ""
+    site: str = ""
+    published: str = ""
+    author: str = ""
+    html: str = ""
+    text: str = ""
+
+
+@router.post("/clips/paste")
+def paste_clip(body: PasteBody, request: Request):
+    person = _writer(request)
+    try:
+        return add_pasted(person["id"], body.url, body.title, body.site, body.published,
+                          body.author, body.html, body.text)
     except ClipError as exc:
         raise HTTPException(400, str(exc))
 
