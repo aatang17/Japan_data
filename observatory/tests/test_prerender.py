@@ -59,6 +59,7 @@ class PrerenderTest(unittest.TestCase):
         self.assertGreater(block.group(0).count("<tr>"), 6)
         self.assertNotIn("<noscript>", self.cpi)
 
+    @unittest.skipUnless(_data.MACRO, _data.NO_MACRO)
     def test_the_figures_sit_where_no_script_repaints(self):
         # The block is written after the page's last section, inside <main>,
         # where no page script assigns innerHTML: it can neither flash nor

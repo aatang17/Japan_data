@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 
 from app import seo
 from app.main import app
+from tests import _data
 
 WEB = pathlib.Path(__file__).resolve().parent.parent / "web"
 NS = "{http://www.sitemaps.org/schemas/sitemap/0.9}"
@@ -112,6 +113,7 @@ class SitemapTest(unittest.TestCase):
                        "never zero", "How to cite"):
             self.assertIn(phrase, body, phrase)
 
+    @unittest.skipUnless(_data.MACRO, _data.NO_MACRO)
     def test_llms_txt_lists_datasets_that_actually_serve_data(self):
         from app import registry
         body = self.client.get("/llms.txt").text
@@ -119,6 +121,12 @@ class SitemapTest(unittest.TestCase):
         self.assertTrue(live, "no dataset is available to list")
         for card in live:
             self.assertIn("`%s`" % card["id"], body, card["id"])
+
+    def test_llms_txt_never_lists_a_dataset_without_data(self):
+        # Runs with no database too: then nothing is available, and llms.txt
+        # must name no dataset at all rather than advertise empty ones.
+        from app import registry
+        body = self.client.get("/llms.txt").text
         for card in registry.datasets():
             if not card.get("available"):
                 self.assertNotIn("`%s`" % card["id"], body, card["id"])
