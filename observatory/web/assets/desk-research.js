@@ -514,8 +514,8 @@ function insertAfterCaretBlock(b) {
 /* The Research tab works like a browser. Plan and Notes stay pinned on the
    left; every search and every page the writer opens is a tab of its own,
    kept until they close it, and remembered in this browser for this
-   article. "+" opens a new tab: search Plover data, read a page, find a
-   chart the plan asks for, or open a saved article. */
+   article. "+" opens a new tab every time: search Plover data, read a page,
+   find a chart the plan asks for, or open a saved article. */
 
 var RT = { tabs: [], active: null, closed: [], seq: 0, box: null, noteFilter: "all" };
 var RT_MAX = 8;          // source tabs; opening one more closes the oldest
@@ -580,13 +580,6 @@ function addTab(spec) {
    into. */
 function openResearchTab(spec, activate) {
   showPane("research");
-  var blank = spec.kind === "new" && RT.tabs.filter(function (t) { return t.kind === "new"; })[0];
-  if (blank) {
-    activateTab(blank);
-    var i = $("input", blank.el);
-    if (i) i.focus();
-    return blank;
-  }
   var same = spec.kind === "new" ? null : RT.tabs.filter(function (t) {
     return t.kind === spec.kind && ((spec.q && t.q === spec.q) || (spec.url && t.url === spec.url) ||
                                     (spec.clip && t.clip === spec.clip));
@@ -600,12 +593,22 @@ function openResearchTab(spec, activate) {
 
 function activateTab(t) {
   if (!t) return;
+  // "+" always opens a tab, like a browser; empty ones close once the writer
+  // goes to a search, a page, Plan or Notes, so blank tabs never pile up
+  if (t.kind !== "new") {
+    RT.tabs.filter(function (x) { return x.kind === "new" && !typedIn(x); })
+      .forEach(function (x) { closeTab(x, true); });
+  }
   RT.active = t;
   RT.tabs.forEach(function (x) { x.el.hidden = x !== t; });
   S.slotTarget = t.slot && slotEl(t.slot) ? t.slot : null;
   if (t.kind === "plan" || t.kind === "notes" || !t.loaded) fillTab(t);
   drawStrip();
   saveTabs();
+}
+
+function typedIn(t) {
+  return $all("input", t.el).some(function (i) { return i.value.trim(); });
 }
 
 function fillTab(t) {

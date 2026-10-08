@@ -507,3 +507,13 @@ tr.clickable { cursor: pointer; }
 .admin-alert code { overflow-wrap: anywhere; }
 .ais-tools .ais-check { align-items: flex-start; display: flex; }
 .ais-tools .ais-check input { margin-top: 2px; }
+.art-acts { white-space: nowrap; text-align: right; }
+.art-acts .btn + .btn { margin-left: 6px; }
+.art-acts a.btn { display: inline-block; text-decoration: none; }
+/* Phone: keep the buttons on screen. Date, author and address are in the editor. */
+@media (max-width: 600px) {
+  .art-table th:nth-child(3), .art-table td:nth-child(3),
+  .art-table th:nth-child(4), .art-table td:nth-child(4),
+  .art-table th:nth-child(5), .art-table td:nth-child(5) { display: none; }
+  .art-table .art-title { min-width: 0; }
+}
