@@ -535,9 +535,10 @@ function renderResearchPane() {
   addTab({ kind: "notes", title: "Notes", pinned: true });
   var saved = null;
   try { saved = JSON.parse(localStorage.getItem(rtKey()) || "null"); } catch (e) { saved = null; }
-  ((saved && saved.tabs) || []).slice(0, RT_MAX).forEach(function (sp) { addTab(sp); });
+  ((saved && saved.tabs) || []).filter(function (sp) { return sp.kind === "data" || sp.kind === "web"; })
+    .slice(0, RT_MAX).forEach(function (sp) { addTab(sp); });
   var want = saved && typeof saved.active === "number" ? RT.tabs[saved.active] : null;
-  if (!want) want = S.plan ? RT.tabs[0] : RT.tabs[2];
+  if (!want) want = S.plan || planInPage() ? RT.tabs[0] : RT.tabs[2];
   if (!want) want = addTab({ kind: "new", title: "New Tab" });
   $(".dk-rt-strip", box).addEventListener("click", function (e) {
     var t = e.target.closest("button");
@@ -579,6 +580,13 @@ function addTab(spec) {
    into. */
 function openResearchTab(spec, activate) {
   showPane("research");
+  var blank = spec.kind === "new" && RT.tabs.filter(function (t) { return t.kind === "new"; })[0];
+  if (blank) {
+    activateTab(blank);
+    var i = $("input", blank.el);
+    if (i) i.focus();
+    return blank;
+  }
   var same = spec.kind === "new" ? null : RT.tabs.filter(function (t) {
     return t.kind === spec.kind && ((spec.q && t.q === spec.q) || (spec.url && t.url === spec.url) ||
                                     (spec.clip && t.clip === spec.clip));
@@ -646,10 +654,11 @@ function drawStrip() {
 
 function saveTabs() {
   if (!RT.box) return;
-  var src = RT.tabs.filter(function (t) { return !t.pinned; });
+  var src = RT.tabs.filter(function (t) { return !t.pinned && t.kind !== "new"; });
   var spec = src.map(function (t) { return { kind: t.kind, title: t.title, q: t.q, url: t.url, clip: t.clip, slot: t.slot }; });
   try {
-    localStorage.setItem(rtKey(), JSON.stringify({ tabs: spec, active: RT.tabs.indexOf(RT.active) }));
+    localStorage.setItem(rtKey(), JSON.stringify({ tabs: spec, active: RT.active && RT.active.kind !== "new"
+      ? RT.tabs.filter(function (t) { return t.kind !== "new"; }).indexOf(RT.active) : -1 }));
   } catch (e) { /* storage blocked: tabs are not remembered, nothing else breaks */ }
 }
 
@@ -677,7 +686,13 @@ var DATA_SEARCH_INPUT = '<input type="search" class="dk-rs-q" placeholder="Serie
 function newTab(t) {
   var el = t.el;
   var slots = plannedCharts();
+  if (!slots.length && !S.plan && planInPage()) {
+    // the plan is still in the page: its charts can be searched for already
+    slots = parseOutline(pageBlocks()).filter(function (x) { return x.chart; })
+      .map(function (x) { return { id: "", text: x.chart }; });
+  }
   el.innerHTML =
+    '<p class="dk-rt-lead">Search Plover data or open a web page. Each search or page you open becomes a tab of its own.</p>' +
     '<p class="dk-rs-h">Search Plover Data</p>' +
     '<form class="dk-rs-form" data-go="data">' + DATA_SEARCH_INPUT + '<button type="submit" class="dk-mini">Search</button></form>' +
     '<p class="dk-rs-h">Open a Web Page</p>' +
@@ -686,7 +701,7 @@ function newTab(t) {
     (slots.length ? '<p class="dk-rs-h">Charts Your Plan Asks For</p><ul class="dk-rs-list">' + slots.map(function (s, i) {
       return '<li><span class="dk-rs-name">' + escapeHtml(s.text) + '</span><span class="dk-rs-acts">' +
         '<button type="button" class="dk-mini" data-slotfind="' + i + '">Find Data</button>' +
-        '<button type="button" class="dk-mini" data-slotai="' + i + '">Suggest a Chart</button></span></li>';
+        (s.id ? '<button type="button" class="dk-mini" data-slotai="' + i + '">Suggest a Chart</button>' : "") + "</span></li>";
     }).join("") + "</ul>" : "") +
     (RT.closed.length ? '<p class="dk-rs-h">Recently Closed</p><ul class="dk-rs-list">' + RT.closed.map(function (c, i) {
       return '<li><span class="dk-rs-name">' + escapeHtml(c.title) + '</span><span class="dk-rs-acts">' +
@@ -708,7 +723,7 @@ function newTab(t) {
   $all("[data-slotfind]", el).forEach(function (b) {
     b.addEventListener("click", function () {
       var s = slots[Number(b.getAttribute("data-slotfind"))];
-      becomeTab(t, { kind: "data", q: searchWords(s.text), title: searchWords(s.text), slot: s.id });
+      becomeTab(t, { kind: "data", q: searchWords(s.text), title: searchWords(s.text), slot: s.id || "" });
     });
   });
   $all("[data-slotai]", el).forEach(function (b) {
@@ -1051,7 +1066,34 @@ function showPage(page, root) {
 
 /* ---- the plan ---- */
 
+function pageBlocks() { return $all(".dk-block", blocksEl()).map(readBlock); }
+
+function planInPage() { return !S.plan && hasPlanHeading(pageBlocks()); }
+
 function planTab(el) {
+  if (!S.plan && planInPage()) {
+    var outline = parseOutline(pageBlocks());
+    el.innerHTML = '<p class="dk-rt-empty">Your plan is in the page, waiting for your approval.</p>' +
+      '<p class="hint">When you are happy with it, press Start Writing: the plan moves here, and its outline ' +
+      "becomes the sections of your draft.</p>" +
+      (outline.length
+        ? '<div class="dk-plan-h"><span class="dk-rs-h">Sections It Will Make</span><span class="muted num">' +
+          outline.length + "</span></div>" +
+          '<ol class="dk-plan-secs">' + outline.map(function (x) {
+            return '<li><span class="dk-plan-row"><span class="dk-plan-t">' + escapeHtml(x.heading) + "</span>" +
+              (x.chart ? '<span class="dk-plan-st" title="' + escapeHtml(x.chart) + '">Chart</span>' : "") + "</span></li>";
+          }).join("") + "</ol>"
+        : '<p class="hint">No outline was found in the plan, so Start Writing will give you a blank page. ' +
+          "To get sections, put a numbered list under a line that says \u201cOutline\u201d, one section per item.</p>") +
+      '<div class="dk-plan-acts"><button type="button" class="btn btn-primary" data-startw="1">Start Writing</button>' +
+      '<button type="button" class="btn" data-goplan="1">Go to the Plan</button></div>';
+    $("[data-startw]", el).addEventListener("click", startWriting);
+    $("[data-goplan]", el).addEventListener("click", function () {
+      var h = $all('.dk-block[data-type="h2"]', blocksEl()).filter(function (b) { return /^plan$/i.test(readBlock(b).text); })[0];
+      if (h) goToBlock(h.getAttribute("data-id"));
+    });
+    return;
+  }
   if (!S.plan) {
     el.innerHTML = '<p class="dk-rt-empty">No plan yet.</p>' +
       '<p class="hint">A plan states the question the article answers, the answer you expect and the sections, ' +

@@ -235,16 +235,25 @@ function blockText(b) {
 
 /* The outline's points: [{heading, claim, chart}]. The list after a heading
    (or bold line) called "Outline"; failing that, the first numbered list. */
+/* The labelled parts of a plan the Plan skill writes ("Data.", "Implications."):
+   the end of an outline written as paragraphs. */
+var PLAN_PART = /^\s*(question|expected answer|data|evidence|implications|out of scope|sources|writer'?s notes)\s*[:.—–-]/i;
+
 function parseOutline(blocks) {
   var list = null;
   for (var i = 0; i < blocks.length && !list; i++) {
     var b = blocks[i];
-    var isOutline = (b.type === "heading" || b.type === "p") && /^\s*outline\s*:?\s*$/i.test(blockText(b));
+    var isOutline = (b.type === "heading" || b.type === "p") && /^\s*outline\s*[:.—–-]?\s*$/i.test(blockText(b));
     if (isOutline) {
+      // the list after it — or, in a plan written as paragraphs, each
+      // paragraph up to the next heading or the plan's next part
+      var paras = [];
       for (var j = i + 1; j < blocks.length; j++) {
-        if (blocks[j].type === "list") { list = blocks[j]; break; }
-        if (blocks[j].type === "heading") break;
+        if (blocks[j].type === "list") { if (!paras.length) list = blocks[j]; break; }
+        if (blocks[j].type === "heading" || PLAN_PART.test(blockText(blocks[j]))) break;
+        if (blocks[j].type === "p" && blockText(blocks[j]).trim()) paras.push(blocks[j].html);
       }
+      if (!list && paras.length) list = { items: paras };
     }
   }
   if (!list) list = blocks.filter(function (b) { return b.type === "list" && b.style === "number"; })[0];
@@ -286,6 +295,8 @@ function outlineItem(html) {
       text = text.slice(0, c.index + (c[1] ? 1 : 0)).trim();
     }
   }
+  heading = heading.replace(/^\d+[.)]\s*/, "");
+  text = text.charAt(0).toUpperCase() + text.slice(1);
   return { heading: heading.replace(/[\s.:—–-]+$/, "").trim(), claim: text, chart: chart };
 }
 
@@ -294,7 +305,7 @@ function expectedAnswer(blocks) {
   for (var i = 0; i < blocks.length; i++) {
     var t = blockText(blocks[i]).trim();
     if (/^expected answer\b/i.test(t)) {
-      var rest = t.replace(/^expected answer\s*[:—–-]?\s*/i, "");
+      var rest = t.replace(/^expected answer\s*[:.—–-]?\s*/i, "");
       if (rest) return rest;
       var next = blocks[i + 1];
       return next ? blockText(next).trim() : "";

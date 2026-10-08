@@ -631,3 +631,10 @@ sup.dk-fn[data-note=""]::after { content: "[?]"; color: var(--obs-warn); }
 .dk-ck-bar { height: 6px; background: var(--obs-border); position: relative; margin-top: 4px; border-radius: 1px; }
 .dk-ck-bar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--obs-primary); border-radius: 1px; }
 .dk-pane .dk-ready { margin-top: 14px; }
+.dk-rt-lead { font-size: 12.5px; color: var(--obs-text-muted); margin: 0 0 12px; line-height: 1.45; }
+.dk-plan-row { display: flex; gap: 10px; align-items: baseline; padding: 9px 0; font-size: 13px; color: var(--obs-ink); }
+.dk-plan-row::before { content: counter(sec); font-size: 12px; font-weight: 700; color: var(--obs-primary);
+  width: 16px; flex: none; font-variant-numeric: tabular-nums; }
+.dk-plan-acts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.dk-plan-acts .btn { margin: 0; }
+.dk-rt-pane .hint + .dk-plan-h { margin-top: 14px; }
