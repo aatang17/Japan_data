@@ -35,6 +35,7 @@ class Context(object):
             staff_google.hand_token(person["id"], creds["google_token"])
         self.ctx = {"person": person, "client": spec["client"], "article_id": spec["article_id"],
                     "read_only": bool(spec.get("read_only")),
+                    "plan_words": spec.get("plan_words"),
                     "creds": {"connector_keys": creds.get("connector_keys") or {}}}
         self.log = spec.get("log")
         self.tools = [{"name": t["name"], "description": t["description"],

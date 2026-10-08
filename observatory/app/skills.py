@@ -90,8 +90,9 @@ dataset and series>."
 """,
      },
     {"seed": "plan", "name": "Plan", "writes": True, "position": 20,
-     "description": "An outline in the draft for the writer to approve: the question, the "
-                    "expected answer, the sections and the data for each. Writes no article.",
+     "description": "A one-screen outline in the draft for the writer to approve: the "
+                    "question, the expected answer, the sections and where the data comes from. "
+                    "Writes no article.",
      "instructions": """\
 # Plan — an outline to approve before writing
 
@@ -102,17 +103,22 @@ Write a plan into the draft for the writer to approve. Do not write the article.
 2. Check the data before promising it: for each piece of evidence find the Plover dataset
    and series (`search`, `describe_dataset`) and pull its latest value (`get_series`), or
    open the outside source (`read_page`).
-3. Write the plan with `replace_draft`, a working title first ('# Title' stating the
-   finding), then "## Plan":
-   - **Question** — the one question the article answers, and who reads it.
-   - **Expected answer** — one line, written so the data could prove it wrong.
-   - **Outline** — one line per section: the heading, its claim, the chart or table.
-   - **Data** — for each claim, the dataset and series with its latest value and period,
-     or the outside source, or "drop this point".
-   - **Implications** — who gains, who pays, how much, where the data can size it.
-   - **Out of scope** — one or two lines.
-4. If the data does not support the angle, say so in your reply instead of planning
-   around it, and suggest a better question.
+3. Write the plan with `replace_draft`: a working title first ('# Title' stating the
+   finding), then "## Plan", one line per item. Keep to the length the writer chose.
+   - **Question** — the one question the article answers.
+   - **Expected answer** — one sentence the data could prove wrong.
+   - **Outline** — a numbered list, one line per section: "**Heading** — its claim —
+     *Chart: what it shows*". At most one number per line, the one that proves the claim.
+   - **Data** — one line per source, in words the writer would use: what it is, which
+     companies or slice, which periods ("annual reports, the 30 largest TOPIX companies,
+     latest and FY2022"). No lists of values: the Draft step pulls every number fresh.
+     Never a tool name, a field name, a code or a filter such as size:core30.
+   - **Implication** — one sentence: who gains or pays.
+   - **Out of scope** — one line.
+4. Anything the writer must know — a tool that failed, a source you could not reach, a
+   list to confirm — goes in your reply, never in the plan. If the data does not support
+   the angle, say so in your reply instead of planning around it, and suggest a better
+   question.
 
 Reply in two or three sentences: the question, what the data already shows, anything the
 writer must decide. Then `offer_next_step`: label "Draft It", skill "Draft", instruction

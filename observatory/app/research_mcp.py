@@ -69,7 +69,13 @@ RULES = (
     "Every number in a draft must come from a tool result or a cited source, with its "
     "period. Index levels are quoted as published; a rate you calculate says how. Missing "
     "is missing, never zero. Write plainly: short sentences, no hype, descriptive rather "
-    "than causal ('coincides with', not 'caused').")
+    "than causal ('coincides with', not 'caused').\n\n"
+    "Name data the way a reader would, everywhere a person reads it: the draft, a plan, a "
+    "reminder, a note and your reply. Say what the number is and for whom ('cross-"
+    "shareholdings as a share of equity, the 30 largest TOPIX companies'), never a tool "
+    "name (compare_cohort, get_series), a field or metric id, a series or dataset code, or "
+    "filter syntax (size:core30, ind33:3650), and no code formatting. Chart addresses are "
+    "the one exception: they sit inside '![title](…)' and readers never see them.")
 
 _ID = {"type": "integer", "description": "Article id, from list_articles."}
 _REV = {"type": "integer", "description": ("The revision you read (from read_article). "

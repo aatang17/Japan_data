@@ -78,6 +78,15 @@ function drawAI() {
         }).join("") + "</select>" +
         '<span class="hint" id="dk-ai-skill-note"></span>'
       : "") +
+    (s.lengths && s.lengths.length
+      ? '<span class="dk-flabel" id="dk-ai-len-l">Length</span>' +
+        '<div class="seg dk-ai-len" role="group" aria-labelledby="dk-ai-len-l">' +
+        s.lengths.map(function (x) {
+          return '<button type="button" data-len="' + x.key + '" aria-pressed="' + (x.key === s.length) + '"' +
+            (running ? " disabled" : "") + ">" + escapeHtml(x.label) + "</button>";
+        }).join("") + "</div>" +
+        '<span class="hint" id="dk-ai-len-note"></span>'
+      : "") +
     '<label class="dk-flabel" for="dk-ai-text">Instruction</label>' +
     '<textarea id="dk-ai-text" rows="5" maxlength="8000" placeholder="What should it do with this draft?"' +
     (running ? " disabled" : "") + "></textarea>" +
@@ -97,6 +106,22 @@ function drawAI() {
       : "What should it do with this draft?";
   }
   if (pick) { pick.addEventListener("change", skillNote); skillNote(); }
+  function lengthNote() {
+    var x = (s.lengths || []).filter(function (l) { return l.key === s.length; })[0];
+    if ($("#dk-ai-len-note")) $("#dk-ai-len-note").textContent = x ? x.hint + " Used for every run, until you change it." : "";
+    $all("[data-len]", box).forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-len") === s.length)); });
+  }
+  $all("[data-len]", box).forEach(function (b) {
+    b.addEventListener("click", function () {
+      var key = b.getAttribute("data-len");
+      if (key === s.length) return;
+      send("PUT", "/research/ai/length", { length: key }).then(function (res) {
+        AI.settings = s = res;
+        lengthNote();
+      }).catch(function (err) { aiErr(err.message || "The length was not saved. Try again."); });
+    });
+  });
+  lengthNote();
   $("#dk-ai-form").addEventListener("submit", function (e) {
     e.preventDefault();
     runAI($("#dk-ai-text").value, pick ? pick.value : "");

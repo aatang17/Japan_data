@@ -30,6 +30,10 @@ draft-changing tools, and the writer keeps editing while it works. Any run
 can end by offering next steps (offer_next_step), shown as buttons under its
 reply: "Plan This" on a brainstormed angle, "Draft It" under a plan.
 
+Each writer picks a length once (Short, Standard, Detailed); every run, the
+one-click next steps included, is told it, and a plan over its word limit is
+sent back to the AI to shorten before it reaches the draft.
+
 Secrets — API keys, the Claude Code token, the Codex sign-in — are sealed with
 the assistant keychain (ASSISTANT_SECRET) and opened only for the length of a
 run. The CLIs run with their shell, file and browser tools switched off, in an
@@ -101,6 +105,8 @@ def settings_view(person):
         "codex": codex_status(person), "keychain": keychain.enabled(),
         "claude_available": shutil.which(CLAUDE_BIN) is not None,
         "codex_available": codex_mod.available(),
+        "length": _length(s)["key"],
+        "lengths": [{"key": x["key"], "label": x["label"], "hint": x["hint"]} for x in LENGTHS],
         "skills": [{"id": k["id"], "name": k["name"], "description": k["description"],
                     "writes": k["writes"]}
                    for k in skills.list_skills(enabled_only=True)],
@@ -178,6 +184,54 @@ def forget(person, what):
         staff.set_ai(person["id"], claude_token_ct=None)
     elif what == "codex":
         staff.set_ai(person["id"], codex_auth_ct=None, codex_email=None)
+
+
+# ---------------------------------------------------------------------------
+# how long the writer wants what the AI writes
+
+LENGTHS = [
+    {"key": "short", "label": "Short", "plan_words": 150,
+     "hint": "Plans up to 150 words, articles 400–600 words.",
+     "rule": "a plan of at most 150 words; an article of 400 to 600 words; replies as brief "
+             "as the skill's format allows, one line per list item"},
+    {"key": "standard", "label": "Standard", "plan_words": 250,
+     "hint": "Plans up to 250 words, articles 700–1,000 words.",
+     "rule": "a plan of at most 250 words; an article of 700 to 1,000 words; replies at the "
+             "length the skill asks for"},
+    {"key": "detailed", "label": "Detailed", "plan_words": 500,
+     "hint": "Plans up to 500 words, articles 1,200–1,800 words.",
+     "rule": "a plan of at most 500 words; an article of 1,200 to 1,800 words; replies may "
+             "add a sentence of reasoning to each item"},
+]
+DEFAULT_LENGTH = "short"
+# a plan this much over its limit is sent back; a few words over is let through
+PLAN_SLACK = 1.2
+
+
+def _length(s):
+    key = (s or {}).get("length") or DEFAULT_LENGTH
+    return next((x for x in LENGTHS if x["key"] == key), LENGTHS[0])
+
+
+def set_length(person, key):
+    if key not in [x["key"] for x in LENGTHS]:
+        raise AIError("Choose Short, Standard or Detailed.")
+    return staff.set_ai(person["id"], length=key)
+
+
+def plan_words(markdown):
+    """Words in a draft's plan: from its '## Plan' heading to the writer's
+    notes (or the end). None when the markdown holds no plan."""
+    lines = (markdown or "").splitlines()
+    start = next((i for i, l in enumerate(lines) if re.match(r"^##\s+plan\s*$", l.strip(), re.I)), None)
+    if start is None:
+        return None
+    body = []
+    for l in lines[start + 1:]:
+        if re.match(r"^##\s+writer[’']?s notes\s*$", l.strip(), re.I):
+            break
+        body.append(l)
+    return len(re.findall(r"\w[\w’'.,%/-]*", "\n".join(body), re.U))
 
 
 # ---------------------------------------------------------------------------
@@ -521,6 +575,12 @@ def call_tool(ctx, name, args):
                 out["sent_from_browser"] = True
                 out["accessed"] = time.strftime("%Y-%m-%d", time.gmtime(page["sent_at"]))
             return json.dumps(out, ensure_ascii=False), False
+        limit = ctx.get("plan_words")
+        n = plan_words(args.get("markdown")) if name == "replace_draft" and limit else None
+        if n is not None and n > limit * PLAN_SLACK:
+            return json.dumps({"error": "Nothing was saved: the plan is %d words and the writer chose "
+                                        "at most %d. Cut it to one line per item, with no lists of "
+                                        "values, and call replace_draft again." % (n, limit)}), True
         cur = research.get(aid)
         if cur is None:
             return json.dumps({"error": "The article no longer exists."}), True
@@ -583,11 +643,15 @@ def clean_offer(args):
 # ---------------------------------------------------------------------------
 # jobs
 
-def _system(article, person, skill=None):
+def _system(article, person, skill=None, length=None):
     d = article["draft"]
     read_only = bool(skill) and not skill["writes"]
     menu = skills.list_skills(enabled_only=True)
     extra = "House style for everything you write in the draft:\n" + skills.house_style() + "\n\n"
+    ln = _length({"length": length})
+    extra += ("Length: the writer chose %s — %s. This overrides any length a skill gives, except "
+              "a fixed format such as Data Flash or Headlines. Shorter is better: no preamble, "
+              "no repetition.\n\n" % (ln["label"], ln["rule"]))
     if menu:
         extra += ("The team's skills (open one with read_skill when the instruction matches it):\n"
                   + skills.menu_text(menu) + "\n\n")
@@ -625,8 +689,25 @@ def _log(job, kind, text):
     job["steps"].append({"at": time.time(), "kind": kind, "text": text[:300]})
 
 
-def _describe(name, args):
+# The data tools as the writer sees them in the AI tab's list of steps.
+_PLAIN_STEPS = {
+    "list_datasets": "Listed Plover's datasets",
+    "describe_dataset": "Looked up what a dataset holds",
+    "get_company": "Read a company's figures",
+    "get_series": "Read a data series",
+    "screen": "Ranked companies on a measure",
+    "list_cohorts": "Listed the peer groups",
+    "compare_cohort": "Compared companies within a peer group",
+    "get_overview": "Read the latest headline numbers",
+    "get_breakdown": "Read a breakdown",
+    "get_vintages": "Checked releases and revisions",
+}
+
+
+def _describe(name, args, failed=False):
     args = args or {}
+    if failed and name in ("replace_draft", "append_to_draft", "set_details"):
+        return "Draft not changed: sent back to the AI to fix (too long, or out of date)"
     if name == "get_draft":
         return "Read the draft"
     if name == "replace_draft":
@@ -644,8 +725,8 @@ def _describe(name, args):
         return "Listed the pages you sent from your browser"
     if name == "search":
         return "Searched Plover for \"%s\"" % (args.get("query") or "")
-    if name == "get_series":
-        return "Read series %s" % (args.get("codes") or args.get("code") or args.get("dataset") or "")
+    if name in _PLAIN_STEPS:
+        return _PLAIN_STEPS[name]
     if name == "read_skill":
         return "Opened the skill \"%s\"" % (args.get("name") or "")
     if name == "offer_next_step":
@@ -732,7 +813,7 @@ def start(person, article_id, instruction, skill_id=None, image=None):
         _jobs[job["id"]] = job
         _running[person["id"]] = job["id"]
     ctx = {"person": person, "client": CLIENT[provider], "article_id": article_id,
-           "read_only": not writes, "offers": job["next"]}
+           "read_only": not writes, "offers": job["next"], "plan_words": _length(s)["plan_words"]}
     threading.Thread(target=_run, args=(job, ctx, s, instruction, article, skill, image),
                      daemon=True).start()
     return public(job)
@@ -762,7 +843,7 @@ def get_job(person, job_id):
 def _run(job, ctx, s, instruction, article, skill=None, image=None):
     try:
         provider = s["provider"]
-        system = _system(article, ctx["person"], skill)
+        system = _system(article, ctx["person"], skill, s.get("length"))
         if provider in ("openai", "anthropic"):
             reply = _run_api(job, ctx, provider, _open(s["key_ct"]),
                              s["model"] or DEFAULT_MODEL[provider], system, instruction, image)
@@ -800,7 +881,7 @@ def _run_api(job, ctx, provider, key, model, system, instruction, image=None):
             return out["text"]
         for tc in out["tool_calls"]:
             text, err = call_tool(ctx, tc["name"], tc.get("args") or {})
-            _log(job, "error" if err else "tool", _describe(tc["name"], tc.get("args")))
+            _log(job, "error" if err else "tool", _describe(tc["name"], tc.get("args"), err))
             messages.append({"role": "tool", "tool_call_id": tc["id"], "name": tc["name"],
                              "content": text})
     return "I stopped after %d steps; the draft has what I finished." % MAX_STEPS
@@ -815,6 +896,7 @@ def _spec_file(job, ctx, work):
     with os.fdopen(fd, "w") as f:
         json.dump({"staff_id": ctx["person"]["id"], "article_id": ctx["article_id"],
                    "client": ctx["client"], "log": log, "read_only": bool(ctx.get("read_only")),
+                   "plan_words": ctx.get("plan_words"),
                    "creds": _run_creds(ctx["person"])}, f)
     return path, log
 
@@ -858,7 +940,8 @@ def _follow(job, log_path, stop):
         for line in lines[seen:]:
             try:
                 ev = json.loads(line)
-                _log(job, "error" if ev.get("error") else "tool", _describe(ev["name"], ev.get("args")))
+                _log(job, "error" if ev.get("error") else "tool",
+                     _describe(ev["name"], ev.get("args"), ev.get("error")))
                 if ev["name"] == "offer_next_step" and not ev.get("error") and len(job["next"]) < NEXT_MAX:
                     job["next"].append(clean_offer(ev.get("args") or {}))
             except (ValueError, KeyError):         # AIError is a ValueError
@@ -1090,6 +1173,10 @@ class ModelsBody(BaseModel):
     key: Optional[str] = None
 
 
+class LengthBody(BaseModel):
+    length: str
+
+
 class RunBody(BaseModel):
     instruction: str = ""
     skill_id: Optional[int] = None
@@ -1110,6 +1197,16 @@ def ai_put(body: SettingsBody, request: Request):
         raise HTTPException(400, str(exc))
     _audit(request, person, "research_ai_settings", "provider %s%s" % (
         body.provider, " (new key)" if (body.key or body.claude_token) else ""))
+    return settings_view(person)
+
+
+@router.put("/ai/length")
+def ai_length(body: LengthBody, request: Request):
+    person = _person(request)
+    try:
+        set_length(person, body.length)
+    except AIError as exc:
+        raise HTTPException(400, str(exc))
     return settings_view(person)
 
 

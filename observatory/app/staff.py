@@ -215,6 +215,7 @@ def conn():
 LATER_COLUMNS = [
     ("team_skills", "writes", "INTEGER NOT NULL DEFAULT 1"),
     ("team_skills", "position", "INTEGER NOT NULL DEFAULT 100"),
+    ("staff_ai", "length", "TEXT"),
 ]
 
 
@@ -596,14 +597,14 @@ def key_person(token):
 # stored; only its last four characters are kept readable, for display.
 
 AI_FIELDS = ("provider", "model", "key_ct", "key_last4", "claude_token_ct", "codex_auth_ct",
-             "codex_email")
+             "codex_email", "length")
 
 
 def ai_settings(staff_id):
     row = conn().execute("SELECT * FROM staff_ai WHERE staff_id = ?", (staff_id,)).fetchone()
     return dict(row) if row else {"staff_id": staff_id, "provider": None, "model": None,
                                   "key_ct": None, "key_last4": None, "claude_token_ct": None,
-                                  "codex_auth_ct": None, "codex_email": None}
+                                  "codex_auth_ct": None, "codex_email": None, "length": None}
 
 
 def set_ai(staff_id, **fields):

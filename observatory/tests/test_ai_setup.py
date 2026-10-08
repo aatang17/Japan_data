@@ -17,6 +17,10 @@ only answers (Brainstorm) runs without the draft-changing tools, makes no
 "Before AI" copy and never reports a change; a run's offered next steps come
 back as buttons naming a real skill, from the API loop and from a CLI run's
 call log alike; clicking one starts a run that may write.
+
+Length: a writer's choice (Short by default) is kept per person and told to
+every run; a plan over its word limit is refused unsaved, in the API loop and
+in a CLI run's tool server alike, and a plan within it is saved.
 """
 import json
 import os
@@ -148,6 +152,46 @@ class ModeTest(SetupBase):
         self.assertIsNotNone(j["before_history_id"])
         self.assertIn("replace_draft", fake.seen_tools)
         self.assertEqual([x["label"] for x in j["next"]], ["Draft It"])
+
+    def test_length_choice_reaches_runs_and_caps_plans(self):
+        self.connect()
+        r = self.w.get("/admin/api/research/ai").json()
+        self.assertEqual(r["length"], "short")
+        self.assertEqual([x["label"] for x in r["lengths"]], ["Short", "Standard", "Detailed"])
+        self.assertEqual(self.w.put("/admin/api/research/ai/length", json={"length": "huge"}).status_code, 400)
+        r = self.w.put("/admin/api/research/ai/length", json={"length": "standard"})
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertEqual(r.json()["length"], "standard")
+        self.assertEqual(self.w.get("/admin/api/research/ai").json()["length"], "standard")
+
+        long_plan = "# T\n\n## Plan\n\n" + " ".join(["word"] * 320) + "\n\n## Writer's Notes\n\n" + \
+            " ".join(["mine"] * 400)
+        short_plan = "# T\n\n## Plan\n\n" + " ".join(["word"] * 240) + "\n\n## Writer's Notes\n\n" + \
+            " ".join(["mine"] * 400)
+        seen = {}
+        fake = Fake([call("replace_draft", markdown=long_plan), call("replace_draft", markdown=short_plan),
+                     say("Planned.")])
+
+        def capture(provider, key, model, messages, tools=None, max_tokens=1500, base_url=None):
+            seen.setdefault("system", messages[0]["content"])
+            return fake(provider, key, model, messages, tools, max_tokens, base_url)
+        gateway.complete = capture
+        r = self.w.post("/admin/api/research/articles/%d/ai" % self.aid,
+                        json={"instruction": "", "skill_id": skills.get("plan")["id"]})
+        j = self.wait(r.json()["id"])
+        self.assertEqual(j["status"], "done", j)
+        self.assertIn("Length: the writer chose Standard", seen["system"])
+        self.assertEqual([s["kind"] for s in j["steps"]], ["error", "tool"])
+        self.assertTrue(j["steps"][0]["text"].startswith("Draft not changed"))
+        self.assertIn("word " * 240, research.get(self.aid)["draft"]["blocks"][1]["html"] + " ")
+
+        # a CLI run's tool server refuses the same over-long plan
+        log = os.path.join(str(research.DATA_DIR), "len.jsonl")
+        ctx = research_ai_mcp.Context({"staff_id": self.wid, "article_id": self.aid, "client": "Codex",
+                                       "log": log, "plan_words": 150})
+        text, err = research_ai.call_tool(ctx.ctx, "replace_draft", {"markdown": short_plan})
+        self.assertTrue(err)
+        self.assertIn("240 words", text)
 
     def test_cli_run_answer_only_and_offers_from_log(self):
         log = os.path.join(str(research.DATA_DIR), "calls.jsonl")

@@ -320,6 +320,8 @@ sup.dk-fn[data-note=""]::after { content: "[?]"; color: var(--obs-warn); }
 .dk-ai-form .btn-primary { align-self: flex-start; }
 .dk-ai-form select { margin-bottom: 2px; }
 #dk-ai-skill-note { margin: 0 0 8px; }
+.dk-ai-len { align-self: flex-start; }
+#dk-ai-len-note { margin: 0 0 8px; }
 #dk-ai-skill-note:empty { display: none; }
 .dk-ai-reach { font-size: 12px; color: var(--obs-text-muted); margin: 12px 0 0; line-height: 1.5; }
 .dk-ai-reach a { color: var(--obs-primary); }
