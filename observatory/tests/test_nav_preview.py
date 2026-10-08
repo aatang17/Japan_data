@@ -13,6 +13,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app import api, nav_preview
+from tests import _data
 
 
 def _has_cpi():
@@ -27,7 +28,7 @@ def _has_cpi():
         return False
 
 
-@unittest.skipUnless(_has_cpi(), "no CPI release in the local database")
+@unittest.skipUnless(_has_cpi(), _data.NO_MACRO)
 class PreviewTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

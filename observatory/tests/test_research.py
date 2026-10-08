@@ -185,11 +185,24 @@ class FormatTest(unittest.TestCase):
         self.assertIn("[^1]", md)
         self.assertIn("| --- | --: |", md)
 
+    # The shape the research-report pipeline writes: title, italic dek, prose,
+    # a chart placeholder, a section heading and a right-aligned table. Made
+    # up here so the test runs on every checkout; the real drafts are not in
+    # the repository.
+    PIPELINE_DRAFT = (
+        "# Japan's regional banks and the rate increases: a test draft\n\n"
+        "*Asia Economics Observations \u00b7 1 January 2026. All figures as of 2026-01-01.*\n\n"
+        "Net interest income rose while bond losses were realised.\n\n"
+        "**[Chart 1 \u2014 Loan rates rose with the call rate]**\n\n"
+        "## Net interest income against realised bond losses\n\n"
+        "| | FY2023 | FY2024 |\n"
+        "| --- | --: | --: |\n"
+        "| Net interest income | 3,066.7 | 3,402.1 |\n"
+        "| Realised bond result | \u2212374.6 | \u2212368.2 |\n"
+    )
+
     def test_import_research_pipeline_markdown(self):
-        path = REPO / "docs" / "research" / "boj-hikes-regional-banks" / "draft.md"
-        if not path.exists():
-            self.skipTest("research draft not in this checkout")
-        d = rd.import_markdown(path.read_text(encoding="utf-8"))
+        d = rd.import_markdown(self.PIPELINE_DRAFT)
         self.assertTrue(d["title"].startswith("Japan's regional banks"))
         self.assertTrue(d["dek"].startswith("Asia Economics Observations"))
         types = [b["type"] for b in d["blocks"]]

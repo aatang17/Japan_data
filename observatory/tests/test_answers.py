@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 
 from app import answers, indexnow
 from app.main import app
+from tests import _data
 
 LEAD = re.compile(r'(?is)<p class="answer-lead" id="answer-lead"[^>]*>(.*?)</p>')
 
@@ -33,7 +34,7 @@ class AnswerPageTest(unittest.TestCase):
 
     def test_the_lead_sentence_is_in_the_served_html(self):
         if self.block is None:
-            self.skipTest("no cpi-jp release in this database")
+            self.skipTest(_data.NO_MACRO)
         found = LEAD.search(self.page.text)
         self.assertIsNotNone(found)
         self.assertIn(self.block["sentence"].replace("'", "'"), found.group(1))
@@ -44,7 +45,7 @@ class AnswerPageTest(unittest.TestCase):
 
     def test_the_lead_number_is_the_api_number(self):
         if self.block is None:
-            self.skipTest("no cpi-jp release in this database")
+            self.skipTest(_data.NO_MACRO)
         r = self.client.get("/api/v1/cpi-jp/observations?series=0001&measure=yoy")
         pts = [p for p in r.json()["series"][0]["points"] if p[1] is not None]
         latest = pts[-1][1]
@@ -52,7 +53,7 @@ class AnswerPageTest(unittest.TestCase):
 
     def test_the_markdown_twin_and_the_api_carry_the_same_sentence(self):
         if self.block is None:
-            self.skipTest("no cpi-jp release in this database")
+            self.skipTest(_data.NO_MACRO)
         md = self.client.get("/japan-inflation-rate.md")
         self.assertEqual(md.status_code, 200)
         self.assertIn(self.block["sentence"], md.text)
@@ -61,7 +62,7 @@ class AnswerPageTest(unittest.TestCase):
 
     def test_a_derived_number_states_its_formula_and_an_official_one_says_as_published(self):
         if self.block is None:
-            self.skipTest("no cpi-jp release in this database")
+            self.skipTest(_data.NO_MACRO)
         self.assertEqual(self.block["trust"], "derived")
         self.assertIn("Show calculation", self.page.text)
         self.assertIn("index[t−12 months]", self.page.text)
