@@ -2288,13 +2288,21 @@ function renderVersions() {
   });
   var del = $("#dk-delete");
   if (del) {
-    var armed = false;
+    // one click: the article list deletes it with a few seconds to Undo
     del.addEventListener("click", function () {
-      if (!armed) { armed = true; del.textContent = "Click Again to Delete"; return; }
-      api("/research/articles/" + ID, { method: "DELETE" }).then(function () {
-        S.savedSeq = S.seq;
-        location.href = "admin.html#articles";
-      }).catch(function (err) { toast(err.message); });
+      try {
+        sessionStorage.setItem("plover-delete-draft", JSON.stringify({ id: ID, title: $("#dk-title").value.trim() || "Untitled" }));
+      } catch (e) {
+        // no session storage: no Undo either, so ask first
+        if (!window.confirm("Delete this draft? This cannot be undone.")) return;
+        api("/research/articles/" + ID, { method: "DELETE" }).then(function () {
+          S.savedSeq = S.seq;
+          location.href = "admin.html#articles";
+        }).catch(function (err) { toast(err.message); });
+        return;
+      }
+      S.savedSeq = S.seq;
+      location.href = "admin.html#articles";
     });
   }
 }

@@ -29,6 +29,85 @@ function backupLine(b) {
   return "Backups: last run " + when + ", " + off + ".";
 }
 
+/* Delete is one click with a few seconds to undo it, not a confirm step: the
+   row goes at once and the draft is deleted on the server when the Undo bar
+   times out, or straight away if the page is left before then. */
+var UNDO_MS = 8000;
+var HANDOFF_KEY = "plover-delete-draft";
+var PENDING = null;   // {id, title, timer}
+
+function $title(tr) {
+  var a = tr && tr.querySelector(".art-title");
+  return a ? a.textContent : "Untitled";
+}
+
+function rowOf(target, id) { return target.querySelector('tr[data-open="' + id + '"]'); }
+
+function setCount(target) {
+  var n = target.querySelectorAll("tr[data-open]:not([hidden])").length;
+  var c = target.querySelector(".admin-section .note");
+  if (c) c.textContent = n;
+}
+
+function sendDelete(p, keepalive) {
+  return api("/research/articles/" + p.id, keepalive ? { method: "DELETE", keepalive: true } : { method: "DELETE" });
+}
+
+function deleteLater(target, id, title) {
+  if (PENDING) finishDelete(target);
+  var tr = rowOf(target, id);
+  if (tr) tr.hidden = true;
+  setCount(target);
+  PENDING = { id: id, title: title || "Untitled" };
+  PENDING.timer = setTimeout(function () { finishDelete(target); }, UNDO_MS);
+  showUndo(target);
+}
+
+function showUndo(target) {
+  var box = target.querySelector("#art-alert");
+  if (!box || !PENDING) return;
+  box.innerHTML = '<div class="undo-bar" role="status">Deleted “' + escapeHtml(PENDING.title) + '”. ' +
+    '<button type="button" class="btn" id="art-undo">Undo</button></div>';
+  box.querySelector("#art-undo").addEventListener("click", function () {
+    var p = PENDING;
+    if (!p) return;
+    clearTimeout(p.timer);
+    PENDING = null;
+    var tr = rowOf(target, p.id);
+    if (tr) tr.hidden = false;
+    setCount(target);
+    box.innerHTML = "";
+  });
+}
+
+function finishDelete(target) {
+  var p = PENDING;
+  if (!p) return;
+  clearTimeout(p.timer);
+  PENDING = null;
+  var box = target.querySelector("#art-alert");
+  sendDelete(p).then(function () {
+    var tr = rowOf(target, p.id);
+    if (tr) tr.parentNode.removeChild(tr);
+    if (box && box.querySelector(".undo-bar")) box.innerHTML = "";
+  }).catch(function (err) {
+    var tr = rowOf(target, p.id);
+    if (tr) tr.hidden = false;
+    setCount(target);
+    if (box) box.innerHTML = '<div class="login-alert" role="alert">Could not delete “' + escapeHtml(p.title) +
+      "”: " + escapeHtml(err.message) + "</div>";
+  });
+}
+
+// leaving the page ends the undo window: the delete still goes through
+window.addEventListener("pagehide", function () {
+  var p = PENDING;
+  if (!p) return;
+  clearTimeout(p.timer);
+  PENDING = null;
+  sendDelete(p, true).catch(function () {});
+});
+
 function viewArticles(target) {
   target.innerHTML = '<div class="admin-loading">Loading articles…</div>';
   api("/research/articles").then(function (data) {
@@ -95,22 +174,20 @@ function viewArticles(target) {
     var dels = target.querySelectorAll("button[data-del]");
     for (var d = 0; d < dels.length; d++) {
       dels[d].addEventListener("click", function () {
-        var btn = this;
-        // two clicks, as in the editor: a stray click never loses a draft
-        if (!btn.classList.contains("armed")) {
-          btn.classList.add("armed");
-          btn.textContent = "Click Again to Delete";
-          return;
-        }
-        btn.textContent = "Deleting…";
-        api("/research/articles/" + btn.getAttribute("data-del"), { method: "DELETE" })
-          .then(function () { viewArticles(target); })
-          .catch(function (err) {
-            btn.classList.remove("armed");
-            btn.textContent = "Delete";
-            fail(err);
-          });
+        var tr = this.closest("tr");
+        deleteLater(target, Number(this.getAttribute("data-del")), $title(tr));
       });
+    }
+    // the editor's Delete Draft comes back here to offer the same Undo
+    var handed = null;
+    try { handed = JSON.parse(sessionStorage.getItem(HANDOFF_KEY) || "null"); sessionStorage.removeItem(HANDOFF_KEY); }
+    catch (e) { handed = null; }
+    if (handed && handed.id) deleteLater(target, handed.id, handed.title);
+    else if (PENDING) {
+      var tr = rowOf(target, PENDING.id);
+      if (tr) tr.hidden = true;
+      setCount(target);
+      showUndo(target);
     }
     var trs = target.querySelectorAll("tr[data-open]");
     for (var i = 0; i < trs.length; i++) {

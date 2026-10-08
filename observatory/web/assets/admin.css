@@ -517,3 +517,5 @@ tr.clickable { cursor: pointer; }
   .art-table th:nth-child(5), .art-table td:nth-child(5) { display: none; }
   .art-table .art-title { min-width: 0; }
 }
+.undo-bar { display: flex; align-items: center; gap: 10px; font-size: 13.5px; color: var(--obs-ink);
+  background: var(--obs-surface); border: 1px solid var(--obs-border); border-radius: 3px; padding: 8px 12px; margin: 0 0 12px; }
