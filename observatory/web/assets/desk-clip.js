@@ -13,7 +13,7 @@
    article's text (or the passage selected), and opens /clip.html with the
    text in the address's #fragment, which no request carries to a server.
    clip.html saves it to the writer's sent pages (app/research_clips.py) and
-   tells any open desk tab, which shows it in Research › Web Page.
+   tells any open desk tab, which opens it in a new Research tab.
 
    ploverClip runs on someone else's page, so it is self-contained: no
    helper from this file, nothing loaded from anywhere, no request of its
@@ -126,26 +126,27 @@ function pasteKeys() {
    short; otherwise one button that opens it, for a page that turns out to be. */
 function pasteBoxHtml(lead, url, open) {
   var k = pasteKeys();
-  return (open ? "" : '<p class="dk-artpaste-more"><button type="button" class="dk-mini" id="dk-artpaste-show">' +
+  return (open ? "" : '<p class="dk-artpaste-more"><button type="button" class="dk-mini dk-artpaste-show">' +
       "Text Cut Off? Paste the Article</button></p>") +
-    '<div class="dk-artpaste" id="dk-artpaste"' + (open ? "" : " hidden") + ">" +
+    '<div class="dk-artpaste"' + (open ? "" : " hidden") + ">" +
     (lead ? '<p class="dk-artpaste-lead">' + escapeHtml(lead) + "</p>" : "") +
     '<ol class="dk-artpaste-steps">' +
     '<li><a href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer">Open the article</a> in your browser, signed in.</li>' +
     (k ? "<li>Press <kbd>" + k[0] + "</kbd>, then <kbd>" + k[1] + "</kbd>.</li>" +
       "<li>Click the box below and press <kbd>" + k[2] + "</kbd>.</li></ol>"
       : "<li>Select all of the article and copy it.</li><li>Tap the box below and paste.</li></ol>") +
-    '<textarea id="dk-artpaste-area" rows="2" placeholder="Paste the article here" aria-label="Paste the article here"></textarea>' +
-    '<p class="dk-artpaste-status" id="dk-artpaste-status" role="status" aria-live="polite"></p></div>';
+    '<textarea class="dk-artpaste-area" rows="2" placeholder="Paste the article here" aria-label="Paste the article here"></textarea>' +
+    '<p class="dk-artpaste-status" role="status" aria-live="polite"></p></div>';
 }
 
-function wirePasteBox(page) {
-  var show = $("#dk-artpaste-show"), area = $("#dk-artpaste-area"), status = $("#dk-artpaste-status");
+/* `root` is the research tab the reader is in: each tab has its own box. */
+function wirePasteBox(page, root) {
+  var show = $(".dk-artpaste-show", root), area = $(".dk-artpaste-area", root), status = $(".dk-artpaste-status", root);
   if (!area) return;
   if (show) {
     show.addEventListener("click", function () {
       show.parentNode.hidden = true;
-      $("#dk-artpaste").hidden = false;
+      $(".dk-artpaste", root).hidden = false;
       area.focus();
     });
   }
@@ -171,8 +172,7 @@ function wirePasteBox(page) {
       url: page.url, title: page.title || "", site: page.site || "", published: page.published || "",
       author: page.author || "", html: html, text: text,
     }).then(function (clip) {
-      showPage(clip);
-      loadClips();
+      showPage(clip, root);
       toast("Saved your copy of \u201c" + clip.title + "\u201d. Cite it or quote from it here.");
     }).catch(function (err) {
       area.disabled = false;
@@ -182,9 +182,8 @@ function wirePasteBox(page) {
   });
 }
 
-/* The Send to Plover box and the list of sent pages, under Research › Web Page. */
-function renderClips() {
-  var box = $("#dk-rs-clips");
+/* The Send to Plover box and the list of sent pages, on a new research tab. */
+function renderClips(box) {
   if (!box) return;
   box.innerHTML =
     '<div class="dk-clip-how">' +
@@ -194,17 +193,17 @@ function renderClips() {
     "and only you can see it.</p>" +
     '<details class="dk-clip-bm"><summary>Send many articles? Use a bookmark instead</summary>' +
     '<p class="hint">Drag this button to your bookmarks bar once:</p>' +
-    '<p><a class="dk-clip-btn" id="dk-clip-bm" title="Drag me to your bookmarks bar">Send to Plover</a></p>' +
+    '<p><a class="dk-clip-btn" title="Drag me to your bookmarks bar">Send to Plover</a></p>' +
     '<p class="hint">Then, on the article in your browser, click the bookmark. The page appears here. ' +
     "To send one passage, select it first.</p></details></div>" +
-    '<div class="dk-clip-list" id="dk-clip-list"><p class="muted">Loading your saved articles\u2026</p></div>';
-  var bm = $("#dk-clip-bm");
+    '<div class="dk-clip-list"><p class="muted">Loading your saved articles\u2026</p></div>';
+  var bm = $(".dk-clip-btn", box);
   bm.setAttribute("href", bookmarkletHref());
   bm.addEventListener("click", function (e) {
     e.preventDefault();
     toast("Drag this button to your bookmarks bar, then click it on an article.");
   });
-  loadClips();
+  loadClips($(".dk-clip-list", box));
 }
 
 function clipWhen(ts) {
@@ -213,8 +212,7 @@ function clipWhen(ts) {
     d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 }
 
-function loadClips(openId) {
-  var list = $("#dk-clip-list");
+function loadClips(list) {
   if (!list) return;
   api("/research/clips").then(function (r) {
     if (!r.clips.length) {
@@ -234,23 +232,17 @@ function loadClips(openId) {
     $all("[data-clip-del]", list).forEach(function (b) {
       b.addEventListener("click", function () {
         api("/research/clips/" + b.getAttribute("data-clip-del"), { method: "DELETE" }).then(function () {
-          if (S.rsPage && S.rsPage.id === Number(b.getAttribute("data-clip-del"))) $("#dk-rs-wres").innerHTML = "";
-          loadClips();
+          loadClips(list);
         }).catch(function (err) { toast(err.message); });
       });
     });
-    if (openId) openClip(openId);
   }).catch(function (err) {
     list.innerHTML = '<p class="bad">Your saved articles could not be loaded: ' + escapeHtml(err.message) + "</p>";
   });
 }
 
 function openClip(id) {
-  var res = $("#dk-rs-wres");
-  res.innerHTML = '<p class="muted">Opening the page…</p>';
-  api("/research/clips/" + id).then(showPage).catch(function (err) {
-    res.innerHTML = '<p class="bad">' + escapeHtml(err.message) + "</p>";
-  });
+  openResearchTab({ kind: "web", clip: id, title: "Saved article" }, true);
 }
 
 /* clip.html says when a page arrives; show it straight away. */
@@ -260,11 +252,8 @@ function listenForClips() {
   ch.onmessage = function (e) {
     var id = e.data && e.data.clip;
     if (!id) return;
-    var tab = $('.dk-tab[data-pane="research"]');
-    if (tab) tab.click();
-    var web = $('[data-rs="web"]');
-    if (web) web.click();
-    loadClips(id);
+    showPane("research");
+    openClip(id);
     toast("Page received: " + (e.data.title || "from your browser") + ".");
   };
 }

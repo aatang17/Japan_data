@@ -322,6 +322,8 @@ def _chart_data(v):
             # the config captured with it
             charts[b["id"]] = {"kind": b["kind"], "cfg": b["cfg"], "title": b["title"],
                                "url": b["url"], "source": rd.snapshot_source_line(b)}
+        elif b["type"] == "datachart" and _figure_ok(b, {}):
+            charts[b["id"]] = figure_payload(b, {})
     return {"charts": charts, "slug": v["slug"], "version": v["version"]}
 
 
@@ -389,6 +391,8 @@ def _figure_ok(b, snapshots):
         return bool(snap) and not snap.get("error")
     if b["type"] == "snapshot":
         return bool(b.get("cfg"))
+    if b["type"] == "datachart":
+        return any(v is not None for col in rd.data_table(b["rows"])["values"] for v in col)
     return bool(b.get("media"))
 
 
@@ -421,6 +425,10 @@ def figure_payload(b, snapshots):
     if b["type"] == "snapshot":
         return {"kind": b["kind"], "cfg": b["cfg"], "title": b["title"], "url": b["url"],
                 "source": rd.snapshot_source_line(b)}
+    if b["type"] == "datachart":
+        # the writer's own numbers, drawn by researchChart.drawData
+        return {"data": True, "block": b, "title": b["title"],
+                "source": rd.datachart_source_line(b)}
     return None
 
 
@@ -429,6 +437,8 @@ def figure_source(b, snapshots):
         return rd.chart_source_line(snapshots[b["id"]])
     if b["type"] == "snapshot":
         return rd.snapshot_source_line(b)
+    if b["type"] == "datachart":
+        return rd.datachart_source_line(b)
     return ("Source: " + b["source"]) if b.get("source") else ""
 
 

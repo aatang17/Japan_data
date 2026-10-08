@@ -23,9 +23,23 @@ Blocks
              kind and its full config with the data, captured in the desk on a
              given day. Until the desk has captured it (an agent can only name
              the page) it is "pending" and the article cannot be published.
+``datachart`` a chart of numbers the writer pasted in (from a spreadsheet, a
+             CSV, another publisher's download): the cells as pasted, a line
+             or bars, a unit, and a source line the writer must give. The
+             numbers live in the article itself, so they never change; the
+             page says they are as entered by the author.
 ``image``    an uploaded PNG/JPEG/WebP with alt text, caption, a source and,
              for an image copied from a Plover page, that page's address
 ``divider``  a rule
+``placeholder`` a reminder left by the plan: the point a section must make
+             (role "text") or a chart it promised (role "chart"). Never
+             rendered; an article cannot be published while one is left.
+
+Beside the blocks, a draft carries two things readers never see: the
+approved **plan** (its blocks, moved out of the page when the writer starts
+writing) and the writer's research **notes** — numbers, quotations, charts
+and thoughts collected while researching, each with its source. Both are
+stripped from every published version (``public_draft``).
 
 Inline text
 -----------
@@ -41,6 +55,7 @@ import json
 import re
 import uuid
 from html.parser import HTMLParser
+from urllib.parse import quote, unquote
 
 INLINE_MAX = 20000
 TEXT_MAX = 400
@@ -51,6 +66,10 @@ BLOCKS_MAX = 600
 TABLE_ROWS_MAX = 80
 TABLE_COLS_MAX = 14
 CHART_SERIES_MAX = 6
+DATA_ROWS_MAX = 3000
+DATA_COLS_MAX = CHART_SERIES_MAX + 1   # the date or label column, then the series
+DATA_CELL_MAX = 80
+DATA_KINDS = ("line", "bar")
 SLUG_MAX = 80
 
 MEASURES = ("index", "yoy", "mom", "ann3m")
@@ -78,9 +97,15 @@ TOPICS = [("inflation", "Inflation"), ("monetary-policy", "Monetary Policy"), ("
           ("trade", "Trade"), ("public-finance", "Public Finance"), ("tourism", "Tourism")]
 TOPIC_KEYS = [k for k, _ in TOPICS]
 TOPICS_MAX = 3
-FIGURE_TYPES = ("chart", "snapshot", "image")
+FIGURE_TYPES = ("chart", "snapshot", "datachart", "image")
 
-TYPES = ("p", "heading", "list", "quote", "table", "chart", "snapshot", "image", "divider")
+TYPES = ("p", "heading", "list", "quote", "table", "chart", "snapshot", "datachart", "image",
+         "divider", "placeholder")
+PLACEHOLDER_ROLES = ("text", "chart")
+PLAN_TYPES = ("p", "heading", "list", "quote", "table", "divider")
+PLAN_BLOCKS_MAX = 200
+NOTES_MAX = 300
+NOTE_KINDS = ("number", "quote", "chart", "page", "mine")
 SNAPSHOT_KINDS = ("line", "stack", "cols", "dist", "rank", "bar")
 SNAPSHOT_MAX_BYTES = 1500000
 # A Plover page a chart can be copied from: one of our .html pages with its
@@ -335,6 +360,21 @@ def _block(b):
             out[k] = v if _PERIOD.match(v) else ""
         out["title"] = plain(b.get("title"), TITLE_MAX)
         out["note"] = plain(b.get("note"), TEXT_MAX)
+    elif t == "datachart":
+        rows = b.get("rows") if isinstance(b.get("rows"), list) else []
+        rows = [r for r in rows if isinstance(r, list)]
+        if len(rows) > DATA_ROWS_MAX:
+            raise DocError("A chart from your own data can have up to %d rows." % DATA_ROWS_MAX)
+        if any(len(r) > DATA_COLS_MAX for r in rows):
+            raise DocError("A chart from your own data can show up to %d series: a date or "
+                           "label column, then at most %d columns of numbers."
+                           % (CHART_SERIES_MAX, CHART_SERIES_MAX))
+        out["rows"] = [[plain(c, DATA_CELL_MAX) for c in r] for r in rows]
+        out["kind"] = b.get("kind") if b.get("kind") in DATA_KINDS else "line"
+        out["unit"] = plain(b.get("unit"), 40)
+        out["title"] = plain(b.get("title"), TITLE_MAX)
+        out["note"] = plain(b.get("note"), TEXT_MAX)
+        out["source"] = plain(b.get("source"), TEXT_MAX)
     elif t == "image":
         sha = plain(b.get("media"), 64).lower()
         out["media"] = sha if _SHA.match(sha) else ""
@@ -347,6 +387,9 @@ def _block(b):
             out[k] = int(v) if isinstance(v, (int, float)) and 0 < v < 100000 else None
         out["pending"] = plain(b.get("pending"), 200)
         out["link"] = page_path(b.get("link"))
+    elif t == "placeholder":
+        out["role"] = b.get("role") if b.get("role") in PLACEHOLDER_ROLES else "text"
+        out["text"] = plain(b.get("text"), NOTE_MAX)
     elif t == "snapshot":
         out["url"] = page_path(b.get("url"))
         n = b.get("chart")
@@ -407,7 +450,61 @@ def clean_draft(draft):
     figure_ids = [b["id"] for b in out["blocks"] if b["type"] in FIGURE_TYPES]
     out["lead"] = draft.get("lead") if draft.get("lead") in figure_ids else ""
     out["feature"] = bool(draft.get("feature")) and bool(figure_ids)
+    plan = _clean_plan(draft.get("plan"))
+    if plan:
+        out["plan"] = plan
+    out["notes"] = _clean_notes(draft.get("notes"))
     return out
+
+
+def _clean_plan(plan):
+    """The approved plan, kept beside the draft: its text blocks and who
+    approved it when. None when there is no plan."""
+    if not isinstance(plan, dict) or not isinstance(plan.get("blocks"), list):
+        return None
+    blocks = [_block(b) for b in plan["blocks"][:PLAN_BLOCKS_MAX]
+              if isinstance(b, dict) and b.get("type") in PLAN_TYPES]
+    if not blocks:
+        return None
+    return {"blocks": blocks, "approved_at": plain(plan.get("approved_at"), 30),
+            "approved_by": plain(plan.get("approved_by"), 120)}
+
+
+_BLOCK_ID = re.compile(r"^[A-Za-z0-9_-]{1,40}$")
+
+
+def _clean_notes(notes):
+    """The writer's research notes: what each one is, what Insert puts in the
+    draft (inline text with its footnote, or a chart block), its source, the
+    section it was taken for, and whether it is in the draft yet."""
+    out = []
+    for n in (notes if isinstance(notes, list) else [])[:NOTES_MAX]:
+        if not isinstance(n, dict):
+            continue
+        kind = n.get("kind") if n.get("kind") in NOTE_KINDS else "mine"
+        note = {"id": n["id"] if isinstance(n.get("id"), str) and _BLOCK_ID.match(n["id"]) else _bid(),
+                "kind": kind, "text": plain(n.get("text"), NOTE_MAX),
+                "html": clean_inline(n.get("html")) if n.get("html") else "",
+                "source": plain(n.get("source"), NOTE_MAX),
+                "url": safe_href(n.get("url")) or "",
+                "section": n["section"] if isinstance(n.get("section"), str) and
+                _BLOCK_ID.match(n["section"]) else "",
+                "at": plain(n.get("at"), 30), "used": bool(n.get("used"))}
+        blk = n.get("block")
+        if isinstance(blk, dict) and blk.get("type") in ("chart", "snapshot", "datachart"):
+            note["block"] = _block(blk)
+        if note["text"] or note["html"] or note.get("block"):
+            out.append(note)
+    return out
+
+
+def public_draft(draft):
+    """A draft as it may be published or shown outside the desk: without the
+    plan and the research notes, which can hold a paid article's text."""
+    return dict((k, v) for k, v in draft.items() if k not in ("plan", "notes"))
+
+
+PLACEHOLDER_PROBLEM = "From the plan, "
 
 
 def publish_problems(draft, author_names):
@@ -432,8 +529,16 @@ def publish_problems(draft, author_names):
         problems.append("The article has no text.")
     n_chart = 0
     n_table = 0
+    section = ""
     for b in draft["blocks"]:
-        if b["type"] in ("chart", "image", "snapshot"):
+        if b["type"] == "heading" and b["text"]:
+            section = b["text"]
+        if b["type"] == "placeholder":
+            where = (" in “%s”" % section) if section else ""
+            problems.append(PLACEHOLDER_PROBLEM + (
+                "a chart is still to be added%s: %s" if b["role"] == "chart" else
+                "the point still to be made%s: %s") % (where, b["text"] or "(no text)"))
+        if b["type"] in FIGURE_TYPES:
             n_chart += 1
             label = "Chart %d" % n_chart
             if b["type"] == "snapshot":
@@ -449,6 +554,14 @@ def publish_problems(draft, author_names):
                     problems.append("%s has no data selected." % label)
                 if not b["title"]:
                     problems.append("%s needs a title." % label)
+            elif b["type"] == "datachart":
+                if not any(v is not None for col in data_table(b["rows"])["values"] for v in col):
+                    problems.append("%s has no numbers: paste cells from a spreadsheet." % label)
+                if not b["title"]:
+                    problems.append("%s needs a title." % label)
+                if not b["source"]:
+                    problems.append("%s needs a source line: say where the numbers come from."
+                                    % label)
             else:
                 if not b["media"]:
                     problems.append("%s is waiting for its image to be uploaded%s."
@@ -502,7 +615,7 @@ def chart_numbering(blocks):
     """{block id: n} for charts and images, {block id: n} for tables."""
     charts, tables = {}, {}
     for b in blocks:
-        if b["type"] in ("chart", "image", "snapshot"):
+        if b["type"] in FIGURE_TYPES:
             charts[b["id"]] = len(charts) + 1
         elif b["type"] == "table":
             tables[b["id"]] = len(tables) + 1
@@ -579,6 +692,8 @@ def render_body(doc, snapshots=None, media_base="/research/media/"):
             w(_render_image(b, charts[b["id"]], media_base))
         elif t == "snapshot":
             w(_render_snapshot(b, charts[b["id"]]))
+        elif t == "datachart":
+            w(_render_datachart(b, charts[b["id"]]))
     if notes.items:
         w('<section class="rs-notes" aria-label="Notes"><h2>Notes</h2><ol>')
         for i, note in enumerate(notes.items, 1):
@@ -712,6 +827,107 @@ def _render_snapshot(b, n):
     return "".join(parts)
 
 
+# ---------------------------------------------------------------------------
+# charts of the writer's own numbers
+
+_MISSING_CELLS = set(["", "-", u"\u2014", u"\u2013", "n/a", "na", "#n/a", "..", u"\u2026",
+                      "nan", "null", "none"])
+_NUMBER = re.compile(u"^([+\\-]?)[\u00a5$\u20ac\u00a3]?(\\d*\\.?\\d+(?:[eE][+\\-]?\\d+)?)%?$")
+
+
+def data_number(cell):
+    """A pasted cell as a number, or None when it is blank, a dash or not a
+    number. "1,234.5", "(2.1)", "−3%" and "$40" are read; a missing cell
+    is never read as zero. Mirrors researchChart.number in research.js."""
+    s = (cell or "").strip()
+    if s.lower() in _MISSING_CELLS:
+        return None
+    neg = s.startswith("(") and s.endswith(")")
+    if neg:
+        s = s[1:-1]
+    s = re.sub(u"[,\\s\u00a0]", "", s.replace(u"\u2212", "-"))
+    s = re.sub(u"^([+\\-]?)[\u00a5$\u20ac\u00a3]", r"\1", s)
+    m = _NUMBER.match(s)
+    if not m:
+        return None
+    v = float(m.group(2)) * (-1 if m.group(1) == "-" else 1)
+    return -v if neg else v
+
+
+def data_table(rows):
+    """The pasted cells read as a chart: series names (from the first row when
+    it is a header), the date or label of each row, each series' values, and
+    how many filled cells were not numbers. Mirrors researchChart.table."""
+    rows = [r for r in rows if any((c or "").strip() for c in r)]
+    width = max([len(r) for r in rows] or [0])
+    if width < 2:
+        return {"names": [], "labels": [], "values": [], "bad": 0, "header": False}
+    head = rows[0]
+    header = any((c or "").strip() and data_number(c) is None for c in head[1:])
+    body = rows[1:] if header else rows
+    names = [((head[i] if i < len(head) else "") or "").strip() if header else ""
+             for i in range(1, width)]
+    names = [n or "Series %d" % (i + 1) for i, n in enumerate(names)]
+    values = [[data_number(r[i] if i < len(r) else "") for r in body] for i in range(1, width)]
+    bad = sum(1 for r in body for i in range(1, width)
+              if i < len(r) and (r[i] or "").strip().lower() not in _MISSING_CELLS
+              and data_number(r[i]) is None)
+    return {"names": names, "labels": [(r[0] if r else "").strip() for r in body],
+            "values": values, "bad": bad, "header": header}
+
+
+def datachart_source_line(b):
+    parts = [b["source"].strip().rstrip(".")] if b.get("source") else []
+    parts.append("Values as entered by the author")
+    return "Source: " + u" \u00b7 ".join(parts) + "." if b.get("source") else parts[-1] + "."
+
+
+def _render_datachart(b, n):
+    title = u"Chart %d" % n + (u" \u2014 " + esc(b["title"]) if b["title"] else "")
+    parts = ['<figure class="rs-chart" id="chart-%d" data-block="%s">' % (n, esc(b["id"])),
+             '<figcaption class="rs-fig-title">%s</figcaption>' % title]
+    table = data_table(b["rows"])
+    if not any(v is not None for col in table["values"] for v in col):
+        parts.append('<p class="rs-chart-error">This chart has no numbers yet.</p></figure>')
+        return "".join(parts)
+    parts.append('<div class="rs-plot" data-chart="%s" role="img" aria-label="%s"></div>'
+                 % (esc(b["id"]), esc("%s chart: %s.%s" % (
+                     "Bar" if b["kind"] == "bar" else "Line", ", ".join(table["names"]),
+                     (" " + b["unit"] + ".") if b["unit"] else ""))))
+    if b["note"]:
+        parts.append('<p class="rs-chart-note">%s</p>' % esc(b["note"]))
+    parts.append('<p class="source-line">%s</p>' % esc(datachart_source_line(b)))
+    parts.append('<div class="rs-chart-acts">'
+                 '<button type="button" class="btn" data-png="%s" id="png-%s">Download PNG</button>'
+                 '<button type="button" class="btn" data-csv="%s">Download CSV</button></div>'
+                 % (esc(b["id"]), esc(b["id"]), esc(b["id"])))
+    parts.append("</figure>")
+    return "".join(parts)
+
+
+def _md_cells(cells):
+    return "| " + " | ".join((c or "").replace("|", "\\|") for c in cells) + " |"
+
+
+def _datachart_md(b):
+    """The pasted cells as a Markdown table, the date or label column first."""
+    rows = [r for r in b["rows"] if any((c or "").strip() for c in r)]
+    if not rows:
+        return []
+    width = max(len(r) for r in rows)
+    rows = [r + [""] * (width - len(r)) for r in rows]
+    table = data_table(rows)
+    head = rows[0] if table["header"] else [""] + table["names"]
+    body = rows[1:] if table["header"] else rows
+    return [_md_cells(head), "| --- |" + " --: |" * (width - 1)] + [_md_cells(r) for r in body]
+
+
+def datachart_ref(b):
+    """chart:line?unit=%25 — the editable Markdown's marker for a chart of the
+    writer's own numbers; the table straight after it holds the numbers."""
+    return "chart:%s" % b["kind"] + ("?unit=" + quote(b["unit"], safe="") if b["unit"] else "")
+
+
 def _render_image(b, n, media_base):
     title = u"Chart %d" % n + (u" \u2014 " + esc(b["caption"]) if b["caption"] else "")
     parts = ['<figure class="rs-image" id="chart-%d">' % n,
@@ -773,8 +989,11 @@ def render_markdown(doc, snapshots=None, site="", media_base="/research/media/",
     ``editable`` (the drafting tools for Claude and Codex): a form that
     import_markdown reads back without loss — a chart is
     ``![title](plover:dataset?series=…)``, a chart copied from a page is
-    ``![title](/page.html?…#chart-2)``, an uploaded image keeps its address,
-    and a table or image keeps its "Source:" line."""
+    ``![title](/page.html?…#chart-2)``, a chart of the writer's own numbers is
+    ``![title](chart:line?unit=%)`` followed by a table of the numbers, an
+    uploaded image keeps its address,
+    and a table or image keeps its "Source:" line. A reminder from the plan
+    is ``[[To show: …]]`` or ``[[Chart: …]]`` on a line of its own."""
     snapshots = snapshots or {}
     notes = []
     charts, tables = chart_numbering(doc["blocks"])
@@ -795,6 +1014,9 @@ def render_markdown(doc, snapshots=None, site="", media_base="/research/media/",
                                      for k, i in enumerate(items)))
         elif t == "divider":
             out.append("---")
+        elif t == "placeholder" and editable:
+            out.append("[[%s: %s]]" % ("Chart" if b["role"] == "chart" else "To show",
+                                       b["text"].replace("]]", "] ]")))
         elif t == "chart" and editable:
             line = "![%s](%s)" % (b["title"].replace("]", ")"), chart_ref(b))
             out.append(line + ("\n\nNote: " + b["note"] if b["note"] else ""))
@@ -802,6 +1024,24 @@ def render_markdown(doc, snapshots=None, site="", media_base="/research/media/",
             ref = b["url"] + ("#chart-%d" % b["chart"] if b["chart"] else "")
             line = "![%s](%s)" % (b["title"].replace("]", ")"), ref)
             out.append(line + ("\n\nNote: " + b["note"] if b["note"] else ""))
+        elif t == "datachart" and editable:
+            lines = ["![%s](%s)" % (b["title"].replace("]", ")"), datachart_ref(b))]
+            table = _datachart_md(b)
+            if table:
+                lines += [""] + table
+            if b["source"]:
+                lines += ["", "Source: " + b["source"]]
+            if b["note"]:
+                lines += ["", "Note: " + b["note"]]
+            out.append("\n".join(lines))
+        elif t == "datachart":
+            n = charts[b["id"]]
+            lines = ["**Chart %d%s**" % (n, (u" \u2014 " + b["title"]) if b["title"] else "")]
+            table = _datachart_md(b)
+            if table:
+                lines += [""] + table
+            lines += ["", datachart_source_line(b)]
+            out.append("\n".join(lines))
         elif t == "image" and editable:
             target = ("%s%s.%s" % (media_base, b["media"], b["ext"])) if b["media"] else \
                 (b["pending"] or "missing-image.png")
@@ -870,6 +1110,7 @@ _MD_IMAGE = re.compile(r"^!\[([^\]]*)\]\(([^)\s]+)(?:\s+\"([^\"]*)\")?\)\s*$")
 _MD_MEDIA = re.compile(r"^(?:https?://[^/]+)?/research/media/([0-9a-f]{64})\.(png|jpg|webp)$")
 _MD_CHART_PLACEHOLDER = re.compile(
     u"^\\*\\*\\[(?:Chart|Figure)\\s*\\d*\\s*[\u2014\u2013:-]?\\s*(.*?)\\]\\*\\*\\s*$")
+_MD_REMINDER = re.compile(r"^\[\[(To show|Chart)\s*:\s*(.*?)\]\]$", re.IGNORECASE)
 _MD_TABLE_SEP = re.compile(r"^\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$")
 
 
@@ -964,6 +1205,15 @@ def import_markdown(text):
             continue
         if s.startswith("|") and i + 1 < len(body) and _MD_TABLE_SEP.match(body[i + 1].strip()):
             flush()
+            if blocks and blocks[-1]["type"] == "datachart" and not blocks[-1]["rows"]:
+                # the numbers of the chart marked just above
+                rows = [_split_row(s)]
+                i += 2
+                while i < len(body) and body[i].strip().startswith("|"):
+                    rows.append(_split_row(body[i]))
+                    i += 1
+                blocks[-1]["rows"] = [[inline_text(_md_to_inline(c, {})) for c in r] for r in rows]
+                continue
             head = _split_row(s)
             seps = _split_row(body[i + 1])
             align = []
@@ -991,17 +1241,25 @@ def import_markdown(text):
                            "caption": caption, "source": ""})
             continue
         if re.match(r"^(Source|Note):\s+\S", s) and blocks and not para and \
-                blocks[-1]["type"] in ("image", "table", "snapshot", "chart"):
+                blocks[-1]["type"] in ("image", "table", "snapshot", "chart", "datachart"):
             key, value = s.split(":", 1)
             last = blocks[-1]
-            if key == "Source" and last["type"] in ("image", "table"):
+            if key == "Source" and last["type"] in ("image", "table", "datachart"):
                 last["source"] = value.strip()
                 i += 1
                 continue
-            if key == "Note" and last["type"] in ("snapshot", "chart"):
+            if key == "Note" and last["type"] in ("snapshot", "chart", "datachart"):
                 last["note"] = value.strip()
                 i += 1
                 continue
+        rem = _MD_REMINDER.match(s)
+        if rem:
+            flush()
+            blocks.append({"id": _bid(), "type": "placeholder",
+                           "role": "chart" if rem.group(1).lower() == "chart" else "text",
+                           "text": rem.group(2).strip()})
+            i += 1
+            continue
         img = _MD_IMAGE.match(s)
         ph = _MD_CHART_PLACEHOLDER.match(s)
         if img or ph:
@@ -1009,8 +1267,15 @@ def import_markdown(text):
             target = img.group(2) if img else ""
             media = _MD_MEDIA.match(target) if img else None
             page = page_path(target) if img else ""
+            data_ref = re.match(r"^chart:(line|bar)(?:\?unit=(.*))?$", target, re.IGNORECASE) \
+                if img else None
             if img and target.lower().startswith("plover:"):
                 blocks.append(_chart_from_ref(img.group(1), target))
+            elif data_ref:
+                blocks.append({"id": _bid(), "type": "datachart", "rows": [],
+                               "kind": data_ref.group(1).lower(),
+                               "unit": unquote(data_ref.group(2) or ""),
+                               "title": img.group(1), "note": "", "source": ""})
             elif page:
                 frag = re.search(r"#chart-(\d+)$", target)
                 blocks.append({"id": _bid(), "type": "snapshot", "url": page,

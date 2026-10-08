@@ -66,6 +66,163 @@ var researchChart = (function () {
     return obsChart(el, entry.kind, copy);
   }
 
+  /* ---- charts of the writer's own numbers (datachart blocks) ----
+     The cells as pasted are kept in the article; these read them the same
+     way research_doc.py's data_number / data_table do. */
+  var MISSING = ["", "-", "\u2014", "\u2013", "n/a", "na", "#n/a", "..", "\u2026", "nan", "null", "none"];
+  var MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+
+  function isMissing(cell) { return MISSING.indexOf(String(cell || "").trim().toLowerCase()) !== -1; }
+
+  /* "1,234.5", "(2.1)", "−3%", "$40" are numbers; blanks and dashes are missing, never zero. */
+  function number(cell) {
+    var s = String(cell || "").trim();
+    if (isMissing(s)) return null;
+    var neg = s.charAt(0) === "(" && s.charAt(s.length - 1) === ")";
+    if (neg) s = s.slice(1, -1);
+    s = s.replace(/\u2212/g, "-").replace(/[,\s\u00a0]/g, "").replace(/^([+\-]?)[\u00a5$\u20ac\u00a3]/, "$1");
+    var m = /^([+\-]?)(\d*\.?\d+(?:[eE][+\-]?\d+)?)%?$/.exec(s);
+    if (!m) return null;
+    var v = Number(m[2]) * (m[1] === "-" ? -1 : 1);
+    return neg ? -v : v;
+  }
+
+  function decimals(cell) {
+    var m = /\.(\d+)/.exec(String(cell || "").replace(/[eE].*$/, ""));
+    return m ? m[1].length : 0;
+  }
+
+  function pad(n) { return (n < 10 ? "0" : "") + n; }
+
+  /* One date cell: {sort, label, iso, p} where p is y(ear), q(uarter), m(onth) or d(ay). */
+  function readDate(s, dmy) {
+    var m;
+    s = String(s || "").trim();
+    if ((m = /^(\d{4})$/.exec(s))) return { p: "y", label: m[1], sort: m[1] };
+    if ((m = /^(\d{4})\s*-?\s*Q([1-4])$/i.exec(s)) || (m = /^Q([1-4])\s*-?\s*(\d{4})$/i.exec(s))) {
+      var y = m[1].length === 4 ? m[1] : m[2], q = m[1].length === 4 ? m[2] : m[1];
+      return { p: "q", label: y + " Q" + q, sort: y + "-Q" + q };
+    }
+    if ((m = /^(\d{4})[-\/.](\d{1,2})$/.exec(s)) && +m[2] >= 1 && +m[2] <= 12) {
+      return { p: "m", iso: m[1] + "-" + pad(+m[2]) };
+    }
+    if ((m = /^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})(?:[ T].*)?$/.exec(s)) && +m[2] <= 12 && +m[3] <= 31) {
+      return { p: "d", iso: m[1] + "-" + pad(+m[2]) + "-" + pad(+m[3]) };
+    }
+    if ((m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(s))) {
+      var mo = dmy ? +m[2] : +m[1], d = dmy ? +m[1] : +m[2];
+      if (mo >= 1 && mo <= 12 && d >= 1 && d <= 31) return { p: "d", iso: m[3] + "-" + pad(mo) + "-" + pad(d) };
+    }
+    if ((m = /^([A-Za-z]{3,9})\.?[\s\-\/']*(\d{2}|\d{4})$/.exec(s))) {
+      var k = MONTHS.indexOf(m[1].slice(0, 3).toLowerCase());
+      if (k !== -1) {
+        var yr = m[2].length === 2 ? (+m[2] < 50 ? 2000 : 1900) + +m[2] : +m[2];
+        return { p: "m", iso: yr + "-" + pad(k + 1) };
+      }
+    }
+    return null;
+  }
+
+  /* The first column as dates, or null when any filled cell is not one. A
+     slash date is day-first only when some first part is above 12. */
+  function readDates(labels) {
+    var dmy = labels.some(function (l) { var m = /^(\d{1,2})\/\d{1,2}\/\d{4}$/.exec(String(l).trim()); return m && +m[1] > 12; });
+    var out = labels.map(function (l) { return readDate(l, dmy); });
+    if (!out.length || out.some(function (d) { return !d; })) return null;
+    var kinds = {};
+    out.forEach(function (d) { kinds[d.p] = 1; });
+    var time = !kinds.y && !kinds.q;
+    if (!time && Object.keys(kinds).length > 1) return null;   // years mixed with months
+    out.forEach(function (d) {
+      if (time) { d.sort = d.iso; d.label = d.iso; }
+    });
+    return { list: out, time: time, daily: !!kinds.d };
+  }
+
+  /* The pasted cells as a chart: names, labels, values, dates and how many
+     filled cells were not numbers. Rows with dates are put in date order. */
+  function table(rows) {
+    rows = (rows || []).filter(function (r) { return r.some(function (c) { return String(c || "").trim(); }); });
+    var width = rows.reduce(function (w, r) { return Math.max(w, r.length); }, 0);
+    var empty = { names: [], labels: [], values: [], bad: 0, dates: null, dp: 0, header: false };
+    if (width < 2) return empty;
+    var head = rows[0];
+    var header = head.slice(1).some(function (c) { return String(c || "").trim() && number(c) === null; });
+    var body = header ? rows.slice(1) : rows;
+    var names = [];
+    for (var i = 1; i < width; i++) names.push((header && String(head[i] || "").trim()) || "Series " + i);
+    var dates = readDates(body.map(function (r) { return String(r[0] || "").trim(); }));
+    var order = body.map(function (r, k) { return k; });
+    if (dates) order.sort(function (a, b) { return dates.list[a].sort < dates.list[b].sort ? -1 : dates.list[a].sort > dates.list[b].sort ? 1 : a - b; });
+    var bad = 0, dp = 0;
+    var values = names.map(function (n, j) {
+      return order.map(function (k) {
+        var cell = body[k][j + 1];
+        var v = number(cell);
+        if (v === null && !isMissing(cell)) bad++;
+        if (v !== null) dp = Math.max(dp, decimals(cell));
+        return v;
+      });
+    });
+    return {
+      names: names, values: values, bad: bad, header: header, dp: Math.min(dp, 3),
+      labels: order.map(function (k) { return dates ? dates.list[k].label : String(body[k][0] || "").trim(); }),
+      dates: dates,
+    };
+  }
+
+  function dataSource(block) {
+    var src = (block.source || "").trim().replace(/\.$/, "");
+    return (src ? "Source: " + src + " · " : "") + "Values as entered by the author.";
+  }
+
+  /* {kind, cfg} for obsChart, or null when there is nothing to draw. Bars
+     for labels (countries, sectors); a line for dates unless bars are asked for. */
+  function dataCfg(block) {
+    var t = table(block.rows);
+    if (!t.values.some(function (col) { return col.some(function (v) { return v !== null; }); })) return null;
+    var unit = (block.unit || "").trim();
+    var pct = unit === "%";
+    var common = {
+      yAxisName: unit, trust: null, dp: t.dp,
+      sourceLine: (block.title ? block.title + " \u2014 " : "") + dataSource(block),
+    };
+    if (block.kind === "bar" || !t.dates) {
+      return { kind: "cols", table: t, cfg: Object.assign(common, {
+        categories: t.labels,
+        series: t.names.map(function (n, i) { return { name: n, slot: i + 1, points: t.values[i] }; }),
+        unitSuffix: pct ? "%" : unit,
+        labelInterval: t.labels.length > 12 ? "auto" : undefined,
+      }) };
+    }
+    return { kind: "line", table: t, cfg: Object.assign(common, {
+      series: t.names.map(function (n, i) {
+        return { name: n, slot: i + 1, points: t.labels.map(function (l, k) { return [l, t.values[i][k]]; }) };
+      }),
+      unit: pct ? "%" : "",
+      unitSuffix: pct ? "" : unit,
+      isoPeriods: t.dates.daily,
+      xType: t.dates.time ? undefined : "category",
+    }) };
+  }
+
+  function drawData(el, block) {
+    var d = dataCfg(block);
+    return d ? obsChart(el, d.kind, d.cfg) : null;
+  }
+
+  /* The numbers as read, with the source in the header: a missing cell stays blank. */
+  function dataCSV(block, headerLines) {
+    var t = table(block.rows);
+    var q = function (s) { return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+    var csv = (headerLines || []).map(function (l) { return "# " + l; }).join("\n") + "\n";
+    csv += ["period"].concat(t.names).map(q).join(",") + "\n";
+    t.labels.forEach(function (l, k) {
+      csv += [q(l)].concat(t.values.map(function (col) { return col[k] === null ? "" : col[k]; })).join(",") + "\n";
+    });
+    return csv;
+  }
+
   /* A thumbnail: the same chart with its axes, legend and tooltip taken away,
      so a list of notes reads as a row of small pictures of the data. */
   function strip(el) {
@@ -86,7 +243,9 @@ var researchChart = (function () {
     });
   }
 
-  return { cfg: cfg, draw: draw, drawSnapshot: drawSnapshot, strip: strip, sourceLine: sourceLine, caption: caption };
+  return { cfg: cfg, draw: draw, drawSnapshot: drawSnapshot, strip: strip, sourceLine: sourceLine, caption: caption,
+           number: number, table: table, dataCfg: dataCfg, drawData: drawData, dataCSV: dataCSV,
+           dataSource: dataSource };
 })();
 
 (function articlePage() {
@@ -112,7 +271,8 @@ var researchChart = (function () {
     var el = document.querySelector('.rh-plot[data-fig="' + key + '"]');
     if (!el || !entry) return;
     var thumb = el.classList.contains("rh-plot-card");
-    charts["fig:" + key] = entry.kind ? researchChart.drawSnapshot(el, entry, thumb)
+    charts["fig:" + key] = entry.data ? researchChart.drawData(el, entry.block)
+      : entry.kind ? researchChart.drawSnapshot(el, entry, thumb)
       : researchChart.draw(el, entry.block, entry.snap);
     if (thumb) { thumbs.push(el); researchChart.strip(el); }
   });
@@ -122,7 +282,8 @@ var researchChart = (function () {
     var entry = data.charts[id];
     var el = document.querySelector('.rs-plot[data-chart="' + id + '"]');
     if (!el) return;
-    charts[id] = entry.kind ? researchChart.drawSnapshot(el, entry) : researchChart.draw(el, entry.block, entry.snap);
+    charts[id] = entry.data ? researchChart.drawData(el, entry.block)
+      : entry.kind ? researchChart.drawSnapshot(el, entry) : researchChart.draw(el, entry.block, entry.snap);
   });
 
   // Download CSV for a chart copied from a Plover page: its own data, with
@@ -134,6 +295,19 @@ var researchChart = (function () {
     var entry = data.charts[id];
     if (!charts[id] || !entry) return;
     var n = btn.closest("figure") ? btn.closest("figure").id : "chart";
+    var name = (data.slug || "plover-research") + "-v" + data.version + "-" + n + ".csv";
+    if (entry.data) {
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([researchChart.dataCSV(entry.block, [
+        "PloverResearch — " + (entry.title || ""), entry.source || "",
+        "From " + location.origin + location.pathname,
+        "Blank cells are missing values, never zero.",
+      ])], { type: "text/csv" }));
+      a.download = name;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      return;
+    }
     charts[id].exportCSV((data.slug || "plover-research") + "-v" + data.version + "-" + n + ".csv", [
       "PloverResearch — " + (entry.title || ""),
       entry.source || "",

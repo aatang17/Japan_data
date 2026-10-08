@@ -482,3 +482,189 @@ class FootnoteMarkdownTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+DATACHART = {"id": "d1", "type": "datachart", "kind": "line", "unit": "%",
+             "title": "Policy rates", "note": "", "source": "BIS central bank policy rates",
+             "rows": [["Date", "Japan", "United States"], ["2025-01", "0.5", "4.5"],
+                      ["2025-02", "", "4.5"], ["2025-03", "0.5", "(n/a)"]]}
+
+
+class DataChartTest(Base):
+    """A chart of the writer's own numbers (pasted from a spreadsheet or another
+    publisher): kept as pasted, published only with a source, missing cells
+    never read as zero, and the page says the values are the author's."""
+
+    def test_numbers_are_read_and_missing_is_never_zero(self):
+        for cell, want in (("1,234.5", 1234.5), ("(2.1)", -2.1), (u"−3%", -3.0),
+                           ("$40", 40.0), ("-$40", -40.0), ("", None), ("-", None),
+                           (u"—", None), ("n/a", None), ("abc", None)):
+            with self.subTest(cell=cell):
+                self.assertEqual(rd.data_number(cell), want)
+        t = rd.data_table(DATACHART["rows"])
+        self.assertTrue(t["header"])
+        self.assertEqual(t["names"], ["Japan", "United States"])
+        self.assertEqual(t["values"], [[0.5, None, 0.5], [4.5, 4.5, None]])
+        self.assertEqual(t["bad"], 1)   # "(n/a)" is not a number and is not a known blank
+        # no header row: the series are named, nothing is lost
+        self.assertEqual(rd.data_table([["2025", "1"], ["2026", "2"]])["names"], ["Series 1"])
+
+    def test_cleaning_keeps_cells_and_refuses_too_many_series(self):
+        c = rd.clean_draft({"blocks": [dict(DATACHART, kind="pie", extra="x")]})["blocks"][0]
+        self.assertEqual(c["rows"], DATACHART["rows"])
+        self.assertEqual(c["kind"], "line")
+        self.assertNotIn("extra", c)
+        wide = [["Date"] + ["S%d" % i for i in range(7)]]
+        with self.assertRaises(rd.DocError):
+            rd.clean_draft({"blocks": [dict(DATACHART, rows=wide)]})
+
+    def test_publish_needs_a_source_and_numbers(self):
+        draft = rd.clean_draft(self.complete_draft(blocks=[
+            {"type": "p", "html": "Text."},
+            dict(DATACHART, source=""),
+            dict(DATACHART, id="d2", rows=[["Date", "A"], ["2025-01", ""]])]))
+        problems = " ".join(rd.publish_problems(draft, ["Wren Writer"]))
+        self.assertIn("Chart 1 needs a source line", problems)
+        self.assertIn("Chart 2 has no numbers", problems)
+
+    def test_published_page_draws_from_the_cells_with_the_source(self):
+        a = self.new_article()
+        self.save(a["id"], self.complete_draft(blocks=[{"type": "p", "html": "Text."}, DATACHART]),
+                  a["revision"])
+        art = self.w.get("/admin/api/research/articles/%d" % a["id"]).json()
+        r = self.w.post("/admin/api/research/articles/%d/publish" % a["id"],
+                        json={"base_revision": art["revision"]})
+        self.assertEqual(r.status_code, 200, r.text)
+        html = self.anon.get("/research/regional-banks-rate-path").text
+        self.assertIn("Chart 1 — Policy rates", html)
+        self.assertIn("Source: BIS central bank policy rates · Values as entered by the author.", html)
+        self.assertNotIn("Official Statistic", html)
+        data = json.loads(html.split('type="application/json" id="rs-data">')[1].split("</script>")[0])
+        self.assertTrue(data["charts"]["d1"]["data"])
+        self.assertEqual(data["charts"]["d1"]["block"]["rows"], DATACHART["rows"])
+        md = self.anon.get("/research/regional-banks-rate-path.md").text
+        self.assertIn("| 2025-02 |  | 4.5 |", md)   # the gap stays a gap
+
+    def test_editable_markdown_round_trips(self):
+        doc = rd.clean_draft({"blocks": [{"type": "p", "html": "Text."}, DATACHART]})
+        md = rd.render_markdown(doc, editable=True)
+        self.assertIn("![Policy rates](chart:line?unit=%25)", md)
+        back = [b for b in rd.import_markdown(md)["blocks"] if b["type"] == "datachart"][0]
+        for k in ("rows", "kind", "unit", "title", "source"):
+            self.assertEqual(back[k], doc["blocks"][1][k], k)
+
+
+class PlanAndNotesTest(Base):
+    """The plan-to-draft flow: reminders the plan leaves in the draft block
+    publication and survive the AI's Markdown; the approved plan and the
+    research notes are kept with the draft and never reach a published
+    version; a pasted picture reaches the model only as a stored upload."""
+
+    REMINDERS = [{"id": "h1", "type": "heading", "level": 2, "text": "Hotel Rates"},
+                 {"id": "r1", "type": "placeholder", "role": "text",
+                  "text": "Hotel charges went from +9.25% to -1.39%."},
+                 {"id": "r2", "type": "placeholder", "role": "chart", "text": "Hotel charges, year-on-year"}]
+
+    publish = DeskTest.publish
+
+    def test_reminders_round_trip_and_block_publishing(self):
+        doc = rd.clean_draft({"blocks": [{"type": "p", "html": "Text."}] + self.REMINDERS})
+        md = rd.render_markdown(doc, editable=True)
+        self.assertIn("[[To show: Hotel charges went from +9.25% to -1.39%.]]", md)
+        self.assertIn("[[Chart: Hotel charges, year-on-year]]", md)
+        back = [(b["type"], b.get("role"), b.get("text")) for b in rd.import_markdown(md)["blocks"]]
+        self.assertIn(("placeholder", "chart", "Hotel charges, year-on-year"), back)
+        self.assertIn(("placeholder", "text", "Hotel charges went from +9.25% to -1.39%."), back)
+        self.assertNotIn("Hotel charges went", rd.render_body(doc))           # never shown to readers
+        self.assertNotIn("[[", rd.render_markdown(doc))
+        a = self.new_article()
+        self.save(a["id"], self.complete_draft(blocks=self.complete_draft()["blocks"] + self.REMINDERS),
+                  a["revision"])
+        problems = self.w.get("/admin/api/research/articles/%d/check" % a["id"]).json()["problems"]
+        self.assertTrue(any(p.startswith("From the plan, the point still to be made in “Hotel Rates”")
+                            for p in problems), problems)
+        self.assertTrue(any("a chart is still to be added" in p for p in problems), problems)
+        art = self.w.get("/admin/api/research/articles/%d" % a["id"]).json()
+        r = self.w.post("/admin/api/research/articles/%d/publish" % a["id"],
+                        json={"base_revision": art["revision"]})
+        self.assertEqual(r.status_code, 400, r.text)
+
+    def test_plan_and_notes_kept_but_never_published(self):
+        a = self.new_article()
+        plan = {"blocks": [{"type": "heading", "level": 2, "text": "Plan"},
+                           {"type": "p", "html": "Expected answer: a China event."},
+                           {"type": "chart", "dataset": "cpi-jp"}],           # not a plan type: dropped
+                "approved_at": "2026-10-08T10:00:00Z", "approved_by": "Wren Writer"}
+        notes = [{"id": "n1", "kind": "quote", "text": "PAYWALLED SENTENCE",
+                  "html": 'PAYWALLED SENTENCE<sup data-note="FT, 8 October 2026."></sup><script>x()</script>',
+                  "source": "FT", "url": "javascript:alert(1)", "section": "b2", "used": True},
+                 {"kind": "nonsense", "text": "a thought"},
+                 {"kind": "chart", "block": {"type": "chart", "dataset": "cpi-jp", "series": ["0001"],
+                                             "title": "Headline"}},
+                 {"kind": "number", "text": ""}]                                # empty: dropped
+        r = self.save(a["id"], self.complete_draft(plan=plan, notes=notes), a["revision"])
+        self.assertEqual(r.status_code, 200, r.text)
+        d = self.w.get("/admin/api/research/articles/%d" % a["id"]).json()["draft"]
+        self.assertEqual([b["type"] for b in d["plan"]["blocks"]], ["heading", "p"])
+        self.assertEqual(d["plan"]["approved_by"], "Wren Writer")
+        self.assertEqual([n["kind"] for n in d["notes"]], ["quote", "mine", "chart"])
+        self.assertEqual(d["notes"][0]["url"], "")
+        self.assertNotIn("script", d["notes"][0]["html"])
+        self.assertEqual(d["notes"][0]["section"], "b2")
+        self.assertEqual(d["notes"][2]["block"]["series"], ["0001"])
+        done = self.publish(a["id"])
+        self.assertEqual(done["version"], 1)
+        html = self.anon.get("/research/regional-banks-rate-path").text
+        self.assertNotIn("PAYWALLED", html)
+        self.assertNotIn("PAYWALLED", self.anon.get("/research/regional-banks-rate-path.md").text)
+        with sqlite3.connect(str(research.db_path())) as c:
+            doc = json.loads(c.execute("SELECT doc FROM article_versions").fetchone()[0])
+        self.assertNotIn("plan", doc)
+        self.assertNotIn("notes", doc)
+        # a new note after publication is not an unpublished change to the article
+        art = self.w.get("/admin/api/research/articles/%d" % a["id"]).json()
+        d2 = dict(art["draft"], notes=art["draft"]["notes"] + [{"kind": "mine", "text": "later"}])
+        self.assertEqual(self.save(a["id"], d2, art["revision"]).status_code, 200)
+        self.assertFalse(self.w.get("/admin/api/research/articles/%d" % a["id"]).json()["unpublished_changes"])
+
+    def test_ai_rewrite_keeps_plan_and_notes_and_sees_them(self):
+        from app import research_mcp
+        a = self.new_article()
+        draft = self.complete_draft(blocks=self.REMINDERS, notes=[{"kind": "mine", "text": "check flights"}],
+                                    plan={"blocks": [{"type": "p", "html": "The plan."}]})
+        self.save(a["id"], draft, a["revision"])
+        person = {"id": self.writer_id, "email": "w@example.com", "name": "Wren Writer"}
+        text, err = research_mcp.run(person, "Claude", "read_article", {"article_id": a["id"]})
+        self.assertFalse(err, text)
+        got = json.loads(text)
+        self.assertIn("[[Chart: Hotel charges, year-on-year]]", got["markdown"])
+        self.assertEqual(got["beside_the_draft"]["plan"], "The plan.")
+        self.assertEqual(got["beside_the_draft"]["notes"][0]["text"], "check flights")
+        md = got["markdown"].replace("[[Chart: Hotel charges, year-on-year]]",
+                                     "![Hotel charges](plover:cpi-jp?series=0001&measure=yoy)")
+        text, err = research_mcp.run(person, "Claude", "replace_draft",
+                                     {"article_id": a["id"], "base_revision": got["revision"], "markdown": md})
+        self.assertFalse(err, text)
+        d = self.w.get("/admin/api/research/articles/%d" % a["id"]).json()["draft"]
+        self.assertEqual(d["plan"]["blocks"][0]["html"], "The plan.")
+        self.assertEqual(d["notes"][0]["text"], "check flights")
+        self.assertEqual([b["type"] for b in d["blocks"]], ["heading", "placeholder", "chart"])
+
+    def test_a_picture_reaches_the_model_only_as_an_upload(self):
+        from app import research_ai
+        from app.assistant import gateway
+        with self.assertRaises(research_ai.AIError):
+            research_ai._image("../../etc/passwd")
+        with self.assertRaises(research_ai.AIError):
+            research_ai._image("0" * 64 + ".png")                             # never uploaded
+        info = research.add_media(png(), "shot.png", "w@example.com")
+        img = research_ai._image(info["media"] + ".png")
+        self.assertEqual(img["media_type"], "image/png")
+        data = research_ai._image_data(img)
+        msg = [{"role": "user", "content": "Rebuild it.", "images": [{"media_type": "image/png", "data": data}]}]
+        _, anth = gateway._anthropic_messages(msg)
+        self.assertEqual([b["type"] for b in anth[0]["content"]], ["text", "image"])
+        oai = gateway._openai_messages(msg)
+        self.assertTrue(oai[0]["content"][1]["image_url"]["url"].startswith("data:image/png;base64,"))
+        self.assertEqual(gateway._openai_messages([{"role": "user", "content": "Hi"}])[0]["content"], "Hi")
+        self.assertIn("Never take numbers from the picture", research_ai.PICTURE_RULES)

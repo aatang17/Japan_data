@@ -15,6 +15,11 @@ core CPI", "check every number"). The model works on that one draft only:
   article reaches the run; Codex and Claude Code may also search the web with
   their own built-in search.
 
+A run may carry one picture the writer pasted — a screenshot of another
+publisher's chart — which the model sees with the instruction. The desk uses
+it to rebuild such a chart from the public data behind it, never from numbers
+read off the picture.
+
 It cannot publish, withdraw, delete, or touch another article, and every save
 is recorded as "<email> via <provider>" in the draft history, after a "Before
 AI" copy that the editor's Undo restores. One run per writer at a time.
@@ -656,8 +661,44 @@ def _describe(name, args):
     return "Used %s" % name.replace("_", " ")
 
 
-def start(person, article_id, instruction, skill_id=None):
+# Sent with every run that carries a picture: the picture shows what to
+# rebuild; the numbers always come from the data.
+PICTURE_RULES = """\
+A picture is attached: a screenshot of a chart, usually from another publisher (FT, Nikkei,
+a broker). Rebuild it from the public data behind it:
+1. Say what it shows: each series, the agency that publishes the data (its source line,
+   if the picture has one), the frequency, the units and the dates covered.
+2. Find the same data in Plover (search, describe_dataset, get_series). If Plover has it,
+   use a live Plover chart of those series and dates.
+3. If Plover does not have it, open the publishing agency's own release (read_page, or
+   your web search) and build a chart of numbers from outside Plover with the numbers as
+   that agency publishes them, and a Source line naming the agency and the table.
+4. Never take numbers from the picture itself, and never copy the other publisher's chart
+   or wording. Title the chart with its message, in our house style.
+5. If you cannot find the data, change nothing: reply with what the chart shows and where
+   the data is published, so the writer can fetch it.
+"""
+
+
+def _image(ref):
+    """A picture the writer uploaded to the desk, as {path, media_type}, from
+    its "<sha256>.<ext>" name; AIError when there is no such upload."""
+    m = re.match(r"^([0-9a-f]{64})\.(png|jpg|webp)$", ref or "")
+    path = research.media_file(m.group(1), m.group(2)) if m else None
+    if path is None:
+        raise AIError("The picture could not be found; paste it again.")
+    return {"path": str(path), "media_type": rd.IMAGE_EXTS[m.group(2)]}
+
+
+def _image_data(image):
+    import base64
+    with open(image["path"], "rb") as f:
+        return base64.b64encode(f.read()).decode("ascii")
+
+
+def start(person, article_id, instruction, skill_id=None, image=None):
     instruction = (instruction or "").strip()
+    image = _image(image) if image else None
     skill = None
     if skill_id:
         skill = skills.get(int(skill_id))
@@ -668,6 +709,8 @@ def start(person, article_id, instruction, skill_id=None):
         raise AIError("Tell the AI what to do.")
     if len(instruction) > 8000:
         raise AIError("Keep the instruction under 8,000 characters.")
+    if image:
+        instruction += "\n\n" + PICTURE_RULES
     article = research.get(article_id)
     if article is None:
         raise AIError("No such article.")
@@ -690,7 +733,8 @@ def start(person, article_id, instruction, skill_id=None):
         _running[person["id"]] = job["id"]
     ctx = {"person": person, "client": CLIENT[provider], "article_id": article_id,
            "read_only": not writes, "offers": job["next"]}
-    threading.Thread(target=_run, args=(job, ctx, s, instruction, article, skill), daemon=True).start()
+    threading.Thread(target=_run, args=(job, ctx, s, instruction, article, skill, image),
+                     daemon=True).start()
     return public(job)
 
 
@@ -715,17 +759,17 @@ def get_job(person, job_id):
     return public(job)
 
 
-def _run(job, ctx, s, instruction, article, skill=None):
+def _run(job, ctx, s, instruction, article, skill=None, image=None):
     try:
         provider = s["provider"]
         system = _system(article, ctx["person"], skill)
         if provider in ("openai", "anthropic"):
             reply = _run_api(job, ctx, provider, _open(s["key_ct"]),
-                             s["model"] or DEFAULT_MODEL[provider], system, instruction)
+                             s["model"] or DEFAULT_MODEL[provider], system, instruction, image)
         elif provider == "codex":
-            reply = _run_codex(job, ctx, s, system, instruction)
+            reply = _run_codex(job, ctx, s, system, instruction, image)
         else:
-            reply = _run_claude(job, ctx, s, system, instruction)
+            reply = _run_claude(job, ctx, s, system, instruction, image)
         job["reply"] = (reply or "").strip() or "Done."
         job["status"] = "done"
     except (AIError, gateway.GatewayError) as exc:
@@ -740,11 +784,14 @@ def _run(job, ctx, s, instruction, article, skill=None):
         job["finished"] = time.time()
 
 
-def _run_api(job, ctx, provider, key, model, system, instruction):
+def _run_api(job, ctx, provider, key, model, system, instruction, image=None):
     if not key:
         raise AIError("The stored key could not be read; paste it again.")
     tools = tool_list(ctx)
-    messages = [{"role": "system", "content": system}, {"role": "user", "content": instruction}]
+    user = {"role": "user", "content": instruction}
+    if image:
+        user["images"] = [{"media_type": image["media_type"], "data": _image_data(image)}]
+    messages = [{"role": "system", "content": system}, user]
     for _ in range(MAX_STEPS):
         out = gateway.complete(provider, key, model, messages, tools, max_tokens=8000)
         messages.append({"role": "assistant", "content": out["text"],
@@ -826,7 +873,7 @@ def _prompt(system, instruction):
     return system + "\n\nInstruction from the writer:\n" + instruction
 
 
-def _run_codex(job, ctx, s, system, instruction):
+def _run_codex(job, ctx, s, system, instruction, image=None):
     if not codex_mod.available():
         raise AIError("Codex is not installed on this server.")
     auth = _open(s["codex_auth_ct"])
@@ -861,6 +908,10 @@ def _run_codex(job, ctx, s, system, instruction):
                 "-c", "mcp_servers.plover.tool_timeout_sec=120"]
         if s["model"]:
             cmd += ["-m", s["model"]]
+        if image:
+            pic = os.path.join(work, "picture" + os.path.splitext(image["path"])[1])
+            shutil.copyfile(image["path"], pic)
+            cmd += ["-i", pic]
         cmd.append("-")
         follower = threading.Thread(target=_follow, args=(job, log, stop), daemon=True)
         follower.start()
@@ -917,7 +968,7 @@ def _claude_env(home, token):
             "LANG": "C.UTF-8"}
 
 
-def _run_claude(job, ctx, s, system, instruction):
+def _run_claude(job, ctx, s, system, instruction, image=None):
     if shutil.which(CLAUDE_BIN) is None:
         raise AIError("Claude Code is not installed on this server.")
     token = _open(s["claude_token_ct"])
@@ -948,12 +999,21 @@ def _run_claude(job, ctx, s, system, instruction):
                "--append-system-prompt", system]
         if s["model"]:
             cmd += ["--model", s["model"]]
+        if image:
+            # a picture goes in as a message of its own, which needs stream-json input
+            cmd += ["--input-format", "stream-json"]
         follower = threading.Thread(target=_follow, args=(job, log, stop), daemon=True)
         follower.start()
         proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                 stderr=subprocess.STDOUT, text=True,
                                 env=_claude_env(home, token), cwd=work)
-        proc.stdin.write("Instruction from the writer:\n" + instruction)
+        if image:
+            proc.stdin.write(json.dumps({"type": "user", "message": {"role": "user", "content": [
+                {"type": "text", "text": "Instruction from the writer:\n" + instruction},
+                {"type": "image", "source": {"type": "base64", "media_type": image["media_type"],
+                                             "data": _image_data(image)}}]}}) + "\n")
+        else:
+            proc.stdin.write("Instruction from the writer:\n" + instruction)
         proc.stdin.close()
         result, errors = None, []
         deadline = time.time() + RUN_SECONDS
@@ -1033,6 +1093,7 @@ class ModelsBody(BaseModel):
 class RunBody(BaseModel):
     instruction: str = ""
     skill_id: Optional[int] = None
+    image: Optional[str] = None     # "<sha256>.<ext>" of a picture uploaded to the desk
 
 
 @router.get("/ai")
@@ -1091,7 +1152,7 @@ def ai_codex_status(request: Request):
 def ai_run(article_id: int, body: RunBody, request: Request):
     person = _person(request)
     try:
-        job = start(person, article_id, body.instruction, body.skill_id)
+        job = start(person, article_id, body.instruction, body.skill_id, body.image)
     except AIError as exc:
         raise HTTPException(400, str(exc))
     _audit(request, person, "research_ai_run", "article %d via %s" % (

@@ -7,6 +7,7 @@ laptop's Python 3.9 and the container's 3.12.
 The neutral shapes the runner uses:
 
   messages: [{"role": "system"|"user"|"assistant"|"tool", "content": str,
+              (a user message may add "images": [{"media_type", "data" (base64)}])
               "tool_calls": [{"id", "name", "args"}]   # assistant only
               "tool_call_id": str, "name": str}]         # tool only
   tools:    [{"name", "description", "parameters": <JSON schema>}]
@@ -71,7 +72,11 @@ def _anthropic_messages(messages):
         if role == "system":
             system.append(m["content"])
         elif role == "user":
-            out.append({"role": "user", "content": [{"type": "text", "text": m["content"]}]})
+            blocks = [{"type": "text", "text": m["content"]}]
+            for img in m.get("images") or []:
+                blocks.append({"type": "image", "source": {"type": "base64",
+                               "media_type": img["media_type"], "data": img["data"]}})
+            out.append({"role": "user", "content": blocks})
         elif role == "assistant":
             blocks = []
             if m.get("content"):
@@ -123,7 +128,12 @@ def _openai_messages(messages):
     out = []
     for m in messages:
         role = m["role"]
-        if role in ("system", "user"):
+        if role == "user" and m.get("images"):
+            out.append({"role": "user", "content": [{"type": "text", "text": m["content"]}] + [
+                {"type": "image_url", "image_url": {
+                    "url": "data:%s;base64,%s" % (img["media_type"], img["data"])}}
+                for img in m["images"]]})
+        elif role in ("system", "user"):
             out.append({"role": role, "content": m["content"]})
         elif role == "assistant":
             entry = {"role": "assistant", "content": m.get("content") or None}

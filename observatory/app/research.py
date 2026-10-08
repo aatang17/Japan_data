@@ -378,7 +378,8 @@ def publish(article_id, base_revision, actor, change_note, draft, author_names,
         if version > 1 and not change_note:
             raise ResearchError("Say what changed in this version — readers see the note.")
         published_at = datetime.datetime.utcfromtimestamp(now).isoformat() + "Z"
-        doc = json.dumps(draft, ensure_ascii=False, sort_keys=True)
+        # the plan and the research notes stay in the desk, never in a version
+        doc = json.dumps(rd.public_draft(draft), ensure_ascii=False, sort_keys=True)
         snaps = json.dumps(snapshots, ensure_ascii=False, sort_keys=True)
         digest = hashlib.sha256((doc + "\n" + snaps + "\n" + body_html).encode("utf-8")).hexdigest()
         c.execute(

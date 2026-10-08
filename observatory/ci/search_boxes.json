@@ -35,10 +35,10 @@
     {"key": "us-companies.html#cn-q", "url": "/us-companies.html?t=DIS", "input": "#cn-q", "area": "#cn-table", "hits": "#cn-table tbody tr", "ready": "#cn-table tbody tr", "extra": ["revenue"]}
   ],
   "elsewhere": {
-    "desk-research.js#dk-rs-dq": "Inside the signed-in research desk. Its examples and the obvious queries run against the same search in tests/test_search_examples.py."
+    "desk-research.js#class=dk-rs-q": "Inside the signed-in research desk, on every Research data tab. Its examples and the obvious queries run against the same search in tests/test_search_examples.py.",
+    "desk.js#data-f=q": "The search box on a chart in the signed-in desk. An empty chart runs the desk's data search, and tests/test_search_examples.py types the box's own examples into it."
   },
   "not_run": {
-    "desk.js#data-f=q": "Inside the signed-in desk's chart settings, after a dataset is chosen. Not covered yet: needs a browser login and a draft.",
     "sortable.js#class=table-filter": "Filters the rows a table already shows; there is nothing to fetch.",
     "assistant.js#cat-q": "Filters the specialists already listed; there is nothing to fetch."
   },
@@ -47,6 +47,6 @@
     "cohorts.html#p-company": "Highlights one company in a ranking; it does not search.",
     "desk-research.js#snap-": "A page address to copy a chart from.",
     "desk.js#data-f=source": "A source line for a table or chart.",
-    "desk.js#data-f=title": "A chart title."
+    "desk.js#data-f=unit": "The unit printed on a chart of the writer's own numbers."
   }
 }

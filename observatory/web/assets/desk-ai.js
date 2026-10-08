@@ -310,7 +310,7 @@ function saveProvider(p) {
 
 /* ---------------------------------------------------------------- a run */
 
-function runAI(text, skillId, onFail) {
+function runAI(text, skillId, onFail, image) {
   text = (text || "").trim();
   if (!text && !skillId) { $("#dk-ai-text").focus(); return; }
   var b = $("#dk-ai-run");
@@ -320,7 +320,8 @@ function runAI(text, skillId, onFail) {
   saveNow().then(function () {
     if (S.seq !== S.savedSeq) throw new Error("Your latest changes are not saved yet; try again in a moment.");
     b.textContent = "Starting…";
-    return send("POST", "/research/articles/" + ID + "/ai", { instruction: text, skill_id: skillId ? Number(skillId) : null });
+    return send("POST", "/research/articles/" + ID + "/ai", { instruction: text, skill_id: skillId ? Number(skillId) : null,
+                                                            image: image || null });
   }).then(function (job) {
     AI.job = job;
     AI.lastInstruction = text;
@@ -334,6 +335,37 @@ function runAI(text, skillId, onFail) {
     if (onFail) onFail();
     toast(err.message);
   });
+}
+
+/* A run started from a button in the draft (Suggest a Chart, a pasted
+   screenshot): the AI tab opens so the writer sees it work, the instruction
+   is shown in its box, and the run starts. `skillName` picks a team skill by
+   name ("" for none); `image` is an uploaded picture ("<sha256>.<ext>"). */
+function aiRunFor(text, skillName, image, onFail) {
+  showPane("ai");
+  var go = function (s) {
+    AI.settings = s || AI.settings;
+    if (!aiReady(AI.settings)) {
+      drawAI();
+      toast("Connect your AI in the AI tab first (once), then press the button again.");
+      if (onFail) onFail();
+      return;
+    }
+    if (AI.job && AI.job.status === "running") {
+      toast("The AI is still working on the last instruction. Try again when it finishes.");
+      if (onFail) onFail();
+      return;
+    }
+    var k = (AI.settings.skills || []).filter(function (x) {
+      return skillName && x.name.toLowerCase() === skillName.toLowerCase();
+    })[0];
+    AI.skill = k ? String(k.id) : "";
+    drawAI();
+    $("#dk-ai-text").value = text;
+    runAI(text, AI.skill, onFail, image);
+  };
+  if (AI.settings) go();
+  else api("/research/ai").then(go).catch(function (err) { toast(err.message); if (onFail) onFail(); });
 }
 
 function pauseCanvas(on) {

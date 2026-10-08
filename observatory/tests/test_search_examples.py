@@ -22,9 +22,9 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 OBVIOUS = ["CPI", "GDP", "10-year", "Toyota", "7203", "CEO compensation", "buybacks"]
 
 
-def placeholder_examples():
-    text = (ROOT / "web" / "assets" / "desk-research.js").read_text(encoding="utf-8")
-    m = re.search(r'id="dk-rs-dq" placeholder="([^"]*)"', text)
+def placeholder_examples(path="desk-research.js", pattern=r'class="dk-rs-q" placeholder="([^"]*)"'):
+    text = (ROOT / "web" / "assets" / path).read_text(encoding="utf-8")
+    m = re.search(pattern, text)
     assert m, "the desk's data search box has moved: update this test"
     after = re.split(r"\be\.g\.?\s*", m.group(1), flags=re.I)[-1]
     return [p.strip() for p in after.split(",") if p.strip()]
@@ -48,6 +48,17 @@ class DeskSearchExamples(unittest.TestCase):
                 r = research_api.data_search(None, q)
                 self.assertTrue(r["series"] or r["companies"] or r["pages"],
                                 "the desk search finds nothing for %r" % q)
+
+    @unittest.skipUnless(_data.MACRO, _data.NO_MACRO)
+    def test_the_chart_search_examples_find_series(self):
+        # An empty chart in the desk searches every dataset with the same
+        # search; a chart needs a series, so a company or page hit is not enough.
+        examples = placeholder_examples("desk.js", r'data-f="q" placeholder="([^"]*)"')
+        self.assertTrue(examples)
+        for q in examples + ["CPI", "guest nights"]:
+            with self.subTest(q=q):
+                self.assertTrue(research_api.data_search(None, q)["series"],
+                                "an empty chart finds no series for %r" % q)
 
     @unittest.skipUnless(_data.MACRO, _data.NO_MACRO)
     def test_a_town_is_found_by_its_english_and_japanese_name(self):

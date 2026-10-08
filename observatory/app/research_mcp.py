@@ -49,7 +49,20 @@ RULES = (
     "'![Chart title](/financials.html?c=7203#chart-2)' — the page address with its view, "
     "and #chart-N for the Nth chart on the page. Use the 'cite' URLs the data tools return. "
     "The desk copies it when a person next opens the draft.\n"
+    "- A chart of numbers from outside Plover (another publisher's data, a spreadsheet): "
+    "'![Chart title](chart:line?unit=%25)' (or chart:bar for categories such as countries), "
+    "then on the next lines a pipe table — first column the dates (YYYY-MM or YYYY-MM-DD) or "
+    "labels, then up to six columns of numbers with the series names in the header row — "
+    "then 'Source: …', which is required. Leave a missing value blank, never 0. The page "
+    "says the values are as entered by the author.\n"
     "- An optional 'Note: …' line straight after a chart is printed under it.\n"
+    "- Reminders the writer's approved plan left in the draft, each on a line of its own: "
+    "'[[To show: …]]' is the point a section must make — keep it until the section's text "
+    "makes that point, then delete the line; '[[Chart: …]]' is a chart the plan promised — "
+    "replace that line with the chart. A draft with a reminder left cannot be published.\n"
+    "- read_article also returns 'beside_the_draft': the approved plan and the writer's "
+    "research notes (numbers, quotations and sources they collected). Write from them; they "
+    "are not part of the Markdown and are never published.\n"
     "- Tables: a '**Table N — Caption**' line, the pipe table, then 'Source: …'. Every table "
     "needs a source.\n"
     "- Images already uploaded keep their /research/media/… address; do not invent one.\n\n"
@@ -165,6 +178,36 @@ def _markdown_for(a):
     return head + rd.render_markdown(d, editable=True)
 
 
+def _desk_context(d):
+    """The approved plan and the writer's research notes, which sit beside the
+    draft in the desk and are never published: for reading, not for editing
+    through the Markdown."""
+    out = {}
+    plan = d.get("plan")
+    if plan:
+        out["plan"] = rd.render_markdown({"blocks": plan["blocks"]}).strip()
+        out["plan_approved"] = plan.get("approved_at") or ""
+    notes = []
+    for n in d.get("notes") or []:
+        text = n["text"] or rd.inline_text(n["html"])
+        if n.get("block"):
+            text = text or n["block"].get("title") or "a chart"
+        notes.append({"kind": n["kind"], "text": text, "source": n["source"], "url": n["url"],
+                      "in_draft": n["used"]})
+    if notes:
+        out["notes"] = notes
+    return out
+
+
+def _keep_desk(old_draft, new_draft):
+    """The plan and the notes are the desk's: a draft rewritten from Markdown
+    keeps them."""
+    for k in ("plan", "notes"):
+        if old_draft.get(k):
+            new_draft[k] = old_draft[k]
+    return new_draft
+
+
 def _keep_captured(old_draft, new_draft):
     """Blocks parsed from Markdown carry only what Markdown can say. Give a
     chart copied from a page back its captured data, and an image its size,
@@ -233,6 +276,7 @@ def run(person, client, name, args):
                        "unpublished_changes": a["unpublished_changes"],
                        "slug": a["slug"] or a["draft"]["slug"], "slug_fixed": a["slug_locked"],
                        "summary": a["draft"]["summary"], "markdown": _markdown_for(a),
+                       "beside_the_draft": _desk_context(a["draft"]),
                        "pending_charts": _pending(a["draft"]), "desk_url": _desk_url(a["id"])}), False
         if name == "create_draft":
             draft = _apply_markdown(args.get("markdown") or "", None)
@@ -256,7 +300,8 @@ def run(person, client, name, args):
             base = int(args["base_revision"])
             old = a["draft"]
             if name == "replace_draft":
-                draft = _keep_captured(old, _apply_markdown(args.get("markdown") or "", old))
+                draft = _keep_desk(old, _keep_captured(
+                    old, _apply_markdown(args.get("markdown") or "", old)))
                 draft["summary"] = rd.plain(args.get("summary"), rd.SUMMARY_MAX) or old["summary"]
                 draft["slug"] = old["slug"]
                 draft["authors"] = sorted(set(old["authors"] + [person["id"]]))

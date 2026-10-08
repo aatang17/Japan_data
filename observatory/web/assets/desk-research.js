@@ -13,11 +13,14 @@
      those charts when a person opens the draft.
 
    Research panel
-     Plover data: search series and companies, insert a chart, insert a
-     latest value with a footnote saying where it came from, or copy a chart
-     from a company's pages. Web page: read a page by its address as text,
-     cite it as a footnote or quote from it. Searching the web is left to the
-     writer's own Claude or Codex over /mcp/research.
+     Tabs, like a browser: Plan and Notes pinned, then one tab per search or
+     page. Plover data: search series and companies, insert a chart, insert
+     a latest value with a footnote saying where it came from, save it to
+     Notes, or copy a chart from a company's pages. Web page: read a page by
+     its address as text, cite it, quote from it, or save a passage to
+     Notes. Notes are filed under the section being written and go into the
+     draft with their footnotes (Insert, or drag). Searching the web is left
+     to the writer's own Claude or Codex over /mcp/research.
 
    Loaded before desk.js; uses its helpers ($, S, api, send, insertBlock …)
    only inside functions, which run after both files have loaded. */
@@ -474,7 +477,29 @@ function insertAtCaret(html) {
   changed();
 }
 
+var SLOT_FILLERS = { chart: true, snapshot: true, datachart: true, image: true, table: true };
+
+/* A block from the research panel goes in after the block the writer was
+   in — or, when the open tab is finding a chart the plan asked for, in
+   place of that planned chart (kept on the block as _slot, so a copy that
+   comes to nothing can put it back). */
 function insertAfterCaretBlock(b) {
+  var slot = SLOT_FILLERS[b.type] ? slotEl(S.slotTarget) : null;
+  if (slot) {
+    var planned = readBlock(slot);
+    var put = replaceBlock(slot, b, false);
+    put._slot = planned;
+    RT.tabs.forEach(function (t) { if (t.slot === planned.id) t.slot = ""; });
+    S.slotTarget = null;
+    var line = RT.active && $(".dk-rt-slot", RT.active.el);
+    if (line) line.parentNode.removeChild(line);
+    saveTabs();
+    S.lastBlock = put;
+    put.scrollIntoView({ block: "center", behavior: "smooth" });
+    put.classList.add("dk-flash");
+    setTimeout(function () { put.classList.remove("dk-flash"); }, 900);
+    return put;
+  }
   var after = S.lastBlock && document.contains(S.lastBlock) ? S.lastBlock : blocksEl().lastElementChild;
   var el = insertBlock(b, after, false);
   S.lastBlock = el;
@@ -484,55 +509,292 @@ function insertAfterCaretBlock(b) {
   return el;
 }
 
-/* ---------------------------------------------------------------- research panel */
+/* ---------------------------------------------------------------- research panel: tabs */
+
+/* The Research tab works like a browser. Plan and Notes stay pinned on the
+   left; every search and every page the writer opens is a tab of its own,
+   kept until they close it, and remembered in this browser for this
+   article. "+" opens a new tab: search Plover data, read a page, find a
+   chart the plan asks for, or open a saved article. */
+
+var RT = { tabs: [], active: null, closed: [], seq: 0, box: null, noteFilter: "all" };
+var RT_MAX = 8;          // source tabs; opening one more closes the oldest
+
+function rtKey() { return "dk-rtabs-" + ID; }
 
 function renderResearchPane() {
   var box = $("#dk-pane-research");
-  if (box.getAttribute("data-ready")) return;
+  if (box.getAttribute("data-ready")) { refreshResearch(); return; }
   box.setAttribute("data-ready", "1");
-  box.innerHTML =
-    '<div class="dk-seg" role="tablist">' +
-    '<button type="button" role="tab" aria-selected="true" data-rs="data">Plover Data</button>' +
-    '<button type="button" role="tab" aria-selected="false" data-rs="web">Web Page</button></div>' +
-    '<div id="dk-rs-data">' +
-    '<form class="dk-rs-form" id="dk-rs-dform"><input type="search" id="dk-rs-dq" placeholder="Series, company or topic, e.g. core CPI, 7203, CEO pay" aria-label="Search Plover data">' +
-    '<button type="submit" class="dk-mini">Search</button></form>' +
-    '<div id="dk-rs-dres" class="dk-rs-res"><p class="hint">Find a series to chart or quote, or a company or topic whose charts to copy. ' +
-    'A value is inserted where your cursor was, with a footnote naming its source and date.</p></div></div>' +
-    '<div id="dk-rs-web" hidden>' +
-    '<p class="hint">Paste a page address to read it here, then cite it as a footnote or quote from it. ' +
-    "To search the web, ask your own Claude or Codex: connected to the desk, it searches and writes " +
-    "into the draft.</p>" +
-    '<form class="dk-rs-form" id="dk-rs-rform"><input type="url" id="dk-rs-url" placeholder="https://\u2026" aria-label="Page address">' +
-    '<button type="submit" class="dk-mini">Read</button></form>' +
-    '<div id="dk-rs-wres" class="dk-rs-res"></div>' +
-    '<div id="dk-rs-clips"></div></div>';
+  box.classList.add("dk-rt");
+  box.innerHTML = '<div class="dk-rt-strip" role="tablist" aria-label="Research tabs"></div>' +
+    '<div class="dk-rt-body"></div>';
+  RT.box = box;
+  RT.tabs = [];
+  addTab({ kind: "plan", title: "Plan", pinned: true });
+  addTab({ kind: "notes", title: "Notes", pinned: true });
+  var saved = null;
+  try { saved = JSON.parse(localStorage.getItem(rtKey()) || "null"); } catch (e) { saved = null; }
+  ((saved && saved.tabs) || []).slice(0, RT_MAX).forEach(function (sp) { addTab(sp); });
+  var want = saved && typeof saved.active === "number" ? RT.tabs[saved.active] : null;
+  if (!want) want = S.plan ? RT.tabs[0] : RT.tabs[2];
+  if (!want) want = addTab({ kind: "new", title: "New Tab" });
+  $(".dk-rt-strip", box).addEventListener("click", function (e) {
+    var t = e.target.closest("button");
+    if (!t) return;
+    if (t.hasAttribute("data-rtnew")) { openResearchTab({ kind: "new", title: "New Tab" }); return; }
+    var x = tabById(t.getAttribute("data-rtx"));
+    if (x) { closeTab(x); return; }
+    var a = tabById(t.getAttribute("data-rt"));
+    if (a) activateTab(a);
+  });
+  activateTab(want);
+}
 
-  $all("[data-rs]", box).forEach(function (b) {
+function tabById(id) {
+  return id ? RT.tabs.filter(function (t) { return String(t.id) === String(id); })[0] : null;
+}
+
+function tabOf(el) {
+  return RT.tabs.filter(function (t) { return t.el === el || t.el.contains(el); })[0] || null;
+}
+
+function addTab(spec) {
+  var t = { id: ++RT.seq, kind: spec.kind, title: spec.title || "New Tab", q: spec.q || "", url: spec.url || "",
+            clip: spec.clip || 0, slot: spec.slot || "", pinned: !!spec.pinned, loaded: false };
+  t.el = document.createElement("div");
+  t.el.className = "dk-rt-pane";
+  t.el.setAttribute("role", "tabpanel");
+  t.el.hidden = true;
+  $(".dk-rt-body", RT.box).appendChild(t.el);
+  RT.tabs.push(t);
+  var sources = RT.tabs.filter(function (x) { return !x.pinned; });
+  if (sources.length > RT_MAX) closeTab(sources[0], true);
+  drawStrip();
+  return t;
+}
+
+/* Open (or go back to) a research tab: {kind: "data", q} · {kind: "web", url
+   or clip} · {kind: "new"}; `slot` names a planned chart the tab's charts go
+   into. */
+function openResearchTab(spec, activate) {
+  showPane("research");
+  var same = spec.kind === "new" ? null : RT.tabs.filter(function (t) {
+    return t.kind === spec.kind && ((spec.q && t.q === spec.q) || (spec.url && t.url === spec.url) ||
+                                    (spec.clip && t.clip === spec.clip));
+  })[0];
+  var t = same || addTab(spec);
+  if (same && spec.slot !== undefined && same.slot !== spec.slot) { same.slot = spec.slot; same.loaded = false; }
+  if (activate !== false) activateTab(t);
+  saveTabs();
+  return t;
+}
+
+function activateTab(t) {
+  if (!t) return;
+  RT.active = t;
+  RT.tabs.forEach(function (x) { x.el.hidden = x !== t; });
+  S.slotTarget = t.slot && slotEl(t.slot) ? t.slot : null;
+  if (t.kind === "plan" || t.kind === "notes" || !t.loaded) fillTab(t);
+  drawStrip();
+  saveTabs();
+}
+
+function fillTab(t) {
+  t.loaded = true;
+  if (t.kind === "plan") return planTab(t.el);
+  if (t.kind === "notes") return notesTab(t.el);
+  if (t.kind === "data") return dataTab(t);
+  if (t.kind === "web") return webTab(t);
+  return newTab(t);
+}
+
+function closeTab(t, quiet) {
+  var i = RT.tabs.indexOf(t);
+  if (i < 0 || t.pinned) return;
+  RT.tabs.splice(i, 1);
+  t.el.parentNode.removeChild(t.el);
+  if (t.kind === "data" || t.kind === "web") {
+    RT.closed.unshift({ kind: t.kind, title: t.title, q: t.q, url: t.url, clip: t.clip });
+    RT.closed = RT.closed.slice(0, 5);
+  }
+  if (RT.active === t && !quiet) {
+    var next = RT.tabs[i] || RT.tabs[i - 1];
+    activateTab(next);
+  }
+  drawStrip();
+  saveTabs();
+}
+
+function drawStrip() {
+  var strip = RT.box && $(".dk-rt-strip", RT.box);
+  if (!strip) return;
+  strip.innerHTML = RT.tabs.map(function (t) {
+    var on = t === RT.active;
+    var label = t.kind === "notes"
+      ? 'Notes <span class="dk-rt-n">' + S.notes.length + "</span>" : escapeHtml(t.title);
+    var kind = t.kind === "data" ? '<span class="dk-rt-k">Data</span>'
+      : t.kind === "web" ? '<span class="dk-rt-k web">Web</span>' : "";
+    return '<div class="dk-rt-tab' + (on ? " on" : "") + (t.pinned ? " pinned" : "") + '">' +
+      '<button type="button" role="tab" class="dk-rt-b" aria-selected="' + on + '" data-rt="' + t.id + '" title="' +
+      escapeHtml(t.title) + '">' + kind + '<span class="dk-rt-t">' + label + "</span></button>" +
+      (t.pinned ? "" : '<button type="button" class="dk-rt-x" data-rtx="' + t.id + '" aria-label="Close ' +
+        escapeHtml(t.title) + '" title="Close">×</button>') + "</div>";
+  }).join("") +
+    '<button type="button" class="dk-rt-plus" data-rtnew="1" aria-label="Open a new tab" title="New tab: search data or open a page">+</button>';
+}
+
+function saveTabs() {
+  if (!RT.box) return;
+  var src = RT.tabs.filter(function (t) { return !t.pinned; });
+  var spec = src.map(function (t) { return { kind: t.kind, title: t.title, q: t.q, url: t.url, clip: t.clip, slot: t.slot }; });
+  try {
+    localStorage.setItem(rtKey(), JSON.stringify({ tabs: spec, active: RT.tabs.indexOf(RT.active) }));
+  } catch (e) { /* storage blocked: tabs are not remembered, nothing else breaks */ }
+}
+
+/* The draft changed under the panel (loaded, restored, a note added): keep
+   the counts and the Plan and Notes tabs current. */
+function refreshResearch() {
+  if (!RT.box) return;
+  drawStrip();
+  var t = RT.active;
+  if (t && (t.kind === "plan" || t.kind === "notes") && !$("#dk-pane-research").hidden &&
+      !t.el.contains(document.activeElement)) fillTab(t);
+}
+
+function slotEl(id) {
+  var el = id && blocksEl().querySelector('.dk-block[data-id="' + id + '"]');
+  return el && (S.models[id] || {}).type === "placeholder" ? el : null;
+}
+
+/* The data search box, on a new tab and on every data tab. Its examples are
+   typed into the same search by tests/test_search_examples.py. */
+var DATA_SEARCH_INPUT = '<input type="search" class="dk-rs-q" placeholder="Series, company or topic, e.g. core CPI, 7203, CEO pay" aria-label="Search Plover data">';
+
+/* ---- a new tab ---- */
+
+function newTab(t) {
+  var el = t.el;
+  var slots = plannedCharts();
+  el.innerHTML =
+    '<p class="dk-rs-h">Search Plover Data</p>' +
+    '<form class="dk-rs-form" data-go="data">' + DATA_SEARCH_INPUT + '<button type="submit" class="dk-mini">Search</button></form>' +
+    '<p class="dk-rs-h">Open a Web Page</p>' +
+    '<form class="dk-rs-form" data-go="web"><input type="url" aria-label="Page address" placeholder="https://…">' +
+    '<button type="submit" class="dk-mini">Read</button></form>' +
+    (slots.length ? '<p class="dk-rs-h">Charts Your Plan Asks For</p><ul class="dk-rs-list">' + slots.map(function (s, i) {
+      return '<li><span class="dk-rs-name">' + escapeHtml(s.text) + '</span><span class="dk-rs-acts">' +
+        '<button type="button" class="dk-mini" data-slotfind="' + i + '">Find Data</button>' +
+        '<button type="button" class="dk-mini" data-slotai="' + i + '">Suggest a Chart</button></span></li>';
+    }).join("") + "</ul>" : "") +
+    (RT.closed.length ? '<p class="dk-rs-h">Recently Closed</p><ul class="dk-rs-list">' + RT.closed.map(function (c, i) {
+      return '<li><span class="dk-rs-name">' + escapeHtml(c.title) + '</span><span class="dk-rs-acts">' +
+        '<button type="button" class="dk-mini" data-reopen="' + i + '">Reopen</button></span></li>';
+    }).join("") + "</ul>" : "") +
+    '<div class="dk-rt-clips"></div>';
+  $('[data-go="data"]', el).addEventListener("submit", function (e) {
+    e.preventDefault();
+    var q = $("input", e.target).value.trim();
+    if (!q) { $("input", e.target).focus(); return; }
+    becomeTab(t, { kind: "data", q: q, title: q });
+  });
+  $('[data-go="web"]', el).addEventListener("submit", function (e) {
+    e.preventDefault();
+    var url = $("input", e.target).value.trim();
+    if (!url) { $("input", e.target).focus(); return; }
+    becomeTab(t, { kind: "web", url: url, title: hostOf(url) });
+  });
+  $all("[data-slotfind]", el).forEach(function (b) {
     b.addEventListener("click", function () {
-      $all("[data-rs]", box).forEach(function (x) { x.setAttribute("aria-selected", String(x === b)); });
-      $("#dk-rs-data").hidden = b.getAttribute("data-rs") !== "data";
-      $("#dk-rs-web").hidden = b.getAttribute("data-rs") !== "web";
+      var s = slots[Number(b.getAttribute("data-slotfind"))];
+      becomeTab(t, { kind: "data", q: searchWords(s.text), title: searchWords(s.text), slot: s.id });
     });
   });
-  $("#dk-rs-dform").addEventListener("submit", function (e) { e.preventDefault(); dataSearch($("#dk-rs-dq").value); });
-  $("#dk-rs-rform").addEventListener("submit", function (e) { e.preventDefault(); webRead($("#dk-rs-url").value); });
-  renderClips();
+  $all("[data-slotai]", el).forEach(function (b) {
+    b.addEventListener("click", function () { suggestChart(slots[Number(b.getAttribute("data-slotai"))].id); });
+  });
+  $all("[data-reopen]", el).forEach(function (b) {
+    b.addEventListener("click", function () {
+      var c = RT.closed.splice(Number(b.getAttribute("data-reopen")), 1)[0];
+      becomeTab(t, c);
+    });
+  });
+  renderClips($(".dk-rt-clips", el));
+  setTimeout(function () { var i = $("input", el); if (i && !el.hidden) i.focus(); }, 0);
+}
+
+/* A new tab turns into the search or page the writer asked for. */
+function becomeTab(t, spec) {
+  t.kind = spec.kind;
+  t.title = spec.title || t.title;
+  t.q = spec.q || "";
+  t.url = spec.url || "";
+  t.clip = spec.clip || 0;
+  t.slot = spec.slot || "";
+  S.slotTarget = t.slot || null;
+  fillTab(t);
+  drawStrip();
+  saveTabs();
+}
+
+function hostOf(url) {
+  try { return new URL(url).hostname.replace(/^www\./, ""); } catch (e) { return url.slice(0, 30); }
+}
+
+/* A planned chart's description, cut to the words a series search can use:
+   "Total vs China arrivals, monthly levels" → "China arrivals". */
+var SEARCH_STOP = /^(vs|versus|and|or|the|of|in|by|for|on|to|with|a|an|monthly|quarterly|annual|yearly|daily|level|levels|rate|rates|year-on-year|yoy|total|chart|change|changes|compared|share|index|series|from|since|over|per|cent|percent|\d+)$/i;
+function searchWords(text) {
+  var words = (text || "").replace(/[(),.:;—–/]/g, " ").split(/\s+/).filter(function (w) {
+    return w && !SEARCH_STOP.test(w);
+  });
+  return words.slice(0, 3).join(" ") || text;
 }
 
 /* ---- Plover data ---- */
 
-function dataSearch(q) {
-  var res = $("#dk-rs-dres");
+function dataTab(t) {
+  var el = t.el;
+  var slot = t.slot && slotEl(t.slot) ? S.models[t.slot] : null;
+  el.innerHTML =
+    (slot ? '<p class="dk-rt-slot">Charts you insert from this tab go into the planned chart “' +
+      escapeHtml(slot.text) + '”. <button type="button" class="linkish" data-noslot="1">Insert where my cursor is instead</button></p>' : "") +
+    '<form class="dk-rs-form">' + DATA_SEARCH_INPUT + '<button type="submit" class="dk-mini">Search</button></form>' +
+    '<div class="dk-rs-res"><p class="hint">Find a series to chart or quote, or a company or topic whose charts to copy. ' +
+    "A value goes in where your cursor was, with a footnote naming its source and date; Save to Notes keeps it for later.</p></div>";
+  var input = $("input", el);
+  input.value = t.q;
+  $("form", el).addEventListener("submit", function (e) {
+    e.preventDefault();
+    var q = input.value.trim();
+    if (!q) { input.focus(); return; }
+    t.q = q;
+    t.title = q;
+    drawStrip();
+    saveTabs();
+    dataSearch(q, $(".dk-rs-res", el));
+  });
+  var ns = $("[data-noslot]", el);
+  if (ns) ns.addEventListener("click", function () { t.slot = ""; S.slotTarget = null; saveTabs(); dataTab(t); });
+  if (t.q) dataSearch(t.q, $(".dk-rs-res", el));
+  else input.focus();
+}
+
+/* A search that finds nothing is tried again with its last word dropped
+   ("China Korea Taiwan" → "China"), and the panel says so. */
+function dataSearch(q, res, asked) {
   if (!q.trim()) return;
   res.innerHTML = '<p class="muted">Searching…</p>';
   api("/research/data/search?q=" + encodeURIComponent(q)).then(function (r) {
     var pages = r.pages || [];
     if (!r.series.length && !r.companies.length && !pages.length) {
-      res.innerHTML = '<p class="muted">Nothing matches. Try a shorter name, or a series code.</p>';
+      var shorter = q.trim().split(/\s+/).slice(0, -1).join(" ");
+      if (shorter) { dataSearch(shorter, res, asked || q); return; }
+      res.innerHTML = '<p class="muted">Nothing matches “' + escapeHtml(asked || q) + '”. Try a shorter name, ' +
+        "or a series code. Or ask the AI to suggest a chart.</p>";
       return;
     }
-    S.rsData = r;
     // a search for a company (its code, or the start of its name) lists companies first
     var ql = q.trim().toLowerCase();
     var firstCo = r.companies.some(function (c) {
@@ -543,7 +805,8 @@ function dataSearch(q) {
         return '<li><span class="dk-rs-name" title="' + escapeHtml(s.dataset_name + " · " + s.code) + '">' +
           escapeHtml(s.name) + ' <span class="mono muted">' + escapeHtml(s.dataset) + "</span></span>" +
           '<span class="dk-rs-acts"><button type="button" class="dk-mini" data-schart="' + i + '">Insert Chart</button>' +
-          '<button type="button" class="dk-mini" data-svalue="' + i + '">Insert Value</button></span></li>';
+          '<button type="button" class="dk-mini" data-svalue="' + i + '">Insert Value</button>' +
+          '<button type="button" class="dk-mini" data-snote="' + i + '">Save Value to Notes</button></span></li>';
       }).join("") + "</ul>" : "");
     var companyHtml =
       (r.companies.length ? '<p class="dk-rs-h">Companies</p><ul class="dk-rs-list">' + r.companies.map(function (c, i) {
@@ -562,7 +825,8 @@ function dataSearch(q) {
           '<span class="dk-rs-acts"><button type="button" class="dk-mini" data-pcopy="' + i + '">Copy a Chart</button>' +
           '<button type="button" class="dk-mini" data-popen="' + i + '">Open</button></span></li>';
       }).join("") + "</ul>" : "");
-    res.innerHTML = (firstCo ? companyHtml + seriesHtml : seriesHtml + companyHtml) + pageHtml;
+    res.innerHTML = (asked ? '<p class="hint">Nothing for “' + escapeHtml(asked) + '”; showing “' +
+      escapeHtml(q) + "”.</p>" : "") + (firstCo ? companyHtml + seriesHtml : seriesHtml + companyHtml) + pageHtml;
     $all("[data-pcopy]", res).forEach(function (b) {
       b.addEventListener("click", function () { copyFromSearch(pages[Number(b.getAttribute("data-pcopy"))].url); });
     });
@@ -574,13 +838,18 @@ function dataSearch(q) {
     $all("[data-schart]", res).forEach(function (b) {
       b.addEventListener("click", function () {
         var s = r.series[Number(b.getAttribute("data-schart"))];
+        var into = S.slotTarget;
         insertAfterCaretBlock({ type: "chart", dataset: s.dataset, series: [s.code], measure: "index",
                                 start: "", end: "", title: s.name, note: "" });
-        toast("Chart inserted. Pick the measure and dates in its Data settings.");
+        toast(into ? "Chart put in the planned place. Use the buttons above it to change the measure or the dates."
+          : "Chart inserted. Use the buttons above it to change the measure or the dates.");
       });
     });
     $all("[data-svalue]", res).forEach(function (b) {
       b.addEventListener("click", function () { insertValue(r.series[Number(b.getAttribute("data-svalue"))], b); });
+    });
+    $all("[data-snote]", res).forEach(function (b) {
+      b.addEventListener("click", function () { noteValue(r.series[Number(b.getAttribute("data-snote"))], b); });
     });
     $all("[data-ccopy]", res).forEach(function (b) {
       b.addEventListener("click", function () {
@@ -598,7 +867,8 @@ function dataSearch(q) {
 /* Copy a chart from a page found in the search. The chart block goes in at
    once, so the writer sees where it will land; if no chart comes of it (the
    page has none, or the writer cancels the choice) the block is taken out
-   again and the reason shown, so nothing half-made is left in the draft. */
+   again — or the planned chart it replaced is put back — and the reason
+   shown, so nothing half-made is left in the draft. */
 function copyFromSearch(url) {
   var el = insertAfterCaretBlock({ type: "snapshot", url: url, chart: 0, title: "", note: "" });
   // a page with one chart gives it straight away; with several, the writer chooses
@@ -606,7 +876,8 @@ function copyFromSearch(url) {
     if (ok || !document.contains(el)) return;
     var st = el.querySelector(".dk-snap-status");
     var why = st && st.classList.contains("bad") ? st.textContent : "";
-    removeBlock(el);
+    if (el._slot) replaceBlock(el, el._slot, false);
+    else removeBlock(el);
     toast(why ? why + " Nothing was added." : "No chart chosen. Nothing was added.");
   });
 }
@@ -615,14 +886,13 @@ function copyFromSearch(url) {
 function grouped(v) {
   var parts = String(Math.abs(v)).split(".");
   parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  return (v < 0 ? "\u2212" : "") + parts.join(".");
+  return (v < 0 ? "−" : "") + parts.join(".");
 }
 
-/* The latest published value, exactly as published, with a footnote that
+/* The latest published value, exactly as published, and a footnote that
    names the series, the period, the release and the day it was read. */
-function insertValue(s, btn) {
-  btn.disabled = true;
-  fetch("/api/v1/" + encodeURIComponent(s.dataset) + "/observations?series=" + encodeURIComponent(s.code) + "&measure=index")
+function readValue(s) {
+  return fetch("/api/v1/" + encodeURIComponent(s.dataset) + "/observations?series=" + encodeURIComponent(s.code) + "&measure=index")
     .then(function (r) { return r.json().then(function (b) { if (!r.ok) throw new Error(b.detail || "Could not read the value"); return b; }); })
     .then(function (body) {
       var pts = body.series[0].points.filter(function (p) { return p[1] !== null; });
@@ -636,11 +906,26 @@ function insertValue(s, btn) {
         (body.trust === "official" ? ", as published" : "") + ". " +
         (rel.source_name ? rel.source_name + (rel.label ? ", release " + rel.label : "") + ". " : "") +
         "Read from Plover Analytics on " + dateLong(todayIso()) + ".";
-      insertAtCaret(escapeHtml(shown) + noteSup(note));
-      toast("Inserted " + shown + " with its footnote.");
-    })
-    .catch(function (err) { toast(err.message); })
+      return { shown: shown, note: note, period: period };
+    });
+}
+
+function insertValue(s, btn) {
+  btn.disabled = true;
+  readValue(s).then(function (v) {
+    insertAtCaret(escapeHtml(v.shown) + noteSup(v.note));
+    toast("Inserted " + v.shown + " with its footnote.");
+  }).catch(function (err) { toast(err.message); })
     .then(function () { btn.disabled = false; });
+}
+
+function noteValue(s, btn) {
+  btn.disabled = true;
+  readValue(s).then(function (v) {
+    addNote({ kind: "number", text: s.name + ", " + v.period + ": " + v.shown,
+              html: escapeHtml(v.shown) + noteSup(v.note), source: v.note });
+    btn.textContent = "Saved";
+  }).catch(function (err) { toast(err.message); btn.disabled = false; });
 }
 
 /* ---- the web ---- */
@@ -658,11 +943,38 @@ function citePage(page) {
   toast("Footnote added where your cursor was.");
 }
 
-function webRead(url) {
-  var res = $("#dk-rs-wres");
+function webTab(t) {
+  var el = t.el;
+  el.innerHTML =
+    '<form class="dk-rs-form"><input type="url" aria-label="Page address" placeholder="https://…">' +
+    '<button type="submit" class="dk-mini">Read</button></form><div class="dk-rs-res"></div>';
+  var input = $("input", el);
+  input.value = t.url;
+  $("form", el).addEventListener("submit", function (e) {
+    e.preventDefault();
+    var url = input.value.trim();
+    if (!url) { input.focus(); return; }
+    t.url = url;
+    t.clip = 0;
+    t.title = hostOf(url);
+    drawStrip();
+    saveTabs();
+    webRead(url, el);
+  });
+  if (t.clip) {
+    $(".dk-rs-res", el).innerHTML = '<p class="muted">Opening the page…</p>';
+    api("/research/clips/" + t.clip).then(function (page) { showPage(page, el); }).catch(function (err) {
+      $(".dk-rs-res", el).innerHTML = '<p class="bad">' + escapeHtml(err.message) + "</p>";
+    });
+  } else if (t.url) webRead(t.url, el);
+  else input.focus();
+}
+
+function webRead(url, root) {
+  var res = $(".dk-rs-res", root);
   if (!(url || "").trim()) return;
   res.innerHTML = '<p class="muted">Reading the page…</p>';
-  send("POST", "/research/web/read", { url: url.trim() }).then(showPage)
+  send("POST", "/research/web/read", { url: url.trim() }).then(function (page) { showPage(page, root); })
     .catch(function (err) {
       var host = "";
       try { host = new URL(url.trim()).hostname.replace(/^www\./, ""); } catch (e) { /* not an address */ }
@@ -672,17 +984,24 @@ function webRead(url) {
       // still paste the article from their own browser.
       if (/answered HTTP|could not be reached|redirected too many/.test(err.message)) {
         res.insertAdjacentHTML("beforeend", pasteBoxHtml("If you can read it in your browser, paste it here.", url.trim(), true));
-        wirePasteBox({ url: url.trim() });
+        wirePasteBox({ url: url.trim() }, root);
       }
     });
 }
 
-/* A page in the reader: one read by address, or one sent from the writer's
-   browser (desk-clip.js). */
-function showPage(page) {
-  var res = $("#dk-rs-wres");
+/* A page in the reader of one tab: read by address, or sent from the
+   writer's browser (desk-clip.js). */
+function showPage(page, root) {
+  var res = $(".dk-rs-res", root);
+  var t = tabOf(root);
+  if (t) {
+    t.title = page.site || page.title || hostOf(page.url);
+    if (page.sent && page.id) t.clip = page.id;
+    t.url = page.url || t.url;
+    drawStrip();
+    saveTabs();
+  }
   var chars = (page.blocks || []).reduce(function (n, b) { return n + b.text.length; }, 0);
-  S.rsPage = page;
   res.innerHTML =
     '<div class="dk-reader">' +
     '<p class="dk-reader-src"><a href="' + escapeHtml(page.url) + '" target="_blank" rel="noopener noreferrer">' +
@@ -694,22 +1013,297 @@ function showPage(page) {
         ? siteName(page) + " articles need your subscription, so only the start came through."
         : (chars < 1500 ? "Only the start of this page came through." : ""), page.url,
         isPaidSite(page.url) || chars < 1500))) +
-    '<div class="dk-reader-acts"><button type="button" class="dk-mini" id="dk-rd-cite">Cite This Page</button>' +
-    '<button type="button" class="dk-mini" id="dk-rd-quote">Quote Selection</button></div>' +
-    '<div class="dk-reader-text" id="dk-reader-text">' +
+    '<div class="dk-reader-acts"><button type="button" class="dk-mini" data-rd="cite">Cite This Page</button>' +
+    '<button type="button" class="dk-mini" data-rd="quote">Quote Selection</button>' +
+    '<button type="button" class="dk-mini" data-rd="note">Save Selection to Notes</button>' +
+    '<button type="button" class="dk-mini" data-rd="page">Save Page to Notes</button></div>' +
+    '<div class="dk-reader-text">' +
     (page.pdf ? '<p>This is a PDF. Open it to read it; citing it works from here.</p>'
       : page.blocks.map(function (b) {
         return b.kind === "h" ? "<p><strong>" + escapeHtml(b.text) + "</strong></p>"
           : (b.kind === "quote" ? "<blockquote>" + escapeHtml(b.text) + "</blockquote>" : "<p>" + escapeHtml(b.text) + "</p>");
       }).join("") || "<p>No readable text was found on this page.</p>") +
     "</div></div>";
-  if (!page.sent && !page.pdf) wirePasteBox(page);
-  $("#dk-rd-cite").addEventListener("click", function () { citePage(page); });
-  $("#dk-rd-quote").addEventListener("click", function () {
+  if (!page.sent && !page.pdf) wirePasteBox(page, root);
+  var textEl = $(".dk-reader-text", res);
+  function selected() {
     var s = window.getSelection();
-    var text = s && s.rangeCount && $("#dk-reader-text").contains(s.anchorNode) ? s.toString().replace(/\s+/g, " ").trim() : "";
+    return s && s.rangeCount && textEl.contains(s.anchorNode) ? s.toString().replace(/\s+/g, " ").trim() : "";
+  }
+  $('[data-rd="cite"]', res).addEventListener("click", function () { citePage(page); });
+  $('[data-rd="quote"]', res).addEventListener("click", function () {
+    var text = selected();
     if (!text) { toast("Select the passage to quote in the page text first."); return; }
     insertAfterCaretBlock({ type: "quote", html: escapeHtml(text) + noteSup(citation(page)) });
     toast("Quotation added with its footnote.");
   });
+  $('[data-rd="note"]', res).addEventListener("click", function () {
+    var text = selected();
+    if (!text) { toast("Select a passage in the page text first."); return; }
+    addNote({ kind: "quote", text: text, html: escapeHtml(text) + noteSup(citation(page)),
+              source: citation(page), url: page.url });
+  });
+  $('[data-rd="page"]', res).addEventListener("click", function () {
+    addNote({ kind: "page", text: page.title || page.url, html: noteSup(citation(page)),
+              source: citation(page), url: page.url });
+  });
+}
+
+/* ---- the plan ---- */
+
+function planTab(el) {
+  if (!S.plan) {
+    el.innerHTML = '<p class="dk-rt-empty">No plan yet.</p>' +
+      '<p class="hint">A plan states the question the article answers, the answer you expect and the sections, ' +
+      "each with its evidence and chart. Write one in the page under a heading “Plan” and press " +
+      "Start Writing, or let the AI draft one for you to approve.</p>" +
+      '<button type="button" class="btn" data-planai="1">Plan With AI</button>';
+    $("[data-planai]", el).addEventListener("click", function () {
+      aiRunFor("Plan this article from what is in the draft.", "Plan");
+    });
+    return;
+  }
+  var secs = sectionStatus();
+  var done = secs.filter(function (s) { return s.status === "Done"; }).length;
+  el.innerHTML =
+    '<div class="dk-plan-meta"><span>Approved ' + escapeHtml(whenLong(S.plan.approved_at)) +
+    (S.plan.approved_by ? " by " + escapeHtml(S.plan.approved_by) : "") + "</span>" +
+    '<button type="button" class="linkish" data-planedit="1">Edit the Plan</button></div>' +
+    (secs.length
+      ? '<div class="dk-plan-h"><span class="dk-rs-h">Your Sections</span><span class="muted num">' + done + " of " +
+        secs.length + " done</span></div>" +
+        '<ol class="dk-plan-secs">' + secs.map(function (s) {
+          return '<li><button type="button" data-goto="' + s.id + '"><span class="dk-plan-t">' + escapeHtml(s.text) +
+            '</span><span class="dk-plan-st ' + s.cls + '">' + s.status + "</span></button></li>";
+        }).join("") + "</ol>"
+      : "") +
+    '<p class="dk-rs-h">The Plan</p><div class="dk-plan-text">' + planHtml(S.plan.blocks) + "</div>" +
+    '<div class="dk-plan-editbar" hidden><button type="button" class="btn btn-primary" data-plansave="1">Done Editing</button></div>';
+  $all("[data-goto]", el).forEach(function (b) {
+    b.addEventListener("click", function () { goToBlock(b.getAttribute("data-goto")); });
+  });
+  var text = $(".dk-plan-text", el);
+  $("[data-planedit]", el).addEventListener("click", function () {
+    text.contentEditable = "true";
+    text.classList.add("editing");
+    $(".dk-plan-editbar", el).hidden = false;
+    $("[data-planedit]", el).hidden = true;
+    text.focus();
+  });
+  $("[data-plansave]", el).addEventListener("click", function () {
+    var blocks = htmlToBlocks(text.innerHTML).filter(function (b) {
+      return ["p", "heading", "list", "quote", "table", "divider"].indexOf(b.type) !== -1;
+    });
+    if (!blocks.length) { toast("The plan cannot be empty."); return; }
+    pushUndo("plan");
+    S.plan = Object.assign({}, S.plan, { blocks: blocks.map(function (b) { b.id = b.id || bid(); return b; }) });
+    changed();
+    toast("Plan saved.", true);
+    planTab(el);
+  });
+}
+
+function whenLong(iso) {
+  if (!iso) return "";
+  var d = new Date(iso);
+  if (isNaN(d)) return iso;
+  return d.toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+/* The plan's blocks as reading text (the same cleaning as the draft). */
+function planHtml(blocks) {
+  return blocks.map(function (b) {
+    if (b.type === "heading") return "<h" + (b.level === 3 ? 4 : 3) + ">" + escapeHtml(b.text) + "</h" + (b.level === 3 ? 4 : 3) + ">";
+    if (b.type === "p") return "<p>" + cleanInline(b.html) + "</p>";
+    if (b.type === "quote") return "<blockquote><p>" + cleanInline(b.html) + "</p></blockquote>";
+    if (b.type === "list") {
+      var tag = b.style === "number" ? "ol" : "ul";
+      return "<" + tag + ">" + b.items.map(function (i) { return "<li>" + cleanInline(i) + "</li>"; }).join("") + "</" + tag + ">";
+    }
+    if (b.type === "table") {
+      return "<table>" + b.rows.map(function (r) {
+        return "<tr>" + r.map(function (c) { return "<td>" + cleanInline(c) + "</td>"; }).join("") + "</tr>";
+      }).join("") + "</table>";
+    }
+    if (b.type === "divider") return "<hr>";
+    return "";
+  }).join("");
+}
+
+/* ---- notes ---- */
+
+var NOTE_FILTERS = [["all", "All"], ["number", "Numbers"], ["quote", "Quotes"], ["page", "Pages"], ["mine", "Mine"]];
+var NOTE_KIND = { number: "Number", quote: "Quote", chart: "Chart", page: "Page", mine: "Mine" };
+
+/* A note is filed under the section the writer was working in when they
+   took it; one taken before any section exists is "Not Yet Sorted". */
+function addNote(n) {
+  n = Object.assign({ id: bid(), kind: "mine", text: "", html: "", source: "", url: "",
+                      section: currentSection(), at: new Date().toISOString(), used: false }, n);
+  var same = S.notes.filter(function (x) { return x.kind === n.kind && x.text === n.text && x.source === n.source; })[0];
+  if (same) { toast("Already in Notes."); return same; }
+  S.notes.unshift(n);
+  changed();
+  refreshResearch();
+  toast("Saved to Notes" + (sectionName(n.section) ? " under “" + sectionName(n.section) + "”" : "") + ".");
+  return n;
+}
+
+function currentSection() {
+  var el = S.lastBlock && document.contains(S.lastBlock) ? S.lastBlock : null;
+  while (el) {
+    var m = S.models[el.getAttribute("data-id")];
+    if (m && m.type === "heading" && m.level === 2) return m.id;
+    el = el.previousElementSibling;
+  }
+  return "";
+}
+
+function sectionName(id) {
+  var s = sectionStatus().filter(function (x) { return x.id === id; })[0];
+  return s ? s.text : "";
+}
+
+function noteById(id) { return S.notes.filter(function (n) { return n.id === id; })[0]; }
+
+function notesTab(el) {
+  var f = RT.noteFilter;
+  var secs = sectionStatus();
+  var known = {};
+  secs.forEach(function (s) { known[s.id] = true; });
+  var shown = S.notes.filter(function (n) { return f === "all" || n.kind === f; });
+  var groups = secs.map(function (s) {
+    return { id: s.id, name: s.text, notes: shown.filter(function (n) { return n.section === s.id; }) };
+  }).filter(function (g) { return g.notes.length; });
+  var loose = shown.filter(function (n) { return !known[n.section]; });
+  if (loose.length) groups.push({ id: "", name: "Not Yet Sorted", notes: loose });
+  var counts = {};
+  S.notes.forEach(function (n) { counts[n.kind] = (counts[n.kind] || 0) + 1; });
+  el.innerHTML =
+    '<form class="dk-note-add"><textarea rows="2" aria-label="Write a note" placeholder="Jot a thought, a to-do or a source…"></textarea>' +
+    '<button type="submit" class="dk-mini">Add</button></form>' +
+    '<div class="dk-seg dk-note-filter" role="group" aria-label="Show">' + NOTE_FILTERS.map(function (x) {
+      var n = x[0] === "all" ? S.notes.length : (counts[x[0]] || 0);
+      return '<button type="button" data-nf="' + x[0] + '" aria-pressed="' + (f === x[0]) + '">' + x[1] +
+        ' <span class="num">' + n + "</span></button>";
+    }).join("") + "</div>" +
+    (groups.length ? groups.map(function (g) {
+      return '<div class="dk-note-grp"><p class="dk-note-gh"><span>' + escapeHtml(g.name) + '</span><span class="muted num">' +
+        g.notes.length + "</span></p><ul class=\"dk-notes\">" + g.notes.map(function (n) { return noteRow(n, secs, !g.id); }).join("") + "</ul></div>";
+    }).join("")
+      : '<p class="hint dk-note-empty">' + (S.notes.length ? "No notes of this kind."
+        : "Nothing saved yet. In a research tab, use Save Value to Notes beside a number, or Save Selection to Notes on a page; " +
+          "or jot a thought above. Each note keeps its source, and Insert puts it in the draft with its footnote.") + "</p>");
+  var form = $(".dk-note-add", el);
+  var ta = $("textarea", form);
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var v = ta.value.trim();
+    if (!v) { ta.focus(); return; }
+    addNote({ kind: "mine", text: v, source: "" });
+    notesTab(el);
+    $("textarea", el).focus();
+  });
+  ta.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); form.requestSubmit(); }
+  });
+  $all("[data-nf]", el).forEach(function (b) {
+    b.addEventListener("click", function () { RT.noteFilter = b.getAttribute("data-nf"); notesTab(el); });
+  });
+  $all(".dk-note", el).forEach(function (li) {
+    var n = noteById(li.getAttribute("data-note"));
+    li.addEventListener("dragstart", function (e) {
+      e.dataTransfer.effectAllowed = "copy";
+      e.dataTransfer.setData("text/x-dk-note", n.id);
+      e.dataTransfer.setData("text/plain", n.text);
+      li.classList.add("dragging");
+    });
+    li.addEventListener("dragend", function () { li.classList.remove("dragging"); });
+    var ins = $("[data-nins]", li);
+    if (ins) ins.addEventListener("click", function () { insertNote(n); });
+    $("[data-ndel]", li).addEventListener("click", function () {
+      pushUndo("note");
+      S.notes = S.notes.filter(function (x) { return x !== n; });
+      changed();
+      refreshResearch();
+      notesTab(el);
+      toast("Note deleted.", true);
+    });
+    var mv = $("[data-nmove]", li);
+    if (mv) mv.addEventListener("change", function () {
+      if (!mv.value) return;
+      n.section = mv.value;
+      changed();
+      notesTab(el);
+    });
+  });
+}
+
+function noteRow(n, secs, loose) {
+  var text = n.text || textOf(n.html || "");
+  return '<li class="dk-note' + (n.used ? " used" : "") + '" draggable="true" data-note="' + n.id + '" title="Drag into the draft, or press Insert">' +
+    '<span class="dk-note-k">' + (NOTE_KIND[n.kind] || "Note") + "</span>" +
+    '<div class="dk-note-b"><div class="dk-note-t">' + escapeHtml(text) + "</div>" +
+    ((n.source && n.kind !== "mine") || n.used
+      ? '<div class="dk-note-s" title="' + escapeHtml(n.source) + '">' +
+        escapeHtml(n.source.length > 90 ? n.source.slice(0, 89) + "…" : n.source) +
+        (n.used ? (n.source ? " · " : "") + "In the draft" : "") + "</div>"
+      : "") +
+    (loose && secs.length ? '<select data-nmove aria-label="File under a section"><option value="">File under…</option>' +
+      secs.map(function (s) { return '<option value="' + s.id + '">' + escapeHtml(s.text) + "</option>"; }).join("") + "</select>" : "") +
+    "</div>" +
+    '<span class="dk-note-acts"><button type="button" class="dk-mini" data-nins="1">Insert</button>' +
+    '<button type="button" class="dk-note-x" data-ndel="1" aria-label="Delete this note" title="Delete">×</button></span></li>';
+}
+
+/* A note into the draft: a number or a citation where the cursor was, a
+   quotation or a thought as a block of its own after it. `asBlock` when it
+   was dropped between blocks rather than into text. */
+function insertNote(n, asBlock) {
+  var html = n.html || escapeHtml(n.text);
+  if ((n.kind === "number" || n.kind === "page") && !asBlock) insertAtCaret(html);
+  else if (n.kind === "quote") insertAfterCaretBlock({ type: "quote", html: html });
+  else if (n.kind === "chart" && n.block) insertAfterCaretBlock(Object.assign({}, n.block, { id: bid() }));
+  else insertAfterCaretBlock({ type: "p", html: n.kind === "mine" ? escapeHtml(n.text) : html });
+  n.used = true;
+  changed();
+  refreshResearch();
+}
+
+/* A note dragged from the panel onto the draft goes in after the block it
+   is dropped on (or at the end of that paragraph, for a number). */
+function noteDragOver(e) {
+  if (!e.dataTransfer || Array.prototype.indexOf.call(e.dataTransfer.types || [], "text/x-dk-note") === -1) return false;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = "copy";
+  $all(".dk-drop-after").forEach(function (x) { x.classList.remove("dk-drop-after"); });
+  var over = blockOf(e.target);
+  if (over) over.classList.add("dk-drop-after");
+  return true;
+}
+
+function noteDrop(e) {
+  var id = e.dataTransfer && e.dataTransfer.getData("text/x-dk-note");
+  if (!id) return false;
+  e.preventDefault();
+  $all(".dk-drop-after").forEach(function (x) { x.classList.remove("dk-drop-after"); });
+  var n = noteById(id);
+  if (!n) return true;
+  var over = blockOf(e.target);
+  var m = over && S.models[over.getAttribute("data-id")];
+  var intoText = m && m.type === "p";
+  if (over) {
+    S.lastBlock = over;
+    S.lastRange = null;
+    var ed = intoText && over.querySelector("[contenteditable=true]");
+    if (ed) {
+      var r = document.createRange();
+      r.selectNodeContents(ed);
+      r.collapse(false);
+      S.lastRange = r;
+    }
+  }
+  insertNote(n, !intoText);
+  toast("Note added to the draft.");
+  return true;
 }

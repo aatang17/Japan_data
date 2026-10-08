@@ -50,6 +50,9 @@ var S = {
   undo: [],
   me: null,
   others: [],
+  plan: null,           // the approved plan, kept beside the draft (Research › Plan)
+  notes: [],            // the writer's research notes (Research › Notes)
+  slotTarget: null,     // a planned chart that charts from the research panel go into
 };
 
 function $(sel, root) { return (root || document).querySelector(sel); }
@@ -240,6 +243,7 @@ var BLOCK_MENU = [
   { key: "quote", label: "Quote", hint: "Block quotation", make: function () { return { type: "quote", html: "" }; } },
   { key: "chart", label: "Chart From Plover Data", hint: "Live series, frozen on publication", make: function () { return { type: "chart", dataset: "", series: [], measure: "index", start: "", end: "", title: "", note: "", _open: true }; } },
   { key: "page", label: "Chart From a Plover Page", hint: "Any chart on the site, company pages too", make: function () { return { type: "snapshot", url: "", chart: 0, title: "", note: "" }; } },
+  { key: "data", label: "Chart From Your Own Data", hint: "Paste from Excel, Google Sheets or a CSV", make: function () { return { type: "datachart", rows: [], kind: "line", unit: "", title: "", note: "", source: "" }; } },
   { key: "table", label: "Table", hint: "Rows and columns", make: function () { return { type: "table", rows: [["", "", ""], ["", "", ""], ["", "", ""]], header: true, align: ["auto", "auto", "auto"], caption: "", source: "" }; } },
   { key: "image", label: "Image", hint: "PNG, JPEG or WebP", make: function () { return { type: "image", media: "", ext: "png", alt: "", caption: "", source: "", pending: "" }; } },
   { key: "divider", label: "Divider", hint: "A rule", make: function () { return { type: "divider" }; } },
@@ -290,6 +294,10 @@ function makeBlock(b) {
     renderImageBlock(c, b);
   } else if (b.type === "snapshot") {
     renderSnapshotBlock(c, b);
+  } else if (b.type === "datachart") {
+    renderDataChart(c, b);
+  } else if (b.type === "placeholder") {
+    renderPlaceholder(c, b);
   }
   // A figure gets a Delete button in plain sight: the ⋮⋮ menu is not where
   // anyone looks to remove a chart. It sits outside .dk-content, which the
@@ -300,7 +308,7 @@ function makeBlock(b) {
   return el;
 }
 
-var FIGURE_TYPES = { chart: true, image: true, snapshot: true, table: true };
+var FIGURE_TYPES = { chart: true, image: true, snapshot: true, datachart: true, table: true };
 
 /* Delete a block, say which, and offer Undo. */
 function deleteBlock(el) {
@@ -324,6 +332,7 @@ function readBlock(el) {
     return { id: id, type: t, style: m.style, items: $all("li", c).map(function (li) { return cleanInline(li.innerHTML); }) };
   }
   if (t === "divider") return { id: id, type: t };
+  if (t === "placeholder") return { id: id, type: t, role: m.role, text: m.text || "" };
   if (t === "table") {
     var rows = $all("tr", c).map(function (tr) {
       return $all("td", tr).map(function (td) { return cleanInline(td.innerHTML); });
@@ -334,6 +343,10 @@ function readBlock(el) {
   if (t === "chart") {
     return { id: id, type: t, dataset: m.dataset, series: m.series.slice(), measure: m.measure,
              start: m.start, end: m.end, title: m.title, note: m.note };
+  }
+  if (t === "datachart") {
+    return { id: id, type: t, rows: m.rows.map(function (r) { return r.slice(); }), kind: m.kind,
+             unit: m.unit, title: m.title, note: m.note, source: m.source };
   }
   if (t === "image") {
     return { id: id, type: t, media: m.media, ext: m.ext, alt: m.alt, caption: m.caption,
@@ -361,6 +374,8 @@ function serialize() {
     lead: ($("#dk-lead") || {}).value || "",
     feature: !!($("#dk-feature") || {}).checked,
     blocks: $all(".dk-block", blocksEl()).map(readBlock),
+    plan: S.plan,
+    notes: S.notes.map(function (n) { return Object.assign({}, n); }),
   };
 }
 
@@ -401,7 +416,11 @@ function focusBlock(el, end) {
     } else placeCaret(editable, end);
     return;
   }
-  var f = el.querySelector("input, .dk-hr, button");
+  // an empty chart starts in its series search, ready to type
+  var m = S.models[el.getAttribute("data-id")] || {};
+  var f = (m.type === "chart" && !m.series.length && el.querySelector('[data-f="q"]')) ||
+    (m.type === "datachart" && !m.rows.length && el.querySelector('[data-f="cells"]')) ||
+    el.querySelector("input, .dk-hr, button");
   if (f) f.focus();
 }
 
@@ -419,6 +438,7 @@ function textBlockAfter(el) {
 
 function afterStructure() {
   updateCounts();
+  planBar();
   changed();
 }
 
@@ -579,96 +599,147 @@ function pasteGrid(td, text) {
 
 /* ---------------------------------------------------------------- charts */
 
+/* A chart block is the chart itself with one row of controls above it: the
+   series as chips, a search box to add one, and buttons for the measure and
+   the date range. Nothing is hidden behind a settings panel, and nothing has
+   to be chosen before the search: an empty chart searches every dataset, and
+   the first series picked fixes the dataset the rest come from. */
+
 var MEASURES = [
-  { key: "index", label: "As Published" },
-  { key: "yoy", label: "Year-on-Year %" },
-  { key: "mom", label: "Month-on-Month %" },
-  { key: "ann3m", label: "3-Month Annualised %" },
+  { key: "index", label: "As Published", full: "As published" },
+  { key: "yoy", label: "YoY %", full: "Year-on-year % change" },
+  { key: "mom", label: "MoM %", full: "Month-on-month % change" },
+  { key: "ann3m", label: "3M Ann. %", full: "3-month annualised % change" },
+];
+
+var RANGES = [
+  { key: "1", label: "1Y" }, { key: "3", label: "3Y" }, { key: "5", label: "5Y" },
+  { key: "10", label: "10Y" }, { key: "all", label: "All" }, { key: "custom", label: "Dates" },
 ];
 
 function loadDatasets() {
   if (S.datasets) return Promise.resolve(S.datasets);
   return fetch("/api/v1/catalog/datasets").then(function (r) { return r.json(); }).then(function (d) {
-    S.datasets = d.datasets.slice().sort(function (a, b) {
-      return (a.country || "").localeCompare(b.country || "") || a.title.localeCompare(b.title);
-    });
+    S.datasets = d.datasets.slice();
     return S.datasets;
   });
+}
+
+function datasetName(slug) {
+  var d = (S.datasets || []).filter(function (x) { return x.slug === slug; })[0];
+  return d ? d.title : slug;
+}
+
+/* The first month of a range ending this month: 5 years from October 2026 is 2021-10. */
+function rangeStart(years) {
+  var d = new Date();
+  return (d.getFullYear() - Number(years)) + "-" + String(d.getMonth() + 1).padStart(2, "0");
+}
+
+function rangeKey(b) {
+  if (!b.start && !b.end) return "all";
+  if (!b.end) {
+    for (var i = 0; i < RANGES.length; i++) {
+      if (/^\d+$/.test(RANGES[i].key) && b.start === rangeStart(RANGES[i].key)) return RANGES[i].key;
+    }
+  }
+  return "custom";
 }
 
 function renderChartBlock(c, b) {
   c.innerHTML =
     '<div class="dk-fig-label dk-chart-label"></div>' +
-    '<input type="text" class="dk-chart-title" data-f="title" maxlength="200" placeholder="Chart title, e.g. Loan rates rose with the call rate">' +
-    '<details class="dk-chart-set"' + (b._open || !b.dataset ? " open" : "") + "><summary>Data</summary>" +
-    '<div class="dk-chart-grid">' +
-    '<label class="wide">Dataset <select data-f="dataset"><option value="">Choose a dataset…</option></select></label>' +
-    '<div class="wide dk-series"><span class="dk-flabel">Series <span class="muted">up to 6</span></span>' +
-    '<div class="dk-chips"></div>' +
-    '<div class="dk-search"><input type="text" data-f="q" placeholder="Search series by name or code" autocomplete="off">' +
+    '<input type="text" class="dk-chart-title" data-f="title" maxlength="200" placeholder="Chart title">' +
+    '<div class="dk-series-row"><div class="dk-chips"></div>' +
+    '<div class="dk-search"><input type="text" data-f="q" placeholder="Search any series, e.g. core CPI, 10-year yield, births" autocomplete="off" aria-label="Search series">' +
     '<div class="dk-results" hidden></div></div></div>' +
-    '<label>Measure <select data-f="measure">' + MEASURES.map(function (m) {
-      return '<option value="' + m.key + '">' + m.label + "</option>";
-    }).join("") + "</select></label>" +
-    '<label>From <input type="text" data-f="start" placeholder="YYYY-MM" maxlength="10"></label>' +
-    '<label>To <input type="text" data-f="end" placeholder="YYYY-MM" maxlength="10"></label>' +
-    '<label class="wide"><span>Note under the chart <span class="muted">optional</span></span><input type="text" data-f="note" maxlength="400"></label>' +
-    "</div></details>" +
-    '<div class="dk-chart-meta"></div>' +
+    '<div class="dk-chart-opts">' +
+    '<div class="dk-opt" role="group" aria-label="Measure">' + MEASURES.map(function (m) {
+      return '<button type="button" data-measure="' + m.key + '" title="' + m.full + '">' + m.label + "</button>";
+    }).join("") + "</div>" +
+    '<div class="dk-opt" role="group" aria-label="Date range">' + RANGES.map(function (r) {
+      return '<button type="button" data-range="' + r.key + '">' + r.label + "</button>";
+    }).join("") + "</div>" +
+    '<span class="dk-dates" hidden><label>From <input type="text" data-f="start" placeholder="YYYY-MM" maxlength="10"></label>' +
+    '<label>to <input type="text" data-f="end" placeholder="latest" maxlength="10"></label></span>' +
+    "</div>" +
     '<div class="dk-chart-plot" aria-label="Chart preview"></div>' +
     '<p class="source-line dk-chart-src"></p>' +
+    '<input type="text" class="dk-chart-note" data-f="note" maxlength="400" placeholder="Add a note under the chart (optional)">' +
     '<p class="dk-chart-err" hidden></p>';
   $('[data-f="title"]', c).value = b.title || "";
-  $('[data-f="measure"]', c).value = b.measure || "index";
   $('[data-f="start"]', c).value = b.start || "";
   $('[data-f="end"]', c).value = b.end || "";
   $('[data-f="note"]', c).value = b.note || "";
   delete b._open;
-  loadDatasets().then(function (list) {
-    var sel = $('[data-f="dataset"]', c);
-    var groups = {};
-    list.forEach(function (d) {
-      var g = d.country === "US" || d.country === "United States" ? "United States" : (d.country === "JP" || d.country === "Japan" ? "Japan" : (d.country || "Other"));
-      (groups[g] = groups[g] || []).push(d);
-    });
-    Object.keys(groups).forEach(function (g) {
-      var og = document.createElement("optgroup");
-      og.label = g;
-      groups[g].forEach(function (d) {
-        var o = document.createElement("option");
-        o.value = d.slug;
-        o.textContent = d.title;
-        og.appendChild(o);
-      });
-      sel.appendChild(og);
-    });
-    sel.value = b.dataset || "";
-  });
-  renderChips(c, b);
+  if (rangeKey(b) === "custom") $(".dk-dates", c).hidden = false;
+  loadDatasets().then(function () { chartControls(c, b); });
+  chartControls(c, b);
   drawChart(c, b);
 }
 
+/* Chips, search hint and pressed buttons, from the model. */
+function chartControls(c, b) {
+  renderChips(c, b);
+  var has = b.series.length > 0;
+  var q = $('[data-f="q"]', c);
+  q.placeholder = has
+    ? (b.series.length >= 6 ? "Six series is the most a chart can show" : "Add another series")
+    : "Search any series, e.g. core CPI, 10-year yield, births";
+  q.disabled = b.series.length >= 6;
+  $(".dk-chart-opts", c).hidden = !has;
+  $all("[data-measure]", c).forEach(function (x) {
+    x.setAttribute("aria-pressed", String(x.getAttribute("data-measure") === (b.measure || "index")));
+  });
+  var rk = rangeKey(b);
+  var dates = $(".dk-dates", c);
+  $all("[data-range]", c).forEach(function (x) {
+    var k = x.getAttribute("data-range");
+    x.setAttribute("aria-pressed", String(k === "custom" ? !dates.hidden : k === rk && dates.hidden));
+  });
+}
+
 function renderChips(c, b) {
-  var box = $(".dk-chips", c);
   var names = b._names || {};
-  box.innerHTML = b.series.map(function (code) {
+  $(".dk-chips", c).innerHTML = b.series.map(function (code) {
     return '<span class="dk-chip"><span>' + escapeHtml(names[code] || code) + "</span>" +
       '<button type="button" data-rm="' + escapeHtml(code) + '" aria-label="Remove ' +
       escapeHtml(names[code] || code) + '">×</button></span>';
-  }).join("") || '<span class="muted">None chosen yet.</span>';
+  }).join("");
+}
+
+/* The title follows the series until the writer types their own. */
+function autoTitle(b) {
+  var names = b._names || {};
+  return b.series.map(function (s) { return names[s] || s; }).join(", ").slice(0, 200);
+}
+
+function retitle(c, b, before) {
+  if (b.title && b.title !== before) return;
+  b.title = autoTitle(b);
+  $('[data-f="title"]', c).value = b.title;
 }
 
 var searchTimer = null;
 function searchSeries(c, b, q) {
   var res = $(".dk-results", c);
-  if (!b.dataset) { res.hidden = false; res.innerHTML = '<p class="muted">Choose a dataset first.</p>'; return; }
   clearTimeout(searchTimer);
+  if (!b.dataset && !q.trim()) {
+    res.hidden = false;
+    res.innerHTML = '<p class="muted">Type a name, e.g. core CPI or guest nights.</p>';
+    return;
+  }
   searchTimer = setTimeout(function () {
-    fetch("/api/v1/" + encodeURIComponent(b.dataset) + "/series?q=" + encodeURIComponent(q || ""))
+    // an empty chart searches everything; after the first pick, that dataset only
+    var url = b.dataset
+      ? "/api/v1/" + encodeURIComponent(b.dataset) + "/series?q=" + encodeURIComponent(q || "")
+      : "/admin/api/research/data/search?q=" + encodeURIComponent(q);
+    fetch(url, { credentials: "same-origin" })
       .then(function (r) {
         return r.json().then(function (body) { return { ok: r.ok, status: r.status, body: body }; });
       })
       .then(function (r) {
+        if ($('[data-f="q"]', c).value !== q) return;   // typed on while loading
         res.hidden = false;
         if (!r.ok) {
           res.innerHTML = '<p class="muted">' + escapeHtml(r.status === 422
@@ -676,19 +747,69 @@ function searchSeries(c, b, q) {
             : (r.body.detail || "Search failed.")) + "</p>";
           return;
         }
-        var list = (r.body.series || r.body.items || r.body || []);
+        var list = b.dataset ? (r.body.series || r.body.items || r.body || []) : (r.body.series || []);
         if (!Array.isArray(list)) list = [];
+        list = list.filter(function (s) { return b.series.indexOf(s.code) === -1; });
         res.innerHTML = list.slice(0, 40).map(function (s) {
           var name = s.name_en || s.name || s.code;
-          return '<button type="button" class="dk-result" data-code="' + escapeHtml(s.code) + '" data-name="' +
-            escapeHtml(name) + '"><span>' + escapeHtml(name) + '</span><span class="mono muted">' +
-            escapeHtml(s.code) + "</span></button>";
-        }).join("") || '<p class="muted">No series match.</p>';
+          var ds = s.dataset || b.dataset;
+          var where = b.dataset ? s.code : (s.dataset_name || s.dataset);
+          return '<button type="button" class="dk-result" data-code="' + escapeHtml(s.code) + '" data-dataset="' +
+            escapeHtml(ds) + '" data-name="' + escapeHtml(name) + '"><span>' + escapeHtml(name) +
+            '</span><span class="muted dk-result-where">' + escapeHtml(where) + "</span></button>";
+        }).join("") || '<p class="muted">' + (b.dataset
+          ? "No series in " + escapeHtml(datasetName(b.dataset)) + " match. To chart another dataset, start a new chart."
+          : "No series match. Try a shorter name, e.g. CPI.") + "</p>";
       }).catch(function () {
         res.hidden = false;
         res.innerHTML = '<p class="muted">Search failed. Check the connection and try again.</p>';
       });
   }, 220);
+}
+
+function pickSeries(c, b, pick) {
+  var code = pick.getAttribute("data-code");
+  var before = autoTitle(b);
+  if (!b.dataset) b.dataset = pick.getAttribute("data-dataset");
+  if (b.series.indexOf(code) === -1) {
+    if (b.series.length >= 6) { toast("A chart can show up to six series."); return; }
+    b.series.push(code);
+    b._names = b._names || {};
+    b._names[code] = pick.getAttribute("data-name");
+  }
+  $(".dk-results", c).hidden = true;
+  var q = $('[data-f="q"]', c);
+  q.value = "";
+  retitle(c, b, before);
+  chartControls(c, b);
+  drawChart(c, b);
+  if (!q.disabled) q.focus();
+}
+
+function removeSeries(c, b, code) {
+  var before = autoTitle(b);
+  b.series = b.series.filter(function (s) { return s !== code; });
+  if (!b.series.length) b.dataset = "";   // an empty chart searches everything again
+  retitle(c, b, before);
+  chartControls(c, b);
+  drawChart(c, b);
+}
+
+function setRange(c, b, key) {
+  var dates = $(".dk-dates", c);
+  if (key === "custom") {
+    dates.hidden = false;
+    chartControls(c, b);
+    $('[data-f="start"]', c).focus();
+    return;
+  }
+  dates.hidden = true;
+  b.start = key === "all" ? "" : rangeStart(key);
+  b.end = "";
+  $('[data-f="start"]', c).value = b.start;
+  $('[data-f="end"]', c).value = "";
+  chartControls(c, b);
+  drawChart(c, b);
 }
 
 function chartQuery(b) {
@@ -706,15 +827,13 @@ function drawChart(c, b) {
   var plot = $(".dk-chart-plot", c);
   var err = $(".dk-chart-err", c);
   var src = $(".dk-chart-src", c);
-  var meta = $(".dk-chart-meta", c);
   disposeChart(b.id);
   plot.innerHTML = "";
   err.hidden = true;
   src.textContent = "";
-  meta.innerHTML = "";
   if (!b.dataset || !b.series.length) {
     plot.classList.add("empty");
-    plot.innerHTML = '<p class="muted">Choose a dataset and at least one series to see the chart.</p>';
+    plot.innerHTML = '<p class="muted">Type a series name in the box above. The chart appears here.</p>';
     return;
   }
   plot.classList.remove("empty");
@@ -732,8 +851,10 @@ function drawChart(c, b) {
     }
     var names = {};
     r.body.series.forEach(function (s) { names[s.code] = s.name_en || s.code; });
+    var wasAuto = !b.title || b.title === autoTitle(b);
     b._names = names;
-    renderChips(c, b);
+    if (wasAuto) retitle(c, b, b.title);
+    chartControls(c, b);
     if (!r.body.series.some(function (s) { return s.points.some(function (p) { return p[1] !== null; }); })) {
       err.hidden = false;
       err.textContent = "No values in the chosen date range.";
@@ -741,7 +862,6 @@ function drawChart(c, b) {
     }
     r.body.credit = "";
     S.charts[b.id] = researchChart.draw(plot, b, r.body);
-    meta.innerHTML = "";
     src.textContent = researchChart.sourceLine(r.body) +
       " Publishing freezes the data as it stands that day.";
   }).catch(function () {
@@ -751,6 +871,136 @@ function drawChart(c, b) {
   });
 }
 
+/* ---------------------------------------------------------------- own data */
+
+/* A chart of the writer's own numbers: paste cells from a spreadsheet, a CSV
+   or another publisher's download, give the source, done. The cells are kept
+   as pasted; researchChart (research.js) reads and draws them, here and on
+   the published page alike. */
+
+/* Pasted text as rows of cells: tabs from a spreadsheet, else commas or
+   semicolons from a CSV, with quoted cells kept whole. */
+function parseCells(text) {
+  text = (text || "").replace(/\r\n?/g, "\n").replace(/\n+$/, "");
+  if (!text.trim()) return [];
+  var sep = text.indexOf("\t") !== -1 ? "\t" : (text.split("\n")[0].split(";").length > text.split("\n")[0].split(",").length ? ";" : ",");
+  var rows = [[]], cell = "", quoted = false;
+  for (var i = 0; i < text.length; i++) {
+    var ch = text.charAt(i);
+    if (quoted) {
+      if (ch === '"' && text.charAt(i + 1) === '"') { cell += '"'; i++; }
+      else if (ch === '"') quoted = false;
+      else cell += ch;
+    } else if (ch === '"' && !cell) quoted = true;
+    else if (ch === sep) { rows[rows.length - 1].push(cell.trim()); cell = ""; }
+    else if (ch === "\n") { rows[rows.length - 1].push(cell.trim()); rows.push([]); cell = ""; }
+    else cell += ch;
+  }
+  rows[rows.length - 1].push(cell.trim());
+  return rows.filter(function (r) { return r.some(function (c) { return c; }); });
+}
+
+function cellsText(rows) {
+  return (rows || []).map(function (r) { return r.join("\t"); }).join("\n");
+}
+
+function renderDataChart(c, b) {
+  var has = (b.rows || []).length > 0;
+  c.innerHTML =
+    '<div class="dk-fig-label dk-chart-label"></div>' +
+    '<input type="text" class="dk-chart-title" data-f="title" maxlength="200" placeholder="Chart title">' +
+    '<div class="dk-paste"' + (has ? " hidden" : "") + '>' +
+    '<textarea data-f="cells" rows="6" spellcheck="false" aria-label="Your numbers" placeholder="' +
+    'Paste cells from Excel, Google Sheets or a CSV.\nFirst column: dates or labels. Then up to six columns of numbers.\n' +
+    'First row: series names, e.g.\nDate\tUS\tJapan\n2025-01\t3.0\t4.0"></textarea></div>' +
+    '<div class="dk-chart-opts dk-data-opts"' + (has ? "" : " hidden") + '>' +
+    '<div class="dk-opt" role="group" aria-label="Chart type">' +
+    '<button type="button" data-kind="line">Line</button><button type="button" data-kind="bar">Bars</button></div>' +
+    '<label class="dk-unit">Unit <input type="text" data-f="unit" maxlength="40" placeholder="e.g. %, US$ bn"></label>' +
+    '<button type="button" class="dk-mini" data-editcells>Edit Data</button>' +
+    '<span class="dk-data-sum muted"></span></div>' +
+    '<div class="dk-chart-plot" aria-label="Chart preview"></div>' +
+    '<p class="dk-chart-err" hidden></p>' +
+    '<label class="dk-src"><span>Source <span class="req" aria-hidden="true">*</span></span>' +
+    '<input type="text" data-f="source" maxlength="400" placeholder="Who published the numbers, e.g. IMF World Economic Outlook, April 2026"></label>' +
+    '<input type="text" class="dk-chart-note" data-f="note" maxlength="400" placeholder="Add a note under the chart (optional)">';
+  $('[data-f="title"]', c).value = b.title || "";
+  $('[data-f="cells"]', c).value = cellsText(b.rows);
+  $('[data-f="unit"]', c).value = b.unit || "";
+  $('[data-f="source"]', c).value = b.source || "";
+  $('[data-f="note"]', c).value = b.note || "";
+  // a paste puts the chart first: the cells fold away behind Edit Data
+  $('[data-f="cells"]', c).addEventListener("paste", function () {
+    setTimeout(function () { if (b.rows.length) showCells(c, false); }, 0);
+  });
+  showCells(c, !has);
+  drawDataChart(c, b);
+}
+
+function showCells(c, open) {
+  $(".dk-paste", c).hidden = !open;
+  $("[data-editcells]", c).textContent = open ? "Hide Data" : "Edit Data";
+}
+
+function drawDataChart(c, b) {
+  disposeChart(b.id);
+  var plot = $(".dk-chart-plot", c);
+  var err = $(".dk-chart-err", c);
+  var sum = $(".dk-data-sum", c);
+  plot.innerHTML = "";
+  err.hidden = true;
+  var t = researchChart.table(b.rows);
+  var dated = !!t.dates;
+  // a line needs dates: labels such as countries are drawn as bars
+  $all("[data-kind]", c).forEach(function (x) {
+    var k = x.getAttribute("data-kind");
+    x.disabled = k === "line" && !dated && t.labels.length > 0;
+    x.title = x.disabled ? "A line needs dates in the first column" : "";
+    x.setAttribute("aria-pressed", String(k === (b.kind === "bar" || !dated ? "bar" : "line")));
+  });
+  var d = researchChart.dataCfg(b);
+  if (!d) {
+    plot.classList.add("empty");
+    plot.innerHTML = '<p class="muted">' + (b.rows.length
+      ? "No numbers found. The first column holds dates or labels; the next columns hold numbers."
+      : "Paste your cells in the box above. The chart appears here.") + "</p>";
+    sum.textContent = "";
+    return;
+  }
+  plot.classList.remove("empty");
+  S.charts[b.id] = obsChart(plot, d.kind, d.cfg);
+  sum.textContent = t.names.length + (t.names.length === 1 ? " series, " : " series, ") +
+    t.labels.length + " rows" + (dated && t.labels.length ? ", " + t.labels[0] + " to " + t.labels[t.labels.length - 1] : "");
+  if (t.bad) {
+    err.hidden = false;
+    err.textContent = t.bad + (t.bad === 1 ? " cell is" : " cells are") +
+      " not a number and shows as a gap. Click Edit Data to check it.";
+  }
+}
+
+/* New cells from the box: kept as rows, at most six series. */
+function setCells(c, b, text) {
+  var rows = parseCells(text);
+  var wide = rows.some(function (r) { return r.length > 7; });
+  if (wide) {
+    rows = rows.map(function (r) { return r.slice(0, 7); });
+    toast("A chart shows up to six series: only the first six columns of numbers were kept.");
+  }
+  if (rows.length > 3000) { rows = rows.slice(0, 3000); toast("Only the first 3,000 rows were kept."); }
+  var first = !b.rows.length;
+  b.rows = rows;
+  if (first && rows.length) {
+    var t = researchChart.table(rows);
+    b.kind = t.dates ? "line" : "bar";
+    if (!b.title && t.names.length === 1 && t.header) {
+      b.title = t.names[0];
+      $('[data-f="title"]', c).value = b.title;
+    }
+  }
+  $(".dk-data-opts", c).hidden = !rows.length;
+  drawDataChart(c, b);
+}
+
 /* ---------------------------------------------------------------- images */
 
 function renderImageBlock(c, b) {
@@ -758,7 +1008,9 @@ function renderImageBlock(c, b) {
     '<div class="dk-fig-label dk-chart-label"></div>' +
     (b.media
       ? '<div class="dk-img"><img src="/research/media/' + b.media + "." + b.ext + '" alt="' +
-        escapeHtml(b.alt || "") + '"><button type="button" class="dk-mini" data-img="replace">Replace Image</button></div>'
+        escapeHtml(b.alt || "") + '"><span class="dk-img-acts"><button type="button" class="dk-mini" data-img="replace">Replace Image</button>' +
+        '<button type="button" class="dk-mini" data-img="rebuild" title="For a screenshot of another publisher\u2019s chart: ' +
+        'the AI finds the public data behind it and puts a chart of that data here instead">Rebuild From Public Data</button></span></div>'
       : '<div class="dk-drop" tabindex="0" role="button" aria-label="Upload an image">' +
         "<strong>Drop a PNG, JPEG or WebP here</strong>, or " +
         '<button type="button" class="linkish" data-img="choose">choose a file</button>' +
@@ -974,6 +1226,26 @@ function onKeyDown(e) {
     return;
   }
   var model = S.models[blockEl.getAttribute("data-id")];
+
+  // chart series search: Enter takes the top result, arrows walk the list, Escape closes it
+  if (model.type === "chart" && target.closest(".dk-search")) {
+    var res = blockEl.querySelector(".dk-results");
+    var hits = $all(".dk-result", res);
+    var at = hits.indexOf(target);
+    if (e.key === "Enter" && target.matches('[data-f="q"]')) {
+      e.preventDefault();
+      if (!res.hidden && hits[0]) hits[0].click();
+      return;
+    }
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      var next = hits[e.key === "ArrowDown" ? at + 1 : at - 1];
+      if (next) next.focus();
+      else if (e.key === "ArrowUp") blockEl.querySelector('[data-f="q"]').focus();
+      return;
+    }
+    if (e.key === "Escape") { res.hidden = true; blockEl.querySelector('[data-f="q"]').focus(); return; }
+  }
 
   if (e.altKey && e.shiftKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
     e.preventDefault();
@@ -1207,6 +1479,16 @@ function fieldInput(blockEl, model, input) {
       clearTimeout(model._tt);
       model._tt = setTimeout(function () { drawChart(c, model); }, 800);
     }
+  } else if (model.type === "datachart") {
+    if (f === "cells") setCells(c, model, input.value);
+    else {
+      model[f] = input.value;
+      // the title and unit are drawn on the chart and its image
+      if (f === "title" || f === "unit") {
+        clearTimeout(model._t);
+        model._t = setTimeout(function () { drawDataChart(c, model); }, 400);
+      }
+    }
   } else {
     model[f] = input.value;
   }
@@ -1219,26 +1501,15 @@ function onChange(e) {
   if (!blockEl) return;
   var model = S.models[blockEl.getAttribute("data-id")];
   var c = blockEl.querySelector(".dk-content");
-  if (model.type === "chart" && t.getAttribute("data-f") === "dataset") {
-    model.dataset = t.value;
-    model.series = [];
-    model._names = {};
-    renderChips(c, model);
-    drawChart(c, model);
-    var q = $('[data-f="q"]', c);
-    q.value = "";
-    if (model.dataset) { q.focus(); searchSeries(c, model, ""); }
-    changed();
-  } else if (model.type === "chart" && t.getAttribute("data-f") === "measure") {
-    model.measure = t.value;
-    drawChart(c, model);
-    changed();
-  } else if (model.type === "table" && t.getAttribute("data-t") === "align") {
+  if (model.type === "table" && t.getAttribute("data-t") === "align") {
     tableOp(blockEl, "align", t.value);
   } else if (model.type === "table" && t.getAttribute("data-t") === "header") {
     tableOp(blockEl, "header", t.checked);
   } else if (model.type === "image" && t.getAttribute("data-img") === "file" && t.files[0]) {
     uploadImage(blockEl, t.files[0]);
+  } else if (model.type === "placeholder" && t.getAttribute("data-ph") === "file" && t.files[0]) {
+    rebuildFromPicture(blockEl, model, t.files[0]);
+    t.value = "";
   }
 }
 
@@ -1259,32 +1530,34 @@ function onClick(e) {
   }
   if (model.type === "chart") {
     var rm = t.closest("[data-rm]");
-    if (rm) {
-      model.series = model.series.filter(function (s) { return s !== rm.getAttribute("data-rm"); });
-      renderChips(c, model);
-      drawChart(c, model);
-      changed();
-      return;
-    }
+    if (rm) { removeSeries(c, model, rm.getAttribute("data-rm")); changed(); return; }
     var pick = t.closest(".dk-result");
-    if (pick) {
-      var code = pick.getAttribute("data-code");
-      if (model.series.indexOf(code) === -1) {
-        if (model.series.length >= 6) { toast("A chart can show up to six series."); return; }
-        model.series.push(code);
-        model._names = model._names || {};
-        model._names[code] = pick.getAttribute("data-name");
-      }
-      $(".dk-results", c).hidden = true;
-      $('[data-f="q"]', c).value = "";
-      renderChips(c, model);
+    if (pick) { pickSeries(c, model, pick); changed(); return; }
+    var ms = t.closest("[data-measure]");
+    if (ms) {
+      model.measure = ms.getAttribute("data-measure");
+      chartControls(c, model);
       drawChart(c, model);
       changed();
       return;
     }
+    var rg = t.closest("[data-range]");
+    if (rg) { setRange(c, model, rg.getAttribute("data-range")); changed(); return; }
     if (t.getAttribute("data-f") === "q") searchSeries(c, model, t.value);
   }
+  if (model.type === "datachart") {
+    var kd = t.closest("[data-kind]");
+    if (kd && !kd.disabled) { model.kind = kd.getAttribute("data-kind"); drawDataChart(c, model); changed(); return; }
+    if (t.closest("[data-editcells]")) {
+      var open = $(".dk-paste", c).hidden;
+      showCells(c, open);
+      if (open) $('[data-f="cells"]', c).focus();
+      return;
+    }
+  }
   if (model.type === "snapshot" && snapClick(blockEl, model, t.closest("[data-snap]") || t)) return;
+  if (model.type === "placeholder") { placeholderClick(blockEl, model, t); return; }
+  if (model.type === "image" && t.getAttribute("data-img") === "rebuild") { rebuildImage(blockEl, model, t); return; }
   if (model.type === "image") {
     var act = t.getAttribute("data-img");
     if (act === "choose" || act === "replace" || t.closest(".dk-drop")) {
@@ -1864,7 +2137,7 @@ function fillLeadOptions() {
   var opts = ['<option value="">First chart in the note</option>'];
   $all(".dk-block", blocksEl()).forEach(function (b) {
     var type = b.getAttribute("data-type");
-    if (type !== "chart" && type !== "image" && type !== "snapshot") return;
+    if (type !== "chart" && type !== "image" && type !== "snapshot" && type !== "datachart") return;
     n++;
     var m = S.models[b.getAttribute("data-id")] || {};
     var title = m.title || m.caption || "";
@@ -1882,7 +2155,7 @@ function updateCounts() {
   $all(".dk-block", blocksEl()).forEach(function (b) {
     var type = b.getAttribute("data-type");
     var lab = b.querySelector(".dk-fig-label");
-    if (type === "chart" || type === "image" || type === "snapshot") { c++; if (lab) lab.textContent = "Chart " + c; }
+    if (type === "chart" || type === "image" || type === "snapshot" || type === "datachart") { c++; if (lab) lab.textContent = "Chart " + c; }
     if (type === "table") { t++; if (lab) lab.textContent = "Table " + t; }
     var del = b.querySelector(":scope > .dk-del");
     if (del && lab) del.setAttribute("aria-label", "Delete " + lab.textContent);
@@ -2053,12 +2326,9 @@ function renderHistory() {
 function renderChecklist() {
   var box = $("#dk-pane-check");
   box.innerHTML = '<p class="muted">Checking…</p>';
-  saveNow().then(function () { return api("/research/articles/" + ID + "/check"); }).then(function (res) {
-    box.innerHTML = res.problems.length
-      ? '<p class="hint">Fix these before publishing:</p><ul class="dk-problems">' +
-        res.problems.map(function (p) { return "<li>" + escapeHtml(p) + "</li>"; }).join("") + "</ul>"
-      : '<p class="dk-ready">Ready to publish as version ' + res.version + ".</p>";
-  }).catch(function (err) { box.innerHTML = '<p class="bad">' + escapeHtml(err.message) + "</p>"; });
+  saveNow().then(function () { return api("/research/articles/" + ID + "/check"); })
+    .then(renderCheckPane)
+    .catch(function (err) { box.innerHTML = '<p class="bad">' + escapeHtml(err.message) + "</p>"; });
 }
 
 function showPane(name) {
@@ -2222,9 +2492,13 @@ function renderDraft(d) {
   autoGrow($("#dk-title"));
   autoGrow($("#dk-dek"));
   S.article.draft = d;
+  S.plan = d.plan || null;
+  S.notes = (d.notes || []).map(function (n) { return Object.assign({}, n); });
   renderSide();
   renderBlocks(d.blocks);
   renderBar();
+  planBar();
+  refreshResearch();
 }
 
 function autoGrow(ta) {
@@ -2253,8 +2527,10 @@ function shell() {
     '<p class="dk-kicker">PloverResearch</p>' +
     '<textarea id="dk-title" class="dk-title" rows="1" maxlength="200" placeholder="Title" aria-label="Title"></textarea>' +
     '<textarea id="dk-dek" class="dk-dek" rows="1" maxlength="400" placeholder="Standfirst: one sentence under the title" aria-label="Standfirst"></textarea>' +
+    '<div id="dk-planbar" class="dk-planbar" hidden></div>' +
     '<div id="dk-blocks" class="dk-blocks rs-body"></div>' +
     '<button type="button" class="dk-addend" id="dk-addend">+ Add a block</button>' +
+    '<div id="dk-planbar-end" class="dk-planbar" hidden></div>' +
     "</main>" +
     '<aside class="dk-side" aria-label="Article settings">' +
     '<div class="dk-tabs" role="tablist">' +
@@ -2290,6 +2566,24 @@ function wire() {
   box.addEventListener("click", onClick);
   box.addEventListener("paste", onPaste);
   box.addEventListener("dragstart", onDragStart);
+  // a note dragged from Research › Notes, or a screenshot dropped on a planned chart
+  box.addEventListener("dragover", function (e) {
+    if (noteDragOver(e)) return;
+    var ph = e.target.closest && e.target.closest(".dk-ph-chart");
+    if (ph && !drag.el && e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types || [], "Files") !== -1) {
+      e.preventDefault();
+      ph.classList.add("over");
+    }
+  });
+  box.addEventListener("dragleave", function (e) {
+    var ph = e.target.closest && e.target.closest(".dk-ph-chart");
+    if (ph) ph.classList.remove("over");
+  });
+  box.addEventListener("drop", function (e) {
+    if (noteDrop(e)) { e.stopImmediatePropagation(); return; }
+    if (placeholderDrop(e)) e.stopImmediatePropagation();
+  });
+  document.addEventListener("paste", placeholderPaste, true);
   box.addEventListener("dragover", onDragOver);
   box.addEventListener("drop", onDrop);
   box.addEventListener("dragend", onDragEnd);
