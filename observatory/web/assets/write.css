@@ -1,0 +1,72 @@
+/* The Writer Desk (write.html). Built on the workspace app shell in
+   assistant.css; this file adds only what the desk needs on top. Colours come
+   only from the --obs-* tokens. */
+
+/* ---- sign-in */
+.wd-signin { max-width: 420px; text-align: left; }
+.wd-signin h1 { margin-top: 12px; }
+.wd-logo { border-color: var(--obs-primary); color: var(--obs-primary); }
+.wd-form { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.wd-form label { font-size: 12.5px; font-weight: 600; color: var(--obs-ink); margin-top: 6px; }
+.wd-form input { height: 36px; padding: 0 10px; border: 1px solid var(--obs-border); border-radius: 4px; background: var(--obs-surface); }
+.wd-form .btn { margin-top: 10px; justify-content: center; height: 36px; }
+.wd-pw { margin-top: 28px; padding-top: 16px; border-top: 1px solid var(--obs-border); }
+.wd-pw summary { cursor: pointer; color: var(--obs-primary); font-size: 13px; }
+.wd-signin .notice { margin: 16px 0 0; }
+
+/* ---- page parts */
+.wd-tabs { margin: -16px 0 8px; border-bottom: 1px solid var(--obs-border); padding-bottom: 8px; }
+.wd-loading { padding: 24px 0; }
+.wd-para { color: var(--obs-ink); margin-bottom: 12px; max-width: 72ch; }
+.notice.wd-bad { border-left-color: var(--obs-trust-stale); }
+.notice p + p, .notice p + .wd-copyrow, .notice .wd-copyrow + p { margin-top: 8px; }
+.err { min-height: 0; }
+
+/* ---- lists */
+.wd-list > li { flex-wrap: wrap; }
+.wd-list .wd-tags { display: flex; gap: 6px; flex-shrink: 0; }
+.wd-list .wd-tags .tag { margin-left: 0; }
+.wd-list .wd-acts { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.wd-list .wd-acts select { height: 28px; padding: 0 6px; border: 1px solid var(--obs-border); border-radius: 4px; background: var(--obs-surface); color: var(--obs-ink); font: inherit; font-size: 12.5px; }
+.wd-list b a { color: var(--obs-ink); }
+.wd-list b a:hover { color: var(--obs-primary); }
+.wd-list small a { color: var(--obs-text-muted); }
+.wd-list li.wd-ask { border-left: 3px solid var(--obs-warn); padding-left: 13px; }
+.wd-list li[hidden] { display: none; }
+.wd-empty { border: 1px solid var(--obs-border); border-radius: 4px; background: var(--obs-surface); }
+.btn.armed { color: var(--obs-surface); background: var(--obs-trust-stale); border-color: var(--obs-trust-stale); }
+.btn:disabled { opacity: .6; cursor: default; }
+.undo-bar { display: flex; align-items: center; gap: 10px; font-size: 13.5px; color: var(--obs-ink);
+  background: var(--obs-surface); border: 1px solid var(--obs-border); border-radius: 3px; padding: 8px 12px; margin: 0 0 12px; }
+.wd-backup { margin-top: 16px; font-size: 12.5px; color: var(--obs-text-muted); }
+.wd-backup.err { color: var(--obs-trust-stale); }
+
+/* ---- forms */
+.wd-kv { max-width: 760px; }
+.wd-kv dd { flex-wrap: wrap; }
+.wd-kv input, .wd-kv select { min-width: 320px; }
+.wd-kv textarea { width: 100%; max-width: 520px; padding: 8px 10px; border: 1px solid var(--obs-border); border-radius: 4px; background: var(--obs-surface); font: inherit; color: inherit; resize: vertical; }
+.wd-kv .hint { flex-basis: 100%; }
+.wd-prefix { color: var(--obs-text-muted); margin-right: -6px; }
+.wd-roles { display: grid; grid-template-columns: 90px 1fr; gap: 8px 16px; font-size: 13.5px; max-width: 720px; }
+.wd-roles dt { font-weight: 600; color: var(--obs-ink); }
+.wd-roles dd { color: var(--obs-ink); }
+.wd-copyrow { display: flex; gap: 8px; align-items: flex-start; }
+.wd-copyrow input, .wd-copyrow textarea { flex: 1; min-width: 0; height: 30px; padding: 0 8px; border: 1px solid var(--obs-border); border-radius: 4px; background: var(--obs-surface-subtle); font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: 12px; color: var(--obs-ink); }
+.wd-copyrow textarea { height: auto; padding: 6px 8px; resize: none; }
+.wd-linkbox { max-width: 860px; }
+.wd-steplabel { font-size: 12px; font-weight: 600; color: var(--obs-text-muted); margin-top: 8px; }
+.wd-keynew { display: flex; gap: 8px; margin-top: 12px; }
+.wd-keynew select { height: 32px; padding: 0 8px; border: 1px solid var(--obs-border); border-radius: 4px; background: var(--obs-surface); color: var(--obs-ink); font: inherit; }
+#wd-mout, #wd-keyout, #wd-oout { margin-top: 12px; }
+
+@media (max-width: 760px) {
+  .wd-tabs { margin-top: -8px; }
+  /* the name gets the full width; its buttons go under it */
+  .pagehead > div:first-of-type { flex-basis: 100%; }
+  .wd-list .wd-tags, .wd-list .wd-acts { flex-basis: 100%; }
+  .wd-kv input, .wd-kv select { min-width: 0; width: 100%; }
+  .wd-roles { grid-template-columns: 1fr; gap: 2px; }
+  .wd-roles dd { margin-bottom: 8px; }
+  .wd-copyrow { flex-wrap: wrap; }
+}

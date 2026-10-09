@@ -92,8 +92,10 @@ function drawAI() {
     (running ? " disabled" : "") + "></textarea>" +
     '<button type="submit" class="btn btn-primary" id="dk-ai-run"' + (running ? " disabled" : "") + ">" +
     (running ? "Working…" : "Run") + "</button></form>" +
-    '<p class="dk-ai-reach">Can use: ' + escapeHtml((s.reach || []).join(", ")) +
-    '. <a href="admin.html#ai" target="_blank" rel="noopener">Skills and connections</a></p>' +
+    '<p class="dk-ai-reach">Can use: ' + escapeHtml((s.reach || []).join(", ")) + "." +
+    // the team's skills and connections are set up in the admin console, for PloverResearch
+    (S.article && S.article.publication && S.article.publication.home
+      ? ' <a href="admin.html#ai" target="_blank" rel="noopener">Skills and connections</a>' : "") + "</p>" +
     '<div id="dk-ai-job"></div>';
   $("#dk-ai-change").addEventListener("click", function () { AI.setup = true; drawAI(); });
   var pick = $("#dk-ai-skill");

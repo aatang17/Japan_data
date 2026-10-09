@@ -14,7 +14,10 @@ Permissions
 ``team``            add people, change their permissions, issue setup links
 ``operations``      ingest health, release history, traffic, the audit log
 ``classification``  party profiles and the classification queue
-``writing``         the research desk: write, edit and publish articles
+``writing``         the research desk: write, edit and publish PloverResearch
+                    articles (an editor of PloverResearch; with ``team``, its
+                    owner). Other publications' writers are members there,
+                    not permission holders — see app/writers.py
 
 How a person gets in
 --------------------
@@ -363,6 +366,32 @@ def create(email, name, permissions, created_by):
         token = _issue_setup(c, staff_id, created_by)
         c.commit()
     return get(staff_id), token
+
+
+def ensure_person(email, name, created_by):
+    """The person with this address, adding them with no permissions and no
+    password when they are new. This is how a writer invited to a publication
+    gets a record of their own (their AI settings and keys hang off it); they
+    sign in by email link, and nothing here opens the admin console to them."""
+    email = normalise_email(email)
+    if not email or len(email) > EMAIL_MAX or not _EMAIL.match(email):
+        raise StaffError("Enter a valid email address.")
+    existing = get_by_email(email)
+    if existing is not None:
+        if existing["status"] != "active":
+            raise StaffError("%s has a disabled account. Turn it back on in the Admin Console's "
+                             "Team page first." % email)
+        return existing
+    name = (name or "").strip()
+    if not name or len(name) > NAME_MAX:
+        raise StaffError("Enter a name of up to %d characters." % NAME_MAX)
+    c = conn()
+    with _lock:
+        c.execute("INSERT OR IGNORE INTO staff (email, name, permissions, status, created_at, "
+                  "created_by) VALUES (?, ?, '[]', 'active', ?, ?)",
+                  (email, name, _now(), created_by))
+        c.commit()
+    return get_by_email(email)
 
 
 def _issue_setup(c, staff_id, created_by):

@@ -24,7 +24,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, Response
 from starlette.concurrency import run_in_threadpool
 
-from . import research, research_doc as rd, research_pages as rp, seo, staff, tools_v2
+from . import research, research_doc as rd, research_pages as rp, seo, staff, tools_v2, writers
 
 router = APIRouter(include_in_schema=False)
 
@@ -33,9 +33,9 @@ SERVER_INFO = {"name": "plover-research", "title": "PloverResearch drafting desk
                "version": "1.0.0"}
 
 RULES = (
-    "You are drafting PloverResearch notes for Plover Analytics, on behalf of the person "
-    "whose key you hold. Drafts only: you cannot publish; a person reviews and publishes in "
-    "the desk.\n\n"
+    "You are drafting research notes in PloverResearch, Plover Analytics' publishing desk, on "
+    "behalf of the person whose key you hold, in the publications they write for. Drafts "
+    "only: you cannot publish; a person reviews and publishes in the desk.\n\n"
     "Markdown conventions (read_article returns them and create_draft / replace_draft read "
     "them):\n"
     "- '# Title' first; an italic line straight after it is the standfirst.\n"
@@ -83,8 +83,9 @@ _REV = {"type": "integer", "description": ("The revision you read (from read_art
 
 TOOLS = [
     {"name": "list_articles",
-     "description": "Every PloverResearch article: id, title, status, published version, "
-                    "last edit and by whom. Call this first.",
+     "description": "Every article you can open, in each publication you write for: id, "
+                    "publication, title, status, published version, last edit and by whom, "
+                    "and your publications with your role. Call this first.",
      "inputSchema": {"type": "object", "properties": {}, "required": []},
      "annotations": {"readOnlyHint": True}},
     {"name": "read_article",
@@ -101,7 +102,10 @@ TOOLS = [
          "summary": {"type": "string", "description": "One or two sentences for search "
                      "results and the Substack lead (up to 700 characters)."},
          "slug": {"type": "string", "description": "Optional web address: lower-case words "
-                  "joined by hyphens."}},
+                  "joined by hyphens."},
+         "publication": {"type": "string", "description": "Optional: which publication, by "
+                         "the address name list_articles gives. Defaults to PloverResearch "
+                         "if you write there, else your first publication."}},
          "required": ["markdown"]}},
     {"name": "replace_draft",
      "description": "Replace a draft's body with new Markdown. Charts already captured from "
@@ -169,11 +173,28 @@ def _charts(draft):
     return [(b, nums[b["id"]]) for b in draft["blocks"] if b["id"] in nums]
 
 
-def _article(aid):
+def _article(aid, person, action="view"):
     a = research.get(aid)
-    if a is None:
+    if a is None or not writers.can(person, action, a):
+        if a is not None and writers.can(person, "view", a):
+            raise ValueError("Only an editor of the publication can do that.")
         raise LookupError("No article with id %s. Call list_articles." % aid)
     return a
+
+
+def _url(a):
+    return seo.SITE_BASE_URL + research.address(a["publication_id"], a["slug"])
+
+
+def _publication_for(person, name):
+    mine = writers.roles(person)
+    if name:
+        pub = research.publication_by_slug(name)
+        if pub is None or pub["id"] not in mine:
+            raise ValueError("You do not write for a publication called '%s'. Call "
+                             "list_articles for yours." % name)
+        return pub["id"]
+    return research.HOME if research.HOME in mine else sorted(mine)[0]
 
 
 def _markdown_for(a):
@@ -259,9 +280,11 @@ def _apply_markdown(markdown, keep_title_from):
     return draft
 
 
-def _slug_ok(slug, aid):
-    if slug and rd._SLUG.match(slug) and research.slug_taken(slug, aid):
-        raise ValueError("Another article already uses /research/%s; choose another." % slug)
+def _slug_ok(slug, aid, publication_id=None):
+    if slug and rd._SLUG.match(slug) and research.slug_taken(slug, aid,
+                                                            publication_id=publication_id):
+        raise ValueError("Another article in this publication already uses the address '%s'; "
+                         "choose another." % slug)
 
 
 def run(person, client, name, args):
@@ -269,14 +292,21 @@ def run(person, client, name, args):
     actor = _actor(person, client)
     try:
         if name == "list_articles":
-            return _j({"articles": [{
-                "id": a["id"], "title": a["title"], "status": a["status"],
+            mine = writers.roles(person)
+            pubs = dict((pid, research.publication(pid)) for pid in mine)
+            return _j({"publications": [{"publication": pubs[pid]["slug"],
+                                         "name": pubs[pid]["name"], "your_role": mine[pid]}
+                                        for pid in sorted(mine)],
+                       "articles": [{
+                "id": a["id"], "publication": pubs[a["publication_id"]]["slug"],
+                "title": a["title"], "status": a["status"],
                 "published_version": a["published_version"], "updated_at": a["updated_at"],
                 "updated_by": a["updated_by"],
-                "url": (seo.SITE_BASE_URL + "/research/" + a["slug"]) if a["published_version"] else None,
-            } for a in research.list_articles()]}), False
+                "url": _url(a) if a["published_version"] else None,
+            } for a in research.list_articles() if a["publication_id"] in mine
+                and writers.can(person, "view", a)]}), False
         if name == "read_article":
-            a = _article(int(args["article_id"]))
+            a = _article(int(args["article_id"]), person)
             return _j({"article_id": a["id"], "revision": a["revision"], "status": a["status"],
                        "published_version": a["published_version"],
                        "unpublished_changes": a["unpublished_changes"],
@@ -290,11 +320,12 @@ def run(person, client, name, args):
                 return _fail("Start the Markdown with '# Title'."), True
             if args.get("summary"):
                 draft["summary"] = rd.plain(args["summary"], rd.SUMMARY_MAX)
+            pid = _publication_for(person, args.get("publication"))
             if args.get("slug"):
                 draft["slug"] = rd.slugify(args["slug"])
-            _slug_ok(draft["slug"], 0)
+            _slug_ok(draft["slug"], 0, pid)
             draft["authors"] = [person["id"]]
-            a = research.create(actor, draft)
+            a = research.create(actor, draft, pid)
             from .admin_api import audit
             audit("mcp_draft_created", "article %d: %s" % (a["id"], draft["title"]), "mcp",
                   by=actor)
@@ -302,7 +333,7 @@ def run(person, client, name, args):
                        "desk_url": _desk_url(a["id"]), "pending_charts": _pending(a["draft"]),
                        "note": "Draft created. A person reviews and publishes it in the desk."}), False
         if name in ("replace_draft", "append_to_draft", "set_details"):
-            a = _article(int(args["article_id"]))
+            a = _article(int(args["article_id"]), person, "edit")
             base = int(args["base_revision"])
             old = a["draft"]
             if name == "replace_draft":
@@ -341,7 +372,8 @@ def run(person, client, name, args):
                 if args.get("slug") is not None:
                     if a["slug_locked"]:
                         return _fail("The web address is fixed: the article has been "
-                                     "published at /research/%s." % a["slug"]), True
+                                     "published at %s." % research.address(
+                                         a["publication_id"], a["slug"])), True
                     draft["slug"] = rd.slugify(args["slug"])
                     _slug_ok(draft["slug"], a["id"])
                 label = "Details via %s" % client
@@ -350,7 +382,7 @@ def run(person, client, name, args):
             audit("mcp_" + name, "article %d" % a["id"], "mcp", by=actor)
             return _j(out), False
         if name == "check_article":
-            a = _article(int(args["article_id"]))
+            a = _article(int(args["article_id"]), person)
             draft = a["draft"]
             names = []
             for i in draft["authors"]:
@@ -445,8 +477,8 @@ def _client(request):
     return "MCP"
 
 
-_NEED_KEY = {"error": ("This endpoint needs a personal key: sign in to the Plover admin "
-                       "console, open My Account, create a key under AI Connections, and "
+_NEED_KEY = {"error": ("This endpoint needs a personal key: sign in to the Writer Desk "
+                       "(/write.html), open My Account, create a key under AI Connections, and "
                        "send it as 'Authorization: Bearer <key>'.")}
 
 
@@ -454,7 +486,7 @@ def _who(token):
     person = staff.key_person(token)
     if person is None:
         return None, 401
-    if "writing" not in person["permissions"]:
+    if not writers.roles(person):
         return None, 403
     return person, 200
 
@@ -464,7 +496,7 @@ async def research_post(request: Request):
     person, status = await run_in_threadpool(_who, _bearer(request))
     if person is None:
         body = _NEED_KEY if status == 401 else {
-            "error": "Your account does not have the Writing permission."}
+            "error": "You are not a member of any publication."}
         return JSONResponse(body, status_code=status,
                             headers={"WWW-Authenticate": 'Bearer realm="plover-research"'})
     try:

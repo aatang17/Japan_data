@@ -87,8 +87,24 @@ function send(method, path, body) {
 
 function signedOut() {
   showBanner("warn", "You were signed out. Sign in again in another tab " +
-    '(<a href="admin.html" target="_blank" rel="noopener">Admin Console</a>), then come back: ' +
+    '(<a href="write.html" target="_blank" rel="noopener">Writer Desk</a>), then come back: ' +
     "your changes are kept in this browser and will save.");
+}
+
+/* The article list this article belongs on, in the Writer Desk. */
+function listUrl() {
+  var pub = S.article && S.article.publication;
+  return "write.html" + (pub ? "#/p/" + pub.id : "");
+}
+
+/* Where the publication's pages live: /research, or /p/<publication>. */
+function pubBase() {
+  var pub = S.article && S.article.publication;
+  return pub ? pub.base : "/research";
+}
+
+function canDo(action) {
+  return !!(S.article && S.article.can && S.article.can[action]);
 }
 
 /* ---------------------------------------------------------------- inline cleaning */
@@ -2189,14 +2205,15 @@ function renderSide() {
     '<span class="hint">Shown in search results and used as the Substack lead. ' +
     '<span id="dk-sum-n" class="num"></span></span></div>' +
     '<div class="field"><label for="dk-slug">Web Address <span class="req" aria-hidden="true">*</span></label>' +
-    '<div class="dk-slug-row"><span class="muted">/research/</span><input type="text" id="dk-slug" maxlength="80"' +
+    '<div class="dk-slug-row"><span class="muted">' + escapeHtml(pubBase()) + '/</span><input type="text" id="dk-slug" maxlength="80"' +
     (locked ? " readonly" : "") + "></div>" +
     (locked ? '<span class="hint">Fixed since first publication: citations point at it.</span>'
       : '<span class="hint">Lower-case words joined by hyphens. <button type="button" class="linkish" id="dk-slug-title">Use the title</button></span>') +
     "</div>" +
     '<div class="field"><span class="dk-flabel">Authors <span class="req" aria-hidden="true">*</span></span>' +
     '<div id="dk-authors" class="dk-authors"></div>' +
-    '<span class="hint">People with the Writing permission. Add someone on the Team page.</span></div>' +
+    '<span class="hint">Members of ' + escapeHtml(S.article.publication ? S.article.publication.name : "the publication") +
+    '. Its owners add people on the <a href="' + escapeHtml(listUrl().replace(/#\/p\/(\d+)$/, "#/p/$1/members")) + '">Members</a> page.</span></div>' +
     '<p class="dk-sub-h">Homepage</p>' +
     '<div class="field"><label for="dk-market">Market <span class="req" aria-hidden="true">*</span></label>' +
     '<select id="dk-market"><option value="">Choose…</option>' + MARKETS.map(function (m) {
@@ -2230,7 +2247,7 @@ function renderSide() {
   $("#dk-authors").innerHTML = S.authors.map(function (p) {
     return '<label><input type="checkbox" name="dk-author" value="' + p.id + '"' +
       (d.authors.indexOf(p.id) !== -1 ? " checked" : "") + "> " + escapeHtml(p.name) + "</label>";
-  }).join("") || '<span class="muted">Nobody has the Writing permission yet.</span>';
+  }).join("") || '<span class="muted">Nobody writes for this publication yet.</span>';
   var sumN = function () { $("#dk-sum-n").textContent = ($("#dk-summary").value.length) + " / 700"; };
   sumN();
   $("#dk-summary").addEventListener("input", function () { sumN(); changed(); });
@@ -2250,7 +2267,7 @@ function renderVersions() {
   var a = S.article;
   var box = $("#dk-pane-versions");
   var rows = (a.versions || []).map(function (v) {
-    return '<li><a href="/research/' + escapeHtml(a.slug) + "/v" + v.version + '" target="_blank" rel="noopener">Version ' +
+    return '<li><a href="' + escapeHtml(pubBase()) + "/" + escapeHtml(a.slug) + "/v" + v.version + '" target="_blank" rel="noopener">Version ' +
       v.version + "</a> <span class=\"muted num\">" + escapeHtml(fmtStamp(v.published_at)) + "</span>" +
       '<span class="dk-v-note">' + escapeHtml(v.change_note) + " — " + escapeHtml(v.published_by) + "</span></li>";
   }).join("");
@@ -2260,13 +2277,13 @@ function renderVersions() {
     : "";
   box.innerHTML = status +
     (rows ? '<ol class="dk-versions">' + rows + "</ol>" : '<p class="muted">Not published yet.</p>') +
-    (a.status === "published"
+    (a.status === "published" && canDo("publish")
       ? '<div class="field"><label for="dk-wd">Withdraw</label><input type="text" id="dk-wd" maxlength="400" ' +
         'placeholder="Reason readers will see"><button type="button" class="btn btn-danger" id="dk-wd-btn">Withdraw Article</button>' +
         '<span class="hint">Takes the page down and shows the reason instead. Versions stay stored.</span></div>'
       : "") +
-    (a.status === "withdrawn" ? '<button type="button" class="btn" id="dk-reinstate">Reinstate Article</button>' : "") +
-    (!a.published_version ? '<div class="field"><button type="button" class="btn btn-danger" id="dk-delete">Delete Draft</button>' +
+    (a.status === "withdrawn" && canDo("publish") ? '<button type="button" class="btn" id="dk-reinstate">Reinstate Article</button>' : "") +
+    (!a.published_version && canDo("delete") ? '<div class="field"><button type="button" class="btn btn-danger" id="dk-delete">Delete Draft</button>' +
       '<span class="hint">Only possible before the first publication.</span></div>' : "");
   var wd = $("#dk-wd-btn");
   if (wd) wd.addEventListener("click", function () {
@@ -2297,12 +2314,12 @@ function renderVersions() {
         if (!window.confirm("Delete this draft? This cannot be undone.")) return;
         api("/research/articles/" + ID, { method: "DELETE" }).then(function () {
           S.savedSeq = S.seq;
-          location.href = "admin.html#articles";
+          location.href = listUrl();
         }).catch(function (err) { toast(err.message); });
         return;
       }
       S.savedSeq = S.seq;
-      location.href = "admin.html#articles";
+      location.href = listUrl();
     });
   }
 }
@@ -2479,7 +2496,15 @@ function renderBar() {
   $("#dk-crumb-title").textContent = $("#dk-title").value || "Untitled";
   $("#dk-sub-btn").hidden = !a.published_version;
   $("#dk-view").hidden = !(a.published_version && a.status === "published");
-  if (a.published_version) $("#dk-view").href = "/research/" + a.slug;
+  if (a.published_version) $("#dk-view").href = pubBase() + "/" + a.slug;
+  var pb = $("#dk-publish-btn");
+  if (!canDo("publish")) {
+    // a writer hands the article to the publication's editors instead
+    pb.textContent = a.review_requested_at ? "Asked to Publish" : "Ask to Publish";
+    pb.title = a.review_requested_at
+      ? "Sent to the editors on " + fmtStamp(a.review_requested_at) + " UTC. Ask again after more changes."
+      : "Writers do not publish: this tells the publication's editors it is ready.";
+  }
 }
 
 function renderBlocks(blocks) {
@@ -2517,8 +2542,9 @@ function autoGrow(ta) {
 function shell() {
   ROOT.innerHTML =
     '<div class="dk-bar">' +
-    '<nav class="dk-crumbs" aria-label="Breadcrumb"><a href="admin.html#articles">Admin</a><span aria-hidden="true">/</span>' +
-    '<a href="admin.html#articles">Articles</a><span aria-hidden="true">/</span><span id="dk-crumb-title" aria-current="page"></span></nav>' +
+    '<nav class="dk-crumbs" aria-label="Breadcrumb"><a href="write.html">Writer Desk</a><span aria-hidden="true">/</span>' +
+    '<a href="' + escapeHtml(listUrl()) + '">' + escapeHtml(S.article.publication ? S.article.publication.name : "Articles") +
+    '</a><span aria-hidden="true">/</span><span id="dk-crumb-title" aria-current="page"></span></nav>' +
     '<span id="dk-state" class="dk-state"></span>' +
     '<span class="dk-spacer"></span>' +
     '<span id="dk-others" class="dk-others" hidden></span>' +
@@ -2532,7 +2558,7 @@ function shell() {
     '<div id="dk-banners" class="dk-banners"></div>' +
     '<div class="dk-layout">' +
     '<main class="dk-canvas" id="dk-canvas">' +
-    '<p class="dk-kicker">PloverResearch</p>' +
+    '<p class="dk-kicker">' + escapeHtml(S.article.publication ? S.article.publication.name : "PloverResearch") + '</p>' +
     '<textarea id="dk-title" class="dk-title" rows="1" maxlength="200" placeholder="Title" aria-label="Title"></textarea>' +
     '<textarea id="dk-dek" class="dk-dek" rows="1" maxlength="400" placeholder="Standfirst: one sentence under the title" aria-label="Standfirst"></textarea>' +
     '<div id="dk-planbar" class="dk-planbar" hidden></div>' +
@@ -2657,7 +2683,9 @@ function wire() {
       if (w) w.location = "/admin/api/research/articles/" + ID + "/preview";
     });
   });
-  $("#dk-publish-btn").addEventListener("click", openPublish);
+  $("#dk-publish-btn").addEventListener("click", function () {
+    if (canDo("publish")) openPublish(); else askToPublish();
+  });
   $("#dk-sub-btn").addEventListener("click", openSubstack);
   $all("dialog").forEach(function (d) {
     d.addEventListener("click", function (e) {
@@ -2670,7 +2698,27 @@ function wire() {
 
 function fail(message) {
   ROOT.innerHTML = '<div class="dk-fail"><h1>Research Desk</h1><p>' + message + '</p>' +
-    '<p><a class="btn" href="admin.html#articles">Back to the Admin Console</a></p></div>';
+    '<p><a class="btn" href="write.html">Back to the Writer Desk</a></p></div>';
+}
+
+/* A writer cannot publish: save, then tell the editors it is ready. The
+   button stays off until the server answers (lock.js does the same for
+   every page). */
+function askToPublish() {
+  var btn = $("#dk-publish-btn");
+  btn.disabled = true;
+  btn.textContent = "Sending…";
+  saveNow().then(function () {
+    return send("POST", "/research/articles/" + ID + "/review");
+  }).then(function (res) {
+    S.article = Object.assign(S.article, res);
+    toast("Sent. The publication's editors see it marked Ready for Review.");
+  }).catch(function (err) {
+    toast(err.message);
+  }).then(function () {
+    btn.disabled = false;
+    renderBar();
+  });
 }
 
 function boot() {
@@ -2678,17 +2726,17 @@ function boot() {
     Object.keys(S.charts).forEach(function (k) { S.charts[k].render(); });
   });
   if (!ID) { fail("No article was given. Open one from the article list."); return; }
-  api("/session").then(function (s) {
-    if (!s.authenticated) {
-      fail('Sign in to the <a href="admin.html">Admin Console</a> first, then open the article again.');
+  api("/write/me").then(function (s) {
+    if (!s.signed_in || !s.person) {
+      fail('Sign in to the <a href="write.html">Writer Desk</a> first, then open the article again.');
       return null;
     }
-    S.me = s.user;
-    if (s.user.permissions.indexOf("writing") === -1) {
-      fail("Your account does not have the Writing permission. Ask someone with the Team permission to add it.");
+    S.me = s.person;
+    if (!s.writer) {
+      fail("You are not a member of any publication yet. Ask the owner of the publication you write for to invite you.");
       return null;
     }
-    return Promise.all([api("/research/articles/" + ID), api("/research/authors")]);
+    return Promise.all([api("/research/articles/" + ID), api("/research/authors?article_id=" + ID)]);
   }).then(function (res) {
     if (!res) return;
     S.article = res[0];

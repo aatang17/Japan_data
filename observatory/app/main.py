@@ -29,6 +29,7 @@ from .research_mcp import router as research_mcp_router  # noqa: E402
 from .research_ai import router as research_ai_router  # noqa: E402
 from .ai_setup_api import router as ai_setup_router  # noqa: E402
 from .research_clips import router as research_clips_router  # noqa: E402
+from .writer_api import router as writer_router  # noqa: E402
 from . import accounts  # noqa: E402
 from . import assistant  # noqa: E402
 from .assistant import api as assistant_api  # noqa: E402
@@ -250,11 +251,12 @@ app.include_router(mcp_router)
 # /admin/api also sits outside /api/v1: authenticated responses must never be
 # served from (or into) the shared response cache.
 app.include_router(admin_router)
-# The research desk (admin, Writing permission) and PloverResearch's public
-# pages. The public routes are server-rendered HTML outside /api/v1, so a
+# The research desk (a writer's role in each publication: app/writers.py) and
+# the publications' public pages (/research, /p/<publication>). The public routes are server-rendered HTML outside /api/v1, so a
 # newly published article is never held back by the dataset response cache;
 # they must sit ahead of the static mount, which answers every other path.
 app.include_router(research_admin_router)
+app.include_router(writer_router)
 app.include_router(research_router)
 # /mcp/research: the drafting desk for a writer's own Claude Code or Codex,
 # behind a personal key. Outside /api/v1, so never cached.

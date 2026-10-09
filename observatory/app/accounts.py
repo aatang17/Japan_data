@@ -43,6 +43,7 @@ cookie is the same shape: a random token, stored as a hash, HttpOnly and
 SameSite=Lax, thirty days, refreshed as it is used.
 """
 import hashlib
+import logging
 import os
 import pathlib
 import re
@@ -99,9 +100,27 @@ def allowed_emails():
     return set(e.strip().lower() for e in raw.split(",") if e.strip())
 
 
+# Other parts of the app that let people in besides the invite list: each is
+# called with a lower-cased address and returns True to admit it. The research
+# desk registers one so that a publication's members can sign in to write
+# without a redeploy to change ACCOUNTS_ALLOWED_EMAILS (app/writers.py).
+EXTRA_ALLOWED = []
+
+
 def _allowed(email):
     allow = allowed_emails()
-    return allow is None or (email or "").strip().lower() in allow
+    if allow is None:
+        return True
+    email = (email or "").strip().lower()
+    if email in allow:
+        return True
+    for admit in EXTRA_ALLOWED:
+        try:
+            if admit(email):
+                return True
+        except Exception:                                    # noqa: BLE001
+            logging.getLogger(__name__).exception("sign-in allow hook failed")
+    return False
 
 
 def dev_links():
@@ -234,6 +253,44 @@ def _send_email(to_address, link):
         # mailer has already logged the provider's reason.
         raise HTTPException(503, "We could not send the email just now. "
                                  "Try again in a few minutes.")
+
+
+# A link handed over by a person instead of emailed: an owner invites a writer
+# and sends the link themselves, which works before any mail provider is set
+# up. Longer-lived than an emailed link because it travels by hand.
+INVITE_TTL_SECONDS = 72 * 3600
+
+
+def issue_link(email, return_to, base_url, ttl=INVITE_TTL_SECONDS):
+    """A single-use sign-in link for ``email``, not sent anywhere. Like an
+    emailed one it cancels the address's earlier unused links."""
+    email = _normalise(email)
+    token = secrets.token_urlsafe(32)
+    return_to = _safe_return_to(return_to)
+    now = _now()
+    db = conn()
+    with _lock:
+        db.execute("UPDATE signin_tokens SET used_at = ? WHERE email = ? AND used_at IS NULL",
+                   (now, email))
+        db.execute("INSERT INTO signin_tokens (token_hash, email, return_to, ip, created_at, "
+                   "expires_at) VALUES (?, ?, ?, 'invite', ?, ?)",
+                   (_hash(token), email, return_to, now, now + ttl))
+        db.commit()
+    return (base_url.rstrip("/") + "/signin.html?token=" + urllib.parse.quote(token) +
+            "&returnTo=" + urllib.parse.quote(return_to))
+
+
+def base_url(request):
+    return _base_url(request)
+
+
+def last_seen(email):
+    """When an address last used an email-link session, or None."""
+    if not enabled():
+        return None
+    row = conn().execute("SELECT last_seen_at FROM accounts WHERE email = ?",
+                         ((email or "").strip().lower(),)).fetchone()
+    return row["last_seen_at"] if row else None
 
 
 # ----------------------------------------------------------------- sessions

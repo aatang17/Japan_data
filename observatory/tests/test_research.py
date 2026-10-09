@@ -646,7 +646,7 @@ class PlanAndNotesTest(Base):
         draft = self.complete_draft(blocks=self.REMINDERS, notes=[{"kind": "mine", "text": "check flights"}],
                                     plan={"blocks": [{"type": "p", "html": "The plan."}]})
         self.save(a["id"], draft, a["revision"])
-        person = {"id": self.writer_id, "email": "w@example.com", "name": "Wren Writer"}
+        person = staff.get(self.writer_id)
         text, err = research_mcp.run(person, "Claude", "read_article", {"article_id": a["id"]})
         self.assertFalse(err, text)
         got = json.loads(text)

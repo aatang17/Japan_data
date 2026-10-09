@@ -55,7 +55,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 from . import (connectors, research, research_clips, research_doc as rd, research_mcp, research_web,
-               skills, staff, staff_google, tools_v2)
+               skills, staff, staff_google, tools_v2, writers)
 from .assistant import codex as codex_mod, gateway, keychain
 
 PROVIDERS = [
@@ -119,8 +119,10 @@ def _reach(person):
     out = ["Plover data", "Web pages"]
     if staff_google.usable(person["id"]):
         out.append("Google Drive")
-    out += [c["label"] for c in connectors.list_connectors(enabled_only=True)
-            if any(t["on"] for t in c["tools"])]
+    if writers.role(person, research.HOME):
+        # the team's connectors serve PloverResearch articles only (_team_tools)
+        out += [c["label"] for c in connectors.list_connectors(enabled_only=True)
+                if any(t["on"] for t in c["tools"])]
     return out
 
 
@@ -533,8 +535,20 @@ def tool_list(ctx=None):
     person = (ctx or {}).get("person")
     if person and staff_google.usable(person["id"]):
         out += DRIVE_TOOLS
-    out += [dict((k, t[k]) for k in ("name", "description", "parameters")) for t in connectors.run_tools()]
+    if _team_tools(ctx):
+        out += [dict((k, t[k]) for k in ("name", "description", "parameters"))
+                for t in connectors.run_tools()]
     return out
+
+
+def _team_tools(ctx):
+    """The team's connectors carry Plover's own keys: they serve PloverResearch
+    articles only, never another publication's."""
+    aid = (ctx or {}).get("article_id")
+    if aid is None:
+        return True
+    a = research.get(aid)
+    return bool(a) and a["publication_id"] == research.HOME
 
 
 def call_tool(ctx, name, args):
@@ -611,7 +625,7 @@ def call_tool(ctx, name, args):
                               ensure_ascii=False)[:TOOL_TEXT_MAX * 2], False
         except staff_google.GoogleError as exc:
             return json.dumps({"error": str(exc)}), True
-    for t in connectors.run_tools():
+    for t in (connectors.run_tools() if _team_tools(ctx) else []):
         if t["name"] == name:
             keys = (ctx.get("creds") or {}).get("connector_keys")
             text, err = connectors.call(t["connector_id"], t["remote"], args,
@@ -658,7 +672,8 @@ def _system(article, person, skill=None, length=None):
     if skill:
         extra += ("The writer chose the skill \"%s\" for this run. Follow its steps:\n\n%s\n\n"
                   % (skill["name"], skill["instructions"]))
-    lines = [c["label"] for c in connectors.list_connectors(enabled_only=True) if c["tools"]]
+    lines = [c["label"] for c in connectors.list_connectors(enabled_only=True) if c["tools"]] \
+        if article["publication_id"] == research.HOME else []
     if staff_google.usable(person["id"]):
         lines.insert(0, "the writer's Google Drive (drive_search, drive_read)")
     if lines:
@@ -793,7 +808,7 @@ def start(person, article_id, instruction, skill_id=None, image=None):
     if image:
         instruction += "\n\n" + PICTURE_RULES
     article = research.get(article_id)
-    if article is None:
+    if article is None or not writers.can(person, "edit", article):
         raise AIError("No such article.")
     s = staff.ai_settings(person["id"])
     provider = s["provider"]
@@ -897,11 +912,11 @@ def _spec_file(job, ctx, work):
         json.dump({"staff_id": ctx["person"]["id"], "article_id": ctx["article_id"],
                    "client": ctx["client"], "log": log, "read_only": bool(ctx.get("read_only")),
                    "plan_words": ctx.get("plan_words"),
-                   "creds": _run_creds(ctx["person"])}, f)
+                   "creds": _run_creds(ctx["person"], _team_tools(ctx))}, f)
     return path, log
 
 
-def _run_creds(person):
+def _run_creds(person, team=True):
     """What the CLI's tool server needs to reach Drive and the connectors,
     without the keychain's master secret: an hour-long Google access token
     and each connector's key, in a 0600 file deleted with the run."""
@@ -911,7 +926,7 @@ def _run_creds(person):
             out["google_token"] = staff_google._token(person["id"])
         except staff_google.GoogleError:
             pass
-    for c in connectors.list_connectors(enabled_only=True, with_secret=True):
+    for c in (connectors.list_connectors(enabled_only=True, with_secret=True) if team else []):
         if c.get("_secret_ct"):
             try:
                 out["connector_keys"][str(c["id"])] = connectors._secret(c)
@@ -1144,8 +1159,7 @@ router = APIRouter(prefix="/admin/api/research", include_in_schema=False)
 
 
 def _person(request):
-    from .admin_api import _require_admin
-    person = _require_admin(request, "writing")
+    person = writers.require_writer(request)
     if person.get("shared") or not person.get("id"):
         raise HTTPException(403, "Sign in with your own account to use the AI tab: "
                                  "its keys and sign-ins are personal.")

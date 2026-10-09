@@ -16,6 +16,15 @@ must keep returning version 1.
 Withdrawing an article hides it from the list and replaces its page with a
 notice. The versions stay stored; reinstating brings the page back.
 
+Publications
+------------
+Every article belongs to one **publication**. PloverResearch is publication 1
+(``HOME``) and keeps its addresses under ``/research``; every other
+publication lives under ``/p/<publication>``. An article's address is unique
+within its publication, not across them. Who may do what in a publication
+(owner, editor, writer) is stored in ``members`` and decided in
+``app/writers.py``.
+
 Two writers, one draft
 ----------------------
 Every save carries the revision it was based on. A save based on a revision
@@ -49,7 +58,8 @@ HISTORY_EVERY_SECONDS = 120      # at most one automatic snapshot per writer per
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS articles (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  slug TEXT UNIQUE,
+  publication_id INTEGER NOT NULL DEFAULT 1,
+  slug TEXT,
   draft TEXT NOT NULL,
   revision INTEGER NOT NULL DEFAULT 1,
   status TEXT NOT NULL DEFAULT 'draft',
@@ -60,7 +70,10 @@ CREATE TABLE IF NOT EXISTS articles (
   published_version INTEGER,
   withdrawn_at INTEGER,
   withdrawn_by TEXT,
-  withdrawn_reason TEXT
+  withdrawn_reason TEXT,
+  review_requested_at INTEGER,
+  review_requested_by TEXT,
+  UNIQUE (publication_id, slug)
 );
 CREATE TABLE IF NOT EXISTS article_versions (
   article_id INTEGER NOT NULL,
@@ -96,6 +109,26 @@ CREATE TABLE IF NOT EXISTS draft_history (
   label TEXT
 );
 CREATE INDEX IF NOT EXISTS draft_history_article ON draft_history (article_id, id);
+CREATE TABLE IF NOT EXISTS publications (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  slug TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  tagline TEXT NOT NULL DEFAULT '',
+  about TEXT NOT NULL DEFAULT '',
+  created_at INTEGER NOT NULL,
+  created_by TEXT NOT NULL,
+  updated_at INTEGER,
+  updated_by TEXT
+);
+CREATE TABLE IF NOT EXISTS members (
+  publication_id INTEGER NOT NULL,
+  email TEXT NOT NULL,
+  role TEXT NOT NULL,
+  added_at INTEGER NOT NULL,
+  added_by TEXT NOT NULL,
+  PRIMARY KEY (publication_id, email)
+);
+CREATE INDEX IF NOT EXISTS members_email ON members (email);
 CREATE TABLE IF NOT EXISTS media (
   sha256 TEXT PRIMARY KEY,
   ext TEXT NOT NULL,
@@ -107,6 +140,20 @@ CREATE TABLE IF NOT EXISTS media (
   uploaded_by TEXT NOT NULL
 );
 """
+
+HOME = 1                         # PloverResearch: its articles live under /research
+HOME_SLUG = "ploverresearch"
+HOME_NAME = "PloverResearch"
+HOME_TAGLINE = ("Research notes on Japan and the United States, built on official statistics "
+                "and company filings.")
+ROLES = ("owner", "editor", "writer")
+PUB_NAME_MAX = 80
+PUB_TAGLINE_MAX = 200
+PUB_ABOUT_MAX = 2000
+PUB_SLUG_MIN, PUB_SLUG_MAX = 3, 40
+# addresses a publication cannot take: /p/<slug> must never shadow something else
+RESERVED_SLUGS = {HOME_SLUG, "research", "plover", "admin", "api", "new", "feed", "media",
+                  "write", "mcp", "assets", "static", "help", "about", "login", "signin"}
 
 _lock = threading.Lock()
 _base = None
@@ -147,13 +194,49 @@ def conn():
             DATA_DIR.mkdir(parents=True, exist_ok=True)
             c = _open(path)
             c.execute("PRAGMA journal_mode=WAL")
+            _add_publications(c)
             c.executescript(SCHEMA)
+            c.execute("INSERT OR IGNORE INTO publications (id, slug, name, tagline, created_at, "
+                      "created_by) VALUES (?, ?, ?, ?, ?, 'system')",
+                      (HOME, HOME_SLUG, HOME_NAME, HOME_TAGLINE, _now()))
             c.commit()
             _base = (c, path)
         base = _base
     if getattr(_local, "base", None) is not base:
         _local.base, _local.conn = base, _open(path)
     return _local.conn
+
+
+def _add_publications(c):
+    """Bring a store from before publications up to date: rebuild ``articles``
+    with a publication (every existing article is PloverResearch's) and an
+    address that is unique per publication. SQLite cannot change a UNIQUE
+    constraint in place, so the table is copied, in one transaction. The
+    published versions are a different table and are not touched."""
+    have = [r[1] for r in c.execute("PRAGMA table_info(articles)").fetchall()]
+    if not have or "publication_id" in have:
+        return
+    seq = c.execute("SELECT seq FROM sqlite_sequence WHERE name = 'articles'").fetchone()
+    cols = ("id, slug, draft, revision, status, created_at, created_by, updated_at, updated_by, "
+            "published_version, withdrawn_at, withdrawn_by, withdrawn_reason")
+    create = SCHEMA[SCHEMA.index("CREATE TABLE IF NOT EXISTS articles ("):
+                    SCHEMA.index("CREATE TABLE IF NOT EXISTS article_versions")]
+    create = create.replace("IF NOT EXISTS articles (", "articles_new (")
+    c.execute("BEGIN IMMEDIATE")
+    try:
+        c.execute(create)
+        c.execute("INSERT INTO articles_new (publication_id, %s) SELECT %d, %s FROM articles"
+                  % (cols, HOME, cols))
+        c.execute("DROP TABLE articles")
+        c.execute("ALTER TABLE articles_new RENAME TO articles")
+        if seq is not None:
+            # a deleted draft's number is never handed out again
+            c.execute("UPDATE sqlite_sequence SET seq = max(seq, ?) WHERE name = 'articles'",
+                      (seq[0],))
+        c.commit()
+    except Exception:
+        c.rollback()
+        raise
 
 
 def _now():
@@ -173,6 +256,7 @@ def _summary(row, versions=None):
     draft = json.loads(row["draft"])
     out = {
         "id": row["id"],
+        "publication_id": row["publication_id"],
         "slug": row["slug"] or draft.get("slug") or "",
         "title": draft.get("title") or "",
         "status": row["status"],
@@ -186,15 +270,23 @@ def _summary(row, versions=None):
         "withdrawn_by": row["withdrawn_by"],
         "withdrawn_reason": row["withdrawn_reason"],
         "slug_locked": row["published_version"] is not None,
+        "review_requested_at": _iso(row["review_requested_at"]),
+        "review_requested_by": row["review_requested_by"],
+        "authors": draft.get("authors") or [],
     }
     if versions is not None:
         out["versions"] = versions
     return out
 
 
-def list_articles():
+def list_articles(publication_id=None):
+    """Every article, or one publication's, most recently edited first."""
     c = conn()
-    rows = c.execute("SELECT * FROM articles ORDER BY updated_at DESC").fetchall()
+    if publication_id is None:
+        rows = c.execute("SELECT * FROM articles ORDER BY updated_at DESC").fetchall()
+    else:
+        rows = c.execute("SELECT * FROM articles WHERE publication_id = ? ORDER BY updated_at DESC",
+                         (publication_id,)).fetchall()
     out = []
     for r in rows:
         s = _summary(r)
@@ -245,15 +337,17 @@ def get(article_id):
     return out
 
 
-def create(actor, draft=None):
+def create(actor, draft=None, publication_id=HOME):
     draft = rd.clean_draft(draft or rd.new_draft())
     now = _now()
     c = conn()
+    if publication(publication_id) is None:
+        raise ResearchError("No such publication.")
     with _lock:
         cur = c.execute(
-            "INSERT INTO articles (draft, revision, status, created_at, created_by, updated_at, "
-            "updated_by) VALUES (?, 1, 'draft', ?, ?, ?, ?)",
-            (json.dumps(draft, ensure_ascii=False), now, actor, now, actor))
+            "INSERT INTO articles (publication_id, draft, revision, status, created_at, created_by, "
+            "updated_at, updated_by) VALUES (?, ?, 1, 'draft', ?, ?, ?, ?)",
+            (publication_id, json.dumps(draft, ensure_ascii=False), now, actor, now, actor))
         aid = cur.lastrowid
         c.execute("INSERT INTO draft_history (article_id, revision, saved_at, saved_by, draft, "
                   "label) VALUES (?, 1, ?, ?, ?, 'Created')",
@@ -341,16 +435,34 @@ def delete_draft(article_id):
         c.commit()
 
 
-def slug_taken(slug, article_id, c=None):
+def slug_taken(slug, article_id, c=None, publication_id=None):
+    """Whether another article in the same publication has (or had) this
+    address. The publication is the article's own unless one is given."""
     # pass the connection when already holding _lock: conn() takes it too
     c = c or conn()
-    row = c.execute("SELECT id FROM articles WHERE slug = ? AND id != ?",
-                    (slug, article_id)).fetchone()
+    if publication_id is None:
+        row = c.execute("SELECT publication_id FROM articles WHERE id = ?", (article_id,)).fetchone()
+        publication_id = row["publication_id"] if row else HOME
+    row = c.execute("SELECT id FROM articles WHERE slug = ? AND id != ? AND publication_id = ?",
+                    (slug, article_id, publication_id)).fetchone()
     if row:
         return True
-    row = c.execute("SELECT 1 FROM article_versions WHERE slug = ? AND article_id != ?",
-                    (slug, article_id)).fetchone()
+    row = c.execute("SELECT 1 FROM article_versions v JOIN articles a ON a.id = v.article_id "
+                    "WHERE v.slug = ? AND v.article_id != ? AND a.publication_id = ?",
+                    (slug, article_id, publication_id)).fetchone()
     return row is not None
+
+
+def request_review(article_id, actor):
+    """A writer asks an editor to publish: shown on the article list until a
+    version is published."""
+    c = conn()
+    with _lock:
+        cur = c.execute("UPDATE articles SET review_requested_at = ?, review_requested_by = ? "
+                        "WHERE id = ?", (_now(), actor, article_id))
+        c.commit()
+    if not cur.rowcount:
+        raise ResearchError("No such article.")
 
 
 # ---------------------------------------------------------------------------
@@ -372,8 +484,9 @@ def publish(article_id, base_revision, actor, change_note, draft, author_names,
                             "updated_at": _iso(row["updated_at"]),
                             "draft": json.loads(row["draft"])})
         slug = row["slug"] or draft["slug"]
-        if row["slug"] is None and slug_taken(slug, article_id, c):
-            raise ResearchError("Another article already uses the address /research/%s." % slug)
+        if row["slug"] is None and slug_taken(slug, article_id, c, row["publication_id"]):
+            raise ResearchError("Another article already uses the address %s."
+                                % address(row["publication_id"], slug))
         version = (row["published_version"] or 0) + 1
         if version > 1 and not change_note:
             raise ResearchError("Say what changed in this version — readers see the note.")
@@ -390,7 +503,8 @@ def publish(article_id, base_revision, actor, change_note, draft, author_names,
              draft["summary"], json.dumps(author_names, ensure_ascii=False), doc, snaps,
              body_html, markdown, change_note or "First published.", digest))
         c.execute("UPDATE articles SET slug = ?, status = 'published', published_version = ?, "
-                  "withdrawn_at = NULL, withdrawn_by = NULL, withdrawn_reason = NULL "
+                  "withdrawn_at = NULL, withdrawn_by = NULL, withdrawn_reason = NULL, "
+                  "review_requested_at = NULL, review_requested_by = NULL "
                   "WHERE id = ?", (slug, version, article_id))
         c.execute("INSERT INTO draft_history (article_id, revision, saved_at, saved_by, draft, "
                   "label) VALUES (?, ?, ?, ?, ?, ?)",
@@ -437,9 +551,10 @@ def _version_dict(r):
     return d
 
 
-def by_slug(slug):
+def by_slug(slug, publication_id=HOME):
     """The article row for a public address, or None."""
-    return conn().execute("SELECT * FROM articles WHERE slug = ?", (slug,)).fetchone()
+    return conn().execute("SELECT * FROM articles WHERE slug = ? AND publication_id = ?",
+                          (slug, publication_id)).fetchone()
 
 
 def version(article_id, number):
@@ -454,17 +569,21 @@ def versions_meta(article_id):
         "WHERE article_id = ? ORDER BY version", (article_id,))]
 
 
-def published():
-    """Every live article's latest version, newest first by first publication."""
+def published(publication_id=HOME):
+    """A publication's live articles (every publication's with None), each at
+    its latest version, newest first by first publication."""
     c = conn()
+    where, args = "a.status = 'published'", ()
+    if publication_id is not None:
+        where, args = where + " AND a.publication_id = ?", (publication_id,)
     rows = c.execute(
-        "SELECT a.id, a.slug, v.version, v.title, v.dek, v.summary, v.authors, v.published_at, "
-        "v.doc, v.snapshots, "
+        "SELECT a.id, a.publication_id, a.slug, v.version, v.title, v.dek, v.summary, v.authors, "
+        "v.published_at, v.doc, v.snapshots, "
         "(SELECT published_at FROM article_versions f WHERE f.article_id = a.id AND f.version = 1) "
         "AS first_published_at "
         "FROM articles a JOIN article_versions v ON v.article_id = a.id "
-        "AND v.version = a.published_version WHERE a.status = 'published' "
-        "ORDER BY first_published_at DESC, a.id DESC").fetchall()
+        "AND v.version = a.published_version WHERE " + where + " "
+        "ORDER BY first_published_at DESC, a.id DESC", args).fetchall()
     out = []
     for r in rows:
         d = dict(r)
@@ -473,6 +592,129 @@ def published():
         d["snapshots"] = json.loads(d["snapshots"])
         out.append(d)
     return out
+
+
+# ---------------------------------------------------------------------------
+# publications and their members
+
+def _pub(row):
+    if row is None:
+        return None
+    d = dict(row)
+    d["home"] = d["id"] == HOME
+    d["base"] = base_path(d)
+    return d
+
+
+def base_path(pub):
+    """Where a publication's pages live: /research for PloverResearch."""
+    if pub is None or pub["id"] == HOME:
+        return "/research"
+    return "/p/" + pub["slug"]
+
+
+def address(publication_id, slug):
+    """The public path of an article: /research/<slug> or /p/<pub>/<slug>."""
+    return base_path(publication(publication_id)) + "/" + slug
+
+
+def publication(publication_id):
+    return _pub(conn().execute("SELECT * FROM publications WHERE id = ?",
+                               (publication_id,)).fetchone())
+
+
+def publication_by_slug(slug):
+    return _pub(conn().execute("SELECT * FROM publications WHERE slug = ?",
+                               ((slug or "").lower(),)).fetchone())
+
+
+def list_publications():
+    return [_pub(r) for r in conn().execute("SELECT * FROM publications ORDER BY id")]
+
+
+def _pub_text(name, tagline, about):
+    name = rd.plain(name, PUB_NAME_MAX + 1)
+    if not name or len(name) > PUB_NAME_MAX:
+        raise ResearchError("Give the publication a name of up to %d characters." % PUB_NAME_MAX)
+    tagline = rd.plain(tagline, PUB_TAGLINE_MAX)
+    about = rd.plain(about, PUB_ABOUT_MAX)
+    return name, tagline, about
+
+
+def create_publication(slug, name, tagline, actor, about=""):
+    slug = (slug or "").strip().lower()
+    if not (PUB_SLUG_MIN <= len(slug) <= PUB_SLUG_MAX) or not rd._SLUG.match(slug):
+        raise ResearchError("The address must be %d to %d letters, digits or hyphens, such as "
+                            "asia-macro-notes." % (PUB_SLUG_MIN, PUB_SLUG_MAX))
+    if slug in RESERVED_SLUGS:
+        raise ResearchError("The address /p/%s is reserved. Choose another." % slug)
+    name, tagline, about = _pub_text(name, tagline, about)
+    c = conn()
+    with _lock:
+        if c.execute("SELECT 1 FROM publications WHERE slug = ?", (slug,)).fetchone():
+            raise ResearchError("Another publication already uses /p/%s." % slug)
+        cur = c.execute("INSERT INTO publications (slug, name, tagline, about, created_at, "
+                        "created_by) VALUES (?, ?, ?, ?, ?, ?)",
+                        (slug, name, tagline, about, _now(), actor))
+        c.commit()
+    return publication(cur.lastrowid)
+
+
+def update_publication(publication_id, actor, name, tagline, about):
+    """Name, tagline and description. The address never changes: it is in
+    every citation of every article."""
+    name, tagline, about = _pub_text(name, tagline, about)
+    c = conn()
+    with _lock:
+        cur = c.execute("UPDATE publications SET name = ?, tagline = ?, about = ?, updated_at = ?, "
+                        "updated_by = ? WHERE id = ?",
+                        (name, tagline, about, _now(), actor, publication_id))
+        c.commit()
+    if not cur.rowcount:
+        raise ResearchError("No such publication.")
+    return publication(publication_id)
+
+
+def members(publication_id):
+    return [dict(r) for r in conn().execute(
+        "SELECT * FROM members WHERE publication_id = ? ORDER BY added_at, email",
+        (publication_id,))]
+
+
+def member_role(publication_id, email):
+    row = conn().execute("SELECT role FROM members WHERE publication_id = ? AND email = ?",
+                         (publication_id, (email or "").strip().lower())).fetchone()
+    return row["role"] if row else None
+
+
+def memberships(email):
+    """{publication id: role} for one person's stored memberships."""
+    return dict((r["publication_id"], r["role"]) for r in conn().execute(
+        "SELECT publication_id, role FROM members WHERE email = ?",
+        ((email or "").strip().lower(),)))
+
+
+def set_member(publication_id, email, role, actor):
+    email = (email or "").strip().lower()
+    if role not in ROLES:
+        raise ResearchError("A role is owner, editor or writer.")
+    if publication(publication_id) is None:
+        raise ResearchError("No such publication.")
+    c = conn()
+    with _lock:
+        c.execute("INSERT INTO members (publication_id, email, role, added_at, added_by) "
+                  "VALUES (?, ?, ?, ?, ?) ON CONFLICT(publication_id, email) DO UPDATE SET "
+                  "role = excluded.role", (publication_id, email, role, _now(), actor))
+        c.commit()
+
+
+def remove_member(publication_id, email):
+    c = conn()
+    with _lock:
+        cur = c.execute("DELETE FROM members WHERE publication_id = ? AND email = ?",
+                        (publication_id, (email or "").strip().lower()))
+        c.commit()
+    return cur.rowcount > 0
 
 
 # ---------------------------------------------------------------------------

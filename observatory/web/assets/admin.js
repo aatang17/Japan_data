@@ -20,7 +20,8 @@ var ADMIN_NAV = [
     { id: "traffic", label: "Traffic", hash: "#traffic", perm: "operations" },
   ]},
   { group: "Research", pages: [
-    { id: "articles", label: "Articles", hash: "#articles", perm: "writing" },
+    // articles live in the Writer Desk now (write.html), with every publication's
+    { id: "articles", label: "Writer Desk", hash: "#articles", perm: "writing" },
     { id: "ai", label: "AI Setup", hash: "#ai", perm: "writing" },
   ]},
   { group: "Classification", pages: [
@@ -275,7 +276,7 @@ function route() {
   var target = document.getElementById("admin-view");
   if (!target) return;
   disposeTrafficChart();  // the view about to be replaced may own it
-  if (view === "articles") viewArticles(target);
+  if (view === "articles") location.href = "write.html";
   else if (view === "ai") viewAISetup(target);
   else if (view === "team") viewTeam(target);
   else if (view === "account") viewAccount(target);

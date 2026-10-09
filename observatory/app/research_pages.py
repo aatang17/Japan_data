@@ -17,6 +17,12 @@ Addresses
 ``/research/media/<sha256>.<ext>``  an uploaded image, immutable
 ``/sitemap-research.xml``           for search engines
 
+That is PloverResearch (publication 1). Every other publication has the same
+set under ``/p/<publication>`` — ``/p/<publication>/<slug>``,
+``/p/<publication>/feed.xml`` and so on — with its own name on the page and a
+line saying the views are its writers' own. Images are shared, at
+``/research/media``.
+
 The pages set ``<base href="/">`` because the shared site header links pages
 relatively ("cpi.html"), and those links have to work from /research/x/v2.
 They also carry a Content-Security-Policy: what a writer types is cleaned to
@@ -32,7 +38,8 @@ import threading
 import urllib.parse
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, Response
+from fastapi.responses import (FileResponse, HTMLResponse, PlainTextResponse,
+                               RedirectResponse, Response)
 
 from . import research, research_doc as rd, seo
 
@@ -126,8 +133,13 @@ def _json_script(obj, element_id, kind="application/json"):
     return '<script type="%s" id="%s">%s</script>' % (kind, element_id, text)
 
 
+def _home():
+    return research.publication(research.HOME)
+
+
 def page(title, description, canonical, main, data=None, robots=None, ld=None,
-         extra_head="", preview=False, wide=False):
+         extra_head="", preview=False, wide=False, pub=None):
+    pub = pub or _home()
     head = [
         "<!DOCTYPE html>",
         '<html lang="en">',
@@ -144,11 +156,11 @@ def page(title, description, canonical, main, data=None, robots=None, ld=None,
     if robots:
         head.append('<meta name="robots" content="%s">' % esc(robots))
     head += [
-        '<meta property="og:site_name" content="%s">' % esc(BRAND),
+        '<meta property="og:site_name" content="%s">' % esc(pub["name"]),
         '<meta property="og:title" content="%s">' % esc(title),
         '<meta property="og:description" content="%s">' % esc(description),
-        '<link rel="alternate" type="application/rss+xml" title="%s" href="/research/feed.xml">'
-        % esc(BRAND),
+        '<link rel="alternate" type="application/rss+xml" title="%s" href="%s/feed.xml">'
+        % (esc(pub["name"]), esc(pub["base"])),
         '<link rel="icon" href="/favicon.ico">',
         '<link rel="stylesheet" href="/assets/tokens.css">',
         '<link rel="stylesheet" href="/assets/app.css">',
@@ -190,11 +202,24 @@ def _html(text, status=200, cache="public, max-age=60"):
 # ---------------------------------------------------------------------------
 # one article
 
-def citation(authors, title, version, published_at, url):
+def citation(authors, title, version, published_at, url, brand=BRAND):
     year = (published_at or "")[:4]
-    who = _authors_text(authors) or BRAND
+    who = _authors_text(authors) or brand
     return "%s (%s). %s. %s, version %d, %s. %s" % (
-        who, year, title.rstrip("."), BRAND, version, _date_long(published_at), url)
+        who, year, title.rstrip("."), brand, version, _date_long(published_at), url)
+
+
+def _trail(pub):
+    return '<nav class="rs-trail" aria-label="Breadcrumb"><a href="%s">%s</a></nav>' % (
+        esc(pub["base"]), esc(pub["name"]))
+
+
+def _own_views(pub):
+    """Under every article of a publication other than PloverResearch."""
+    if pub["home"]:
+        return ""
+    return ('<p class="rs-own-views">Published in %s on %s. The views are the authors\u2019 '
+            'own, not Plover Analytics\u2019.</p>' % (esc(pub["name"]), BRAND))
 
 
 _ICON = {
@@ -235,17 +260,18 @@ def share_bar(url, title):
     return "".join(out)
 
 
-def article_main(v, versions, current_version, notice="", preview=False):
+def article_main(v, versions, current_version, notice="", preview=False, pub=None):
     """The <article> for one version. ``v`` is a version dict (or a preview
     built from the draft in the same shape)."""
-    url = seo.SITE_BASE_URL + "/research/" + v["slug"]
+    pub = pub or _home()
+    url = seo.SITE_BASE_URL + pub["base"] + "/" + v["slug"]
     version_url = url + ("/v%d" % v["version"] if v["version"] != current_version else "")
     first = versions[0]["published_at"] if versions else v["published_at"]
     dateline = ['<time datetime="%s">%s</time>' % (esc(first[:10]), esc(_date_long(first)))]
     if v["version"] > 1:
         dateline.append("Version %d, updated %s" % (v["version"], esc(_date_long(v["published_at"]))))
     parts = [
-        '<nav class="rs-trail" aria-label="Breadcrumb"><a href="/research">%s</a></nav>' % BRAND,
+        _trail(pub),
         notice,
         '<article class="rs-article">',
         '<header class="rs-head">',
@@ -268,7 +294,7 @@ def article_main(v, versions, current_version, notice="", preview=False):
     if len(versions) > 1:
         parts.append('<section class="rs-versions" aria-label="Versions"><h2>Versions</h2><ol>')
         for item in versions:
-            href = "/research/%s/v%d" % (v["slug"], item["version"])
+            href = "%s/%s/v%d" % (pub["base"], v["slug"], item["version"])
             label = "Version %d" % item["version"]
             current = item["version"] == v["version"]
             parts.append(
@@ -277,21 +303,22 @@ def article_main(v, versions, current_version, notice="", preview=False):
                     esc(_date_long(item["published_at"])), esc(item["change_note"])))
         parts.append("</ol></section>")
     cite = citation(v["authors"], v["title"], v["version"], v["published_at"],
-                    url + "/v%d" % v["version"])
+                    url + "/v%d" % v["version"], pub["name"])
     parts.append('<section class="rs-cite-box" aria-label="How to cite"><h2>How to Cite</h2>'
                  '<p class="rs-cite" id="rs-cite">%s</p>'
                  '<p class="rs-cite-acts"><button type="button" class="btn" id="rs-cite-copy">'
-                 'Copy Citation</button> <a class="btn" href="/research/%s.md">Markdown</a></p>'
+                 'Copy Citation</button> <a class="btn" href="%s/%s.md">Markdown</a></p>'
                  '<p class="rs-cite-note">Each version keeps its own address. The charts show '
                  'the data as it stood on the version’s publication date; the CSV under '
                  'each chart returns those same numbers.</p></section>'
-                 % (esc(cite), esc(v["slug"])))
+                 % (esc(cite), esc(pub["base"]), esc(v["slug"])))
+    parts.append(_own_views(pub))
     parts.append("</article>")
     del version_url
     return "\n".join(parts)
 
 
-def _ld(v, versions):
+def _ld(v, versions, pub):
     first = versions[0]["published_at"] if versions else v["published_at"]
     return {
         "@context": "https://schema.org",
@@ -304,8 +331,8 @@ def _ld(v, versions):
         "author": [{"@type": "Person", "name": n} for n in v["authors"]],
         "publisher": {"@type": "Organization", "name": "Plover Analytics",
                       "url": seo.SITE_BASE_URL},
-        "isPartOf": {"@type": "Periodical", "name": BRAND},
-        "url": seo.SITE_BASE_URL + "/research/" + v["slug"],
+        "isPartOf": {"@type": "Periodical", "name": pub["name"]},
+        "url": seo.SITE_BASE_URL + pub["base"] + "/" + v["slug"],
         "inLanguage": "en",
     }
 
@@ -327,21 +354,21 @@ def _chart_data(v):
     return {"charts": charts, "slug": v["slug"], "version": v["version"]}
 
 
-def render_article(row, number=None):
+def render_article(row, number=None, pub=None):
     """(html, status) for /research/<slug> or /research/<slug>/v<n>."""
+    pub = pub or research.publication(row["publication_id"])
     current = row["published_version"]
     versions = research.versions_meta(row["id"])
     if row["status"] == "withdrawn":
         latest = research.version(row["id"], current)
-        main = ('<nav class="rs-trail" aria-label="Breadcrumb"><a href="/research">%s</a></nav>'
-                '<article class="rs-article"><header class="rs-head"><h1>%s</h1></header>'
+        main = ('%s<article class="rs-article"><header class="rs-head"><h1>%s</h1></header>'
                 '<div class="rs-notice rs-notice-warn" role="status"><strong>Withdrawn.</strong> '
                 'This article was withdrawn on %s. %s</div></article>' % (
-                    BRAND, esc(latest["title"]),
+                    _trail(pub), esc(latest["title"]),
                     esc(_date_long(research._iso(row["withdrawn_at"]))),
                     esc(row["withdrawn_reason"] or "")))
-        return page("%s · %s" % (latest["title"], BRAND), "This article was withdrawn.",
-                    None, main, robots="noindex"), 410
+        return page("%s · %s" % (latest["title"], pub["name"]), "This article was withdrawn.",
+                    None, main, robots="noindex", pub=pub), 410
     number = number or current
     v = research.version(row["id"], number)
     if v is None:
@@ -351,23 +378,25 @@ def render_article(row, number=None):
     if number != current:
         robots = "noindex"
         notice = ('<div class="rs-notice" role="status">You are reading version %d of %d, '
-                  'published %s. <a href="/research/%s">Read the current version</a>.</div>'
-                  % (number, current, esc(_date_long(v["published_at"])), esc(v["slug"])))
-    main = article_main(v, versions, current, notice)
-    more, more_figs = more_from(v["slug"])
-    main += "\n" + more + "\n" + _subscribe_panel()
+                  'published %s. <a href="%s/%s">Read the current version</a>.</div>'
+                  % (number, current, esc(_date_long(v["published_at"])), esc(pub["base"]),
+                     esc(v["slug"])))
+    main = article_main(v, versions, current, notice, pub=pub)
+    more, more_figs = more_from(v["slug"], pub=pub)
+    main += "\n" + more + "\n" + _subscribe_panel(pub=pub)
     data = _chart_data(v)
     data["figures"] = more_figs
-    canonical = seo.SITE_BASE_URL + "/research/" + v["slug"]
-    return page("%s · %s" % (v["title"], BRAND), v["summary"], canonical, main,
-                data=data, robots=robots, ld=_ld(v, versions),
-                extra_head='<meta property="og:type" content="article">'), 200
+    canonical = seo.SITE_BASE_URL + pub["base"] + "/" + v["slug"]
+    return page("%s · %s" % (v["title"], pub["name"]), v["summary"], canonical, main,
+                data=data, robots=robots, ld=_ld(v, versions, pub),
+                extra_head='<meta property="og:type" content="article">', pub=pub), 200
 
 
-def _row_or_404(slug):
+def _row_or_404(slug, pub=None):
+    pub = pub or _home()
     if not rd._SLUG.match(slug or ""):
         raise HTTPException(404, "No such article")
-    row = research.by_slug(slug)
+    row = research.by_slug(slug, pub["id"])
     if row is None or row["published_version"] is None:
         raise HTTPException(404, "No such article")
     return row
@@ -469,25 +498,27 @@ def _date_short(iso):
     return "%d %s %d" % (d.day, d.strftime("%b"), d.year)
 
 
-def _thumb(a, key, data, mode="card"):
+def _thumb(a, key, data, mode="card", brand=BRAND):
     b, _n = lead_figure(a["doc"], a["snapshots"])
     data["_snaps"] = a["snapshots"]
     if b is None:
-        return '<span class="rh-noimg" aria-hidden="true">%s</span>' % esc(BRAND)
+        return '<span class="rh-noimg" aria-hidden="true">%s</span>' % esc(brand)
     return _plot(b, key, mode, data, figure_title(b))
 
 
-def _card(a, key, data):
+def _card(a, key, data, pub=None):
     """One note as a box: its chart on top, then label, headline and date.
     Deliberately sparse — the standfirst and author are on the note itself."""
-    href = esc("/research/" + a["slug"])
+    pub = pub or _home()
+    href = esc(pub["base"] + "/" + a["slug"])
     doc = a["doc"]
     return ('<article class="rh-card" data-market="%s">'
             '<a class="rh-card-fig" href="%s" tabindex="-1" aria-hidden="true">%s</a>'
             '<div class="rh-card-body"><p class="rh-label">%s</p>'
             '<h3 class="rh-card-title"><a href="%s">%s</a></h3>'
             '<p class="rh-date"><time datetime="%s">%s</time></p></div></article>' % (
-                esc(doc.get("market") or ""), href, _thumb(a, key, data), esc(_label(a)),
+                esc(doc.get("market") or ""), href, _thumb(a, key, data, brand=pub["name"]),
+                esc(_label(a)),
                 href, esc(a["title"]), esc(a["first_published_at"][:10]),
                 esc(_date_short(a["first_published_at"]))))
 
@@ -516,7 +547,16 @@ def _chart_of_the_week(items, lead):
     return None, None, None
 
 
-def _subscribe_panel(title="Get New Notes by Email"):
+def _subscribe_panel(title="Get New Notes by Email", pub=None):
+    pub = pub or _home()
+    if not pub["home"]:
+        # no email sending for other publications yet: RSS is what there is
+        return ('<aside class="rh-subscribe" aria-label="Follow">'
+                '<div><p class="rh-subscribe-title">Follow %s</p>'
+                '<p class="rh-subscribe-text">New notes appear in the RSS feed the moment they '
+                'are published.</p></div>'
+                '<div class="rh-subscribe-acts"><a class="btn btn-primary" href="%s/feed.xml">'
+                'RSS Feed</a></div></aside>' % (esc(pub["name"]), esc(pub["base"])))
     return ('<aside class="rh-subscribe" aria-label="Subscribe">'
             '<div><p class="rh-subscribe-title">%s</p>'
             '<p class="rh-subscribe-text">Every PloverResearch note is sent to Substack subscribers '
@@ -533,25 +573,33 @@ def _section_head(title, extra="", note=""):
     return head + ('<div class="rh-tabbar">%s</div>' % extra if extra else "")
 
 
-def render_home():
-    """The PloverResearch front page: the platform's section bands, a boxed
+def render_home(pub=None):
+    """A publication's front page: the platform's section bands, a boxed
     lead story that opens with its chart, Chart of the Week boxed beside it,
     then the other notes as a grid of boxed cards. Every area is a box;
     nothing is laid out loose on the page. Chart-first by design: the data is
     what distinguishes a Plover note."""
-    items = research.published()
+    pub = pub or _home()
+    items = research.published(pub["id"])
     data = {"figures": {}, "_snaps": {}}
-    parts = ['<header class="rh-mast"><div><h1>%s</h1>'
-             '<p class="rh-strap">Research notes on Japan and the United States, built on official '
-             'statistics and company filings.</p></div>'
-             '<div class="rh-mast-acts"><a class="btn btn-primary" href="%s" rel="noopener">'
-             'Subscribe</a><a class="btn" href="/research/feed.xml">RSS</a></div></header>'
-             % (BRAND, esc(SUBSTACK_URL))]
+    if pub["home"]:
+        acts = ('<a class="btn btn-primary" href="%s" rel="noopener">Subscribe</a>'
+                '<a class="btn" href="/research/feed.xml">RSS</a>' % esc(SUBSTACK_URL))
+    else:
+        acts = '<a class="btn" href="%s/feed.xml">RSS</a>' % esc(pub["base"])
+    parts = ['<header class="rh-mast"><div><h1>%s</h1>%s%s</div>'
+             '<div class="rh-mast-acts">%s</div></header>'
+             % (esc(pub["name"]),
+                ('<p class="rh-strap">%s</p>' % esc(pub["tagline"])) if pub["tagline"] else "",
+                ('<p class="rh-about">%s</p>' % esc(pub["about"])) if pub["about"] and not pub["home"]
+                else "", acts)]
     if not items:
         parts.append(_section_head("Latest Notes"))
-        parts.append('<div class="rh-box rh-empty">No notes published yet. The first arrives here '
-                     'and on Substack together.</div>')
-        parts.append(_subscribe_panel())
+        parts.append('<div class="rh-box rh-empty">%s</div>' % (
+            "No notes published yet. The first arrives here and on Substack together."
+            if pub["home"] else "No notes published yet."))
+        parts.append(_subscribe_panel(pub=pub))
+        parts.append(_own_views(pub))
         data.pop("_snaps", None)
         return "\n".join(parts), data
 
@@ -568,7 +616,7 @@ def render_home():
 
     # the lead story: its chart leads, the words sit beside it, one box
     lb, ln = lead_figure(lead["doc"], lead["snapshots"])
-    href = esc("/research/" + lead["slug"])
+    href = esc(pub["base"] + "/" + lead["slug"])
     data["_snaps"] = lead["snapshots"]
     fig = ""
     if lb is not None:
@@ -596,14 +644,15 @@ def render_home():
         data["_snaps"] = ca["snapshots"]
         side = ('<aside class="rh-cotw" aria-label="Chart of the Week">'
                 '<p class="rh-label">Chart of the Week</p>%s'
-                '<h3 class="rh-cotw-title"><a href="/research/%s">%s</a></h3>'
+                '<h3 class="rh-cotw-title"><a href="%s/%s">%s</a></h3>'
                 '<p class="rh-cotw-from">Chart %d in %s</p></aside>' % (
-                    _plot(cb, "cotw", "cotw", data, figure_title(cb)), esc(ca["slug"]),
+                    _plot(cb, "cotw", "cotw", data, figure_title(cb)), esc(pub["base"]),
+                    esc(ca["slug"]),
                     esc(figure_title(cb)), cn, esc(ca["title"])))
     parts.append('<div class="rh-top%s">%s%s</div>' % ("" if side else " rh-top-solo", hero, side))
 
     if rest:
-        cards = "".join(_card(a, "card-%d" % i, data) for i, a in enumerate(rest))
+        cards = "".join(_card(a, "card-%d" % i, data, pub) for i, a in enumerate(rest))
         parts.append(_section_head("More Notes", tabs,
                                    "%d %s" % (len(rest), "note" if len(rest) == 1 else "notes")))
         parts.append('<div class="rh-cards" id="rh-list">%s</div>'
@@ -614,10 +663,10 @@ def render_home():
     archive = items[1 + LATEST_ROWS:]
     if archive:
         trs = "".join(
-            '<tr><td class="num"><time datetime="%s">%s</time></td><td><a href="/research/%s">%s'
+            '<tr><td class="num"><time datetime="%s">%s</time></td><td><a href="%s/%s">%s'
             '</a></td><td>%s</td><td>%s</td></tr>' % (
                 esc(a["first_published_at"][:10]), esc(_date_long(a["first_published_at"])),
-                esc(a["slug"]), esc(a["title"]),
+                esc(pub["base"]), esc(a["slug"]), esc(a["title"]),
                 esc(MARKET_LABEL.get(a["doc"].get("market"), "")),
                 esc(_authors_text(a["authors"]))) for a in archive)
         parts.append(_section_head("Archive"))
@@ -626,48 +675,63 @@ def render_home():
                      '<th scope="col">Market</th><th scope="col">Authors</th></tr></thead>'
                      '<tbody>%s</tbody></table></div>' % trs)
 
-    parts.append(_subscribe_panel())
+    parts.append(_subscribe_panel(pub=pub))
+    parts.append(_own_views(pub))
     data.pop("_snaps", None)
     return "\n".join(parts), data
 
 
-def more_from(current_slug, limit=3):
+def more_from(current_slug, limit=3, pub=None):
     """(html, figures) for the boxed cards under an article."""
-    items = [a for a in research.published() if a["slug"] != current_slug][:limit]
+    pub = pub or _home()
+    items = [a for a in research.published(pub["id"]) if a["slug"] != current_slug][:limit]
     if not items:
         return "", {}
     data = {"figures": {}, "_snaps": {}}
-    cards = "".join(_card(a, "more-%d" % i, data) for i, a in enumerate(items))
+    cards = "".join(_card(a, "more-%d" % i, data, pub) for i, a in enumerate(items))
     data.pop("_snaps", None)
-    return ('<section class="rh-more" aria-label="More from PloverResearch">'
+    return ('<section class="rh-more" aria-label="More from %s">'
             '<h2>More From %s</h2>'
             '<div class="rh-cards rh-cards-3">%s</div>'
-            '<p class="rh-allrow"><a class="rh-read" href="/research">All notes'
-            '<span aria-hidden="true"> \u2192</span></a></p></section>' % (BRAND, cards)), data["figures"]
+            '<p class="rh-allrow"><a class="rh-read" href="%s">All notes'
+            '<span aria-hidden="true"> \u2192</span></a></p></section>'
+            % (esc(pub["name"]), esc(pub["name"]), cards, esc(pub["base"]))), data["figures"]
 
 
-@router.get("/research")
-@router.get("/research/")
-def research_index():
-    main, data = render_home()
-    return _html(page(BRAND + " · Plover Analytics",
-                      "Research notes from Plover Analytics on Japan and the United States, built "
-                      "on official statistics and company filings, with every chart frozen at "
-                      "publication.",
-                      seo.SITE_BASE_URL + "/research", main, data=data, wide=True))
+def _pub_or_404(pub_slug):
+    pub = research.publication_by_slug(pub_slug)
+    if pub is None or pub["home"]:
+        raise HTTPException(404, "No such publication")
+    return pub
 
 
-@router.get("/research/feed.xml")
-def research_feed():
-    items = research.published()[:50]
+def _index(pub):
+    main, data = render_home(pub)
+    if pub["home"]:
+        title = BRAND + " · Plover Analytics"
+        desc = ("Research notes from Plover Analytics on Japan and the United States, built "
+                "on official statistics and company filings, with every chart frozen at "
+                "publication.")
+    else:
+        title = "%s · %s" % (pub["name"], BRAND)
+        desc = pub["tagline"] or pub["about"][:300] or ("Research notes published in %s on %s."
+                                                         % (pub["name"], BRAND))
+    return _html(page(title, desc, seo.SITE_BASE_URL + pub["base"], main, data=data, wide=True,
+                      pub=pub))
+
+
+def _feed(pub):
+    items = research.published(pub["id"])[:50]
     out = ['<?xml version="1.0" encoding="UTF-8"?>',
            '<rss version="2.0"><channel>',
-           "<title>%s</title>" % esc(BRAND),
-           "<link>%s/research</link>" % esc(seo.SITE_BASE_URL),
-           "<description>Research notes from Plover Analytics.</description>",
+           "<title>%s</title>" % esc(pub["name"]),
+           "<link>%s%s</link>" % (esc(seo.SITE_BASE_URL), esc(pub["base"])),
+           "<description>%s</description>" % esc(
+               "Research notes from Plover Analytics." if pub["home"]
+               else (pub["tagline"] or "Research notes published in %s." % pub["name"])),
            "<language>en</language>"]
     for a in items:
-        url = "%s/research/%s" % (seo.SITE_BASE_URL, a["slug"])
+        url = "%s%s/%s" % (seo.SITE_BASE_URL, pub["base"], a["slug"])
         when = datetime.datetime.fromisoformat(a["first_published_at"].rstrip("Z"))
         out.append("<item><title>%s</title><link>%s</link><guid>%s</guid>"
                    "<pubDate>%s</pubDate><description>%s</description>%s</item>" % (
@@ -677,6 +741,58 @@ def research_feed():
     out.append("</channel></rss>")
     return Response("\n".join(out), media_type="application/rss+xml",
                     headers={"Cache-Control": "public, max-age=300"})
+
+
+def _markdown(pub, slug):
+    row = _row_or_404(slug, pub)
+    if row["status"] == "withdrawn":
+        raise HTTPException(410, "This article was withdrawn")
+    v = research.version(row["id"], row["published_version"])
+    versions = research.versions_meta(row["id"])
+    url = seo.SITE_BASE_URL + pub["base"] + "/" + v["slug"]
+    head = ["# " + v["title"], ""]
+    if v["dek"]:
+        head += ["*" + v["dek"] + "*", ""]
+    meta = []
+    if v["authors"]:
+        meta.append("By " + _authors_text(v["authors"]))
+    meta.append("Published " + _date_long(versions[0]["published_at"]))
+    meta.append("Version %d" % v["version"])
+    head += [" · ".join(meta) + ". " + url, ""]
+    tail = ["", "---", "",
+            "Cite as: " + citation(v["authors"], v["title"], v["version"], v["published_at"],
+                                   url + "/v%d" % v["version"], pub["name"]), ""]
+    if not pub["home"]:
+        tail += ["Published in %s on %s. The views are the authors' own, not Plover "
+                 "Analytics'." % (pub["name"], BRAND), ""]
+    return PlainTextResponse("\n".join(head) + v["markdown"] + "\n".join(tail),
+                             media_type="text/markdown; charset=utf-8",
+                             headers={"Cache-Control": "public, max-age=60"})
+
+
+def _version(pub, slug, number):
+    row = _row_or_404(slug, pub)
+    text, status = render_article(row, number, pub)
+    if text is None:
+        raise HTTPException(404, "No such version")
+    return _html(text, status)
+
+
+def _article(pub, slug):
+    row = _row_or_404(slug, pub)
+    text, status = render_article(row, pub=pub)
+    return _html(text, status)
+
+
+@router.get("/research")
+@router.get("/research/")
+def research_index():
+    return _index(_home())
+
+
+@router.get("/research/feed.xml")
+def research_feed():
+    return _feed(_home())
 
 
 @router.get("/research/media/{name}")
@@ -695,64 +811,75 @@ def research_media(name: str):
 
 @router.get("/research/{slug}.md")
 def research_markdown(slug: str):
-    row = _row_or_404(slug)
-    if row["status"] == "withdrawn":
-        raise HTTPException(410, "This article was withdrawn")
-    v = research.version(row["id"], row["published_version"])
-    versions = research.versions_meta(row["id"])
-    url = seo.SITE_BASE_URL + "/research/" + v["slug"]
-    head = ["# " + v["title"], ""]
-    if v["dek"]:
-        head += ["*" + v["dek"] + "*", ""]
-    meta = []
-    if v["authors"]:
-        meta.append("By " + _authors_text(v["authors"]))
-    meta.append("Published " + _date_long(versions[0]["published_at"]))
-    meta.append("Version %d" % v["version"])
-    head += [" · ".join(meta) + ". " + url, ""]
-    tail = ["", "---", "",
-            "Cite as: " + citation(v["authors"], v["title"], v["version"], v["published_at"],
-                                   url + "/v%d" % v["version"]), ""]
-    return PlainTextResponse("\n".join(head) + v["markdown"] + "\n".join(tail),
-                             media_type="text/markdown; charset=utf-8",
-                             headers={"Cache-Control": "public, max-age=60"})
+    return _markdown(_home(), slug)
 
 
 @router.get("/research/{slug}/v{number}")
 def research_version(slug: str, number: int):
-    row = _row_or_404(slug)
-    text, status = render_article(row, number)
-    if text is None:
-        raise HTTPException(404, "No such version")
-    return _html(text, status)
+    return _version(_home(), slug, number)
 
 
 @router.get("/research/{slug}")
 def research_article(slug: str):
-    row = _row_or_404(slug)
-    text, status = render_article(row)
-    return _html(text, status)
+    return _article(_home(), slug)
+
+
+@router.get("/p/" + research.HOME_SLUG)
+@router.get("/p/" + research.HOME_SLUG + "/")
+def home_by_slug():
+    return RedirectResponse("/research", status_code=301)
+
+
+@router.get("/p/{pub_slug}")
+@router.get("/p/{pub_slug}/")
+def pub_index(pub_slug: str):
+    return _index(_pub_or_404(pub_slug))
+
+
+@router.get("/p/{pub_slug}/feed.xml")
+def pub_feed(pub_slug: str):
+    return _feed(_pub_or_404(pub_slug))
+
+
+@router.get("/p/{pub_slug}/{slug}.md")
+def pub_markdown(pub_slug: str, slug: str):
+    return _markdown(_pub_or_404(pub_slug), slug)
+
+
+@router.get("/p/{pub_slug}/{slug}/v{number}")
+def pub_version(pub_slug: str, slug: str, number: int):
+    return _version(_pub_or_404(pub_slug), slug, number)
+
+
+@router.get("/p/{pub_slug}/{slug}")
+def pub_article(pub_slug: str, slug: str):
+    return _article(_pub_or_404(pub_slug), slug)
 
 
 @router.get("/sitemap-research.xml")
 def sitemap_research():
-    items = research.published()
     body = ['<?xml version="1.0" encoding="UTF-8"?>',
             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
-    newest = max([a["published_at"] for a in items] or [None]) if items else None
-    body.append("  <url><loc>%s/research</loc>%s</url>" % (
-        esc(seo.SITE_BASE_URL),
-        "<lastmod>%s</lastmod>" % esc(newest[:10]) if newest else ""))
-    for a in items:
-        body.append("  <url><loc>%s/research/%s</loc><lastmod>%s</lastmod></url>" % (
-            esc(seo.SITE_BASE_URL), esc(a["slug"]), esc(a["published_at"][:10])))
+    for pub in research.list_publications():
+        items = research.published(pub["id"])
+        if not items and not pub["home"]:
+            continue
+        newest = max(a["published_at"] for a in items) if items else None
+        body.append("  <url><loc>%s%s</loc>%s</url>" % (
+            esc(seo.SITE_BASE_URL), esc(pub["base"]),
+            "<lastmod>%s</lastmod>" % esc(newest[:10]) if newest else ""))
+        for a in items:
+            body.append("  <url><loc>%s%s/%s</loc><lastmod>%s</lastmod></url>" % (
+                esc(seo.SITE_BASE_URL), esc(pub["base"]), esc(a["slug"]),
+                esc(a["published_at"][:10])))
     body.append("</urlset>")
     body.append("")
     return Response("\n".join(body), media_type="application/xml")
 
 
 def llms_section():
-    """Lines for /llms.txt: the published articles, with their Markdown."""
+    """Lines for /llms.txt: PloverResearch's published articles, with their
+    Markdown. Other publications are their writers' work, not Plover's."""
     try:
         items = research.published()
     except Exception:  # noqa: BLE001 — llms.txt must render without research
@@ -775,13 +902,18 @@ def llms_section():
 # ---------------------------------------------------------------------------
 # after publication
 
-def announce(slug):
-    """Tell the search indexes, in the background. Never raises."""
+def announce(path):
+    """Tell the search indexes about an article's path (and its publication's
+    front page), in the background. Never raises. A bare slug is a
+    PloverResearch article."""
+    if not path.startswith("/"):
+        path = "/research/" + path
+    base = path.rsplit("/", 1)[0]
+
     def run():
         try:
             from . import indexnow
-            indexnow.submit([seo.SITE_BASE_URL + "/research/" + slug,
-                             seo.SITE_BASE_URL + "/research"])
+            indexnow.submit([seo.SITE_BASE_URL + path, seo.SITE_BASE_URL + base])
         except Exception:  # noqa: BLE001
             log.warning("indexnow ping for research failed", exc_info=True)
     threading.Thread(target=run, daemon=True).start()
