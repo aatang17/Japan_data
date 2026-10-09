@@ -389,7 +389,6 @@ TOPIC_WORDS = {
     "buyback": ("repurchase",),
     "buybacks": ("repurchase", "buyback"),
 }
-_FILLER = {"the", "of", "and", "in", "for", "a", "an", "to", "on", "by", "japan", "japanese"}
 _PAGES = []
 
 
@@ -415,21 +414,31 @@ def _page_index():
 
 def page_hits(q, limit=6):
     """Pages about the topic in q: every word (or a word for the same thing)
-    in the page's title or description. Title matches first."""
-    words = [w for w in q.lower().split() if w not in _FILLER]
-    if not words:
+    starting a word in the page's title or description. Title matches first.
+    The query is read as the series search reads it (tools_v2._read_query):
+    "us" names the US, it is not the "us" in "Housing"; Japan is the default
+    and needs no word."""
+    import re
+    from . import tools_v2
+    needs = []
+    jp_only = False
+    for t in tools_v2._read_query(q)["terms"]:
+        if t["market"] == "jp":
+            jp_only = True
+            continue
+        forms = t["forms"] + t["syn"] + TOPIC_WORDS.get(t["forms"][0], ())
+        if t["market"] == "us":
+            forms = ("us", "u.s.", "united states", "american")
+        needs.append(re.compile("|".join("(?<![a-z0-9])" + re.escape(f) for f in forms)))
+    if not needs:
         return []
     hits = []
     for page in _page_index():
         title = page["title"].lower()
-        in_title = 0
-        for w in words:
-            forms = (w,) + TOPIC_WORDS.get(w, ())
-            if not any(f in page["text"] for f in forms):
-                break
-            in_title += any(f in title for f in forms)
-        else:
-            hits.append((-in_title, page["title"], page))
+        if jp_only and title.startswith("us "):
+            continue
+        if all(n.search(page["text"]) for n in needs):
+            hits.append((-sum(bool(n.search(title)) for n in needs), page["title"], page))
     hits.sort(key=lambda h: h[:2])
     return [{"url": p["url"], "title": p["title"], "description": p["description"]}
             for _, _, p in hits[:limit]]

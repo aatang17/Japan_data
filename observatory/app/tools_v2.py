@@ -34,6 +34,7 @@ import bisect
 import datetime
 import importlib
 import json
+import re
 import threading
 
 from . import api, asof, db, place_en, registry
@@ -468,12 +469,43 @@ def _build_searchable(dataset):
     finally:
         con.close()
     name = m.get("name") or {}
+    section = next((s["label"] for s in registry.SECTIONS if s["id"] == m.get("section")), "")
     # kept as bytearrays: find() works the same, and a bytes() copy of an
     # 80 MB block would double it while it is made
     return {"text": text, "starts": starts, "codes": codes,
             "code_starts": code_starts, "labelled": labelled,
+            "keys": _key_rows(dataset, labelled, codes, code_starts),
+            "market": _market(dataset, m),
             "about": " ".join([dataset.replace("-", " "), name.get("en") or "",
-                               name.get("ja") or ""]).lower()}
+                               name.get("ja") or ""]).lower(),
+            "section": " ".join([m.get("section") or "", section]).replace("-", " ").lower(),
+            "summary": (m.get("summary") or "").lower()}
+
+
+def _market(dataset, m):
+    """The market a dataset covers: "us" for the US shelf, else "jp". There is
+    no market field on a manifest; the US datasets all say so in their id or
+    name ("ust-yields", "cpi-us", "US average retail prices")."""
+    en = (m.get("name") or {}).get("en") or ""
+    if (dataset.startswith(("us-", "ust-", "cpi-us")) or m.get("section") == "us-reference"
+            or en.startswith(("US ", "Atlanta Fed"))):
+        return "us"
+    return "jp"
+
+
+def _key_rows(dataset, labelled, codes, code_starts):
+    """{row: place} for a dataset's key series: those its page labels, else a
+    yield curve's history series with the 10-year first."""
+    if labelled:
+        return dict((r, i) for i, r in enumerate(labelled))
+    curve = (getattr(api.ADAPTERS.get(dataset), "PRESENTATION", None) or {}).get("curve") or {}
+    want = sorted(curve.get("history_series") or [], key=lambda c: c != "10Y")
+    out = {}
+    for i, code in enumerate(want):
+        pos = codes.find(b"\n" + code.lower().encode("utf-8") + b"\n")
+        if pos != -1:
+            out[bisect.bisect_right(code_starts, pos + 1) - 1] = i
+    return out
 
 
 def _searchable(dataset):
@@ -505,17 +537,142 @@ def warm_search():
                 pass
 
 
+# ---- reading a query
+#
+# 2026-10-09: "US rates" listed BoJ loan rates at trust banks — "us" was found
+# inside "Trust", "rates" in the BoJ dataset's name — and "US CPI" listed
+# Japanese housing ("Housing"). So words now match at the start of a word, a
+# market word picks the market's datasets, and a reader's word also finds the
+# word the data uses for it ("rates" → "yield").
+
+# Words that name a market rather than a series.
+MARKET_WORDS = {"us": "us", "u.s.": "us", "u.s": "us", "usa": "us", "america": "us",
+                "american": "us", u"米国": "us", u"アメリカ": "us",
+                "japan": "jp", "japanese": "jp", "jp": "jp", u"日本": "jp"}
+# How a series name says the market itself (a trade partner, a US city average).
+MARKET_ROW_FORMS = {"us": ("united states", "u.s."), "jp": ("japan",)}
+# Words the data uses for what a reader types, keyed by the reader's word
+# (singular): the curve pages say "yield" where a reader says "rates".
+SEARCH_SYNONYMS = {
+    "rate": ("yield",),
+    "interest": ("rate", "yield"),
+    "bond": ("jgb", "treasury", "yield"),
+    "ust": ("treasury",),
+    "tips": ("real yield",),
+    "inflation": ("cpi", "consumer price"),
+    "jobless": ("unemployment",),
+    "job": ("employment",),
+    "wage": ("earnings",),
+    "salary": ("wage", "earnings"),
+    "pay": ("wage", "earnings"),
+    "tourist": ("visitor", "guest"),
+    "tourism": ("visitor", "guest"),
+    "boj": ("bank of japan",),
+    "gdp": ("gross domestic product",),
+    u"金利": (u"利回り", u"イールド"),
+}
+_QUERY_FILLER = {"the", "of", "and", "in", "for", "a", "an", "to", "on", "by", "vs",
+                 "versus", "with", "from"}
+# "10y", "10 yr", "10-year", "3m": a maturity, written as the names write it
+_TENOR = re.compile(r"\b(\d+(?:\.\d+)?)\s*-?\s*(y|yr|yrs|year|years|m|mo|month|months)\b")
+# a word after "less" or "excluding" is what a series leaves out: "food" is
+# not a match for "All items, less fresh food"
+_EXCLUSION = re.compile(rb"(?:^|[^a-z0-9])(?:less|excluding|except|ex)\s")
+_CLAUSE_ENDS = (b",", b";", b"(", b")", b"  ", b"\n")
+# finds a search looks at before it gives up on a word that is mostly found
+# inside other words (two letters typed into a search-as-you-type box)
+PROBE_CAP = SCAN_CAP * 100
+
+
+def _stem(word):
+    if len(word) > 4 and word.endswith("ies"):
+        return word[:-3] + "y"
+    if len(word) > 3 and word.endswith("s") and not word.endswith(("ss", "us", "is")) \
+            and word != "tips":
+        return word[:-1]
+    return word
+
+
+def _read_query(needle):
+    """A query as terms, each matched on its own: {forms, syn, code, market}.
+    `forms` are the words themselves, `syn` the data's words for them, `code`
+    a maturity's series code ("10y"), `market` "us" or "jp" for a market word."""
+    q = " ".join(needle.lower().split())
+    terms, content, markets = [], [], []
+    if "united states" in q:
+        q = q.replace("united states", " ")
+        markets.append("us")
+
+    def tenor(m):
+        kind = "year" if m.group(2).startswith("y") else "month"
+        terms.append({"forms": ("%s-%s" % (m.group(1), kind), "%s %s" % (m.group(1), kind)),
+                      "syn": (), "code": m.group(1) + kind[0], "market": None})
+        content.append("%s-%s" % (m.group(1), kind))
+        return " "
+
+    q = _TENOR.sub(tenor, q)
+    for w in re.split(r"[\s,/]+", q):
+        w = w.strip(".,;:()\"'") if w not in ("u.s.",) else w
+        if not w or w in _QUERY_FILLER:
+            continue
+        if w in MARKET_WORDS:
+            markets.append(MARKET_WORDS[w])
+            continue
+        s = _stem(w)
+        terms.append({"forms": (s,), "syn": SEARCH_SYNONYMS.get(s, ()), "code": None,
+                      "market": None})
+        content.append(w)
+    for mk in sorted(set(markets)):
+        terms.append({"forms": MARKET_ROW_FORMS[mk], "syn": (), "code": None, "market": mk})
+    return {"terms": terms, "code": needle.strip().lower(),
+            "phrase": " ".join(content) if len(content) > 1 else ""}
+
+
+def _word_at(text, needle, lo, hi):
+    """True when needle (bytes) starts a word in text[lo:hi] somewhere other
+    than after "less" or "excluding"."""
+    pos = text.find(needle, lo, hi)
+    while pos != -1:
+        if _starts_word(text, pos, lo) and not _excluded(text, pos, lo):
+            return True
+        pos = text.find(needle, pos + 1, hi)
+    return False
+
+
+def _starts_word(text, pos, lo=0):
+    # bytes of a Japanese character are >= 0x80: kana and kanji have no spaces,
+    # so anything after them starts a word
+    if pos <= lo:
+        return True
+    c = text[pos - 1]
+    return not (48 <= c <= 57 or 97 <= c <= 122)
+
+
+def _excluded(text, pos, lo):
+    # back to the start of the clause, or of the field: a row is its English
+    # name, its Japanese name and its label, so a Japanese character ends one
+    seg = bytes(text[max(lo, pos - 60):pos])
+    cut = max([seg.rfind(e) for e in _CLAUSE_ENDS] +
+              [i for i in range(len(seg) - 1, -1, -1) if seg[i] >= 0x80][:1])
+    return bool(_EXCLUSION.search(seg[cut + 1:] if cut != -1 else seg))
+
+
 def _rows_with(entry, word, cap):
-    """Indices of the first `cap` rows whose text contains `word`, in order."""
+    """Indices of the first `cap` rows where `word` starts a word, in order."""
     text, starts = entry["text"], entry["starts"]
     needle = word.encode("utf-8")
     found = []
+    probes = 0
     pos = text.find(needle)
-    while pos != -1 and len(found) < cap:
+    while pos != -1 and len(found) < cap and probes < PROBE_CAP:
+        probes += 1
         row = bisect.bisect_right(starts, pos) - 1
-        found.append(row)
-        # carry on from the start of the next row: one hit per row
-        pos = text.find(needle, starts[row + 1] if row + 1 < len(starts) else len(text))
+        if _starts_word(text, pos) and not _excluded(text, pos, starts[row]):
+            found.append(row)
+            # carry on from the start of the next row: one hit per row
+            pos = text.find(needle, starts[row + 1] if row + 1 < len(starts) else len(text))
+        else:
+            pos = text.find(needle, pos + 1)
     return found
 
 
@@ -531,43 +688,110 @@ def _row_code(entry, row):
     return entry["codes"][cs[row]:end].decode("utf-8")
 
 
-def _series_hits(dataset, needle, limit):
-    """Series matching needle, as (rank, order, dataset, row): rank 0 its code,
-    1 the phrase in the series' own name, 2 every word found across the series
-    and dataset names, 3 the dataset alone matches. Series names rarely repeat
-    their dataset's ("All items", not "All items CPI"), so ranks 2 and 3 are
-    what let a search for "CPI" or "food CPI" find anything. Within rank 2 the
-    shortest name is the closest: "Food" before "All items, less fresh food"."""
-    entry = _searchable(dataset)
-    needle = needle.lower()
-    words = needle.split()
-    must = [w for w in words if w not in entry["about"]]
-    hits = {}
+def _dataset_weight(entry, term):
+    """How well the dataset itself answers a term: 3 its section ("Rates"),
+    2 its id or name, 1 its summary; one less for a synonym; 2 for a market
+    word naming its market."""
+    if term["market"]:
+        return 2 if entry["market"] == term["market"] else 0
+    best = 0
+    for forms, less in ((term["forms"], 0), (term["syn"], 1)):
+        for f in forms:
+            f = f.encode("utf-8")
+            for key, w in (("section", 3), ("about", 2), ("summary", 1)):
+                hay = entry[key].encode("utf-8")
+                if _word_at(hay, f, 0, len(hay)):
+                    best = max(best, w - less)
+                    break
+    return best
 
-    pos = entry["codes"].find(b"\n" + needle.encode("utf-8") + b"\n")
+
+def _row_weight(text, lo, hi, term):
+    """How well one series' own name answers a term: 3 the word, 2 a synonym;
+    a market named in a series (a trade partner) only 1."""
+    for forms, w in ((term["forms"], 1 if term["market"] else 3), (term["syn"], 2)):
+        for f in forms:
+            if _word_at(text, f.encode("utf-8"), lo, hi):
+                return w
+    return 0
+
+
+def _series_hits(dataset, query, limit, order=0):
+    """Series answering a query read by _read_query, as (key, 0, dataset, row)
+    with key sorting best first. Every term must be answered, by the series'
+    name or by the dataset itself (its section, name or summary, or its
+    market): series are "All items", not "All items CPI", so "CPI" lives in
+    the dataset. A term answered by both scores more ("Treasury" in a
+    Treasury curve beats the BoJ's "Treasury discount bills"). Ties go to the
+    main dataset of a family (`order`), then its key series, then the
+    publisher's own order, which puts totals first: "Food" before "Fresh
+    food", all Japan before Mie. A dataset that answers the whole query
+    by itself adds its key series only (DATASET_HIT_SERIES)."""
+    entry = _searchable(dataset)
+    terms = query["terms"]
+    if not terms:
+        return []
+    text, starts = entry["text"], entry["starts"]
+    n = len(starts)
+    ds = [_dataset_weight(entry, t) for t in terms]
+
+    code_row = None
+    pos = entry["codes"].find(b"\n" + query["code"].encode("utf-8") + b"\n")
     if pos != -1:
-        hits[bisect.bisect_right(entry["code_starts"], pos + 1) - 1] = (0, 0)
-    for row in _rows_with(entry, needle, SCAN_CAP):
-        hits.setdefault(row, (1, row))
-    if len(words) > 1:
-        seeds = _rows_with(entry, must[0], SCAN_CAP * 10) if must else sorted(
-            set(r for w in words for r in _rows_with(entry, w, SCAN_CAP * 10)))
-        for row in seeds:
-            if row in hits:
-                continue
-            t = _row_text(entry, row).decode("utf-8")
-            if all(w in t for w in must) and any(w in t for w in words):
-                hits[row] = (2, len(t))
-    if not hits and words and not must:
-        # the query names the dataset alone: its key series first, then the rest in order
-        rows = entry["labelled"][:DATASET_HIT_SERIES]
-        rows += [r for r in range(min(len(entry["starts"]), DATASET_HIT_SERIES * 4))
-                 if r not in rows][:DATASET_HIT_SERIES - len(rows)]
-        for row in rows:
-            hits[row] = (3, row)
-    ranked = sorted(((rank, order, dataset, row) for row, (rank, order) in hits.items()),
-                    key=lambda h: h[:2])
-    return ranked[:max(limit, 1) * 4]
+        code_row = bisect.bisect_right(entry["code_starts"], pos + 1) - 1
+
+    uncovered = [t for t, w in zip(terms, ds) if not w]
+    seeds = [code_row] if code_row is not None else []
+    if uncovered:
+        # rows that answer the most specific term the dataset does not
+        lead = next((t for t in uncovered if not t["market"]), uncovered[0])
+        for f in lead["forms"] + lead["syn"]:
+            seeds.extend(_rows_with(entry, f, SCAN_CAP * 10))
+    else:
+        seeds.extend(entry["keys"])
+        seeds.extend(range(min(n, DATASET_HIT_SERIES * 4)))
+        for t in terms:
+            for f in t["forms"] + t["syn"]:
+                seeds.extend(_rows_with(entry, f, SCAN_CAP))
+
+    phrase = query["phrase"].encode("utf-8")
+    named, loose = [], []
+    for row in set(seeds):
+        lo = starts[row]
+        hi = starts[row + 1] - 1 if row + 1 < n else len(text) - 1
+        score = in_row = 0
+        for t, w in zip(terms, ds):
+            rw = _row_weight(text, lo, hi, t)
+            if not rw and not w:
+                break
+            in_row += bool(rw)
+            # a market answered by the dataset counts once: "All Japan —
+            # occupancy rate" is not more Japanese than the JGB curve
+            score += max(rw, w) + (1 if rw and w and not t["market"] else 0)
+            if t["code"] and _row_code(entry, row) == t["code"]:
+                score += 2
+        else:
+            if row == code_row:
+                score += 10
+            if phrase and _word_at(text, phrase, lo, hi):
+                score += 2
+            key = (-score, order, entry["keys"].get(row, 99), row)
+            (named if in_row or row == code_row else loose).append(key)
+    loose.sort()
+    hits = sorted(named + loose[:DATASET_HIT_SERIES])
+    return [(k, 0, dataset, k[-1]) for k in hits[:max(limit, 1) * 4]]
+
+
+def _spread(hits, per_dataset=5):
+    """Best first, but among equally good hits no more than `per_dataset`
+    from one dataset before the others have had their turn: "US rates" shows
+    the real yields after five of the nominal curve, not after all fourteen."""
+    seen = {}
+    tiers = []
+    for i, h in enumerate(hits):
+        seen[(h[0][0], h[2])] = seen.get((h[0][0], h[2]), 0) + 1
+        tiers.append((h[0][0], seen[(h[0][0], h[2])] > per_dataset, i))
+    return [hits[t[2]] for t in sorted(tiers)]
 
 
 def _series_details(picked):
@@ -630,13 +854,17 @@ def search(query, dataset="", limit=SEARCH_LIMIT):
     companies = {}
     series = []
     failed = []
+    query = _read_query(needle)
+    # among equal hits, a family's main dataset first: cpi-jp before
+    # cpi-jp-sa, ust-yields before ust-real-yields
+    ranks = dict((mid, i) for i, mid in enumerate(sorted(targets, key=lambda d: (len(d), d))))
     for mid in targets:
         m = registry.get(mid)
         if not registry.available(mid):
             continue
         try:
             if m["shape"] == "series":
-                series.extend(_series_hits(mid, needle, limit))
+                series.extend(_series_hits(mid, query, limit, ranks[mid]))
             elif "search" in m["capabilities"]:
                 for h in _company_hits(mid, needle, limit):
                     key = h["sec_code"] or h["name"]
@@ -652,8 +880,7 @@ def search(query, dataset="", limit=SEARCH_LIMIT):
                   key=lambda r: (needle != (r["sec_code"] or ""), -len(r["datasets"]),
                                  r["name"] or ""))
     company_rows = rows[:limit]
-    # by rank only: stable, so datasets keep registry order and each its own best first
-    series.sort(key=lambda h: h[0])
+    series = _spread(sorted(series, key=lambda h: h[0]))
     series_rows = _series_details(series[:limit])
     return _dumps({"tool": "search", "query": needle,
                    "companies": company_rows, "series": series_rows,

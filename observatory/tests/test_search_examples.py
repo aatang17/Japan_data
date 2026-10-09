@@ -80,6 +80,32 @@ class DeskSearchExamples(unittest.TestCase):
         self.assertIn("Boards & Pay", titles)
 
     @unittest.skipUnless(_data.MACRO, _data.NO_MACRO)
+    def test_a_market_word_picks_the_market(self):
+        # 2026-10-09: "us rates" listed BoJ loan rates at Trust banks ("us" in
+        # "Trust") and "US CPI" listed Japanese housing ("Housing").
+        r = research_api.data_search(None, "us rates")
+        self.assertEqual((r["series"][0]["dataset"], r["series"][0]["code"]), ("ust-yields", "10Y"))
+        self.assertTrue(all(s["dataset"].startswith("ust-") for s in r["series"]), r["series"])
+        r = research_api.data_search(None, "US CPI")
+        self.assertEqual((r["series"][0]["dataset"], r["series"][0]["name"]), ("cpi-us", "All items"))
+        self.assertTrue(all(s["dataset"].startswith("cpi-us") for s in r["series"]))
+        r = research_api.data_search(None, "japan rates")
+        self.assertEqual(r["series"][0]["dataset"], "jgb-yields")
+        r = research_api.data_search(None, "us 10y")
+        self.assertEqual([(s["dataset"], s["code"]) for s in r["series"]][:1], [("ust-yields", "10Y")])
+        # a market can also be a trade partner in a series' name
+        r = research_api.data_search(None, "semiconductor exports to US")
+        self.assertIn("United States", r["series"][0]["name"])
+
+    @unittest.skipUnless(_data.MACRO, _data.NO_MACRO)
+    def test_words_match_whole_words_and_not_what_a_series_leaves_out(self):
+        names = [s["name"] for s in research_api.data_search(None, "food CPI")["series"]]
+        self.assertEqual(names[0], "Food")
+        self.assertNotIn("All items, less fresh food", names)
+        r = research_api.data_search(None, "guest nights")
+        self.assertEqual(r["series"][0]["name"], "All Japan — guest nights")
+
+    @unittest.skipUnless(_data.MACRO, _data.NO_MACRO)
     def test_cpi_lists_the_headline_first(self):
         r = research_api.data_search(None, "CPI")
         self.assertEqual((r["series"][0]["dataset"], r["series"][0]["name"]), ("cpi-jp", "All items"))

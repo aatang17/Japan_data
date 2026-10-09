@@ -682,7 +682,7 @@ function slotEl(id) {
 
 /* The data search box, on a new tab and on every data tab. Its examples are
    typed into the same search by tests/test_search_examples.py. */
-var DATA_SEARCH_INPUT = '<input type="search" class="dk-rs-q" placeholder="Series, company or topic, e.g. core CPI, 7203, CEO pay" aria-label="Search Plover data">';
+var DATA_SEARCH_INPUT = '<input type="search" class="dk-rs-q" placeholder="Series, company or topic, e.g. core CPI, US yields, 7203, CEO pay" aria-label="Search Plover data">';
 
 /* ---- a new tab ---- */
 
@@ -715,6 +715,12 @@ function newTab(t) {
     e.preventDefault();
     var q = $("input", e.target).value.trim();
     if (!q) { $("input", e.target).focus(); return; }
+    becomeTab(t, { kind: "data", q: q, title: q });
+  });
+  // results come as the writer types: the tab becomes a data tab, with the
+  // cursor still in the box
+  whenTyped($('[data-go="data"] input', el), function (q) {
+    t.typing = true;
     becomeTab(t, { kind: "data", q: q, title: q });
   });
   $('[data-go="web"]', el).addEventListener("submit", function (e) {
@@ -783,28 +789,57 @@ function dataTab(t) {
     "A value goes in where your cursor was, with a footnote naming its source and date; Save to Notes keeps it for later.</p></div>";
   var input = $("input", el);
   input.value = t.q;
-  $("form", el).addEventListener("submit", function (e) {
-    e.preventDefault();
-    var q = input.value.trim();
-    if (!q) { input.focus(); return; }
+  function run(q) {
     t.q = q;
     t.title = q;
     drawStrip();
     saveTabs();
     dataSearch(q, $(".dk-rs-res", el));
+  }
+  var typed = whenTyped(input, run);
+  $("form", el).addEventListener("submit", function (e) {
+    e.preventDefault();
+    typed.cancel();
+    var q = input.value.trim();
+    if (!q) { input.focus(); return; }
+    run(q);
   });
   var ns = $("[data-noslot]", el);
   if (ns) ns.addEventListener("click", function () { t.slot = ""; S.slotTarget = null; saveTabs(); dataTab(t); });
   if (t.q) dataSearch(t.q, $(".dk-rs-res", el));
-  else input.focus();
+  if (!t.q || t.typing) {
+    t.typing = false;
+    input.focus();
+    input.setSelectionRange(input.value.length, input.value.length);
+  }
+}
+
+/* Search as the writer types: a quarter-second after the last key, from two
+   characters. Search (or Enter) still runs it at once. */
+function whenTyped(input, fn) {
+  var timer = null;
+  var last = input.value.trim();
+  input.addEventListener("input", function () {
+    clearTimeout(timer);
+    var q = input.value.trim();
+    if (q.length < 2 || q === last) return;
+    timer = setTimeout(function () { last = q; fn(q); }, 250);
+  });
+  return { cancel: function () { clearTimeout(timer); last = input.value.trim(); } };
 }
 
 /* A search that finds nothing is tried again with its last word dropped
    ("China Korea Taiwan" → "China"), and the panel says so. */
 function dataSearch(q, res, asked) {
   if (!q.trim()) return;
-  res.innerHTML = '<p class="muted">Searching…</p>';
+  // while typing, the last results stay up (dimmed) until the new ones come;
+  // a reply to an older search that comes late is dropped
+  var seq = res._seq = (res._seq || 0) + 1;
+  if ($(".dk-rs-list", res)) res.setAttribute("aria-busy", "true");
+  else res.innerHTML = '<p class="muted">Searching…</p>';
   api("/research/data/search?q=" + encodeURIComponent(q)).then(function (r) {
+    if (seq !== res._seq) return;
+    res.removeAttribute("aria-busy");
     var pages = r.pages || [];
     if (!r.series.length && !r.companies.length && !pages.length) {
       var shorter = q.trim().split(/\s+/).slice(0, -1).join(" ");
@@ -879,7 +914,11 @@ function dataSearch(q, res, asked) {
         window.open($('[data-cpage="' + b.getAttribute("data-copen") + '"]', res).value, "_blank", "noopener");
       });
     });
-  }).catch(function (err) { res.innerHTML = '<p class="bad">' + escapeHtml(err.message) + "</p>"; });
+  }).catch(function (err) {
+    if (seq !== res._seq) return;
+    res.removeAttribute("aria-busy");
+    res.innerHTML = '<p class="bad">' + escapeHtml(err.message) + "</p>";
+  });
 }
 
 /* Copy a chart from a page found in the search. The chart block goes in at
