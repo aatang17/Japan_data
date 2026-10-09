@@ -39,6 +39,7 @@
     "desk.js#data-f=q": "The search box on a chart in the signed-in desk. An empty chart runs the desk's data search, and tests/test_search_examples.py types the box's own examples into it."
   },
   "not_run": {
+    "desk-tabs.js#class=dk-at-q": "Filters the writer's own articles, already listed under + Open Article in the desk; there is nothing to fetch.",
     "sortable.js#class=table-filter": "Filters the rows a table already shows; there is nothing to fetch.",
     "assistant.js#cat-q": "Filters the specialists already listed; there is nothing to fetch."
   },

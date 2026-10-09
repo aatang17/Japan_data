@@ -2555,6 +2555,7 @@ function shell() {
     '<button type="button" class="dk-barbtn" id="dk-sub-btn" hidden>Substack</button>' +
     '<button type="button" class="dk-publish" id="dk-publish-btn">Publish</button>' +
     "</div>" +
+    '<div id="dk-atabs" class="dk-atabs"></div>' +
     '<div id="dk-banners" class="dk-banners"></div>' +
     '<div class="dk-layout">' +
     '<main class="dk-canvas" id="dk-canvas">' +
@@ -2748,6 +2749,7 @@ function boot() {
     });
     wire();
     renderDraft(S.article.draft);
+    initArticleTabs();
     setStatus("saved");
     document.title = (S.article.draft.title || "Untitled") + " · Research Desk";
     offerLocalCopy();
