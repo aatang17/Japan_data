@@ -33,11 +33,14 @@ var AI_HELP = {
 
 function aiKey() { return "dk-ai-job-" + ID; }
 
+/* The AI settings, with the skills and connections of this article's publication. */
+function aiPath(path) { return path + "?article=" + encodeURIComponent(ID); }
+
 function renderAIPane() {
   var box = $("#dk-pane-ai");
   if (AI.job && AI.job.status === "running") return drawAI();
   box.innerHTML = '<p class="muted">Loading…</p>';
-  api("/research/ai").then(function (s) {
+  api(aiPath("/research/ai")).then(function (s) {
     AI.settings = s;
     var saved = null;
     try { saved = localStorage.getItem(aiKey()); } catch (e) { /* storage blocked */ }
@@ -93,9 +96,9 @@ function drawAI() {
     '<button type="submit" class="btn btn-primary" id="dk-ai-run"' + (running ? " disabled" : "") + ">" +
     (running ? "Working…" : "Run") + "</button></form>" +
     '<p class="dk-ai-reach">Can use: ' + escapeHtml((s.reach || []).join(", ")) + "." +
-    // the team's skills and connections are set up in the admin console, for PloverResearch
-    (S.article && S.article.publication && S.article.publication.home
-      ? ' <a href="admin.html#ai" target="_blank" rel="noopener">Skills and connections</a>' : "") + "</p>" +
+    // each publication keeps its own skills and connections, in the Writer Desk
+    (S.article && S.article.publication
+      ? ' <a href="write.html#/p/' + S.article.publication.id + '/assistant" target="_blank" rel="noopener">Assistant Settings</a>' : "") + "</p>" +
     '<div id="dk-ai-job"></div>';
   $("#dk-ai-change").addEventListener("click", function () { AI.setup = true; drawAI(); });
   var pick = $("#dk-ai-skill");
@@ -117,7 +120,7 @@ function drawAI() {
     b.addEventListener("click", function () {
       var key = b.getAttribute("data-len");
       if (key === s.length) return;
-      send("PUT", "/research/ai/length", { length: key }).then(function (res) {
+      send("PUT", aiPath("/research/ai/length"), { length: key }).then(function (res) {
         AI.settings = s = res;
         lengthNote();
       }).catch(function (err) { aiErr(err.message || "The length was not saved. Try again."); });
@@ -192,7 +195,7 @@ function drawProvider(p) {
   if ($("#dk-ai-forget")) $("#dk-ai-forget").addEventListener("click", function () {
     var b = this;
     b.disabled = true;
-    send("POST", "/research/ai/forget", { what: b.getAttribute("data-what") }).then(function (res) {
+    send("POST", aiPath("/research/ai/forget"), { what: b.getAttribute("data-what") }).then(function (res) {
       AI.settings = res;
       toast("Removed.");
       drawAI();
@@ -323,7 +326,7 @@ function saveProvider(p) {
   b.disabled = true;
   b.textContent = body.key ? "Checking the key…" : "Saving…";
   aiErr("");
-  send("PUT", "/research/ai", body).then(function (res) {
+  send("PUT", aiPath("/research/ai"), body).then(function (res) {
     AI.settings = res;
     AI.setup = false;
     toast("Connected.");
@@ -392,7 +395,7 @@ function aiRunFor(text, skillName, image, onFail) {
     runAI(text, AI.skill, onFail, image);
   };
   if (AI.settings) go();
-  else api("/research/ai").then(go).catch(function (err) { toast(err.message); if (onFail) onFail(); });
+  else api(aiPath("/research/ai")).then(go).catch(function (err) { toast(err.message); if (onFail) onFail(); });
 }
 
 function pauseCanvas(on) {

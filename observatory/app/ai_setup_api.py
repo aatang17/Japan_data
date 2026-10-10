@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
-"""Admin → AI Setup, under /admin/api/ai: the team's skills, house style and
-connectors, and each person's Google Drive connection.
+"""Admin → Assistant Settings, under /admin/api/ai: PloverResearch's skills,
+house style and connectors, and each person's Google Drive connection.
+
+Every publication has its own skills, house style and connectors; its owner
+and editors keep them in the Writer Desk (app/writer_api.py). This page is
+PloverResearch's (publication 1) only, and never reaches another's.
 
 Anyone with the Writing permission can read all of it and edit the skills and
 the house style — writers are the people who use them. Connectors and the
@@ -15,10 +19,11 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 
-from . import connectors, seo, skills, staff, staff_google
+from . import connectors, research, seo, skills, staff, staff_google
 from .admin_api import _client_ip, _require_admin, audit
 
 router = APIRouter(prefix="/admin/api/ai", include_in_schema=False)
+HOME = research.HOME
 
 
 def _writer(request):
@@ -48,12 +53,12 @@ def _base(request):
 
 @router.get("/setup")
 def setup(request: Request):
-    """Everything the AI Setup page shows, in one call."""
+    """Everything the Assistant Settings page shows, in one call."""
     person = _writer(request)
     me = person.get("id") if not person.get("shared") else None
-    return {"skills": skills.list_skills(), "house_style": skills.house_style(),
+    return {"skills": skills.list_skills(publication_id=HOME), "house_style": skills.house_style(HOME),
             "default_house_style": skills.HOUSE_STYLE,
-            "connectors": connectors.list_connectors(),
+            "connectors": connectors.list_connectors(publication_id=HOME),
             "google": dict(staff_google.status_for(me) if me else
                            {"configured": staff_google.configured(),
                             "team_enabled": staff_google.team_enabled(), "connected": False},
@@ -76,7 +81,7 @@ def skill_create(body: SkillBody, request: Request):
     person = _writer(request)
     try:
         s = skills.create(body.name, body.description, body.instructions, staff.actor_label(person),
-                          True if body.writes is None else body.writes)
+                          True if body.writes is None else body.writes, publication_id=HOME)
     except skills.SkillError as exc:
         raise HTTPException(400, str(exc))
     _audit(request, person, "ai_skill_created", s["name"])
@@ -88,7 +93,7 @@ def skill_update(skill_id: int, body: SkillBody, request: Request):
     person = _writer(request)
     try:
         s = skills.update(skill_id, staff.actor_label(person), body.name, body.description,
-                          body.instructions, body.enabled, body.writes)
+                          body.instructions, body.enabled, body.writes, publication_id=HOME)
     except skills.SkillError as exc:
         raise HTTPException(400, str(exc))
     _audit(request, person, "ai_skill_updated", s["name"])
@@ -98,10 +103,10 @@ def skill_update(skill_id: int, body: SkillBody, request: Request):
 @router.delete("/skills/{skill_id}")
 def skill_delete(skill_id: int, request: Request):
     person = _writer(request)
-    s = skills.get(skill_id)
+    s = skills.get(skill_id, HOME)
     if s is None:
         raise HTTPException(404, "No such skill")
-    skills.delete(skill_id)
+    skills.delete(skill_id, HOME)
     _audit(request, person, "ai_skill_deleted", s["name"])
     return {"ok": True}
 
@@ -114,7 +119,7 @@ class StyleBody(BaseModel):
 def house_style(body: StyleBody, request: Request):
     person = _writer(request)
     try:
-        text = skills.set_house_style(body.text)
+        text = skills.set_house_style(body.text, HOME)
     except skills.SkillError as exc:
         raise HTTPException(400, str(exc))
     _audit(request, person, "ai_house_style", "%d characters" % len(text))
@@ -142,7 +147,8 @@ def connector_create(body: ConnectorBody, request: Request):
     person = _team(request)
     try:
         c = connectors.create(body.label, body.url, body.auth_kind or "none", body.header_name,
-                              (body.key or "").strip() or None, staff.actor_label(person))
+                              (body.key or "").strip() or None, staff.actor_label(person),
+                              publication_id=HOME)
     except connectors.ConnectorError as exc:
         raise HTTPException(400, str(exc))
     _audit(request, person, "ai_connector_added", "%s %s" % (c["label"], c["url"]))
@@ -155,7 +161,7 @@ def connector_update(connector_id: int, body: ConnectorBody, request: Request):
     try:
         c = connectors.update(connector_id, staff.actor_label(person), body.label, body.url,
                               body.auth_kind, body.header_name, (body.key or "").strip() or None,
-                              body.enabled)
+                              body.enabled, publication_id=HOME)
     except connectors.ConnectorError as exc:
         raise HTTPException(400, str(exc))
     _audit(request, person, "ai_connector_updated", c["label"])
@@ -166,7 +172,7 @@ def connector_update(connector_id: int, body: ConnectorBody, request: Request):
 def connector_check(connector_id: int, request: Request):
     person = _team(request)
     try:
-        return connectors.check(connector_id)
+        return connectors.check(connector_id, publication_id=HOME)
     except connectors.ConnectorError as exc:
         raise HTTPException(400, str(exc))
 
@@ -175,7 +181,7 @@ def connector_check(connector_id: int, request: Request):
 def connector_tool(connector_id: int, body: ToolBody, request: Request):
     person = _team(request)
     try:
-        c = connectors.set_tool(connector_id, body.tool, body.on)
+        c = connectors.set_tool(connector_id, body.tool, body.on, publication_id=HOME)
     except connectors.ConnectorError as exc:
         raise HTTPException(400, str(exc))
     _audit(request, person, "ai_connector_tool", "%s: %s %s" % (c["label"], body.tool,
@@ -186,10 +192,10 @@ def connector_tool(connector_id: int, body: ToolBody, request: Request):
 @router.delete("/connectors/{connector_id}")
 def connector_delete(connector_id: int, request: Request):
     person = _team(request)
-    c = connectors.get(connector_id)
+    c = connectors.get(connector_id, publication_id=HOME)
     if c is None:
         raise HTTPException(404, "No such connector")
-    connectors.delete(connector_id)
+    connectors.delete(connector_id, publication_id=HOME)
     _audit(request, person, "ai_connector_removed", c["label"])
     return {"ok": True}
 
@@ -225,7 +231,7 @@ def google_start(request: Request):
 
 @router.get("/google/callback")
 def google_callback(request: Request, code: str = "", state: str = "", error: str = ""):
-    """Google sends the person back here. The answer is a redirect to AI Setup
+    """Google sends the person back here. The answer is a redirect to Assistant Settings
     with the outcome, never a page of its own."""
     person = _personal(request)
     if error:

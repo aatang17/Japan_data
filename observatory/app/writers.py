@@ -150,10 +150,32 @@ def permissions_for(person, article):
     return dict((a, can(person, a, article)) for a in ("edit", "publish", "delete"))
 
 
-def can_create_publications(person):
-    """Opening a publication is the Plover team's decision while publications
-    are by invitation."""
+def opens_for_others(person):
+    """The Plover team opens a publication for someone it invites, as owner."""
     return "team" in (person.get("permissions") or [])
+
+
+def can_create_publications(person):
+    """Every writer may have a publication of their own: someone who owns
+    none yet may open one, as its owner. The Plover team may open any number,
+    for anyone."""
+    if opens_for_others(person):
+        return True
+    return "owner" not in research.memberships(person.get("email")).values()
+
+
+def own_publication(person):
+    """The publication that is the person's own: the first they own, else the
+    first they write for, else PloverResearch. A run with no article uses its
+    Assistant Settings."""
+    mine = roles(person)
+    owned = sorted(pid for pid, r in mine.items() if r == "owner" and pid != research.HOME)
+    if owned:
+        return owned[0]
+    others = sorted(pid for pid in mine if pid != research.HOME)
+    if research.HOME in mine or not others:
+        return research.HOME
+    return others[0]
 
 
 # --------------------------------------------------------------- sign-in

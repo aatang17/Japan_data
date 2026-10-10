@@ -22,7 +22,7 @@ var ADMIN_NAV = [
   { group: "Research", pages: [
     // articles live in the Writer Desk now (write.html), with every publication's
     { id: "articles", label: "Writer Desk", hash: "#articles", perm: "writing" },
-    { id: "ai", label: "AI Setup", hash: "#ai", perm: "writing" },
+    { id: "ai", label: "Assistant Settings", hash: "#ai", perm: "writing" },
   ]},
   { group: "Classification", pages: [
     { id: "queue", label: "Classification Queue", hash: "#queue", perm: "classification" },

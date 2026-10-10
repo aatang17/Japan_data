@@ -6,8 +6,9 @@
    /admin/api/research; the server decides what this person may see and do
    (app/writers.py) and the page only hides what would be refused anyway.
 
-   Routes (hash): #/p/<id> articles · #/p/<id>/members · #/p/<id>/settings ·
-   #/account · #/new (open a publication, Plover team only). */
+   Routes (hash): #/p/<id> articles · #/p/<id>/members · #/p/<id>/assistant ·
+   #/p/<id>/settings · #/account · #/new (open a publication: one of your own,
+   or for anyone if you are on the Plover team). */
 (function () {
   "use strict";
 
@@ -201,8 +202,10 @@
     const pub = pubOf(r.id) || ME.publications[0];
     if (!r.id || !pubOf(r.id)) { history.replaceState(null, "", "#/p/" + pub.id); r.id = pub.id; }
     const owner = pub.role === "owner";
-    const tab = r.tab === "settings" && !(owner && !pub.home) ? "articles" : r.tab;
-    const tabs = [["articles", "Articles"], ["members", "Members"]].concat(owner && !pub.home ? [["settings", "Settings"]] : []);
+    const known = ["articles", "members", "assistant"].concat(owner && !pub.home ? ["settings"] : []);
+    const tab = known.indexOf(r.tab) === -1 ? "articles" : r.tab;
+    const tabs = [["articles", "Articles"], ["members", "Members"], ["assistant", "Assistant Settings"]]
+      .concat(owner && !pub.home ? [["settings", "Settings"]] : []);
     const actions = tab === "articles"
       ? `<button class="btn" id="wd-import" type="button">Import Markdown</button>
          <button class="btn primary" id="wd-new" type="button">New Article</button>
@@ -215,6 +218,7 @@
     const body = $("#wd-body");
     if (tab === "members") return membersTab(pub, body);
     if (tab === "settings") return settingsTab(pub, body);
+    if (tab === "assistant") return assistantTab(pub, body);
     articlesTab(pub, body);
   }
 
@@ -430,6 +434,276 @@
     }).catch(err => { body.innerHTML = failed("the members", err); });
   }
 
+  /* ---- assistant settings ----
+     The publication's own skills, house style and connectors: what the AI tab
+     in the editor uses on its articles (app/writer_api.py). Every member sees
+     them; editors change skills and the house style; owners the connectors. */
+
+  const AUTH = { none: "No key", bearer: "Bearer key", header: "Key in a header" };
+  let REMOVE = null;                            // {path, label, row, box, list, note, timer}
+
+  function assistantTab(pub, body, reopen) {
+    flushRemove();
+    body.innerHTML = loading("the assistant settings");
+    const base = `/write/publications/${pub.id}/assistant`;
+    api(base).then(d => {
+      const who = d.can_manage ? "" : d.can_edit ? " Connectors are changed by the publication's owners."
+        : " Only the publication's owners and editors change these.";
+      body.innerHTML =
+        `<p class="wd-para">What the assistant in the editor uses on this publication's articles: the skills a writer can pick, ` +
+        `the house style sent with every run, and the outside tools it may call. Each person connects their own AI account in the editor's AI tab.${esc(who)}</p>` +
+        band("Skills", d.skills.length.toLocaleString()) + '<div id="wd-skalert"></div>' +
+        (d.skills.length ? `<ul class="rows wd-list" id="wd-skills">${d.skills.map(k => skillRow(k, d.can_edit)).join("")}</ul>`
+          : '<p class="empty wd-empty">No skills. Add one to give writers a playbook they can pick in the AI tab.</p>') +
+        (d.can_edit ? '<div class="wd-btnrow"><button class="btn" type="button" id="wd-skadd">Add Skill</button></div><div class="wd-edit wd-new" id="wd-sknew" hidden></div>' : "") +
+        band("House Style") +
+        '<p class="wd-para">Sent with every run: how anything the assistant writes into a draft should read. A new publication starts with Plover\'s institutional style; rewrite it in your own voice.</p>' +
+        `<textarea id="wd-style" class="wd-style" rows="14" maxlength="8000" aria-label="House style"${d.can_edit ? "" : " readonly"}>${esc(d.house_style)}</textarea>` +
+        (d.can_edit ? '<div class="wd-btnrow"><button class="btn primary" type="button" id="wd-stsave">Save House Style</button>' +
+          '<button class="btn" type="button" id="wd-streset">Reset to Default</button><span class="hint" id="wd-stmsg" role="status"></span></div>' : "") +
+        band("Connectors", d.connectors.length.toLocaleString()) + '<div id="wd-cnalert"></div>' +
+        '<p class="wd-para">Outside tool servers (MCP) the assistant may call: a research database, a notes service, an internal tool. ' +
+        "They use this publication's keys and serve its articles only. Each call is listed in the AI tab's steps.</p>" +
+        (d.connectors.length ? `<ul class="rows wd-list" id="wd-conns">${d.connectors.map(c => connRow(c, d.can_manage)).join("")}</ul>`
+          : '<p class="empty wd-empty">No connectors.</p>') +
+        (d.can_manage ? '<div class="wd-btnrow"><button class="btn" type="button" id="wd-cnadd">Add Connector</button></div><div class="wd-edit wd-new" id="wd-cnnew" hidden></div>' : "");
+      wireAssistant(pub, body, d, base);
+      if (reopen) {
+        const c = d.connectors.find(x => x.id === reopen);
+        const box = $("#wd-conn-" + reopen);
+        if (c && box) openConn(pub, body, d, base, c, box);
+      }
+    }).catch(err => { body.innerHTML = failed("the assistant settings", err); });
+  }
+
+  function skillRow(k, edit) {
+    const tags = [];
+    if (!k.writes) tags.push('<span class="tag">Answers Only</span>');
+    if (!k.enabled) tags.push('<span class="tag">Off</span>');
+    return `<li data-skill="${k.id}"><div><b>${esc(k.name)}</b><small>${esc(k.description)}</small></div>` +
+      (tags.length ? `<span class="wd-tags">${tags.join("")}</span>` : "") +
+      `<span class="wd-acts"><button class="btn sm" type="button" data-skopen="${k.id}" aria-expanded="false">${edit ? "Edit" : "Steps"}</button>` +
+      (edit ? `<button class="btn sm danger" type="button" data-skdel="${k.id}">Delete</button>` : "") +
+      `</span><div class="wd-edit" id="wd-skill-${k.id}" hidden></div></li>`;
+  }
+
+  function skillForm(k) {
+    k = k || { name: "", description: "", instructions: "", enabled: true, writes: true };
+    const id = k.id || "new";
+    return `<dl class="kv wd-kv">
+      <dt><label for="wd-skn-${id}">Name</label></dt><dd><input id="wd-skn-${id}" data-f="name" maxlength="60" autocomplete="off" value="${esc(k.name)}"></dd>
+      <dt><label for="wd-skd-${id}">When to Use It</label></dt><dd><input id="wd-skd-${id}" data-f="description" maxlength="300" autocomplete="off" value="${esc(k.description)}"><span class="hint">One line. The assistant reads it to decide when the skill applies.</span></dd>
+      <dt><label for="wd-ski-${id}">Steps</label></dt><dd><textarea id="wd-ski-${id}" class="wd-steps" data-f="instructions" rows="16" maxlength="20000">${esc(k.instructions)}</textarea>
+        <span class="hint">Plain Markdown: what to do, in order, and what never to do. To end with a button for the next step, tell it to call <code>offer_next_step</code> with a label, a skill and an instruction.</span></dd>
+      <dt>Options</dt><dd><label class="wd-check"><input type="checkbox" data-f="enabled"${k.enabled ? " checked" : ""}> Offered in the AI tab</label>
+        <label class="wd-check"><input type="checkbox" data-f="writes"${k.writes ? " checked" : ""}> Can change the draft</label>
+        <span class="hint">Untick “Can change the draft” for a skill that only answers, such as Brainstorm or Review: the writer keeps editing while it runs.</span></dd>
+      <dt></dt><dd><button class="btn primary" type="button" data-act="save">${k.id ? "Save Skill" : "Add Skill"}</button>
+        <button class="btn" type="button" data-act="cancel">Cancel</button></dd></dl><p class="err" role="alert" data-msg></p>`;
+  }
+
+  function values(box) {
+    const out = {};
+    $$("[data-f]", box).forEach(el => { out[el.dataset.f] = el.type === "checkbox" ? el.checked : el.value; });
+    return out;
+  }
+
+  function closeBox(box) {
+    box.hidden = true;
+    box.innerHTML = "";
+    const li = box.closest("li");
+    const btn = li && $("[aria-expanded]", li);
+    if (btn) btn.setAttribute("aria-expanded", "false");
+  }
+
+  function openSkill(pub, body, d, base, k, box) {
+    if (!d.can_edit) {
+      box.innerHTML = `<pre class="wd-pre">${esc(k.instructions)}</pre>`;
+      box.hidden = false;
+      return;
+    }
+    box.innerHTML = skillForm(k);
+    box.hidden = false;
+    const msg = $("[data-msg]", box);
+    $('[data-act="cancel"]', box).addEventListener("click", () => closeBox(box));
+    $('[data-act="save"]', box).addEventListener("click", e => {
+      busy(e.target, "Saving…", () => send(k ? "PUT" : "POST", base + "/skills" + (k ? "/" + k.id : ""), values(box)))
+        .then(() => { toast(k ? "Saved. The next run uses it." : "Added. Writers can pick it in the AI tab."); assistantTab(pub, body); })
+        .catch(err => { msg.textContent = err.message; });
+    });
+    const first = $("input", box);
+    if (first) first.focus();
+  }
+
+  function connRow(c, manage) {
+    const on = c.tools.filter(t => t.on).length;
+    const state = c.last_error ? '<span class="tag warn">Not Reachable</span>'
+      : c.checked_at ? `<span class="tag">${on.toLocaleString()} of ${c.tools.length.toLocaleString()} Tools On</span>`
+        : '<span class="tag">Not Checked</span>';
+    return `<li data-conn="${c.id}"><div><b>${esc(c.label)}</b><small class="mono">${esc(c.url)}</small></div>
+      <span class="wd-tags">${c.enabled ? "" : '<span class="tag">Off</span>'}${state}</span>
+      <span class="wd-acts"><button class="btn sm" type="button" data-cnopen="${c.id}" aria-expanded="false">${manage ? "Manage" : "Tools"}</button>` +
+      (manage ? `<button class="btn sm danger" type="button" data-cndel="${c.id}">Remove</button>` : "") +
+      `</span><div class="wd-edit" id="wd-conn-${c.id}" hidden></div></li>`;
+  }
+
+  function toolList(c, manage) {
+    if (!c.tools.length) return `<p class="wd-para">${esc(c.last_error || "No tools listed yet. Press Check Now.")}</p>`;
+    return (c.last_error ? `<p class="err" role="alert">Last check: ${esc(c.last_error)}</p>` : "") +
+      `<p class="wd-steplabel">Tools the assistant may call${c.server_name ? " (" + esc(c.server_name) + ")" : ""}</p>` +
+      `<ul class="wd-tools">${c.tools.map(t => `<li><label class="wd-check"><input type="checkbox" data-tool="${esc(t.name)}"${t.on ? " checked" : ""}${manage ? "" : " disabled"}>` +
+        ` <span class="mono">${esc(t.name)}</span></label> <span class="wd-tooldesc">${esc((t.description || "").slice(0, 160))}</span></li>`).join("")}</ul>`;
+  }
+
+  function connForm(c) {
+    c = c || { label: "", url: "", auth_kind: "none", header_name: "", enabled: true };
+    const id = c.id || "new";
+    return `<dl class="kv wd-kv">
+      <dt><label for="wd-cnl-${id}">Name</label></dt><dd><input id="wd-cnl-${id}" data-f="label" maxlength="40" autocomplete="off" value="${esc(c.label)}"></dd>
+      <dt><label for="wd-cnu-${id}">Server Address</label></dt><dd><input id="wd-cnu-${id}" data-f="url" autocomplete="off" placeholder="https://…/mcp" value="${esc(c.url)}"></dd>
+      <dt><label for="wd-cna-${id}">Sign-in</label></dt><dd><select id="wd-cna-${id}" data-f="auth_kind">${Object.keys(AUTH).map(k =>
+        `<option value="${k}"${k === c.auth_kind ? " selected" : ""}>${AUTH[k]}</option>`).join("")}</select></dd>
+      <dt data-hdr${c.auth_kind === "header" ? "" : " hidden"}><label for="wd-cnh-${id}">Header Name</label></dt><dd data-hdr${c.auth_kind === "header" ? "" : " hidden"}><input id="wd-cnh-${id}" data-f="header_name" autocomplete="off" placeholder="X-API-Key" value="${esc(c.header_name || "")}"></dd>
+      <dt data-key${c.auth_kind === "none" ? " hidden" : ""}><label for="wd-cnk-${id}">Key</label></dt><dd data-key${c.auth_kind === "none" ? " hidden" : ""}><input id="wd-cnk-${id}" type="password" data-f="key" autocomplete="off" placeholder="${c.has_key ? "Stored key ending " + esc(c.key_last4 || "") + ". Paste to replace" : "Paste the key"}"><span class="hint">Stored encrypted and never shown again.</span></dd>` +
+      (c.id ? `<dt>Status</dt><dd><label class="wd-check"><input type="checkbox" data-f="enabled"${c.enabled ? " checked" : ""}> Available to the assistant</label></dd>` : "") +
+      `<dt></dt><dd><button class="btn primary" type="button" data-act="save">${c.id ? "Save" : "Add and Check"}</button>` +
+      (c.id ? '<button class="btn" type="button" data-act="check">Check Now</button>' : "") +
+      '<button class="btn" type="button" data-act="cancel">Cancel</button></dd></dl><p class="err" role="alert" data-msg></p>';
+  }
+
+  function openConn(pub, body, d, base, c, box) {
+    const manage = d.can_manage;
+    box.innerHTML = (c ? toolList(c, manage) : "") + (manage ? connForm(c) : "");
+    box.hidden = false;
+    const li = box.closest("li");
+    if (li) $("[aria-expanded]", li).setAttribute("aria-expanded", "true");
+    const msg = $("[data-msg]", box);
+    const fail = err => { if (msg) msg.textContent = err.message; else toast(err.message); };
+    $$("[data-tool]", box).forEach(cb => cb.addEventListener("change", () => {
+      cb.disabled = true;
+      send("PUT", `${base}/connectors/${c.id}/tools`, { tool: cb.dataset.tool, on: cb.checked })
+        .then(() => { cb.disabled = false; })
+        .catch(err => { cb.checked = !cb.checked; cb.disabled = false; fail(err); });
+    }));
+    if (!manage) return;
+    const kind = $('[data-f="auth_kind"]', box);
+    kind.addEventListener("change", () => {
+      $$("[data-hdr]", box).forEach(el => { el.hidden = kind.value !== "header"; });
+      $$("[data-key]", box).forEach(el => { el.hidden = kind.value === "none"; });
+    });
+    $('[data-act="cancel"]', box).addEventListener("click", () => closeBox(box));
+    $('[data-act="save"]', box).addEventListener("click", e => {
+      if (msg) msg.textContent = "";
+      busy(e.target, c ? "Saving…" : "Connecting…", () => send(c ? "PUT" : "POST", base + "/connectors" + (c ? "/" + c.id : ""), values(box)))
+        .then(res => { toast(res.last_error ? "Saved, but the server could not be reached." : "Saved."); assistantTab(pub, body, res.id); })
+        .catch(fail);
+    });
+    const chk = $('[data-act="check"]', box);
+    if (chk) chk.addEventListener("click", () => {
+      busy(chk, "Connecting…", () => send("POST", `${base}/connectors/${c.id}/check`))
+        .then(res => { toast(res.last_error ? "The server could not be reached." : "Checked: the tools are up to date."); assistantTab(pub, body, c.id); })
+        .catch(fail);
+    });
+    if (!c) $("input", box).focus();
+  }
+
+  /* Delete and Remove are one click with a few seconds to undo: the row goes
+     at once, and the server is asked when the Undo bar times out or the page
+     is left (the same pattern as deleting a draft). */
+  function removeLater(path, label, row, box) {
+    flushRemove();
+    row.hidden = true;
+    const head = box.previousElementSibling;  // the section's band, whose count goes down
+    REMOVE = { path: path, label: label, row: row, box: box, list: row.parentNode,
+      note: head && $(".h2-note", head) };
+    REMOVE.timer = setTimeout(finishRemove, UNDO_MS);
+    box.innerHTML = `<div class="undo-bar" role="status">Removed “${esc(label)}”. <button type="button" class="btn sm" data-undo>Undo</button></div>`;
+    $("[data-undo]", box).addEventListener("click", () => {
+      const p = REMOVE;
+      if (!p) return;
+      clearTimeout(p.timer);
+      REMOVE = null;
+      p.row.hidden = false;
+      p.box.innerHTML = "";
+    });
+  }
+
+  function finishRemove() {
+    const p = REMOVE;
+    if (!p) return;
+    clearTimeout(p.timer);
+    REMOVE = null;
+    api(p.path, { method: "DELETE" }).then(() => {
+      if (p.row.parentNode) p.row.parentNode.removeChild(p.row);
+      if ($(".undo-bar", p.box)) p.box.innerHTML = "";
+      if (p.note) p.note.textContent = p.list.children.length.toLocaleString();
+    }).catch(err => {
+      p.row.hidden = false;
+      p.box.innerHTML = `<div class="notice wd-bad" role="alert">Could not remove “${esc(p.label)}”: ${esc(err.message)}</div>`;
+    });
+  }
+
+  function flushRemove() { if (REMOVE) finishRemove(); }
+
+  window.addEventListener("pagehide", () => {
+    const p = REMOVE;
+    if (!p) return;
+    clearTimeout(p.timer);
+    REMOVE = null;
+    api(p.path, { method: "DELETE", keepalive: true }).catch(() => {});
+  });
+
+  function wireAssistant(pub, body, d, base) {
+    const toggle = (btn, box, open) => {
+      if (!box.hidden) { closeBox(box); return; }
+      btn.setAttribute("aria-expanded", "true");
+      open(box);
+    };
+    $$("[data-skopen]", body).forEach(b => b.addEventListener("click", () => {
+      const k = d.skills.find(x => x.id === Number(b.dataset.skopen));
+      toggle(b, $("#wd-skill-" + k.id), box => openSkill(pub, body, d, base, k, box));
+    }));
+    $$("[data-skdel]", body).forEach(b => b.addEventListener("click", () => {
+      const k = d.skills.find(x => x.id === Number(b.dataset.skdel));
+      removeLater(`${base}/skills/${k.id}`, k.name, b.closest("li"), $("#wd-skalert"));
+    }));
+    const skadd = $("#wd-skadd");
+    if (skadd) skadd.addEventListener("click", () => {
+      const box = $("#wd-sknew");
+      if (!box.hidden) { closeBox(box); return; }
+      openSkill(pub, body, d, base, null, box);
+    });
+    const style = $("#wd-style"), stmsg = $("#wd-stmsg");
+    const stsave = $("#wd-stsave");
+    if (stsave) stsave.addEventListener("click", () => {
+      stmsg.className = "hint";
+      busy(stsave, "Saving…", () => send("PUT", base + "/house-style", { text: style.value })).then(res => {
+        d.house_style = style.value = res.house_style;
+        stmsg.textContent = "Saved. The next run uses it.";
+      }).catch(err => { stmsg.className = "hint err"; stmsg.textContent = err.message; });
+    });
+    const streset = $("#wd-streset");
+    if (streset) streset.addEventListener("click", () => {
+      style.value = d.default_house_style;
+      stmsg.className = "hint";
+      stmsg.textContent = "Default restored here. Save to use it.";
+    });
+    $$("[data-cnopen]", body).forEach(b => b.addEventListener("click", () => {
+      const c = d.connectors.find(x => x.id === Number(b.dataset.cnopen));
+      toggle(b, $("#wd-conn-" + c.id), box => openConn(pub, body, d, base, c, box));
+    }));
+    $$("[data-cndel]", body).forEach(b => b.addEventListener("click", () => {
+      const c = d.connectors.find(x => x.id === Number(b.dataset.cndel));
+      removeLater(`${base}/connectors/${c.id}`, c.label, b.closest("li"), $("#wd-cnalert"));
+    }));
+    const cnadd = $("#wd-cnadd");
+    if (cnadd) cnadd.addEventListener("click", () => {
+      const box = $("#wd-cnnew");
+      if (!box.hidden) { closeBox(box); return; }
+      openConn(pub, body, d, base, null, box);
+    });
+  }
+
   /* ---- settings ---- */
 
   function settingsTab(pub, body) {
@@ -504,15 +778,17 @@
 
   function newView(r) {
     if (!ME.can_create_publications) { go(""); return; }
+    const forOthers = ME.opens_for_others;
     shell(r, topbar([["Open a Publication"]]) + page(pageHead("Open a Publication",
-      "A publication has its own pages at /p/&lt;address&gt;, its own feed and its own members. Its owner runs it from this desk.") +
+      "A publication has its own pages at /p/&lt;address&gt;, its own feed, its own members and its own Assistant Settings. " +
+      (forOthers ? "Its owner runs it from this desk." : "You will own it and run it from this desk.")) +
       band("Publication") +
       `<form id="wd-open"><dl class="kv wd-kv">
         <dt><label for="wd-oname">Name</label></dt><dd><input id="wd-oname" required maxlength="80" autocomplete="off"></dd>
         <dt><label for="wd-oslug">Address</label></dt><dd><span class="wd-prefix">/p/</span><input id="wd-oslug" required maxlength="40" pattern="[a-z0-9]+(-[a-z0-9]+)*" autocomplete="off"><span class="hint">Lower-case letters, digits and hyphens. Fixed once opened.</span></dd>
         <dt><label for="wd-otag">Tagline</label></dt><dd><input id="wd-otag" maxlength="200" autocomplete="off"></dd>
-        <dt><label for="wd-oown">Owner's name</label></dt><dd><input id="wd-oown" maxlength="80" autocomplete="off"></dd>
-        <dt><label for="wd-oemail">Owner's email</label></dt><dd><input id="wd-oemail" type="email" required maxlength="254" autocomplete="off"><span class="hint">Use your own address to own it yourself.</span></dd>
+        ${forOthers ? `<dt><label for="wd-oown">Owner's name</label></dt><dd><input id="wd-oown" maxlength="80" autocomplete="off"></dd>
+        <dt><label for="wd-oemail">Owner's email</label></dt><dd><input id="wd-oemail" type="email" required maxlength="254" autocomplete="off"><span class="hint">Use your own address to own it yourself.</span></dd>` : ""}
         <dt></dt><dd><button class="btn primary" type="submit">Open Publication</button></dd></dl></form><div id="wd-oout"></div>`));
     let touched = false;
     $("#wd-oslug").addEventListener("input", () => { touched = true; });
@@ -521,9 +797,10 @@
       e.preventDefault();
       busy($("button", e.target), "Opening…", () => send("POST", "/write/publications", {
         name: $("#wd-oname").value, slug: $("#wd-oslug").value, tagline: $("#wd-otag").value,
-        owner_name: $("#wd-oown").value, owner_email: $("#wd-oemail").value,
+        owner_name: forOthers ? $("#wd-oown").value : "", owner_email: forOthers ? $("#wd-oemail").value : "",
       })).then(res => refreshMe().then(() => {
         const pub = res.publication;
+        if (!forOthers) { toast(pub.name + " is open. It is yours to run."); go("p/" + pub.id); return; }
         const out = $("#wd-oout");
         out.innerHTML = (res.link
           ? linkBox(`<b>${esc(pub.name)}</b> is open at <a href="${esc(pub.base)}" target="_blank" rel="noopener">${esc(pub.base)}</a>. Send its owner, ${esc(res.owner_email)}, this sign-in link yourself. It works once, for 72 hours.`, res.link)

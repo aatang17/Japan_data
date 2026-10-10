@@ -7,22 +7,28 @@ publications rather than one article:
 
 ``GET  /me``                                who is signed in, and where they write
 ``POST /signout``                           end this browser's writer sessions
-``POST /publications``                      open a publication (Team permission)
+``POST /publications``                      open a publication: one of your own, or (Plover team) for anyone
 ``PUT  /publications/{id}``                 its name, tagline and description (owner)
 ``GET  /publications/{id}/members``         who writes there (any member)
 ``POST /publications/{id}/members``         invite someone (owner); returns a sign-in link
 ``PUT  /publications/{id}/members``         change a role (owner)
 ``DELETE /publications/{id}/members``       remove someone (owner)
 ``POST /publications/{id}/members/link``    a fresh sign-in link for a member (owner)
+``GET  /publications/{id}/assistant``       its Assistant Settings: skills, house style, connectors (any member)
+``POST/PUT/DELETE .../assistant/skills``    its skills (editor)
+``PUT  .../assistant/house-style``          its house style (editor)
+``POST/PUT/DELETE .../assistant/connectors`` its connectors, their check and tools (owner)
 ``GET/POST/DELETE /keys``                   personal keys for the writer's own AI agent
 
 It sits under /admin/api only so that the Plover team's staff session cookie
 (scoped to /admin) reaches it; nothing here is part of the admin console.
 """
+from typing import Optional
+
 from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel
 
-from . import accounts, mailer, research, seo, staff, writers
+from . import accounts, connectors, mailer, research, seo, skills, staff, writers
 from .admin_api import STAFF_COOKIE, _client_ip, audit
 
 router = APIRouter(prefix="/admin/api/write", include_in_schema=False)
@@ -71,6 +77,7 @@ def me(request: Request):
             "person": {"id": person["id"], "name": person["name"], "email": person["email"]},
             "publications": pubs,
             "can_create_publications": writers.can_create_publications(person),
+            "opens_for_others": writers.opens_for_others(person),
             "sign_in": sign_in}
 
 
@@ -98,19 +105,22 @@ class NewPublication(BaseModel):
     slug: str
     name: str
     tagline: str = ""
-    owner_email: str
+    owner_email: str = ""
     owner_name: str = ""
 
 
 @router.post("/publications")
 def create_publication(body: NewPublication, request: Request):
-    """Open a publication and make its first owner. While publications are by
-    invitation, only the Plover team (Team permission) opens them."""
+    """Open a publication and make its first owner. A writer opens one of
+    their own; the Plover team (Team permission) opens one for anyone."""
     person = writers.require_writer(request)
     if not writers.can_create_publications(person):
-        raise HTTPException(403, "Publications are opened by the Plover team for now.")
+        raise HTTPException(403, "You already own a publication. Each person opens one of their own.")
     actor = staff.actor_label(person)
-    owner_email = staff.normalise_email(body.owner_email)
+    owner_email = staff.normalise_email(body.owner_email or person["email"])
+    if owner_email != person["email"] and not writers.opens_for_others(person):
+        raise HTTPException(403, "You can open a publication for yourself only. The Plover team "
+                                 "opens publications for other people.")
     try:
         if owner_email != person["email"]:
             staff.ensure_person(owner_email, body.owner_name, actor)
@@ -214,6 +224,178 @@ def fresh_link(publication_id: int, body: LinkBody, request: Request):
         raise HTTPException(400, "Email sign-in is switched off on this server.")
     _audit(request, person, "member_link", "%s in %s" % (email, pub["base"]))
     return {"link": link, "email": email}
+
+
+# ---------------------------------------------------- assistant settings
+#
+# Each publication's own skills, house style and connectors (app/skills.py,
+# app/connectors.py): what the AI tab uses on its articles. Every member sees
+# them; editors change the skills and the house style; only owners change the
+# connectors, which decide what a run can reach and carry the publication's
+# keys. Every change goes into the audit trail with the publication's address.
+
+def _assistant(pub, person):
+    pid = pub["id"]
+    return {"publication_id": pid,
+            "skills": skills.list_skills(publication_id=pid),
+            "house_style": skills.house_style(pid),
+            "default_house_style": skills.HOUSE_STYLE,
+            "connectors": connectors.list_connectors(publication_id=pid),
+            "can_edit": writers.at_least(person, pid, "editor"),
+            "can_manage": writers.at_least(person, pid, "owner")}
+
+
+@router.get("/publications/{publication_id}/assistant")
+def assistant(publication_id: int, request: Request):
+    person = writers.require_writer(request)
+    return _assistant(_need(person, publication_id, "writer"), person)
+
+
+class SkillBody(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    instructions: Optional[str] = None
+    enabled: Optional[bool] = None
+    writes: Optional[bool] = None
+
+
+@router.post("/publications/{publication_id}/assistant/skills")
+def skill_create(publication_id: int, body: SkillBody, request: Request):
+    person = writers.require_writer(request)
+    pub = _need(person, publication_id, "editor")
+    try:
+        sk = skills.create(body.name, body.description, body.instructions, staff.actor_label(person),
+                           True if body.writes is None else body.writes, publication_id=pub["id"])
+    except skills.SkillError as exc:
+        raise HTTPException(400, str(exc))
+    _audit(request, person, "ai_skill_created", "%s in %s" % (sk["name"], pub["base"]))
+    return sk
+
+
+@router.put("/publications/{publication_id}/assistant/skills/{skill_id}")
+def skill_update(publication_id: int, skill_id: int, body: SkillBody, request: Request):
+    person = writers.require_writer(request)
+    pub = _need(person, publication_id, "editor")
+    try:
+        sk = skills.update(skill_id, staff.actor_label(person), body.name, body.description,
+                           body.instructions, body.enabled, body.writes, publication_id=pub["id"])
+    except skills.SkillError as exc:
+        raise HTTPException(400, str(exc))
+    _audit(request, person, "ai_skill_updated", "%s in %s" % (sk["name"], pub["base"]))
+    return sk
+
+
+@router.delete("/publications/{publication_id}/assistant/skills/{skill_id}")
+def skill_delete(publication_id: int, skill_id: int, request: Request):
+    person = writers.require_writer(request)
+    pub = _need(person, publication_id, "editor")
+    sk = skills.get(skill_id, pub["id"])
+    if sk is None:
+        raise HTTPException(404, "No such skill")
+    skills.delete(skill_id, pub["id"])
+    _audit(request, person, "ai_skill_deleted", "%s in %s" % (sk["name"], pub["base"]))
+    return {"ok": True}
+
+
+class StyleBody(BaseModel):
+    text: str
+
+
+@router.put("/publications/{publication_id}/assistant/house-style")
+def house_style(publication_id: int, body: StyleBody, request: Request):
+    person = writers.require_writer(request)
+    pub = _need(person, publication_id, "editor")
+    try:
+        text = skills.set_house_style(body.text, pub["id"])
+    except skills.SkillError as exc:
+        raise HTTPException(400, str(exc))
+    _audit(request, person, "ai_house_style", "%d characters in %s" % (len(text), pub["base"]))
+    return {"house_style": text}
+
+
+class ConnectorBody(BaseModel):
+    label: Optional[str] = None
+    url: Optional[str] = None
+    auth_kind: Optional[str] = None
+    header_name: Optional[str] = None
+    key: Optional[str] = None
+    enabled: Optional[bool] = None
+
+
+class ToolBody(BaseModel):
+    tool: str
+    on: bool
+
+
+def _connector(pub, connector_id):
+    c = connectors.get(connector_id, publication_id=pub["id"])
+    if c is None:
+        raise HTTPException(404, "No such connector")
+    return c
+
+
+@router.post("/publications/{publication_id}/assistant/connectors")
+def connector_create(publication_id: int, body: ConnectorBody, request: Request):
+    person = writers.require_writer(request)
+    pub = _need(person, publication_id, "owner")
+    try:
+        c = connectors.create(body.label, body.url, body.auth_kind or "none", body.header_name,
+                              (body.key or "").strip() or None, staff.actor_label(person),
+                              publication_id=pub["id"])
+    except connectors.ConnectorError as exc:
+        raise HTTPException(400, str(exc))
+    _audit(request, person, "ai_connector_added", "%s %s in %s" % (c["label"], c["url"], pub["base"]))
+    return c
+
+
+@router.put("/publications/{publication_id}/assistant/connectors/{connector_id}")
+def connector_update(publication_id: int, connector_id: int, body: ConnectorBody, request: Request):
+    person = writers.require_writer(request)
+    pub = _need(person, publication_id, "owner")
+    _connector(pub, connector_id)
+    try:
+        c = connectors.update(connector_id, staff.actor_label(person), body.label, body.url,
+                              body.auth_kind, body.header_name, (body.key or "").strip() or None,
+                              body.enabled, publication_id=pub["id"])
+    except connectors.ConnectorError as exc:
+        raise HTTPException(400, str(exc))
+    _audit(request, person, "ai_connector_updated", "%s in %s" % (c["label"], pub["base"]))
+    return c
+
+
+@router.post("/publications/{publication_id}/assistant/connectors/{connector_id}/check")
+def connector_check(publication_id: int, connector_id: int, request: Request):
+    person = writers.require_writer(request)
+    pub = _need(person, publication_id, "owner")
+    _connector(pub, connector_id)
+    try:
+        return connectors.check(connector_id, publication_id=pub["id"])
+    except connectors.ConnectorError as exc:
+        raise HTTPException(400, str(exc))
+
+
+@router.put("/publications/{publication_id}/assistant/connectors/{connector_id}/tools")
+def connector_tool(publication_id: int, connector_id: int, body: ToolBody, request: Request):
+    person = writers.require_writer(request)
+    pub = _need(person, publication_id, "owner")
+    _connector(pub, connector_id)
+    try:
+        c = connectors.set_tool(connector_id, body.tool, body.on, publication_id=pub["id"])
+    except connectors.ConnectorError as exc:
+        raise HTTPException(400, str(exc))
+    _audit(request, person, "ai_connector_tool", "%s in %s: %s %s" % (
+        c["label"], pub["base"], body.tool, "on" if body.on else "off"))
+    return c
+
+
+@router.delete("/publications/{publication_id}/assistant/connectors/{connector_id}")
+def connector_delete(publication_id: int, connector_id: int, request: Request):
+    person = writers.require_writer(request)
+    pub = _need(person, publication_id, "owner")
+    c = _connector(pub, connector_id)
+    connectors.delete(connector_id, publication_id=pub["id"])
+    _audit(request, person, "ai_connector_removed", "%s in %s" % (c["label"], pub["base"]))
+    return {"ok": True}
 
 
 # ------------------------------------------------------------------ keys

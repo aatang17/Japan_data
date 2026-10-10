@@ -123,7 +123,8 @@ CREATE TABLE IF NOT EXISTS staff_ai (
 );
 CREATE TABLE IF NOT EXISTS team_skills (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  slug TEXT NOT NULL UNIQUE,
+  publication_id INTEGER NOT NULL DEFAULT 1,
+  slug TEXT NOT NULL,
   name TEXT NOT NULL,
   description TEXT NOT NULL DEFAULT '',
   instructions TEXT NOT NULL DEFAULT '',
@@ -206,6 +207,7 @@ def conn():
             base.execute("PRAGMA journal_mode=WAL")
             base.executescript(SCHEMA)
             _add_columns(base)
+            _skills_per_publication(base)
             base.commit()
             _conn = _Base(base, str(DB_PATH))
         base = _conn
@@ -219,7 +221,12 @@ LATER_COLUMNS = [
     ("team_skills", "writes", "INTEGER NOT NULL DEFAULT 1"),
     ("team_skills", "position", "INTEGER NOT NULL DEFAULT 100"),
     ("staff_ai", "length", "TEXT"),
+    ("team_connectors", "publication_id", "INTEGER NOT NULL DEFAULT 1"),
 ]
+
+# team_skills as it is now: a skill's slug is unique within its publication.
+_SKILL_COLUMNS = ("id", "slug", "name", "description", "instructions", "enabled", "writes",
+                  "position", "seed", "created_at", "created_by", "updated_at", "updated_by")
 
 
 def _add_columns(c):
@@ -227,6 +234,22 @@ def _add_columns(c):
         have = [r[1] for r in c.execute("PRAGMA table_info(%s)" % table).fetchall()]
         if column not in have:
             c.execute("ALTER TABLE %s ADD COLUMN %s %s" % (table, column, kind))
+
+
+def _skills_per_publication(c):
+    """Skills became each publication's own (2026-10-10). A store from before
+    has a slug unique across the site, which SQLite cannot drop, so the table
+    is rebuilt once with every skill kept as PloverResearch's (publication 1)."""
+    have = [r[1] for r in c.execute("PRAGMA table_info(team_skills)").fetchall()]
+    if "publication_id" not in have:
+        cols = ", ".join(_SKILL_COLUMNS)
+        c.execute("ALTER TABLE team_skills RENAME TO team_skills_before_publications")
+        c.executescript(SCHEMA)
+        c.execute("INSERT INTO team_skills (%s, publication_id) SELECT %s, 1 "
+                  "FROM team_skills_before_publications" % (cols, cols))
+        c.execute("DROP TABLE team_skills_before_publications")
+    c.execute("CREATE UNIQUE INDEX IF NOT EXISTS team_skills_slug ON team_skills (publication_id, slug)")
+    c.execute("CREATE INDEX IF NOT EXISTS team_connectors_pub ON team_connectors (publication_id)")
 
 
 class _Base(object):

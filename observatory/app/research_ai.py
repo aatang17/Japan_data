@@ -24,7 +24,9 @@ It cannot publish, withdraw, delete, or touch another article, and every save
 is recorded as "<email> via <provider>" in the draft history, after a "Before
 AI" copy that the editor's Undo restores. One run per writer at a time.
 
-A run may follow one of the team's skills (app/skills.py). A skill that may
+A run may follow one of its publication's skills (app/skills.py), and gets
+that publication's house style and connectors: each publication keeps its
+own in Assistant Settings, and a run never sees another's. A skill that may
 not change the draft — Brainstorm, Review, Headlines — is run without the
 draft-changing tools, and the writer keeps editing while it works. Any run
 can end by offering next steps (offer_next_step), shown as buttons under its
@@ -95,7 +97,10 @@ def _open(ct):
         return None
 
 
-def settings_view(person):
+def settings_view(person, publication_id=None):
+    """The writer's AI settings, with the skills and connections of one
+    publication: the open article's, else the writer's own."""
+    pid = writers.own_publication(person) if publication_id is None else publication_id
     s = staff.ai_settings(person["id"])
     return {
         "providers": [{"key": k, "label": v, "ready": _ready(k, s)} for k, v in PROVIDERS],
@@ -109,20 +114,20 @@ def settings_view(person):
         "lengths": [{"key": x["key"], "label": x["label"], "hint": x["hint"]} for x in LENGTHS],
         "skills": [{"id": k["id"], "name": k["name"], "description": k["description"],
                     "writes": k["writes"]}
-                   for k in skills.list_skills(enabled_only=True)],
-        "reach": _reach(person),
+                   for k in skills.list_skills(enabled_only=True, publication_id=pid)],
+        "reach": _reach(person, pid),
+        "publication_id": pid,
+        "can_edit_setup": writers.at_least(person, pid, "editor"),
     }
 
 
-def _reach(person):
+def _reach(person, publication_id):
     """What a run can use beyond the draft, named for the writer."""
     out = ["Plover data", "Web pages"]
     if staff_google.usable(person["id"]):
         out.append("Google Drive")
-    if writers.role(person, research.HOME):
-        # the team's connectors serve PloverResearch articles only (_team_tools)
-        out += [c["label"] for c in connectors.list_connectors(enabled_only=True)
-                if any(t["on"] for t in c["tools"])]
+    out += [c["label"] for c in connectors.list_connectors(enabled_only=True, publication_id=publication_id)
+            if any(t["on"] for t in c["tools"])]
     return out
 
 
@@ -535,20 +540,31 @@ def tool_list(ctx=None):
     person = (ctx or {}).get("person")
     if person and staff_google.usable(person["id"]):
         out += DRIVE_TOOLS
-    if _team_tools(ctx):
+    pid = _publication(ctx)
+    if pid is not None:
         out += [dict((k, t[k]) for k in ("name", "description", "parameters"))
-                for t in connectors.run_tools()]
+                for t in connectors.run_tools(pid)]
     return out
 
 
-def _team_tools(ctx):
-    """The team's connectors carry Plover's own keys: they serve PloverResearch
-    articles only, never another publication's."""
-    aid = (ctx or {}).get("article_id")
-    if aid is None:
-        return True
-    a = research.get(aid)
-    return bool(a) and a["publication_id"] == research.HOME
+def _publication(ctx):
+    """The publication whose skills, house style and connectors a run uses:
+    its article's (None once the article is gone), else the writer's own.
+    A connector carries its publication's keys, so this is also the line
+    between one publication's data and another's."""
+    ctx = ctx or {}
+    if ctx.get("publication_id") is not None:
+        return ctx["publication_id"]
+    aid = ctx.get("article_id")
+    if aid is not None:
+        a = research.get(aid)
+        return a["publication_id"] if a else None
+    person = ctx.get("person")
+    return writers.own_publication(person) if person else research.HOME
+
+
+def _skill_names(publication_id):
+    return ", ".join(x["name"] for x in skills.list_skills(True, publication_id)) or "none"
 
 
 def call_tool(ctx, name, args):
@@ -560,7 +576,7 @@ def call_tool(ctx, name, args):
                                     "Put your answer in your reply."}), True
     if name == "offer_next_step":
         try:
-            offer = clean_offer(args)
+            offer = clean_offer(args, _publication(ctx))
         except AIError as exc:
             return json.dumps({"error": str(exc)}), True
         offers = ctx.get("offers")
@@ -609,10 +625,11 @@ def call_tool(ctx, name, args):
         text, err = tools_v2.run_tool(name, args)
         return text[:TOOL_TEXT_MAX], err
     if name == "read_skill":
-        sk = skills.get(str(args.get("name") or ""))
+        pid = _publication(ctx)
+        sk = skills.get(str(args.get("name") or ""), pid) if pid is not None else None
         if sk is None or not sk["enabled"]:
             return json.dumps({"error": "No skill called '%s'. The skills are: %s."
-                               % (args.get("name"), ", ".join(x["name"] for x in skills.list_skills(True)))}), True
+                               % (args.get("name"), _skill_names(pid) if pid is not None else "none")}), True
         return json.dumps({"name": sk["name"], "steps": sk["instructions"]}, ensure_ascii=False), False
     if name in ("drive_search", "drive_read"):
         if not staff_google.usable(person["id"]):
@@ -625,18 +642,20 @@ def call_tool(ctx, name, args):
                               ensure_ascii=False)[:TOOL_TEXT_MAX * 2], False
         except staff_google.GoogleError as exc:
             return json.dumps({"error": str(exc)}), True
-    for t in (connectors.run_tools() if _team_tools(ctx) else []):
+    pid = _publication(ctx)
+    for t in (connectors.run_tools(pid) if pid is not None else []):
         if t["name"] == name:
             keys = (ctx.get("creds") or {}).get("connector_keys")
             text, err = connectors.call(t["connector_id"], t["remote"], args,
                                         key=None if keys is None else keys.get(str(t["connector_id"])),
-                                        key_given=keys is not None)
+                                        key_given=keys is not None, publication_id=pid)
             return text[:TOOL_TEXT_MAX], err
     return json.dumps({"error": "Unknown tool '%s'." % name}), True
 
 
-def clean_offer(args):
-    """A next step as the writer will see it, or AIError worded for the model."""
+def clean_offer(args, publication_id=research.HOME):
+    """A next step as the writer will see it, or AIError worded for the model.
+    Its skill must be one of the run's publication's."""
     label = " ".join(str(args.get("label") or "").split())
     instruction = str(args.get("instruction") or "").strip()
     if not label or not instruction:
@@ -646,10 +665,11 @@ def clean_offer(args):
     out = {"label": label, "instruction": instruction[:4000], "skill_id": None, "skill": None}
     name = str(args.get("skill") or "").strip()
     if name:
-        sk = skills.get(name)
+        sk = skills.get(name, publication_id) if publication_id is not None else None
         if sk is None or not sk["enabled"]:
             raise AIError("No skill called '%s'. The skills are: %s. Leave skill empty to "
-                          "use none." % (name, ", ".join(x["name"] for x in skills.list_skills(True))))
+                          "use none." % (name, _skill_names(publication_id) if publication_id is not None
+                                         else "none"))
         out["skill_id"], out["skill"] = sk["id"], sk["name"]
     return out
 
@@ -660,20 +680,20 @@ def clean_offer(args):
 def _system(article, person, skill=None, length=None):
     d = article["draft"]
     read_only = bool(skill) and not skill["writes"]
-    menu = skills.list_skills(enabled_only=True)
-    extra = "House style for everything you write in the draft:\n" + skills.house_style() + "\n\n"
+    pid = article["publication_id"]
+    menu = skills.list_skills(enabled_only=True, publication_id=pid)
+    extra = "House style for everything you write in the draft:\n" + skills.house_style(pid) + "\n\n"
     ln = _length({"length": length})
     extra += ("Length: the writer chose %s — %s. This overrides any length a skill gives, except "
               "a fixed format such as Data Flash or Headlines. Shorter is better: no preamble, "
               "no repetition.\n\n" % (ln["label"], ln["rule"]))
     if menu:
-        extra += ("The team's skills (open one with read_skill when the instruction matches it):\n"
+        extra += ("The publication's skills (open one with read_skill when the instruction matches it):\n"
                   + skills.menu_text(menu) + "\n\n")
     if skill:
         extra += ("The writer chose the skill \"%s\" for this run. Follow its steps:\n\n%s\n\n"
                   % (skill["name"], skill["instructions"]))
-    lines = [c["label"] for c in connectors.list_connectors(enabled_only=True) if c["tools"]] \
-        if article["publication_id"] == research.HOME else []
+    lines = [c["label"] for c in connectors.list_connectors(enabled_only=True, publication_id=pid) if c["tools"]]
     if staff_google.usable(person["id"]):
         lines.insert(0, "the writer's Google Drive (drive_search, drive_read)")
     if lines:
@@ -795,9 +815,13 @@ def _image_data(image):
 def start(person, article_id, instruction, skill_id=None, image=None):
     instruction = (instruction or "").strip()
     image = _image(image) if image else None
+    article = research.get(article_id)
+    if article is None or not writers.can(person, "edit", article):
+        raise AIError("No such article.")
     skill = None
     if skill_id:
-        skill = skills.get(int(skill_id))
+        # the article's publication's skill: another's is not there, whatever its id
+        skill = skills.get(int(skill_id), article["publication_id"])
         if skill is None or not skill["enabled"]:
             raise AIError("That skill is no longer available.")
         instruction = instruction or "Follow the skill on this draft."
@@ -807,9 +831,6 @@ def start(person, article_id, instruction, skill_id=None, image=None):
         raise AIError("Keep the instruction under 8,000 characters.")
     if image:
         instruction += "\n\n" + PICTURE_RULES
-    article = research.get(article_id)
-    if article is None or not writers.can(person, "edit", article):
-        raise AIError("No such article.")
     s = staff.ai_settings(person["id"])
     provider = s["provider"]
     if not provider or not _ready(provider, s):
@@ -822,13 +843,14 @@ def start(person, article_id, instruction, skill_id=None, image=None):
         before = research.mark(article_id, staff.actor_label(person), "Before AI") if writes else None
         job = {"id": uuid.uuid4().hex[:16], "status": "running", "steps": [], "reply": "",
                "error": None, "article_id": article_id, "staff_id": person["id"],
-               "provider": provider, "started": time.time(), "finished": None,
+               "provider": provider, "publication_id": article["publication_id"],
+               "started": time.time(), "finished": None,
                "before_history_id": before, "revision_before": article["revision"],
                "skill": skill["name"] if skill else None, "writes": writes, "next": []}
         _jobs[job["id"]] = job
         _running[person["id"]] = job["id"]
     ctx = {"person": person, "client": CLIENT[provider], "article_id": article_id,
-           "read_only": not writes, "offers": job["next"], "plan_words": _length(s)["plan_words"]}
+           "publication_id": article["publication_id"], "read_only": not writes, "offers": job["next"], "plan_words": _length(s)["plan_words"]}
     threading.Thread(target=_run, args=(job, ctx, s, instruction, article, skill, image),
                      daemon=True).start()
     return public(job)
@@ -912,21 +934,23 @@ def _spec_file(job, ctx, work):
         json.dump({"staff_id": ctx["person"]["id"], "article_id": ctx["article_id"],
                    "client": ctx["client"], "log": log, "read_only": bool(ctx.get("read_only")),
                    "plan_words": ctx.get("plan_words"),
-                   "creds": _run_creds(ctx["person"], _team_tools(ctx))}, f)
+                   "creds": _run_creds(ctx["person"], _publication(ctx))}, f)
     return path, log
 
 
-def _run_creds(person, team=True):
-    """What the CLI's tool server needs to reach Drive and the connectors,
-    without the keychain's master secret: an hour-long Google access token
-    and each connector's key, in a 0600 file deleted with the run."""
+def _run_creds(person, publication_id):
+    """What the CLI's tool server needs to reach Drive and the run's
+    publication's connectors, without the keychain's master secret: an
+    hour-long Google access token and each of those connectors' keys, in a
+    0600 file deleted with the run. No other publication's key is in it."""
     out = {"google_token": None, "connector_keys": {}}
     if staff_google.usable(person["id"]):
         try:
             out["google_token"] = staff_google._token(person["id"])
         except staff_google.GoogleError:
             pass
-    for c in (connectors.list_connectors(enabled_only=True, with_secret=True) if team else []):
+    for c in (connectors.list_connectors(enabled_only=True, with_secret=True, publication_id=publication_id)
+              if publication_id is not None else []):
         if c.get("_secret_ct"):
             try:
                 out["connector_keys"][str(c["id"])] = connectors._secret(c)
@@ -958,7 +982,7 @@ def _follow(job, log_path, stop):
                 _log(job, "error" if ev.get("error") else "tool",
                      _describe(ev["name"], ev.get("args"), ev.get("error")))
                 if ev["name"] == "offer_next_step" and not ev.get("error") and len(job["next"]) < NEXT_MAX:
-                    job["next"].append(clean_offer(ev.get("args") or {}))
+                    job["next"].append(clean_offer(ev.get("args") or {}, job.get("publication_id", research.HOME)))
             except (ValueError, KeyError):         # AIError is a ValueError
                 pass
         seen = len(lines)
@@ -1197,13 +1221,23 @@ class RunBody(BaseModel):
     image: Optional[str] = None     # "<sha256>.<ext>" of a picture uploaded to the desk
 
 
+def _setup_of(person, article):
+    """The publication whose skills the AI tab shows: the open article's
+    (when the writer may see it), else the writer's own."""
+    if article is None:
+        return None
+    a = research.get(article)
+    return a["publication_id"] if a and writers.can(person, "view", a) else None
+
+
 @router.get("/ai")
-def ai_get(request: Request):
-    return settings_view(_person(request))
+def ai_get(request: Request, article: Optional[int] = None):
+    person = _person(request)
+    return settings_view(person, _setup_of(person, article))
 
 
 @router.put("/ai")
-def ai_put(body: SettingsBody, request: Request):
+def ai_put(body: SettingsBody, request: Request, article: Optional[int] = None):
     person = _person(request)
     try:
         save_settings(person, body.provider, body.model, body.key, body.claude_token)
@@ -1211,27 +1245,27 @@ def ai_put(body: SettingsBody, request: Request):
         raise HTTPException(400, str(exc))
     _audit(request, person, "research_ai_settings", "provider %s%s" % (
         body.provider, " (new key)" if (body.key or body.claude_token) else ""))
-    return settings_view(person)
+    return settings_view(person, _setup_of(person, article))
 
 
 @router.put("/ai/length")
-def ai_length(body: LengthBody, request: Request):
+def ai_length(body: LengthBody, request: Request, article: Optional[int] = None):
     person = _person(request)
     try:
         set_length(person, body.length)
     except AIError as exc:
         raise HTTPException(400, str(exc))
-    return settings_view(person)
+    return settings_view(person, _setup_of(person, article))
 
 
 @router.post("/ai/forget")
-def ai_forget(body: ForgetBody, request: Request):
+def ai_forget(body: ForgetBody, request: Request, article: Optional[int] = None):
     person = _person(request)
     if body.what not in ("key", "claude", "codex"):
         raise HTTPException(400, "Nothing to forget by that name.")
     forget(person, body.what)
     _audit(request, person, "research_ai_forget", body.what)
-    return settings_view(person)
+    return settings_view(person, _setup_of(person, article))
 
 
 @router.post("/ai/models")

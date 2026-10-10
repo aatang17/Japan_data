@@ -1,7 +1,9 @@
 # PLAN — PloverResearch as a Publishing Platform (2C and 2B)
 
 > **Status:** v1, 2026-10-09. §7 steps 1–2 **built 2026-10-09** (not yet committed or deployed);
-> step 3 deferred until the trial is running (user's choice).
+> step 3 deferred until the trial is running (user's choice). **2026-10-10:** §8 added —
+> every person has their own publication, and each publication sets up its own AI. **Built
+> 2026-10-10** (not yet committed or deployed); see §8.9.
 >
 > **One-liner:** The place to write and sell research that is built on data — where every
 > chart is live official data, frozen at the moment of publication, citable, and
@@ -249,9 +251,11 @@ publications. Move to Postgres only if the service needs more than one server.
     single use). Members are admitted past `ACCOUNTS_ALLOWED_EMAILS` automatically.
   - The API stays under `/admin/api` so the team's password cookie still reaches it; step 3
     can move it.
-  - The team's connectors (Plover's keys) and the admin AI Setup serve PloverResearch
-    articles only.
-  - Only the Team permission opens a publication.
+  - The team's connectors (Plover's keys) serve PloverResearch articles only. The skills
+    and house style do **not**: they are one list for the whole site, so every
+    publication's AI runs follow PloverResearch's, and only PloverResearch editors can
+    change them (Admin → AI Setup). §8 fixes this.
+  - Only the Team permission opens a publication. §8 replaces this.
 
 ### Build order
 
@@ -259,9 +263,126 @@ publications. Move to Postgres only if the service needs more than one server.
    makes trials safe.
 2. Move the desk out of the admin console into the writer home, signed in through
    `accounts.py`.
-3. Split the publishing side into its own service.
-4. Newsletter sending, subscriber lists, import from Substack.
-5. Stripe Connect paid subscriptions (after the legal review in §5).
+3. **Every person has a publication, and each publication has its own AI setup** (§8).
+   Needed before Phase 1: an invited writer must not write in PloverResearch's house style.
+4. Split the publishing side into its own service.
+5. Newsletter sending, subscriber lists, import from Substack.
+6. Stripe Connect paid subscriptions (after the legal review in §5).
+
+## 8. Every person has their own publication (added 2026-10-10)
+
+**Assumption:** every person who writes on the platform owns a publication, as on
+Substack. Some will also be members of other people's publications (a 2B team, a guest
+spot). Nothing about a person's AI setup should then come from PloverResearch.
+
+### 8.1 A publication for every writer
+
+- **Invitation opens it.** While writers come by invitation (Phase 1), the Plover team
+  invites a person, and that person's publication is opened with them as owner. With
+  open sign-up (Phase 2), the first sign-in to the Writer Desk asks for a name and an
+  address, and opens it.
+- **One owned publication per person on Free.** More on paid plans.
+- `writers.can_create_publications` stops requiring the Team permission. The rule
+  becomes: a signed-in writer who owns no publication yet may open one.
+- PloverResearch stays publication #1, owned by the Plover team.
+
+### 8.2 What moves to the publication, and what stays with the person
+
+| Setting | Belongs to | Who edits it | Today |
+| --- | --- | --- | --- |
+| Skills | publication | owner, editors | one list for the site (`team_skills`) |
+| House style | publication | owner, editors | one text for the site (`team_settings`) |
+| Connectors (outside tool servers and their keys) | publication | owner only | one list, PloverResearch only (`team_connectors`) |
+| AI account (provider, model, key or Claude / Codex sign-in) | person | the person | already per person (`staff_ai`) |
+| Google Drive | person | the person | already per person (`staff_google`) |
+| AI connection keys for Claude Code / Codex | person | the person | already per person (`staff_keys`) |
+
+Writers in a publication *use* its skills, house style and connectors; they can't change
+them. Connectors are owner-only because they decide what data a run can reach and whose
+keys it uses.
+
+### 8.3 Which setup a run uses
+
+- A run on an article uses **that article's publication's** skills, house style and
+  connectors. The same writer gets different skills in different publications.
+- A run with no article (a Claude Code session that hasn't opened one yet) uses the
+  person's **own** publication's setup.
+- A publication's connector keys never reach a run on another publication's article.
+  This is the rule `research_ai._team_tools` enforces today for PloverResearch, made
+  general: compare the connector's publication with the article's.
+
+### 8.4 A new publication's starting setup
+
+- It gets **its own copy** of the nine starter skills (Brainstorm … Headlines, Data
+  Flash) and the default house style. They are the owner's to edit or delete. A starter
+  skill they deleted is not put back.
+- If we later improve a starter skill, publications that never edited it get the new
+  text. Edited copies are left alone. (This is how the seeds behave today, per
+  publication instead of once.)
+- No connectors. The owner adds their own.
+- The default house style is Plover's institutional style. A writer with a different
+  voice changes it on day one, so the AI Setup page should say so plainly.
+
+### 8.5 Where people do it
+
+- **Writer Desk → the publication → AI Setup.** Three parts: Skills, House Style,
+  Connectors. The same editor the admin page has today (`ai-setup-admin.js`), pointed
+  at the publication.
+- **Writer Desk → My Account** holds the personal parts: AI account, Google Drive, AI
+  connection keys.
+- **Admin → AI Setup** becomes PloverResearch's AI Setup, or a link to it in the Writer
+  Desk. Admin keeps only operations.
+
+### 8.6 Data changes (research and staff stores, not the macro schema)
+
+- Add `publication_id` to `team_skills` and `team_connectors`. Existing rows become
+  publication 1 (PloverResearch). Skill names and slugs become unique **within** a
+  publication, not across the site.
+- House style moves from one `team_settings` key to one row per publication.
+- Limits (40 skills, 12 connectors) count per publication.
+- `skills.py` and `connectors.py` take a publication id on every call. `research_ai`
+  passes the article's publication id. Nothing reads a site-wide list any more.
+- Every change goes into the audit trail with the publication's id.
+
+### 8.7 Checks before calling it done
+
+1. A writer in publication 2 sees publication 2's skills in the AI tab, not
+   PloverResearch's. The prompt the model receives contains publication 2's house style.
+2. Editing or deleting a skill in publication 2 leaves publication 1 untouched.
+3. A run on a publication 2 article gets no PloverResearch connector tools or keys
+   (check the run's credentials file, not just the tool list).
+4. A writer (not editor) in publication 2 can't save a skill or a connector. The server
+   refuses, not only the page.
+5. A newly opened publication shows the nine starter skills straight away.
+6. PloverResearch's existing skills, house style and connectors are unchanged after the
+   migration.
+
+### 8.8 Left for later
+
+- **Personal skills** on top of the publication's, for a writer who works across
+  several publications. Not needed while most people have one publication.
+- **Sharing a skill** between publications, or a public skill library.
+- The **Investment Assistant** uses the same skills store. When the two merge, it takes
+  the person's own publication's skills.
+
+### 8.9 What was built (2026-10-10)
+
+- **Assistant Settings** (the name replaces "AI Setup") is a tab on every publication in the
+  Writer Desk: `#/p/<id>/assistant`, API under `/admin/api/write/publications/{id}/assistant`
+  (`app/writer_api.py`). Admin → Assistant Settings stays, for PloverResearch only.
+- `team_skills` and `team_connectors` carry `publication_id`; the skills table is rebuilt once
+  so slugs are unique per publication (`staff._skills_per_publication`). House style and seed
+  markers are per-publication keys in `team_settings`; PloverResearch keeps its old keys.
+- A run takes its skills, house style and connectors from its article's publication
+  (`research_ai._publication`); the AI tab asks with `?article=`. Its credentials file holds
+  only that publication's connector keys.
+- A writer who owns no publication can open one of their own (owner = themselves); the Plover
+  team still opens them for anyone. Opening one goes straight to it.
+- Delete a skill or remove a connector is one click with 8 seconds to Undo.
+- **Not done:** Google Drive is still connected from the admin page only (§8.5 puts it in My
+  Account). Outside writers cannot connect Drive yet.
+- Tests: `tests/test_publication_assistant.py` covers the six checks in §8.7, plus the store
+  upgrade and opening your own publication.
 
 ## Sources checked (2026-10-09)
 

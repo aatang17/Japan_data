@@ -70,3 +70,21 @@
   .wd-roles dd { margin-bottom: 8px; }
   .wd-copyrow { flex-wrap: wrap; }
 }
+
+/* ---- assistant settings */
+.wd-list > li > .wd-edit { flex-basis: 100%; padding-top: 14px; border-top: 1px solid var(--obs-grid); }
+.wd-edit[hidden], .wd-kv [hidden] { display: none; }
+.wd-edit.wd-new { margin-top: 12px; padding: 16px; border: 1px solid var(--obs-border); border-radius: 4px; background: var(--obs-surface); }
+.wd-kv textarea.wd-steps { max-width: 760px; font-size: 13px; }
+.wd-style { display: block; width: 100%; max-width: 860px; padding: 8px 10px; border: 1px solid var(--obs-border); border-radius: 4px; background: var(--obs-surface); font: inherit; font-size: 13px; color: inherit; resize: vertical; }
+.wd-style[readonly] { background: var(--obs-surface-subtle); }
+.wd-check { display: inline-flex; align-items: center; gap: 6px; margin-right: 16px; color: var(--obs-ink); }
+.wd-kv .wd-check input, .wd-tools .wd-check input { min-width: 0; width: auto; height: auto; }
+.wd-btnrow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.wd-btnrow .hint { font-size: 12.5px; color: var(--obs-text-muted); }
+.wd-btnrow .hint.err { color: var(--obs-trust-stale); }
+.wd-pre { white-space: pre-wrap; font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: 12px; line-height: 1.5; color: var(--obs-ink); background: var(--obs-surface-subtle); border: 1px solid var(--obs-border); border-radius: 4px; padding: 10px 12px; }
+.wd-tools { list-style: none; margin: 4px 0 16px; }
+.wd-tools li { padding: 4px 0; font-size: 13px; }
+.wd-tooldesc { color: var(--obs-text-muted); }
+.wd-list small.mono { font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: 12px; overflow-wrap: anywhere; }

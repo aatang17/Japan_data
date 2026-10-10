@@ -10,8 +10,8 @@ outside a person's publications does not exist for them (404), over the API
 and over their AI key; each publication has its own addresses, front page,
 feed and Markdown, says the views are its writers' own, and never appears on
 PloverResearch's pages; the same address can be used in two publications;
-a publication always keeps an owner; the team's connectors (Plover's keys)
-are offered only for PloverResearch articles.
+a publication always keeps an owner. Each publication's own skills, house
+style and connectors are proved in test_publication_assistant.py.
 """
 import os
 import pathlib
@@ -145,7 +145,7 @@ class PublicationTest(PubBase):
         self.assertEqual(owner.get("/admin/api/research/articles?publication_id=1").status_code, 403)
         self.assertNotIn(1, writers.roles(staff.get_by_email("olive@example.com")))
 
-    def test_only_the_team_opens_publications(self):
+    def test_an_owner_opens_no_second_and_addresses_are_checked(self):
         made = self.open_pub()
         owner = self.sign_in(made["link"])
         r = owner.post("/admin/api/write/publications", json={
@@ -272,14 +272,6 @@ class PublicationTest(PubBase):
         self.assertFalse(made["isError"], made)
         self.assertIn("A note", [a["title"] for a in research.list_articles(pub["id"])])
         del research_mcp
-
-    def test_team_connectors_only_for_ploverresearch(self):
-        from app import research_ai
-        pub = self.open_pub()["publication"]
-        theirs = research.create("olive@example.com", None, pub["id"])
-        ours = self.new_article()
-        self.assertFalse(research_ai._team_tools({"article_id": theirs["id"]}))
-        self.assertTrue(research_ai._team_tools({"article_id": ours["id"]}))
 
     def test_signin_allow_list_admits_members_only(self):
         self.assertFalse(accounts._allowed("stranger@example.com"))

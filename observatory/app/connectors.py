@@ -1,17 +1,19 @@
 # -*- coding: utf-8 -*-
-"""The team's connectors: outside tool servers an AI run may call.
+"""Each publication's connectors: outside tool servers an AI run may call.
 
 A connector is any MCP server reachable over https — a research database, a
-note-taking app, an internal tool — added in Admin by someone with the Team
-permission, with its key if it needs one (sealed with ASSISTANT_SECRET, like
-every other secret here). "Check" connects, lists the server's tools and keeps
+note-taking app, an internal tool — added by the publication's owner (in the
+Writer Desk's Assistant Settings; PloverResearch's also in Admin, with the
+Team permission), with its key if it needs one (sealed with ASSISTANT_SECRET,
+like every other secret here). A connector carries its publication's keys, so
+a run reaches only the connectors of its article's publication. "Check" connects, lists the server's tools and keeps
 the list, so a run never waits on a round trip to learn them; each tool can be
 switched off, and a tool its server marks as destructive starts off.
 
 Calls go through the investment assistant's client (assistant/mcp_client.py),
 which refuses private addresses, redirects and oversized replies. Like the
-skills, connectors belong to the team, not to one product: the research desk
-uses them now and the assistant can when the two merge.
+skills, connectors are not tied to one product: the research desk uses them
+now and the assistant can when the two merge.
 
 Every connector tool reaches the model under a prefixed name — x<id>_<tool> —
 so it cannot collide with Plover's own tools or another server's.
@@ -20,12 +22,13 @@ import json
 import re
 import time
 
-from . import staff
+from . import research, staff
 from .assistant import keychain, mcp_client
 
 LABEL_MAX = 40
 CONNECTORS_MAX = 12
 AUTH_KINDS = ("none", "bearer", "header")
+HOME = research.HOME
 _NAME_OK = re.compile(r"[^A-Za-z0-9_-]")
 
 
@@ -40,7 +43,7 @@ def _now():
 def _shape(r, with_secret=False):
     tools = json.loads(r["tools_json"] or "[]")
     off = set(json.loads(r["off_tools_json"] or "[]"))
-    out = {"id": r["id"], "label": r["label"], "url": r["url"], "auth_kind": r["auth_kind"],
+    out = {"id": r["id"], "publication_id": r["publication_id"], "label": r["label"], "url": r["url"], "auth_kind": r["auth_kind"],
            "header_name": r["header_name"], "key_last4": r["secret_last4"],
            "has_key": bool(r["secret_ct"]), "enabled": bool(r["enabled"]),
            "server_name": r["server_name"], "checked_at": r["checked_at"],
@@ -51,14 +54,19 @@ def _shape(r, with_secret=False):
     return out
 
 
-def list_connectors(enabled_only=False, with_secret=False):
-    sql = "SELECT * FROM team_connectors" + (" WHERE enabled = 1" if enabled_only else "") + " ORDER BY label"
-    return [_shape(r, with_secret) for r in staff.conn().execute(sql).fetchall()]
+def list_connectors(enabled_only=False, with_secret=False, publication_id=HOME):
+    sql = ("SELECT * FROM team_connectors WHERE publication_id = ?" + (" AND enabled = 1" if enabled_only else "")
+           + " ORDER BY label")
+    return [_shape(r, with_secret) for r in staff.conn().execute(sql, (int(publication_id),)).fetchall()]
 
 
-def get(connector_id, with_secret=False):
+def get(connector_id, with_secret=False, publication_id=None):
+    """A connector by id, or None. With a publication id, another
+    publication's connector is None too."""
     r = staff.conn().execute("SELECT * FROM team_connectors WHERE id = ?", (int(connector_id),)).fetchone()
-    return _shape(r, with_secret) if r else None
+    if r is None or (publication_id is not None and r["publication_id"] != int(publication_id)):
+        return None
+    return _shape(r, with_secret)
 
 
 def _secret(c):
@@ -92,26 +100,28 @@ def _clean(label, url, auth_kind, header_name):
     return label, url, auth_kind, header_name
 
 
-def create(label, url, auth_kind, header_name, secret, by):
+def create(label, url, auth_kind, header_name, secret, by, publication_id=HOME):
     label, url, auth_kind, header_name = _clean(label, url, auth_kind, header_name)
     if secret and not keychain.enabled():
         raise ConnectorError("This server cannot store a key yet: ASSISTANT_SECRET is not set.")
     c = staff.conn()
     with staff._lock:
-        if c.execute("SELECT COUNT(*) AS n FROM team_connectors").fetchone()["n"] >= CONNECTORS_MAX:
-            raise ConnectorError("The team has %d connectors, the most it can keep." % CONNECTORS_MAX)
+        if c.execute("SELECT COUNT(*) AS n FROM team_connectors WHERE publication_id = ?",
+                     (int(publication_id),)).fetchone()["n"] >= CONNECTORS_MAX:
+            raise ConnectorError("This publication has %d connectors, the most it can keep." % CONNECTORS_MAX)
         cur = c.execute(
-            "INSERT INTO team_connectors (label, url, auth_kind, header_name, secret_ct, secret_last4, "
-            "enabled, created_at, created_by, updated_at, updated_by) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)",
-            (label, url, auth_kind, header_name, keychain.seal(secret) if secret else None,
+            "INSERT INTO team_connectors (publication_id, label, url, auth_kind, header_name, secret_ct, "
+            "secret_last4, enabled, created_at, created_by, updated_at, updated_by) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)",
+            (int(publication_id), label, url, auth_kind, header_name, keychain.seal(secret) if secret else None,
              keychain.last4(secret) if secret else None, _now(), by, _now(), by))
         c.commit()
     return check(cur.lastrowid)
 
 
 def update(connector_id, by, label=None, url=None, auth_kind=None, header_name=None, secret=None,
-           enabled=None):
-    cur = get(connector_id, with_secret=True)
+           enabled=None, publication_id=None):
+    cur = get(connector_id, with_secret=True, publication_id=publication_id)
     if cur is None:
         raise ConnectorError("No such connector.")
     label, url, auth_kind, header_name = _clean(
@@ -139,17 +149,19 @@ def update(connector_id, by, label=None, url=None, auth_kind=None, header_name=N
     return get(cur["id"])
 
 
-def delete(connector_id):
+def delete(connector_id, publication_id=None):
+    if get(connector_id, publication_id=publication_id) is None:
+        return
     c = staff.conn()
     with staff._lock:
         c.execute("DELETE FROM team_connectors WHERE id = ?", (int(connector_id),))
         c.commit()
 
 
-def check(connector_id):
+def check(connector_id, publication_id=None):
     """Connect, list the tools and keep them. A failure is stored and shown,
     and the tools from the last good check stay."""
-    cur = get(connector_id, with_secret=True)
+    cur = get(connector_id, with_secret=True, publication_id=publication_id)
     if cur is None:
         raise ConnectorError("No such connector.")
     fields = {"checked_at": _now()}
@@ -171,8 +183,8 @@ def check(connector_id):
     return get(cur["id"])
 
 
-def set_tool(connector_id, tool_name, on):
-    cur = get(connector_id)
+def set_tool(connector_id, tool_name, on, publication_id=None):
+    cur = get(connector_id, publication_id=publication_id)
     if cur is None:
         raise ConnectorError("No such connector.")
     if tool_name not in [t["name"] for t in cur["tools"]]:
@@ -197,11 +209,12 @@ def tool_name(connector_id, remote_name):
     return ("x%d_%s" % (connector_id, _NAME_OK.sub("_", remote_name)))[:64]
 
 
-def run_tools():
+def run_tools(publication_id=HOME):
     """[{name, description, parameters, connector_id, remote, label}] for every
-    tool switched on in every enabled connector, from the last check."""
+    tool switched on in every enabled connector of one publication, from the
+    last check."""
     out = []
-    for c in list_connectors(enabled_only=True):
+    for c in list_connectors(enabled_only=True, publication_id=publication_id):
         for t in c["tools"]:
             if not t["on"]:
                 continue
@@ -212,14 +225,15 @@ def run_tools():
     return out
 
 
-def call(connector_id, remote_name, args, key=None, key_given=False):
+def call(connector_id, remote_name, args, key=None, key_given=False, publication_id=None):
     """(text, is_error) — the same contract as the local tools. A run's tool
-    server passes the key it was handed (key_given) instead of unsealing it."""
-    c = get(connector_id, with_secret=True)
+    server passes the key it was handed (key_given) instead of unsealing it;
+    a run passes its article's publication, and another's connector is refused."""
+    c = get(connector_id, with_secret=True, publication_id=publication_id)
     if c is None or not c["enabled"]:
         return json.dumps({"error": "That connector has been switched off."}), True
     if not any(t["name"] == remote_name and t["on"] for t in c["tools"]):
-        return json.dumps({"error": "That tool is switched off for the team."}), True
+        return json.dumps({"error": "That tool is switched off for this publication."}), True
     try:
         secret = key if key_given else _secret(c)
     except ConnectorError as exc:

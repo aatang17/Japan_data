@@ -1,34 +1,39 @@
 # -*- coding: utf-8 -*-
-"""The team's skills: named playbooks an AI follows, kept in Admin.
+"""Each publication's skills: named playbooks an AI follows.
 
 A skill is a name, one line saying when to use it, the steps — written in
-plain Markdown by the team, not code — and one switch: whether it may change
-the draft. A skill that may not (Brainstorm, Review) answers in the AI panel
-only; its run is not given the draft-changing tools. The research desk's AI
-tab offers the skills as a choice before a run; the AI is also told which
-exist and can open one itself with the read_skill tool. The house style is a
-separate team text sent with every run.
+plain Markdown by the publication, not code — and one switch: whether it may
+change the draft. A skill that may not (Brainstorm, Review) answers in the AI
+panel only; its run is not given the draft-changing tools. The research desk's
+AI tab offers the article's publication's skills as a choice before a run;
+the AI is also told which exist and can open one itself with the read_skill
+tool. The house style is a separate text, one per publication, sent with
+every run.
 
-Skills live in the team store (staff.db) rather than with research articles:
-they are the team's way of working, and the investment assistant can draw on
-the same library when the two products merge.
+Skills, the house style and connectors (app/connectors.py) belong to a
+publication: its owner and editors keep them in the Writer Desk under
+Assistant Settings, and PloverResearch's are also in the admin console. A run
+always uses the setup of the publication its article belongs to. They live in
+the staff store (staff.db) rather than with research articles, so the
+investment assistant can draw on the same library when the two products merge.
 
-Nine skills are seeded on first use: the steps of writing a note (Brainstorm,
-Plan, Draft, Find Charts, Edit, Review, Fact Check, Headlines) and Data Flash,
-adapted from the news-brief and research-report skills the team uses in
-Claude Code. A seeded skill is the team's to edit or delete; a deleted seed is
-not put back.
+Every publication starts with its own copy of nine seeds: the steps of
+writing a note (Brainstorm, Plan, Draft, Find Charts, Edit, Review, Fact
+Check, Headlines) and Data Flash, adapted from the news-brief and
+research-report skills the team uses in Claude Code. A seed is the
+publication's to edit or delete; a deleted seed is not put back.
 """
 import re
 import time
 
-from . import staff
+from . import research, staff
 
 NAME_MAX = 60
 DESCRIPTION_MAX = 300
 INSTRUCTIONS_MAX = 20000
 STYLE_MAX = 8000
 SKILLS_MAX = 40
+HOME = research.HOME    # PloverResearch: the publication a call means when it names none
 _SLUG = re.compile(r"[^a-z0-9]+")
 
 
@@ -335,10 +340,18 @@ def _now():
 _refreshed = set()      # store paths whose untouched seeds were brought up to date
 
 
-def _seed_once():
-    """Add each seed the first time it is seen, and mark it seen: a seed the
-    team deleted is never put back, and a seed added in a later version still
-    arrives. A seed nobody has edited takes this version's wording."""
+def _key(publication_id, key):
+    """A team_settings key for one publication. PloverResearch's keep the
+    names they had before publications had their own skills."""
+    return key if int(publication_id) == HOME else "%s@%d" % (key, int(publication_id))
+
+
+def _seed_once(publication_id=None):
+    """Add each seed to a publication the first time it is seen, and mark it
+    seen: a seed the publication deleted is never put back, and a seed added
+    in a later version still arrives. A seed nobody has edited, in any
+    publication, takes this version's wording."""
+    pid = HOME if publication_id is None else int(publication_id)
     c = staff.conn()
     if str(staff.DB_PATH) not in _refreshed:
         _refreshed.add(str(staff.DB_PATH))
@@ -350,20 +363,21 @@ def _seed_once():
                            s["description"], s["instructions"]))
             c.commit()
     todo = [s for s in SEEDS if not c.execute("SELECT 1 FROM team_settings WHERE key = ?",
-                                              ("skill_seed:" + s["seed"],)).fetchone()]
+                                              (_key(pid, "skill_seed:" + s["seed"]),)).fetchone()]
     if not todo:
         return
     with staff._lock:
         for s in todo:
-            if not c.execute("SELECT 1 FROM team_skills WHERE seed = ? OR slug = ? OR lower(name) = lower(?)",
-                             (s["seed"], s["seed"], s["name"])).fetchone():
-                c.execute("INSERT INTO team_skills (slug, name, description, instructions, enabled, writes, "
-                          "position, seed, created_at, created_by, updated_at, updated_by) "
-                          "VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?)",
-                          (s["seed"], s["name"], s["description"], s["instructions"], int(s["writes"]),
+            if not c.execute("SELECT 1 FROM team_skills WHERE publication_id = ? AND "
+                             "(seed = ? OR slug = ? OR lower(name) = lower(?))",
+                             (pid, s["seed"], s["seed"], s["name"])).fetchone():
+                c.execute("INSERT INTO team_skills (publication_id, slug, name, description, instructions, "
+                          "enabled, writes, position, seed, created_at, created_by, updated_at, updated_by) "
+                          "VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?)",
+                          (pid, s["seed"], s["name"], s["description"], s["instructions"], int(s["writes"]),
                            s["position"], s["seed"], _now(), "Plover", _now(), "Plover"))
             c.execute("INSERT OR IGNORE INTO team_settings (key, value) VALUES (?, 'added')",
-                      ("skill_seed:" + s["seed"],))
+                      (_key(pid, "skill_seed:" + s["seed"]),))
         # seeds added before skills had an order take their place in it
         for s in SEEDS:
             c.execute("UPDATE team_skills SET position = ? WHERE seed = ? AND position = 100",
@@ -372,27 +386,31 @@ def _seed_once():
 
 
 def _shape(r):
-    return {"id": r["id"], "slug": r["slug"], "name": r["name"], "description": r["description"],
-            "instructions": r["instructions"], "enabled": bool(r["enabled"]),
-            "writes": bool(r["writes"]), "position": r["position"],
+    return {"id": r["id"], "publication_id": r["publication_id"], "slug": r["slug"], "name": r["name"],
+            "description": r["description"], "instructions": r["instructions"],
+            "enabled": bool(r["enabled"]), "writes": bool(r["writes"]), "position": r["position"],
             "seeded": bool(r["seed"]), "updated_at": r["updated_at"], "updated_by": r["updated_by"]}
 
 
-def list_skills(enabled_only=False):
-    _seed_once()
-    sql = "SELECT * FROM team_skills" + (" WHERE enabled = 1" if enabled_only else "") + " ORDER BY position, name"
-    return [_shape(r) for r in staff.conn().execute(sql).fetchall()]
+def list_skills(enabled_only=False, publication_id=HOME):
+    """One publication's skills, in the order its AI tab lists them."""
+    _seed_once(publication_id)
+    sql = ("SELECT * FROM team_skills WHERE publication_id = ?" + (" AND enabled = 1" if enabled_only else "")
+           + " ORDER BY position, name")
+    return [_shape(r) for r in staff.conn().execute(sql, (int(publication_id),)).fetchall()]
 
 
-def get(ref):
-    """A skill by id or slug, or None."""
-    _seed_once()
+def get(ref, publication_id=HOME):
+    """One of a publication's skills by id, slug or name, or None. Another
+    publication's skill is None too, whatever its id."""
+    _seed_once(publication_id)
     c = staff.conn()
+    pid = int(publication_id)
     if isinstance(ref, int) or (isinstance(ref, str) and ref.isdigit()):
-        r = c.execute("SELECT * FROM team_skills WHERE id = ?", (int(ref),)).fetchone()
+        r = c.execute("SELECT * FROM team_skills WHERE id = ? AND publication_id = ?", (int(ref), pid)).fetchone()
     else:
-        r = c.execute("SELECT * FROM team_skills WHERE slug = ? OR lower(name) = lower(?)",
-                      (str(ref or "").strip().lower(), str(ref or "").strip())).fetchone()
+        r = c.execute("SELECT * FROM team_skills WHERE publication_id = ? AND (slug = ? OR lower(name) = lower(?))",
+                      (pid, str(ref or "").strip().lower(), str(ref or "").strip())).fetchone()
     return _shape(r) if r else None
 
 
@@ -419,29 +437,36 @@ def _slug(name):
     return _SLUG.sub("-", name.lower()).strip("-")[:60] or "skill"
 
 
-def create(name, description, instructions, by, writes=True):
+def create(name, description, instructions, by, writes=True, publication_id=HOME):
     name, description, instructions = _clean(name, description, instructions)
-    _seed_once()
+    pid = int(publication_id)
+    _seed_once(pid)
     c = staff.conn()
     with staff._lock:
-        if c.execute("SELECT COUNT(*) AS n FROM team_skills").fetchone()["n"] >= SKILLS_MAX:
-            raise SkillError("The team has %d skills, the most it can keep. Delete one first." % SKILLS_MAX)
+        if c.execute("SELECT COUNT(*) AS n FROM team_skills WHERE publication_id = ?",
+                     (pid,)).fetchone()["n"] >= SKILLS_MAX:
+            raise SkillError("This publication has %d skills, the most it can keep. Delete one first."
+                             % SKILLS_MAX)
         base = slug = _slug(name)
         n = 2
-        while c.execute("SELECT 1 FROM team_skills WHERE slug = ?", (slug,)).fetchone():
+        while c.execute("SELECT 1 FROM team_skills WHERE publication_id = ? AND slug = ?",
+                        (pid, slug)).fetchone():
             slug = "%s-%d" % (base, n)
             n += 1
-        if c.execute("SELECT 1 FROM team_skills WHERE lower(name) = lower(?)", (name,)).fetchone():
+        if c.execute("SELECT 1 FROM team_skills WHERE publication_id = ? AND lower(name) = lower(?)",
+                     (pid, name)).fetchone():
             raise SkillError("A skill called %s already exists." % name)
-        cur = c.execute("INSERT INTO team_skills (slug, name, description, instructions, enabled, writes, "
-                        "created_at, created_by, updated_at, updated_by) VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?)",
-                        (slug, name, description, instructions, int(bool(writes)), _now(), by, _now(), by))
+        cur = c.execute("INSERT INTO team_skills (publication_id, slug, name, description, instructions, "
+                        "enabled, writes, created_at, created_by, updated_at, updated_by) "
+                        "VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?)",
+                        (pid, slug, name, description, instructions, int(bool(writes)), _now(), by, _now(), by))
         c.commit()
-    return get(cur.lastrowid)
+    return get(cur.lastrowid, pid)
 
 
-def update(skill_id, by, name=None, description=None, instructions=None, enabled=None, writes=None):
-    cur = get(int(skill_id))
+def update(skill_id, by, name=None, description=None, instructions=None, enabled=None, writes=None,
+           publication_id=HOME):
+    cur = get(int(skill_id), publication_id)
     if cur is None:
         raise SkillError("No such skill.")
     name, description, instructions = _clean(
@@ -450,8 +475,8 @@ def update(skill_id, by, name=None, description=None, instructions=None, enabled
         cur["instructions"] if instructions is None else instructions)
     c = staff.conn()
     with staff._lock:
-        if c.execute("SELECT 1 FROM team_skills WHERE lower(name) = lower(?) AND id != ?",
-                     (name, cur["id"])).fetchone():
+        if c.execute("SELECT 1 FROM team_skills WHERE publication_id = ? AND lower(name) = lower(?) AND id != ?",
+                     (cur["publication_id"], name, cur["id"])).fetchone():
             raise SkillError("A skill called %s already exists." % name)
         c.execute("UPDATE team_skills SET name = ?, description = ?, instructions = ?, enabled = ?, "
                   "writes = ?, updated_at = ?, updated_by = ? WHERE id = ?",
@@ -459,26 +484,27 @@ def update(skill_id, by, name=None, description=None, instructions=None, enabled
                    int(cur["enabled"] if enabled is None else bool(enabled)),
                    int(cur["writes"] if writes is None else bool(writes)), _now(), by, cur["id"]))
         c.commit()
-    return get(cur["id"])
+    return get(cur["id"], publication_id)
 
 
-def delete(skill_id):
+def delete(skill_id, publication_id=HOME):
     c = staff.conn()
     with staff._lock:
-        c.execute("DELETE FROM team_skills WHERE id = ?", (int(skill_id),))
+        c.execute("DELETE FROM team_skills WHERE id = ? AND publication_id = ?",
+                  (int(skill_id), int(publication_id)))
         c.commit()
 
 
-def house_style():
-    return staff.team_setting("house_style", HOUSE_STYLE)
+def house_style(publication_id=HOME):
+    return staff.team_setting(_key(publication_id, "house_style"), HOUSE_STYLE)
 
 
-def set_house_style(text):
+def set_house_style(text, publication_id=HOME):
     text = (text or "").replace("\r\n", "\n").strip()
     if len(text) > STYLE_MAX:
         raise SkillError("Keep the house style under %d characters." % STYLE_MAX)
-    staff.set_team_setting("house_style", text or HOUSE_STYLE)
-    return house_style()
+    staff.set_team_setting(_key(publication_id, "house_style"), text or HOUSE_STYLE)
+    return house_style(publication_id)
 
 
 def menu_text(skills):

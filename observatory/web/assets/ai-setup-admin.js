@@ -1,6 +1,8 @@
-/* Admin → AI Setup: the team's skills, house style and connectors, and the
-   signed-in person's Google Drive. The AI tab in Articles uses all of it
-   (app/research_ai.py); the API is app/ai_setup_api.py.
+/* Admin → Assistant Settings: PloverResearch's skills, house style and
+   connectors, and the signed-in person's Google Drive. The AI tab uses them on
+   PloverResearch's articles (app/research_ai.py); the API is
+   app/ai_setup_api.py. Every other publication keeps its own in the Writer
+   Desk (write.js, #/p/<id>/assistant).
 
    Writers edit skills and the house style. Connectors and the team's Drive
    switch need the Team permission: they decide what an AI run can reach.
@@ -23,11 +25,11 @@ var GOOGLE_FLASH = {
 };
 
 function viewAISetup(target) {
-  target.innerHTML = '<div class="admin-loading">Loading AI setup…</div>';
+  target.innerHTML = '<div class="admin-loading">Loading assistant settings…</div>';
   api("/ai/setup").then(function (d) {
     AIS.data = d;
     drawAISetup(target);
-  }).catch(function (err) { target.innerHTML = loadFailed("AI setup", err); });
+  }).catch(function (err) { target.innerHTML = loadFailed("assistant settings", err); });
 }
 
 function aisFlash() {
@@ -41,9 +43,9 @@ function aisFlash() {
 function drawAISetup(target) {
   var d = AIS.data;
   target.innerHTML =
-    '<div class="admin-page-head"><h1>AI Setup</h1>' +
-    '<p class="admin-page-sub">The skills, house style and connections the AI tab in Articles uses. ' +
-    "Every writer's runs see the same skills and connectors; Google Drive is each person's own.</p></div>" +
+    '<div class="admin-page-head"><h1>Assistant Settings</h1>' +
+    '<p class="admin-page-sub">PloverResearch\'s skills, house style and connections, used by the AI tab on its articles. ' +
+    "Other publications keep their own in the Writer Desk; Google Drive is each person's own.</p></div>" +
     aisFlash() +
     '<div class="admin-section">Skills <span class="note">' + d.skills.length + "</span></div>" +
     '<p class="ais-sub">Playbooks the AI follows. A writer picks one in the AI tab, or the AI opens ' +
