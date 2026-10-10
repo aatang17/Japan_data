@@ -11,6 +11,8 @@ placeholder, so changing the hint changes the test.
 """
 import pathlib
 import re
+import threading
+import time
 import unittest
 
 from app import research_api
@@ -109,6 +111,64 @@ class DeskSearchExamples(unittest.TestCase):
     def test_cpi_lists_the_headline_first(self):
         r = research_api.data_search(None, "CPI")
         self.assertEqual((r["series"][0]["dataset"], r["series"][0]["name"]), ("cpi-jp", "All items"))
+
+
+class SearchBlocks(unittest.TestCase):
+    """2026-10-09: after a deploy the backfill swaps the database file again
+    and again; every swap dropped the search blocks, the next searches rebuilt
+    them while the reader waited, and searches timed out at 15s."""
+
+    def setUp(self):
+        from app import tools_v2
+        self.t = tools_v2
+        self.saved = (tools_v2.db.file_version, tools_v2._build_searchable, dict(tools_v2._SEARCHABLE))
+        tools_v2._SEARCHABLE.update({"maps": {}, "building": {}, "refresher": None})
+        self.version = [1]
+        self.builds = []
+        self.release = threading.Event()
+        self.release.set()
+
+        def build(dataset):
+            self.builds.append(dataset)
+            self.release.wait(5)
+            return {"built": len(self.builds)}
+        tools_v2.db.file_version = lambda: self.version[0]
+        tools_v2._build_searchable = build
+
+    def tearDown(self):
+        self.release.set()
+        self.t.db.file_version, self.t._build_searchable, saved = self.saved
+        self.t._SEARCHABLE.clear()
+        self.t._SEARCHABLE.update(saved)
+
+    def test_a_changed_file_never_makes_a_search_wait(self):
+        first = self.t._searchable("x")
+        self.version[0] = 2
+        self.release.clear()                      # the rebuild is slow
+        started = time.time()
+        self.assertIs(self.t._searchable("x"), first)
+        self.assertLess(time.time() - started, 1)
+        self.release.set()
+        for _ in range(50):
+            if self.t._SEARCHABLE["refresher"] is None:
+                break
+            time.sleep(0.05)
+        self.assertEqual(self.t._searchable("x"), {"built": 2})
+        self.assertEqual(self.builds, ["x", "x"])
+
+    def test_searches_at_the_same_time_build_a_block_once(self):
+        self.release.clear()
+        got = []
+        threads = [threading.Thread(target=lambda: got.append(self.t._searchable("y")))
+                   for _ in range(5)]
+        for th in threads:
+            th.start()
+        time.sleep(0.2)
+        self.release.set()
+        for th in threads:
+            th.join(5)
+        self.assertEqual(self.builds, ["y"])
+        self.assertEqual(len(got), 5)
 
 
 if __name__ == "__main__":

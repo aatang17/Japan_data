@@ -32,6 +32,9 @@
     {"key": "us-weights.html#q", "url": "/us-weights.html", "input": "#q", "area": "#table-wrap", "hits": "#table-wrap tbody tr", "ready": "#table-wrap tbody tr", "extra": []},
     {"key": "us-wages.html#q", "url": "/us-wages.html", "input": "#q", "area": "#table-wrap", "hits": "#table-wrap tbody tr", "ready": "#table-wrap tbody tr", "extra": []},
     {"key": "us-cpi-areas.html#q", "url": "/us-cpi-areas.html", "input": "#q", "area": "#table-wrap", "hits": "#table-wrap tbody tr", "ready": "#table-wrap tbody tr", "extra": []},
+    {"key": "hk-economy.html#q", "url": "/hk-economy.html", "input": "#q", "area": "#table-wrap", "hits": "#table-wrap tbody tr", "ready": "#table-wrap tbody tr", "extra": ["GDP"]},
+    {"key": "hk-prices.html#q", "url": "/hk-prices.html", "input": "#q", "area": "#table-wrap", "hits": "#table-wrap tbody tr", "ready": "#table-wrap tbody tr", "extra": ["CPI"]},
+    {"key": "labour.html#q", "url": "/labour.html", "input": "#q", "area": "#table-wrap", "hits": "#table-wrap tbody tr", "ready": "#table-wrap tbody tr", "placeholder_examples": false, "extra": ["unemployment", "wage"]},
     {"key": "us-companies.html#cn-q", "url": "/us-companies.html?t=DIS", "input": "#cn-q", "area": "#cn-table", "hits": "#cn-table tbody tr", "ready": "#cn-table tbody tr", "extra": ["revenue"]}
   ],
   "elsewhere": {
@@ -41,6 +44,7 @@
   "not_run": {
     "desk-tabs.js#class=dk-at-q": "Filters the writer's own articles, already listed under + Open Article in the desk; there is nothing to fetch.",
     "sortable.js#class=table-filter": "Filters the rows a table already shows; there is nothing to fetch.",
+    "admin.js#rh-find": "Filters the datasets already listed on the signed-in admin Release History page; there is nothing to fetch.",
     "assistant.js#cat-q": "Filters the specialists already listed; there is nothing to fetch."
   },
   "not_searches": {

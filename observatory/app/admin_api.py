@@ -31,7 +31,7 @@ import duckdb
 from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel
 
-from . import db, filer_labels, parties, seo, staff, vintages, visits
+from . import db, filer_labels, parties, registry, seo, staff, vintages, visits
 from .api import ADAPTERS, health
 from .equity_api import DB_PATH as EQUITY_DB_PATH
 
@@ -436,6 +436,28 @@ def team_setup_link(staff_id: int, request: Request):
 
 # --- ingest health -----------------------------------------------------------
 
+# What a person picking a dataset needs: its name as the site shows it, the
+# section it sits under, and its market. The manifest is the source; a dataset
+# whose manifest failed validation still appears, under its code.
+_SECTION_RANK = dict((sec["id"], i) for i, sec in enumerate(registry.SECTIONS))
+_SECTION_LABEL = dict((sec["id"], sec["label"]) for sec in registry.SECTIONS)
+
+
+def _describe(slug):
+    meta = ADAPTERS[slug].DATASET
+    m = registry.get(slug) or {}
+    section = m.get("section")
+    return {
+        "name": (m.get("name") or {}).get("en") or meta.get("title") or slug,
+        "section": _SECTION_LABEL.get(section, "Other"),
+        "section_rank": _SECTION_RANK.get(section, len(_SECTION_RANK)),
+        "market": meta.get("country"),
+        "agency": meta.get("agency"),
+        "frequency": meta.get("frequency"),
+        "page": m.get("page"),
+    }
+
+
 @router.get("/overview")
 def overview(request: Request):
     """The public health check, widened with what an operator needs next:
@@ -456,7 +478,11 @@ def overview(request: Request):
         series_n = con.execute(
             "SELECT count(*) FILTER (active), count(*) "
             "FROM series WHERE dataset=?", [slug]).fetchone()
-        extra[slug] = {
+        last_release = con.execute(
+            "SELECT max(ingested_at) FROM releases "
+            "WHERE dataset=? AND status <> 'rejected'", [slug]).fetchone()[0]
+        extra[slug] = _describe(slug)
+        extra[slug].update({
             "release_id": row[0] if row else None,
             "label": row[1] if row else None,
             "validation": json.loads(row[2]) if row and row[2] else None,
@@ -469,7 +495,9 @@ def overview(request: Request):
             "releases_rejected": counts[1],
             "series_active": series_n[0],
             "series_total": series_n[1],
-        }
+            "last_release_at":
+                last_release.isoformat() + "Z" if last_release else None,
+        })
     for d in report["datasets"]:
         d.update(extra.get(d["dataset"], {}))
     return report
@@ -503,9 +531,42 @@ def releases(dataset, request: Request):
         "GROUP BY 1,2,3,4,5,6,7,8,11 ORDER BY " + at + " DESC, r.release_id DESC",
         [dataset]).fetchall()
     first_release = rows[-1][0] if rows else None
+    # What each release did, counted the way /changes splits it: a value for a
+    # (series, period) never seen before is new, a later one revises it, and a
+    # NULL withdraws it. One pass over the dataset's vintages, in publication
+    # order, instead of one /changes query per release.
+    v_at = vintages.known_at(con, "rv")
+    did = dict((r[0], r[1:]) for r in con.execute(
+        "SELECT release_id, "
+        "       count(*) FILTER (value IS NOT NULL AND n = 1), "
+        "       count(*) FILTER (value IS NOT NULL AND n > 1) "
+        "FROM (SELECT v.release_id, v.value, row_number() OVER ("
+        "        PARTITION BY v.series_id, v.period "
+        "        ORDER BY " + v_at + ", v.release_id) AS n "
+        "      FROM observation_vintages v "
+        "      JOIN releases rv ON rv.release_id = v.release_id "
+        "      WHERE rv.dataset = ?) "
+        "GROUP BY release_id", [dataset]).fetchall())
+    validation = dict(con.execute(
+        "SELECT release_id, validation FROM releases WHERE dataset=?",
+        [dataset]).fetchall())
     out = []
-    for r in rows:
+    for i, r in enumerate(rows):
+        # The release before this one in publication order, skipping rejected
+        # ones: what "added August 2026" is measured against.
+        prior = next((p for p in rows[i + 1:] if p[4] != "rejected"), None)
+        new_n, revised_n = did.get(r[0], (0, 0))
+        checks = validation.get(r[0])
+        if isinstance(checks, str):
+            try:
+                checks = json.loads(checks)
+            except ValueError:
+                checks = None
         out.append({
+            "new_values": new_n,
+            "revised": revised_n,
+            "previous_period": prior[2].isoformat() if prior else None,
+            "validation": checks if isinstance(checks, dict) else None,
             "release_id": r[0], "label": r[1],
             "latest_period": r[2].isoformat(),
             "ingested_at": r[3].isoformat() + "Z",

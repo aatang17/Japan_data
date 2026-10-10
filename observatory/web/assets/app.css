@@ -2513,12 +2513,18 @@ details.readable .source-line a { color: var(--obs-primary); }
 .site-nav .mega a.mega-sec-h { font-weight: 600; font-size: 15.5px; }
 .site-nav .mega a.mega-sec-h[aria-current] { color: var(--obs-primary); }
 
-/* One market at a time behind two tabs, and a preview pane on the right:
+/* One region at a time behind its tab, and a preview pane on the right:
    the page under the pointer, its main series drawn small with the latest
    value (nav.js megaPreview, data from /api/v1/catalog/previews). */
 .nav-dd-menu.mega:not([hidden]) { grid-template-columns: minmax(0, 1fr) 300px; gap: 0 32px; }
 .mega-main { display: block; min-width: 0; }
 .mega-mkt[hidden] { display: none; }
+/* A region tab (Asia) holds more than one market: each keeps its own block,
+   the second set off from the first by a rule. */
+.mega-region { display: block; min-width: 0; }
+.mega-region[hidden] { display: none; }
+.mega-region .mega-mkt + .mega-mkt { margin-top: 12px; padding-top: 10px;
+  border-top: 1px solid var(--obs-border); }
 .mega-tabs { display: flex; gap: 4px; margin: 0 0 12px; border-bottom: 1px solid var(--obs-border); }
 .mega-tab { font: inherit; font-size: 14px; font-weight: 600; color: var(--obs-text-muted); cursor: pointer;
   background: none; border: 0; border-bottom: 2px solid transparent; padding: 6px 12px 9px; margin-bottom: -1px; }

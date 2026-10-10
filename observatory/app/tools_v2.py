@@ -433,7 +433,15 @@ DATASET_HIT_SERIES = 3
 # a substring find in C; the full details (names as shown, unit) are read from
 # the database only for the few series a search returns. Byte search on UTF-8
 # is a correct character search: the encoding never matches mid-character.
-_SEARCHABLE = {"version": None, "maps": {}}
+#
+# 2026-10-09: a changed file used to drop every block at once, and the next
+# searches rebuilt them while the reader waited — after a deploy, when the
+# backfill swaps the file again and again, searches timed out at 15s, and a
+# search-as-you-type box sent several that each rebuilt the same blocks. Now
+# the old block keeps answering while one background worker rebuilds the
+# stale ones in turn; only a dataset never built is built on the spot, once,
+# however many searches ask for it at the same time.
+_SEARCHABLE = {"maps": {}, "building": {}, "refresher": None}
 _SEARCHABLE_LOCK = threading.Lock()
 # Rows a search looks at per dataset and rank before it stops (it needs the
 # first few in each; the count it reports is then a floor, flagged truncated).
@@ -511,17 +519,60 @@ def _key_rows(dataset, labelled, codes, code_starts):
 def _searchable(dataset):
     version = db.file_version()
     with _SEARCHABLE_LOCK:
-        if _SEARCHABLE["version"] != version:
-            _SEARCHABLE["version"] = version
-            _SEARCHABLE["maps"] = {}
-        entry = _SEARCHABLE["maps"].get(dataset)
-    if entry is not None:
+        held = _SEARCHABLE["maps"].get(dataset)
+        if held is not None:
+            if held[0] != version and _SEARCHABLE["refresher"] is None:
+                t = threading.Thread(target=_refresh_stale, name="search-refresh", daemon=True)
+                _SEARCHABLE["refresher"] = t
+                t.start()
+            return held[1]
+        job = _SEARCHABLE["building"].get(dataset)
+        mine = job is None
+        if mine:
+            job = _SEARCHABLE["building"][dataset] = threading.Event()
+    if not mine:
+        job.wait(300)
+        with _SEARCHABLE_LOCK:
+            held = _SEARCHABLE["maps"].get(dataset)
+        if held is not None:
+            return held[1]
+        # the build that was running failed: build here, so the error is ours
+        return _build_searchable(dataset)
+    try:
+        entry = _build_searchable(dataset)
+        with _SEARCHABLE_LOCK:
+            _SEARCHABLE["maps"][dataset] = (version, entry)
         return entry
-    entry = _build_searchable(dataset)
-    with _SEARCHABLE_LOCK:
-        if _SEARCHABLE["version"] == version:
-            _SEARCHABLE["maps"][dataset] = entry
-    return entry
+    finally:
+        with _SEARCHABLE_LOCK:
+            _SEARCHABLE["building"].pop(dataset, None)
+        job.set()
+
+
+def _refresh_stale():
+    """Rebuild, one at a time, every block built from an older file, until
+    none is. A block that fails to build keeps its old contents (stamped as
+    current, so it is not retried until the file changes again)."""
+    try:
+        while True:
+            version = db.file_version()
+            with _SEARCHABLE_LOCK:
+                stale = [d for d, (v, _) in _SEARCHABLE["maps"].items() if v != version]
+                if not stale:
+                    _SEARCHABLE["refresher"] = None
+                    return
+            for dataset in stale:
+                try:
+                    entry = _build_searchable(dataset)
+                except Exception:  # noqa: BLE001 — a refresh must never stop the server
+                    entry = None
+                with _SEARCHABLE_LOCK:
+                    old = _SEARCHABLE["maps"].get(dataset)
+                    _SEARCHABLE["maps"][dataset] = (version, entry or (old and old[1]))
+    finally:
+        with _SEARCHABLE_LOCK:
+            if _SEARCHABLE["refresher"] is threading.current_thread():
+                _SEARCHABLE["refresher"] = None
 
 
 def warm_search():

@@ -54,11 +54,6 @@ function allowedPages() {
 }
 
 /* raw enum -> Title-Case label + badge tone; never render the slug */
-var RELEASE_STATUS = {
-  published: { label: "Published", cls: "badge-ok" },
-  superseded: { label: "Superseded", cls: "badge-neutral" },
-  rejected: { label: "Rejected", cls: "badge-danger" },
-};
 var AUDIT_ACTIONS = {
   party_created: { label: "Profile Created", cls: "badge-info" },
   party_updated: { label: "Profile Edited", cls: "badge-info" },
@@ -403,108 +398,412 @@ function kpi(value, label, tone) {
 
 /* ---------- release history ---------- */
 
+/* A dataset list on the left, grouped by section and searchable; the chosen
+   dataset's releases on the right, each saying in words what it did. */
+
+var RH = { datasets: [], market: "", query: "", slug: null };
+
+/* "2026-08-01" as the dataset counts time: a day for daily and weekly data,
+   a quarter for quarterly, otherwise the month. `short` abbreviates the month. */
+function rhPeriod(iso, freq, short) {
+  if (!iso) return MISSING;
+  var y = iso.slice(0, 4), m = Number(iso.slice(5, 7)), d = Number(iso.slice(8, 10));
+  var mon = short ? MONTHS[m - 1].slice(0, 3) : MONTHS[m - 1];
+  if (freq === "daily" || freq === "weekly") return d + " " + MONTHS[m - 1].slice(0, 3) + " " + y;
+  if (freq === "quarterly") return "Q" + Math.ceil(m / 3) + " " + y;
+  return mon + " " + y;
+}
+
+/* The period after `iso` for monthly and quarterly data; null where the next
+   period is not a fixed step (a daily series skips weekends and holidays). */
+function rhNextPeriod(iso, freq) {
+  var step = freq === "monthly" ? 1 : freq === "quarterly" ? 3 : 0;
+  if (!step || !iso) return null;
+  var y = Number(iso.slice(0, 4)), m = Number(iso.slice(5, 7)) + step;
+  if (m > 12) { m -= 12; y += 1; }
+  return y + "-" + (m < 10 ? "0" : "") + m + "-01";
+}
+
+/* "2026-09-20T13:57:00Z" -> "20 Sep 2026"; the year only when it is not this one. */
+function rhDay(iso, withYear) {
+  if (!iso) return MISSING;
+  var y = iso.slice(0, 4);
+  var out = Number(iso.slice(8, 10)) + " " + MONTHS[Number(iso.slice(5, 7)) - 1].slice(0, 3);
+  return withYear || y !== String(new Date().getUTCFullYear()) ? out + " " + y : out;
+}
+
+function rhCount(n) { return Number(n || 0).toLocaleString("en-US"); }
+
+function rhSigned(n) {
+  if (!n) return "0";
+  return (n > 0 ? "+" : MINUS) + Math.abs(n).toLocaleString("en-US");
+}
+
+function rhPlural(n, word) { return rhCount(n) + " " + word + (n === 1 ? "" : "s"); }
+
 function viewVintages(target, slug) {
-  target.innerHTML = '<div class="admin-loading">Loading releases…</div>';
+  target.innerHTML = '<div class="admin-loading">Loading datasets…</div>';
   api("/overview").then(function (report) {
-    var ds = report.datasets;
-    if (!slug || !ds.some(function (d) { return d.dataset === slug; })) {
-      slug = ds[0].dataset;
-    }
-    var cards = ds.map(function (d) {
-      return '<button type="button" class="ds-card" data-ds="' + escapeHtml(d.dataset) + '"' +
-        (d.dataset === slug ? ' aria-pressed="true"' : ' aria-pressed="false"') + ">" +
-        '<div class="t">' + escapeHtml(d.dataset) + "</div>" +
-        '<div class="s">' + (d.vintages || 0) + " release" + (d.vintages === 1 ? "" : "s") +
-        " · through " + (d.latest_period ? escapeHtml(d.latest_period) : MISSING) + "</div></button>";
-    }).join("");
+    RH.datasets = report.datasets.slice().sort(function (a, b) {
+      return (a.section_rank - b.section_rank) ||
+        String(a.name || a.dataset).localeCompare(String(b.name || b.dataset));
+    });
+    var known = RH.datasets.some(function (d) { return d.dataset === slug; });
+    RH.slug = known ? slug : (RH.datasets[0] && RH.datasets[0].dataset);
+
+    var stale = RH.datasets.filter(function (d) { return d.published && d.stale; });
+    var alert = stale.length
+      ? '<div class="admin-alert" role="status"><span class="head">' +
+        (stale.length === 1 ? "1 dataset is stale." : stale.length + " datasets are stale.") +
+        "</span> " + stale.slice(0, 4).map(function (d) {
+          return '<a href="#vintages/' + encodeURIComponent(d.dataset) + '">' +
+            escapeHtml(d.name || d.dataset) + "</a> (data through " +
+            escapeHtml(rhPeriod(d.latest_period, d.frequency)) + ")";
+        }).join(" · ") +
+        (stale.length > 4 ? " · and " + (stale.length - 4) + " more, marked Stale in the list" : "") +
+        "</div>"
+      : "";
+
+    var markets = {};
+    RH.datasets.forEach(function (d) {
+      if (d.market) markets[d.market] = (markets[d.market] || 0) + 1;
+    });
+    var marketNames = Object.keys(markets).sort(function (a, b) { return markets[b] - markets[a]; });
+    if (RH.market && !markets[RH.market]) RH.market = "";
+    var marketBtns = '<button type="button" class="rh-pill" data-market=""' +
+      ' aria-pressed="' + (RH.market ? "false" : "true") + '">All <span class="n">' +
+      RH.datasets.length + "</span></button>" +
+      marketNames.map(function (m) {
+        return '<button type="button" class="rh-pill" data-market="' + escapeHtml(m) + '"' +
+          ' aria-pressed="' + (RH.market === m ? "true" : "false") + '">' + escapeHtml(m) +
+          ' <span class="n">' + markets[m] + "</span></button>";
+      }).join("");
 
     target.innerHTML =
       '<div class="admin-page-head"><h1>Release History</h1>' +
-      '<p class="admin-page-sub">Every accepted ingest is a stored release. A stored release is ' +
-      "never edited — a correction arrives as a new release, and this page shows exactly what " +
-      "each one introduced, revised, or withdrew.</p></div>" +
-      '<div class="ds-cards">' + cards + "</div>" +
-      '<div id="release-list"><div class="admin-loading">Loading releases…</div></div>';
+      '<p class="admin-page-sub">Every ingest we accept is stored as a release and never ' +
+      "edited. A correction arrives as a new release. Pick a dataset to see what each " +
+      "release added or changed.</p></div>" + alert +
+      '<div class="rh-layout">' +
+      '<section class="rh-list" aria-label="Datasets">' +
+      '<label class="rh-find-label" for="rh-find">Find a dataset</label>' +
+      '<input id="rh-find" class="rh-find" type="search" autocomplete="off" ' +
+      'placeholder="Name or code — e.g. CPI, GDP, jgb-yields" value="' + escapeHtml(RH.query) + '">' +
+      (marketNames.length > 1
+        ? '<div class="rh-pills" role="group" aria-label="Market">' + marketBtns + "</div>" : "") +
+      '<div class="rh-list-head"><span>Dataset</span><span>Last release</span></div>' +
+      '<div id="rh-groups"></div></section>' +
+      '<section class="rh-detail" id="rh-detail" aria-label="Releases of the selected dataset">' +
+      "</section></div>";
 
-    var btns = target.querySelectorAll(".ds-card");
-    for (var i = 0; i < btns.length; i++) {
-      btns[i].addEventListener("click", function () {
-        location.hash = "#vintages/" + this.getAttribute("data-ds");
+    var find = document.getElementById("rh-find");
+    find.addEventListener("input", function () { RH.query = find.value; rhRenderList(); });
+    var pills = target.querySelectorAll(".rh-pill");
+    for (var i = 0; i < pills.length; i++) {
+      pills[i].addEventListener("click", function () {
+        RH.market = this.getAttribute("data-market");
+        for (var j = 0; j < pills.length; j++) {
+          pills[j].setAttribute("aria-pressed", pills[j] === this ? "true" : "false");
+        }
+        rhRenderList();
       });
     }
-    renderReleases(document.getElementById("release-list"), slug);
+    document.getElementById("rh-groups").addEventListener("click", function (e) {
+      var btn = e.target.closest ? e.target.closest("[data-ds]") : null;
+      if (btn) rhSelect(btn.getAttribute("data-ds"), true);
+      var clear = e.target.closest ? e.target.closest(".rh-clear") : null;
+      if (clear) {
+        RH.query = ""; RH.market = "";
+        find.value = "";
+        for (var j = 0; j < pills.length; j++) {
+          pills[j].setAttribute("aria-pressed", pills[j].getAttribute("data-market") ? "false" : "true");
+        }
+        rhRenderList();
+        find.focus();
+      }
+    });
+    rhRenderList();
+    rhSelect(RH.slug, false);
   }).catch(function (err) {
     target.innerHTML = loadFailed("the dataset list", err);
   });
 }
 
-function renderReleases(box, slug) {
+function rhMatches(d) {
+  if (RH.market && d.market !== RH.market) return false;
+  // Each word typed must start a word of the name, code, section or market:
+  // "rice" finds the rice datasets, not every "Price Index".
+  var hay = " " + [d.name, d.dataset, d.section, d.market].join(" ").toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ");
+  return RH.query.toLowerCase().split(/[^a-z0-9]+/).every(function (w) {
+    return !w || hay.indexOf(" " + w) !== -1;
+  });
+}
+
+function rhRenderList() {
+  var box = document.getElementById("rh-groups");
+  if (!box) return;
+  var shown = RH.datasets.filter(rhMatches);
+  if (!shown.length) {
+    box.innerHTML = '<p class="rh-empty">No dataset matches “' + escapeHtml(RH.query.trim()) +
+      "”" + (RH.market ? " in " + escapeHtml(RH.market) : "") + '. <button type="button" ' +
+      'class="rh-clear">Show all datasets</button></p>';
+    return;
+  }
+  var html = "", section = null;
+  shown.forEach(function (d, i) {
+    if (d.section !== section) {
+      section = d.section;
+      var n = shown.filter(function (x) { return x.section === section; }).length;
+      html += '<div class="rh-group"><span>' + escapeHtml(section || "Other") +
+        '</span><span class="n">' + n + "</span></div>";
+    }
+    var flag = !d.published ? '<span class="badge badge-danger">No Release</span>'
+      : d.stale ? '<span class="badge badge-danger">Stale</span>' : "";
+    html += '<button type="button" class="rh-ds" data-ds="' + escapeHtml(d.dataset) + '"' +
+      (d.dataset === RH.slug ? ' aria-current="true"' : "") +
+      ' title="' + escapeHtml((d.name || d.dataset) + " — " + d.dataset) + '">' +
+      '<span class="nm">' + escapeHtml(d.name || d.dataset) + "</span>" + flag +
+      '<span class="dt">' + escapeHtml(d.last_release_at ? rhDay(d.last_release_at) : MISSING) +
+      "</span></button>";
+  });
+  box.innerHTML = html;
+}
+
+function rhSelect(slug, byClick) {
+  RH.slug = slug;
+  if (byClick && history.replaceState) {
+    history.replaceState(null, "", "#vintages/" + encodeURIComponent(slug));
+  }
+  var rows = document.querySelectorAll(".rh-ds");
+  for (var i = 0; i < rows.length; i++) {
+    if (rows[i].getAttribute("data-ds") === slug) rows[i].setAttribute("aria-current", "true");
+    else rows[i].removeAttribute("aria-current");
+  }
+  var box = document.getElementById("rh-detail");
+  var d = RH.datasets.filter(function (x) { return x.dataset === slug; })[0];
+  if (!box || !d) return;
+  // The list is long: a pick far down it, or below it on a narrow screen,
+  // would change a panel the reader cannot see. Bring the panel into view.
+  if (byClick) {
+    var top = box.getBoundingClientRect().top;
+    if (top < 0 || top > window.innerHeight - 120) box.scrollIntoView({ block: "start" });
+  }
+
+  var status = !d.published ? '<span class="badge badge-danger">No Release</span>'
+    : d.stale ? '<span class="badge badge-danger">Stale</span>'
+    : '<span class="badge badge-ok">Current</span>';
+  if (d.unpublished_artifact) status += ' <span class="badge badge-warn">Unpublished File</span>';
+  var freq = d.frequency ? d.frequency.charAt(0).toUpperCase() + d.frequency.slice(1) : "";
+
+  box.innerHTML =
+    '<div class="rh-detail-head"><div class="rh-titles">' +
+    '<div class="rh-crumb">' + escapeHtml([d.section, d.market].filter(Boolean).join(" · ")) +
+    "</div><h2>" + escapeHtml(d.name || d.dataset) + "</h2>" +
+    '<div class="rh-meta"><code>' + escapeHtml(d.dataset) + "</code>" +
+    (d.agency ? " · " + escapeHtml(d.agency) : "") + (freq ? " · " + escapeHtml(freq) : "") +
+    "</div></div>" +
+    (d.page ? '<a class="rh-open" href="' + escapeHtml(d.page) + '">Open dataset page →</a>' : "") +
+    "</div>" +
+    '<div class="rh-stats">' +
+    '<div><div class="k">Data through</div><div class="v">' +
+      escapeHtml(rhPeriod(d.latest_period, d.frequency, true)) + "</div></div>" +
+    '<div><div class="k">Releases stored</div><div class="v">' + rhCount(d.vintages) + "</div></div>" +
+    '<div><div class="k">Latest release</div><div class="v">' +
+      escapeHtml(d.last_release_at ? rhDay(d.last_release_at, true) : MISSING) + "</div></div>" +
+    '<div><div class="k">Status</div><div class="b">' + status + "</div></div></div>" +
+    '<div class="rh-sub"><h3>Releases</h3><span>newest first · click a release for its details</span></div>' +
+    '<div id="rh-releases"><div class="admin-loading">Loading releases…</div></div>';
+
+  renderReleases(document.getElementById("rh-releases"), d);
+}
+
+var RH_STATUS = {
+  published: { label: "Live", cls: "badge-ok" },
+  superseded: { label: "Replaced", cls: "badge-neutral" },
+  archived: { label: "Archive", cls: "badge-neutral" },
+  rejected: { label: "Rejected", cls: "badge-danger" },
+};
+
+/* What a release did, in words: the main phrase and any qualifiers after it. */
+function releaseSummary(r, freq) {
+  var extra = [];
+  var main;
+  if (r.is_first_vintage) {
+    main = "First release";
+    extra.push("the history as first recorded");
+  } else if (r.previous_period && r.latest_period > r.previous_period) {
+    var next = rhNextPeriod(r.previous_period, freq);
+    main = "Added " + (next && next < r.latest_period
+      ? rhPeriod(next, freq) + " to " + rhPeriod(r.latest_period, freq)
+      : rhPeriod(r.latest_period, freq));
+    if (r.revised) extra.push(rhCount(r.revised) + " revised");
+  } else if (r.previous_period && r.latest_period === r.previous_period) {
+    if (r.revised) {
+      main = "Revised " + rhPlural(r.revised, "value");
+      if (r.new_values) extra.push(rhCount(r.new_values) + " new");
+    } else if (r.new_values) {
+      main = "Added " + rhPlural(r.new_values, "value");
+    } else {
+      main = "Re-issued, no value changed";
+    }
+  } else {
+    main = "Data through " + rhPeriod(r.latest_period, freq);
+    if (r.revised) extra.push(rhCount(r.revised) + " revised");
+  }
+  if (r.withdrawn) extra.push(rhCount(r.withdrawn) + " withdrawn");
+  return { main: main, extra: extra };
+}
+
+var RH_SHOW = 25;
+
+function renderReleases(box, d) {
+  var slug = d.dataset;
   api("/releases/" + encodeURIComponent(slug)).then(function (data) {
+    if (RH.slug !== slug) return;   // another dataset was picked meanwhile
     if (!data.releases.length) {
       box.innerHTML = '<p class="table-empty">No releases stored for this dataset yet.</p>';
       return;
     }
-    var rows = data.releases.map(function (r) {
-      return '<tr class="clickable" data-release="' + r.release_id + '" data-first="' +
-        (r.is_first_vintage ? "1" : "0") + '" data-recorded="' + r.recorded + '">' +
-        '<td><span class="chev">▸</span> <strong>' + escapeHtml(r.label) + "</strong></td>" +
-        "<td>" + badge(RELEASE_STATUS, r.status) + "</td>" +
-        '<td class="num">' + fmtStamp(r.ingested_at) + "</td>" +
-        '<td class="num">' + r.recorded.toLocaleString("en-US") + "</td>" +
-        '<td class="num">' + (r.withdrawn ? r.withdrawn.toLocaleString("en-US") : "0") + "</td>" +
-        '<td class="mono">' + escapeHtml(r.sha256.slice(0, 12)) +
-        ' <span class="muted">· ' + fmtBytes(r.bytes) + "</span></td>" +
-        "</tr>";
+    var rows = data.releases.map(function (r, i) {
+      var s = releaseSummary(r, d.frequency);
+      var st = RH_STATUS[r.status] || { label: r.status, cls: "badge-neutral" };
+      var when = r.known_at_basis === "agency publication"
+        ? rhDay(r.known_at, true)
+        : rhDay(r.known_at, true) + ' <span class="t">' + r.known_at.slice(11, 16) + "</span>";
+      var change = r.is_first_vintage ? MISSING : rhSigned(r.new_values - r.withdrawn);
+      return '<button type="button" class="rh-rel" aria-expanded="false" data-i="' + i + '"' +
+        (i >= RH_SHOW ? " hidden" : "") +
+        (r.known_at_basis === "agency publication"
+          ? ' title="Dated by the agency’s own publication date"' : "") + ">" +
+        '<span class="when"><span class="chev" aria-hidden="true">▸</span>' + when + "</span>" +
+        '<span class="what"><strong>' + escapeHtml(s.main) + "</strong>" +
+        (s.extra.length ? ' <span class="x">· ' + escapeHtml(s.extra.join(" · ")) + "</span>" : "") +
+        "</span>" +
+        '<span><span class="badge ' + st.cls + '">' + escapeHtml(st.label) + "</span></span>" +
+        '<span class="num">' + change + "</span></button>";
     }).join("");
+    var more = data.releases.length > RH_SHOW
+      ? '<button type="button" class="btn rh-more">Show all ' + rhCount(data.releases.length) +
+        " releases</button>" : "";
 
     box.innerHTML =
-      '<div class="admin-section">' + escapeHtml(slug) +
-      ' <span class="note">newest first · click a release to see what it changed</span></div>' +
-      '<div class="table-wrap"><table class="data" data-no-enhance>' +
-      "<thead><tr><th>Release</th><th>Status</th>" +
-      '<th class="num">Ingested (UTC)</th><th class="num">Values Recorded</th>' +
-      '<th class="num">Withdrawn</th><th>Source File</th></tr></thead>' +
-      "<tbody>" + rows + "</tbody></table></div>";
+      '<div class="rh-rels"><div class="rh-rels-in">' +
+      '<div class="rh-rel-head"><span>Released (UTC)</span><span>What it did</span>' +
+      '<span>Status</span><span class="num">Change</span></div>' +
+      rows + "</div></div>" + more +
+      '<p class="rh-legend"><strong>Live</strong> is the release the site serves now. ' +
+      "<strong>Replaced</strong> releases stay stored, unchanged, so any past view can be " +
+      "rebuilt exactly. <strong>Change</strong> is the number of values added, less any " +
+      "withdrawn; a revised value leaves it unchanged.</p>";
 
-    var trs = box.querySelectorAll("tr.clickable");
-    for (var i = 0; i < trs.length; i++) {
-      trs[i].addEventListener("click", function () { toggleReleaseDetail(this, slug); });
+    var btns = box.querySelectorAll(".rh-rel");
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].addEventListener("click", function () {
+        toggleReleaseDetail(this, d, data.releases[Number(this.getAttribute("data-i"))]);
+      });
     }
+    var moreBtn = box.querySelector(".rh-more");
+    if (moreBtn) {
+      moreBtn.addEventListener("click", function () {
+        for (var j = 0; j < btns.length; j++) btns[j].hidden = false;
+        moreBtn.parentNode.removeChild(moreBtn);
+      });
+    }
+    // Open the newest release: it is the one a person usually came to check.
+    if (btns.length) toggleReleaseDetail(btns[0], d, data.releases[0]);
   }).catch(function (err) {
-    box.innerHTML = loadFailed("the releases of " + slug, err);
+    box.innerHTML = loadFailed("the releases of " + (d.name || slug), err);
   });
 }
 
-function toggleReleaseDetail(tr, slug) {
-  var open = tr.nextElementSibling && tr.nextElementSibling.classList.contains("detail-row");
+var CHECK_LABELS = {
+  series: "Series", observations: "Values", latest_period: "Newest period",
+  dates: "Dates", first_quarter: "First quarter", quarters: "Quarters",
+};
+
+/* The validation summary an accepted release carries, as label → value.
+   Lists, objects and links stay out: they are evidence, not a check. */
+function releaseChecks(v, freq) {
+  if (!v) return [];
+  return Object.keys(v).filter(function (k) {
+    var x = v[k];
+    return (typeof x === "number" || (typeof x === "string" && x.length <= 40 &&
+      !/^https?:/.test(x))) && k !== "published_at";
+  }).map(function (k) {
+    var x = v[k];
+    var label = CHECK_LABELS[k] || (k.charAt(0).toUpperCase() + k.slice(1)).replace(/_/g, " ");
+    var val = typeof x === "number"
+      ? x.toLocaleString("en-US", { maximumFractionDigits: 4 }).replace(/-/g, MINUS)
+      : /^\d{4}-\d{2}-\d{2}$/.test(x) ? rhPeriod(x, freq) : x;
+    return [label, val];
+  });
+}
+
+function kvList(pairs) {
+  return '<dl class="rh-kv">' + pairs.map(function (p) {
+    return "<dt>" + escapeHtml(p[0]) + "</dt><dd>" + p[1] + "</dd>";
+  }).join("") + "</dl>";
+}
+
+function toggleReleaseDetail(btn, d, r) {
+  var open = btn.nextElementSibling && btn.nextElementSibling.classList.contains("rh-rel-detail");
   if (open) {
-    tr.parentNode.removeChild(tr.nextElementSibling);
-    tr.querySelector(".chev").textContent = "▸";
+    btn.parentNode.removeChild(btn.nextElementSibling);
+    btn.setAttribute("aria-expanded", "false");
+    btn.querySelector(".chev").textContent = "▸";
     return;
   }
-  tr.querySelector(".chev").textContent = "▾";
-  var detail = document.createElement("tr");
-  detail.className = "detail-row";
-  var cell = document.createElement("td");
-  cell.colSpan = tr.children.length;
-  detail.appendChild(cell);
-  tr.parentNode.insertBefore(detail, tr.nextElementSibling);
+  btn.setAttribute("aria-expanded", "true");
+  btn.querySelector(".chev").textContent = "▾";
+  var detail = document.createElement("div");
+  detail.className = "rh-rel-detail";
 
-  // The first release of a dataset is its entire history as first recorded —
-  // tens of thousands of "new" values with nothing to compare against.
-  if (tr.getAttribute("data-first") === "1") {
-    cell.innerHTML = '<div class="detail-block"><div class="h">Initial Release</div>' +
-      "This release is the dataset’s first recorded release: all " +
-      Number(tr.getAttribute("data-recorded")).toLocaleString("en-US") +
-      " values are the history as it stood at first ingest. Later releases are " +
-      "compared against it.</div>";
-    return;
+  var changed = kvList([
+    ["New values", rhCount(r.new_values)],
+    ["Revised", rhCount(r.revised)],
+    ["Withdrawn", rhCount(r.withdrawn)],
+  ]);
+  var checks = releaseChecks(r.validation, d.frequency).map(function (p) {
+    return [p[0], escapeHtml(p[1])];
+  });
+  var file = kvList([
+    ["Fetched", escapeHtml(fmtStamp(r.retrieved_at))],
+    ["Size", escapeHtml(fmtBytes(r.bytes))],
+    ["SHA-256", '<code title="' + escapeHtml(r.sha256) + '">' +
+      escapeHtml(r.sha256.slice(0, 12)) + "…</code>"],
+  ]);
+  detail.innerHTML =
+    '<div class="rh-blocks">' +
+    '<div><div class="h">What it changed</div>' + changed + "</div>" +
+    (checks.length ? '<div><div class="h">' +
+      (r.status === "rejected" ? "Validation" : "Checks passed") + "</div>" +
+      kvList(checks) + "</div>" : "") +
+    '<div><div class="h">Source file</div>' + file + "</div></div>" +
+    (r.is_first_vintage
+      ? '<p class="rh-note">The dataset’s first release: all ' + rhCount(r.recorded) +
+        " values are the history as it stood at first ingest. Later releases are compared " +
+        "against it.</p>"
+      : (r.new_values || r.revised || r.withdrawn
+        ? '<button type="button" class="btn rh-values">See every value it changed</button>' +
+          '<div class="rh-values-box"></div>'
+        : '<p class="rh-note">No value changed: the source file differed, the numbers did not.</p>'));
+  btn.parentNode.insertBefore(detail, btn.nextElementSibling);
+
+  var see = detail.querySelector(".rh-values");
+  if (see) {
+    see.addEventListener("click", function () {
+      var out = detail.querySelector(".rh-values-box");
+      see.disabled = true;
+      out.innerHTML = '<div class="admin-loading">Loading the changed values…</div>';
+      api("/releases/" + encodeURIComponent(d.dataset) + "/" + r.release_id + "/changes")
+        .then(function (c) { out.innerHTML = renderChanges(c); see.parentNode.removeChild(see); })
+        .catch(function (err) {
+          see.disabled = false;
+          out.innerHTML = loadFailed("this release's changes", err);
+        });
+    });
   }
-
-  cell.innerHTML = '<div class="admin-loading">Loading changes…</div>';
-  api("/releases/" + encodeURIComponent(slug) + "/" + tr.getAttribute("data-release") + "/changes")
-    .then(function (c) { cell.innerHTML = renderChanges(c); })
-    .catch(function (err) { cell.innerHTML = loadFailed("this release's changes", err); });
 }
 
 function changeTable(rows, withPrior) {

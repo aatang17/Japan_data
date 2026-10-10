@@ -20,7 +20,7 @@
 
   <div class="prose">
 
-  <h2 id="what">What this is</h2>
+  <h2 id="what">Overview</h2>
   <p>Japanese official statistics and company disclosures, published as one platform: consumer
   prices, Bank of Japan and JGB data, visitors and guest nights, semiconductor trade,
   agriculture, population and representation, and the annual filings of listed companies.
@@ -31,7 +31,7 @@
   what does not reconcile, what is estimated, what the publisher suppresses — is under
   <a href="#datasets">Dataset notes</a>.</p>
 
-  <h3 id="howto">How to use it</h3>
+  <h3 id="howto">Usage</h3>
   <ul>
     <li>Every page URL encodes the view you are looking at — measure, date range, search,
     selected row. Copy it and a colleague sees the same numbers.</li>
@@ -102,6 +102,13 @@
   exactly; in edge cases the rounding of the inputs can shift a rate by ±0.1&nbsp;pp. Where that
   distinction matters, use the official release — the source link is on every surface. Displayed
   rates are rounded to one decimal; tooltips and CSV exports carry more precision.</p>
+  <p>Hong Kong's CPI is the exception. Across each rebasing year (October 2009 – September
+  2010, October 2014 – September 2015, October 2019 – September 2020) the Census and Statistics
+  Department computed its year-on-year rate on the old basket, so the rate calculated here from
+  the linked index differs by up to 0.8&nbsp;pp (underlying inflation, June 2020: published
+  1.2%, calculated 2.0%). In the 1980s, with the index near 20, one decimal is a coarse step and
+  the gap can pass 0.1&nbsp;pp. The official rates are stored as published in
+  <code>cpi-hk-rates</code> and shown on the Hong Kong Prices page under Published Rates.</p>
 
   <h2 id="flags">Footnote flags</h2>
   <p>Two flags mark readings whose headline rate is easy to misread. Both are calculated here
@@ -126,7 +133,7 @@
   marker are in its tooltip, in the item's detail panel, and in the <code>flags</code> column of
   the CSV export.</p>
 
-  <h2 id="names">Names in English<span class="h2-note">What is copied, what is derived, what stays Japanese</span></h2>
+  <h2 id="names">English names<span class="h2-note">What is copied, what is derived, what stays Japanese</span></h2>
   <p>Japanese sources name places, companies, people and accounting line items in Japanese.
   Nothing on this platform is machine-translated. An English name is either a published one,
   copied, or it is derived by a stated rule from a published one — and the filed Japanese is
@@ -159,7 +166,7 @@
     returned beside the filed string and only where it is unambiguous; anything else is a gap.</li>
   </ul>
 
-  <h2 id="plausible">Figures the filing contradicts<span class="h2-note">Flagged, never corrected</span></h2>
+  <h2 id="plausible">Contradicted figures<span class="h2-note">Flagged, never corrected</span></h2>
   <p>Every figure is published exactly as filed. A small number of filings state something their
   own document cannot support — an average salary of ¥9.5tn, a board of 8,000 officers, a 5%
   holding larger than the shares in issue printed beside it. Those figures are not changed and
@@ -409,6 +416,49 @@
       <li>The "up to fiscal 2008" legacy industry lines created by the 2008 reclassification are
       not carried; finance and insurance are a separate table with a different line structure
       and are not included.</li>
+    </ul>
+    </div>
+  </details>
+
+  <details class="ds" id="calc-labour">
+    <summary><span>Labour</span><span class="ds-note">Unemployment, job openings, wages — monthly</span></summary>
+    <div class="ds-body">
+    <ul>
+      <li><b>unemployment-jp</b> is the Statistics Bureau's 労働力調査 (Labour Force Survey),
+      long-run table 1 a-1: labour force, employed, employees, unemployed, not in the labour
+      force and the unemployment rate, for both sexes, men and women. Seasonally adjusted from
+      January 1953, original series from July 1972. Headcounts are in ten thousand persons
+      (万人) as published — 177 is 1.77 million people. Figures before 1974 exclude Okinawa;
+      March–August 2011 are the Bureau's supplementary estimates after the earthquake.</li>
+      <li>The Bureau replaced October 2005 – December 2021 with re-benchmarked figures after each
+      census. Each cell was re-estimated on its own, so in a dozen months of that window men
+      plus women, or employed plus unemployed, miss the published total by up to 50,000. The
+      figures are stored as published, not forced to add up.</li>
+      <li><b>job-openings-jp</b> is the Ministry of Health, Labour and Welfare's 一般職業紹介状況,
+      long-run tables 2 and 3: new and active job openings per applicant at Hello Work, the
+      public employment offices, including part-time (the headline), excluding part-time and
+      part-time only, original and seasonally adjusted, monthly from 1963. A ratio of 1.18 is
+      118 openings per 100 applicants. Jobs and job seekers that never pass through Hello Work
+      are not counted. The ratio's change is read in points; no percentage change is offered.</li>
+      <li><b>wages-jp</b> is the Ministry's 毎月勤労統計調査 (Monthly Labour Survey), from its
+      long-run cumulative files: pay in yen (total, contractual, scheduled, overtime and
+      special), hours, days, employment, hire and separation rates, and the Ministry's indices
+      (2020 = 100), for all industries and manufacturing, establishments with 5+ employees (from
+      1990) and 30+ (from 1970), all, full-time and part-time workers. Final figures only; the
+      preliminary release two weeks earlier is not in these files.</li>
+      <li><b>Wage growth is the Ministry's published rate.</b> The series ending
+      <code>_yoy</code> are the Ministry's own year-on-year growth rates, stored as published, and
+      the page leads with them. They cannot always be recomputed from the indices: the index
+      level steps up between December 2023 and January 2024, and in every month of 2024 the
+      change computed from the index overstates the published rate by 2 to 4 pp (June 2024 total
+      cash earnings: +8.0% from the index, +4.5% published). Outside that break the two agree to
+      within 0.3 pp in 95% of months since 2012. The yen averages jump whenever the Ministry
+      rotates its sample, so no percentage change is offered on the yen, hours or days
+      series.</li>
+      <li>The real wage index is the Ministry's own: the nominal index deflated by the CPI
+      excluding imputed rent (持家の帰属家賃を除く総合). Nothing is deflated by this platform.</li>
+      <li>Wages are not seasonally adjusted. June, July and December carry bonuses; the page's
+      tiles compare each month with the same month a year earlier.</li>
     </ul>
     </div>
   </details>
@@ -1667,7 +1717,7 @@
   assistant's prose is the product of whichever AI client you connect, not of this site; check its
   statements against the cited pages.</p>
 
-  <h2 id="cookies">Cookies and how readers are counted<span class="h2-note">One cookie, only if you accept it</span></h2>
+  <h2 id="cookies">Cookies and visitor counting<span class="h2-note">One cookie, only if you accept it</span></h2>
   <p>Visits are counted by the server itself, from its own request log. Nothing about that
   needs a cookie or a script: the address a request came from is turned into a one-way hash
   together with the browser's description of itself and a secret that changes daily, and only

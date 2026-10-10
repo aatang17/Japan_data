@@ -11,8 +11,8 @@
      <header class="site-header" data-section="macro" data-page="explorer"></header>
      <script src="assets/nav.js"></script>
 
-   Two tiers. The navy bar carries the markets — Japan, United States — in
-   full words, plus Docs and the reader's controls at the right: which country
+   Two tiers. The navy bar carries the markets — Japan, Hong Kong, United
+   States — in full words, plus Docs and the reader's controls at the right: which country
    you are looking at is the first thing every page says. The light strip
    beneath it carries the current market's sections; a section with more than
    one page opens a menu of them. A small trail at the top of the content
@@ -50,15 +50,24 @@ var BRAND_MARK =
   '<path d="M30 100 H62"/><path d="M74 100 H98"/></g></svg>';
 
 
-// Two markets, separated at the top of the bar: a reader works in one
-// market at a time, and the two stand on different sources (e-Stat, the BOJ
-// and EDINET; the SEC and the Treasury). Each section belongs to one market
-// or is "shared" (data access, methodology), and the bar shows only the
-// current market's sections plus the shared ones. A shared page stays in the
-// market the reader came from, remembered per browser.
+// Markets, separated at the top of the bar: a reader works in one market at
+// a time, and each stands on its own sources (e-Stat, the BOJ and EDINET; the
+// C&SD and the HKMA; the SEC and the Treasury). Each section belongs to one
+// market or is "shared" (data access, methodology), and the bar shows only
+// the current market's sections plus the shared ones. A shared page stays in
+// the market the reader came from, remembered per browser.
+//
+// The Data menu groups markets into regions, one tab each: Asia holds Japan
+// and Hong Kong, each still its own block with its own sections, exactly as a
+// market was laid out when every market had a tab of its own.
 var NAV_MARKETS = [
-  { id: "jp", label: "Japan", entry: "macro.html" },
-  { id: "us", label: "United States", entry: "us-treasury.html" },
+  { id: "jp", label: "Japan", entry: "macro.html", region: "asia" },
+  { id: "hk", label: "Hong Kong", entry: "hk-economy.html", region: "asia" },
+  { id: "us", label: "United States", entry: "us-treasury.html", region: "us" },
+];
+var NAV_REGIONS = [
+  { id: "asia", label: "Asia" },
+  { id: "us", label: "United States" },
 ];
 
 var NAV_SECTIONS = [
@@ -86,6 +95,7 @@ var NAV_SECTIONS = [
       // earned and invested doing it. They sit before the balance sheets.
       // Labour sits after Inflation: unemployment, job openings and wages
       // are the other half of what the Bank of Japan reads each month.
+      { id: "labour", label: "Labour", href: "labour.html" },
       { id: "gdp", label: "GDP", href: "gdp.html" },
       // Public finance sits beside the national accounts: the general
       // account is one legal account of one tier of government, and the
@@ -203,6 +213,17 @@ var NAV_SECTIONS = [
     ],
   },
   {
+    // Hong Kong's official statistics from the Census and Statistics
+    // Department. The economy page switches between GDP, the labour force,
+    // retail sales and trade; the prices page between the index levels and
+    // the C&SD's published rates.
+    id: "hk-macro", market: "hk", label: "Macro", suffix: "HK Macro",
+    pages: [
+      { id: "hk-economy", label: "Economy", href: "hk-economy.html" },
+      { id: "hk-prices", label: "Prices", href: "hk-prices.html" },
+    ],
+  },
+  {
     // US prices and pay, all from the BLS except the Atlanta Fed tracker.
     // Inflation owns its cuts as tabs, as Japan's does; retail prices and
     // wages are separate questions and separate pages.
@@ -292,8 +313,11 @@ var NAV_SECTIONS = [
     if (market) localStorage.setItem("obs-market", market);
     else market = localStorage.getItem("obs-market");
   } catch (e) { /* storage blocked: fall back to Japan below */ }
-  if (market !== "us") market = "jp";
-  var marketObj = NAV_MARKETS[market === "us" ? 1 : 0];
+  var marketObj = NAV_MARKETS[0];
+  for (var mi = 0; mi < NAV_MARKETS.length; mi++) {
+    if (NAV_MARKETS[mi].id === market) marketObj = NAV_MARKETS[mi];
+  }
+  market = marketObj.id;
 
   // First tier: the two products, Data and Research. Data opens the
   // markets; the country the reader is in is named in the trail at the top
@@ -502,39 +526,49 @@ var NAV_SECTIONS = [
   var stripSections = isDocs ? [] : NAV_SECTIONS.filter(function (s) {
     return s.market === market;
   });
-  // The Data menu: one market at a time behind two tabs, its sections in
-  // columns, and a preview pane on the right that shows the page under the
-  // pointer — its main series as a small chart with the latest value — from
-  // /api/v1/catalog/previews, fetched once on first open.
+  // The Data menu: one region at a time behind its tab, each market in it a
+  // block of its sections in columns, and a preview pane on the right that
+  // shows the page under the pointer — its main series as a small chart with
+  // the latest value — from /api/v1/catalog/previews, fetched once on first
+  // open.
   var dataMenu = header.querySelector("#nav-data-menu");
+  var region = marketObj.region;
+  function marketsIn(r) {
+    return NAV_MARKETS.filter(function (m) { return m.region === r; });
+  }
   dataMenu.innerHTML =
     '<span class="mega-main">' +
-    '<span class="mega-tabs" role="tablist" aria-label="Market">' +
-    NAV_MARKETS.map(function (m) {
-      return '<button type="button" role="tab" class="mega-tab" data-mkt="' + esc(m.id) + '"' +
-        ' aria-selected="' + (m.id === market) + '">' + esc(m.label) + "</button>";
+    '<span class="mega-tabs" role="tablist" aria-label="Region">' +
+    NAV_REGIONS.map(function (r) {
+      return '<button type="button" role="tab" class="mega-tab" data-region="' + esc(r.id) + '"' +
+        ' aria-selected="' + (r.id === region) + '">' + esc(r.label) + "</button>";
     }).join("") + "</span>" +
-    NAV_MARKETS.map(function (m) {
-      return '<span class="mega-mkt mega-' + esc(m.id) + '" data-mkt="' + esc(m.id) + '"' +
-        (m.id === market ? "" : " hidden") + ">" +
-        '<a class="mega-mkt-h" href="' + esc(m.entry) + '"' +
-          (!isDocs && m.id === market ? ' aria-current="true"' : "") + ">" +
-          esc(m.label) + " overview</a>" +
-        '<span class="mega-secs">' +
-        NAV_SECTIONS.filter(function (s) { return s.market === m.id; }).map(function (s) {
-          return '<span class="mega-sec">' +
-            '<a class="mega-sec-h" href="' + esc(s.entry || s.pages[0].href) + '"' +
-              ' data-sec="' + esc(s.label) + '" data-label="' + esc(s.label) + '"' +
-              (s === section ? ' aria-current="true"' : "") + ">" + esc(s.label) + "</a>" +
-            (s.pages.length > 1 ? s.pages.map(function (p) {
-              return '<a href="' + esc(p.href) + '" data-sec="' + esc(s.label) + '" data-label="' +
-                esc(p.label) + '"' + (owns(p) ? ' aria-current="page"' : "") + ">" +
-                esc(p.label) + "</a>";
-            }).join("") : "") + "</span>";
-        }).join("") + "</span></span>";
+    NAV_REGIONS.map(function (r) {
+      return '<span class="mega-region" data-region="' + esc(r.id) + '"' +
+        (r.id === region ? "" : " hidden") + ">" + marketsIn(r.id).map(marketBlock).join("") +
+        "</span>";
     }).join("") +
     "</span>" +
     '<span class="mega-preview" aria-live="polite"></span>';
+
+  function marketBlock(m) {
+    return '<span class="mega-mkt mega-' + esc(m.id) + '" data-mkt="' + esc(m.id) + '">' +
+      '<a class="mega-mkt-h" href="' + esc(m.entry) + '"' +
+        (!isDocs && m.id === market ? ' aria-current="true"' : "") + ">" +
+        esc(m.label) + " overview</a>" +
+      '<span class="mega-secs">' +
+      NAV_SECTIONS.filter(function (s) { return s.market === m.id; }).map(function (s) {
+        return '<span class="mega-sec">' +
+          '<a class="mega-sec-h" href="' + esc(s.entry || s.pages[0].href) + '"' +
+            ' data-sec="' + esc(s.label) + '" data-label="' + esc(s.label) + '"' +
+            (s === section ? ' aria-current="true"' : "") + ">" + esc(s.label) + "</a>" +
+          (s.pages.length > 1 ? s.pages.map(function (p) {
+            return '<a href="' + esc(p.href) + '" data-sec="' + esc(s.label) + '" data-label="' +
+              esc(p.label) + '"' + (owns(p) ? ' aria-current="page"' : "") + ">" +
+              esc(p.label) + "</a>";
+          }).join("") : "") + "</span>";
+      }).join("") + "</span></span>";
+  }
 
   (function megaPreview() {
     var pane = dataMenu.querySelector(".mega-preview");
@@ -545,7 +579,7 @@ var NAV_SECTIONS = [
     var touchArmed = null;
     var lastPointer = "mouse";
     var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    var DEFAULT = { jp: "/cpi.html", us: "/us-inflation.html" };
+    var DEFAULT = { jp: "/cpi.html", hk: "/hk-economy.html", us: "/us-inflation.html" };
 
     function pathOf(href) {
       try { return new URL(href, location.origin + "/").pathname; } catch (e) { return href; }
@@ -645,14 +679,17 @@ var NAV_SECTIONS = [
         DEFAULT[mkt].slice(1) + '"]') || dataMenu.querySelector('.mega-mkt[data-mkt="' + mkt + '"] a[href$="' +
         DEFAULT[mkt].slice(1) + '"]') || dataMenu.querySelector('.mega-mkt[data-mkt="' + mkt + '"] .mega-sec a');
     }
-    function selectMarket(mkt) {
+    function selectRegion(r) {
       Array.prototype.forEach.call(dataMenu.querySelectorAll(".mega-tab"), function (t) {
-        t.setAttribute("aria-selected", String(t.getAttribute("data-mkt") === mkt));
+        t.setAttribute("aria-selected", String(t.getAttribute("data-region") === r));
       });
-      Array.prototype.forEach.call(dataMenu.querySelectorAll(".mega-mkt"), function (b) {
-        b.hidden = b.getAttribute("data-mkt") !== mkt;
+      Array.prototype.forEach.call(dataMenu.querySelectorAll(".mega-region"), function (b) {
+        b.hidden = b.getAttribute("data-region") !== r;
       });
       shown = null;
+      // the market the reader is in, if it is in this region; else its first
+      var mkts = marketsIn(r);
+      var mkt = mkts.some(function (m) { return m.id === market; }) ? market : mkts[0].id;
       show(defaultFor(mkt));
     }
     if (btn) btn.addEventListener("click", function () {
@@ -661,7 +698,7 @@ var NAV_SECTIONS = [
     });
     dataMenu.addEventListener("click", function (e) {
       var tab = e.target.closest(".mega-tab");
-      if (tab) { e.stopPropagation(); selectMarket(tab.getAttribute("data-mkt")); return; }
+      if (tab) { e.stopPropagation(); selectRegion(tab.getAttribute("data-region")); return; }
       // touch: the first tap on a page previews it, the second opens it
       var a = e.target.closest(".mega-secs a");
       if (a && lastPointer === "touch" && touchArmed !== a) {
@@ -685,7 +722,7 @@ var NAV_SECTIONS = [
       var tabs = Array.prototype.slice.call(dataMenu.querySelectorAll(".mega-tab"));
       var next = tabs[(tabs.indexOf(tab) + (e.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length];
       next.focus();
-      selectMarket(next.getAttribute("data-mkt"));
+      selectRegion(next.getAttribute("data-region"));
     });
   })();
 

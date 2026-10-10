@@ -111,6 +111,14 @@ function fillCpiLong() {
   }).catch(() => rowFailed("r-long", "a-long"));
 }
 
+function fillLabour(dataset, key, rid, aid, fmt, note) {
+  return getJSON("/api/v1/" + dataset + "/overview").then(d => {
+    const t = d.tiles.find(x => x.key === key);
+    setReading(rid, t.value === null ? MISSING : fmt(t.value), note);
+    setAsOf(aid, fmtPeriodLong(d.release.latest_period), d.stale);
+  }).catch(() => rowFailed(rid, aid));
+}
+
 function fillBanks() {
   return getJSON("/api/v1/fsa-npl/overview").then(d => {
     const t = d.tiles.find(x => x.key === "ratio");
@@ -358,6 +366,12 @@ fillTokyo();
 fillGoodsServices();
 fillCpiSa();
 fillCpiLong();
+fillLabour("unemployment-jp", "rate", "r-unemp", "a-unemp", v => fmtRate(v, 1),
+           "unemployment rate, seasonally adjusted, as published");
+fillLabour("job-openings-jp", "active", "r-jobs", "a-jobs", v => fmtNum(v, 2),
+           "openings per applicant, as published");
+fillLabour("wages-jp", "real", "r-wages", "a-wages", v => fmtRate(v, 1),
+           "real wages YoY, as published");
 fillBoj();
 fillBanks();
 fillRates();

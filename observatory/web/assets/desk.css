@@ -447,7 +447,7 @@ sup.dk-fn[data-note=""]::after { content: "[?]"; color: var(--obs-warn); }
   background: var(--obs-surface); border: 1px solid var(--obs-border); border-radius: 3px; }
 .dk-rs-form input:focus { outline: none; border-color: var(--obs-primary); box-shadow: 0 0 0 2px var(--obs-focus-soft); }
 .dk-rs-res { font-size: 13px; }
-.dk-rs-res[aria-busy="true"] { opacity: .55; transition: opacity .1s; }
+.dk-rs-res[aria-busy="true"] > :not(.dk-rs-busy) { opacity: .55; transition: opacity .1s; }
 .dk-rs-h { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
   color: var(--obs-text-muted); margin: 12px 0 4px; }
 .dk-rs-list { list-style: none; padding: 0; margin: 0; }

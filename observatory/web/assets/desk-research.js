@@ -832,11 +832,19 @@ function whenTyped(input, fn) {
    ("China Korea Taiwan" → "China"), and the panel says so. */
 function dataSearch(q, res, asked) {
   if (!q.trim()) return;
-  // while typing, the last results stay up (dimmed) until the new ones come;
-  // a reply to an older search that comes late is dropped
+  // while typing, the last results stay up (dimmed) under a line saying
+  // what is being searched for; a reply to an older search that comes late
+  // is dropped
   var seq = res._seq = (res._seq || 0) + 1;
-  if ($(".dk-rs-list", res)) res.setAttribute("aria-busy", "true");
-  else res.innerHTML = '<p class="muted">Searching…</p>';
+  var busy = '<p class="muted dk-rs-busy">Searching for “' + escapeHtml(q) + "”…</p>";
+  if ($(".dk-rs-list", res)) {
+    res.setAttribute("aria-busy", "true");
+    var line = $(".dk-rs-busy", res);
+    if (line) line.outerHTML = busy;
+    else res.insertAdjacentHTML("afterbegin", busy);
+  } else {
+    res.innerHTML = busy;
+  }
   api("/research/data/search?q=" + encodeURIComponent(q)).then(function (r) {
     if (seq !== res._seq) return;
     res.removeAttribute("aria-busy");

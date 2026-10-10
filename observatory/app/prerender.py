@@ -240,6 +240,14 @@ DESCRIPTIONS = {
     "us-wages.html":
         "US average hourly and weekly earnings, nominal and real, from the BLS, and the "
         "Atlanta Fed Wage Growth Tracker's median wage growth by group.",
+    "hk-economy.html":
+        "Hong Kong's quarterly GDP and its expenditure components from 1973, unemployment "
+        "and the labour force from 1985, retail sales from 2004 and merchandise trade from "
+        "1952, from the Census and Statistics Department.",
+    "hk-prices.html":
+        "Hong Kong's Consumer Price Indices — Composite, CPI(A), (B), (C), underlying and the "
+        "thirteen expenditure divisions — with the official year-on-year rates, from the "
+        "Census and Statistics Department.",
     "us-companies.html":
         "Large US companies' SEC filings since 2009 — revenue, profit, cash flows and every "
         "filed concept, as latest filed, as first reported or as known on any date.",
@@ -249,6 +257,10 @@ DESCRIPTIONS = {
     "banks.html":
         "Japanese banks — non-performing loans, earnings and per-bank statements, from the "
         "Financial Services Agency and the Japanese Bankers Association.",
+    "labour.html":
+        "Japan's unemployment rate and employment from the Labour Force Survey, the job "
+        "openings-to-applicants ratio, and wages, real wages and hours from the Monthly "
+        "Labour Survey — monthly, from 1953, 1963 and 1970.",
     "gdp.html":
         "Japan's quarterly GDP and its expenditure components, from Cabinet Office national "
         "accounts.",

@@ -44,7 +44,9 @@ from .adapters import (boj_assets, cpi_jp, cpi_jp_goods_services, cpi_jp_items,
                        boj_loan_rates, boj_deposit_rates, fsa_fi_list,
                        jpx_margin, jpx_investor_type,
                        cpi_us, cpi_us_sa, cpi_us_areas, cpi_us_weights,
-                       us_avg_prices, us_wages, us_wage_tracker)
+                       us_avg_prices, us_wages, us_wage_tracker,
+                       lfs_unemployment, mhlw_job_openings, mhlw_monthly_labour,
+                       cpi_hk, cpi_hk_rates, gdp_hk, labour_hk, retail_hk, trade_hk)
 
 # The agent is optional: without the openai package installed the data API
 # and the site keep working, and /ask reports itself as unavailable.
@@ -102,7 +104,13 @@ ADAPTERS = {"cpi-jp": cpi_jp, "cpi-jp-items": cpi_jp_items, "boj-assets": boj_as
             "cpi-us": cpi_us, "cpi-us-sa": cpi_us_sa,
             "cpi-us-areas": cpi_us_areas, "cpi-us-weights": cpi_us_weights,
             "us-avg-prices": us_avg_prices, "us-wages": us_wages,
-            "us-wage-tracker": us_wage_tracker}
+            "us-wage-tracker": us_wage_tracker,
+            "unemployment-jp": lfs_unemployment,
+            "job-openings-jp": mhlw_job_openings,
+            "wages-jp": mhlw_monthly_labour,
+            # Hong Kong: the Census and Statistics Department (censtatd.py).
+            "cpi-hk": cpi_hk, "cpi-hk-rates": cpi_hk_rates, "gdp-hk": gdp_hk,
+            "labour-hk": labour_hk, "retail-hk": retail_hk, "trade-hk": trade_hk}
 
 router = APIRouter(prefix="/api/v1", tags=["Datasets"])
 
@@ -160,7 +168,14 @@ UNIT_LABEL = {"index": "index", "jpy_100mn": "¥100mn", "pct": "%",
               # US dollars as published; the per-unit quantity (per lb., per
               # gallon, per hour) is in the series name. "1982-84 $" is the
               # BLS's constant-dollar real earnings, never current dollars.
-              "usd": "$", "usd_1982_84": "1982-84 $"}
+              "usd": "$", "usd_1982_84": "1982-84 $",
+              # The Labour Force Survey counts people in 万人 and is stored
+              # in it: 177 is 1.77 million, never 177 people. Job openings
+              # ratios are openings per applicant (倍), not a percentage.
+              "persons_10k": "10k persons", "ratio": "ratio", "days": "days",
+              # Hong Kong's C&SD publishes money in HK$ million and head
+              # counts in thousands; both are stored as released.
+              "hkd_million": "HK$mn", "persons_1000": "'000 persons"}
 
 
 def _calc_for(measure, unit):
@@ -803,11 +818,16 @@ def _level_overview(adapter, dataset):
                  "series_name": s["name_en"], "type": spec["type"],
                  "unit": UNIT_LABEL.get(s["unit"], s["unit"])}
             if spec["type"] == "level":
-                cur, prev = vals.get(latest), vals.get(prior)
+                # A series that is not seasonally adjusted (monthly wages,
+                # with bonuses in June and December) is read against the same
+                # month a year earlier; the tile may ask for that comparison.
+                back = spec.get("compare_months")
+                base_p = _months_ago(latest, back) if back else prior
+                cur, prev = vals.get(latest), vals.get(base_p)
                 t.update({
                     "value": cur,
                     "delta": None if cur is None or prev is None else cur - prev,
-                    "comparison": "vs " + _period_label(prior, step),
+                    "comparison": "vs " + _period_label(base_p, step),
                     "trust": "official", "calc": _calc_for("index", s["unit"]),
                 })
             elif spec["type"] == "drawdown":
@@ -931,6 +951,9 @@ def overview(dataset):
         stale = (today - latest).days > pres["stale_after_days"]
         return {
             "dataset": dataset, "release": rel, "tiles": tiles, "groups": groups,
+            # The page's source line. Without it a series page fell back to its
+            # own default wording, and Hong Kong's CPI was credited to the BLS.
+            "credit_line": pres.get("credit_line"),
             "main_series": [
                 {"role": m["role"], "label": m["label"], "slot": m["slot"],
                  "code": smap[m[key]]["code"]}
@@ -1888,7 +1911,14 @@ def observations(dataset,
             # percentage (a loan rate going from 1% to 2% is "+100%") is the
             # unit confusion the trust contract exists to prevent: the change
             # in a rate is in percentage points, and the tiles carry that.
+            # A ratio of counts (job openings per applicant) is refused the
+            # same way, and its change is in points, not percentage points.
             if measure != "index" and _kind(adapter.PRESENTATION, code) == "rate":
+                if s.get("unit") == "ratio":
+                    raise HTTPException(
+                        400, "'%s' is a ratio; its change is read in points, not as "
+                             "a percentage of itself. Request measure=index and "
+                             "difference the values." % code)
                 raise HTTPException(
                     400, "'%s' is a rate in percent; a percentage change of a "
                          "rate is not meaningful. Request measure=index and "

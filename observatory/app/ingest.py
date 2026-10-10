@@ -48,7 +48,9 @@ from .adapters import (boj_assets, cpi_jp, cpi_jp_goods_services, cpi_jp_items,
                        boj_loan_rates, boj_deposit_rates, fsa_fi_list,
                        jpx_margin, jpx_investor_type,
                        cpi_us, cpi_us_sa, cpi_us_areas, cpi_us_weights,
-                       us_avg_prices, us_wages, us_wage_tracker)
+                       us_avg_prices, us_wages, us_wage_tracker,
+                       lfs_unemployment, mhlw_job_openings, mhlw_monthly_labour,
+                       cpi_hk, cpi_hk_rates, gdp_hk, labour_hk, retail_hk, trade_hk)
 
 ADAPTERS = {"cpi-jp": cpi_jp, "cpi-jp-items": cpi_jp_items, "boj-assets": boj_assets,
             "cpi-jp-goods-services": cpi_jp_goods_services, "cpi-jp-sa": cpi_jp_sa,
@@ -90,7 +92,13 @@ ADAPTERS = {"cpi-jp": cpi_jp, "cpi-jp-items": cpi_jp_items, "boj-assets": boj_as
             "cpi-us": cpi_us, "cpi-us-sa": cpi_us_sa,
             "cpi-us-areas": cpi_us_areas, "cpi-us-weights": cpi_us_weights,
             "us-avg-prices": us_avg_prices, "us-wages": us_wages,
-            "us-wage-tracker": us_wage_tracker}
+            "us-wage-tracker": us_wage_tracker,
+            "unemployment-jp": lfs_unemployment,
+            "job-openings-jp": mhlw_job_openings,
+            "wages-jp": mhlw_monthly_labour,
+            # Hong Kong: the Census and Statistics Department (censtatd.py).
+            "cpi-hk": cpi_hk, "cpi-hk-rates": cpi_hk_rates, "gdp-hk": gdp_hk,
+            "labour-hk": labour_hk, "retail-hk": retail_hk, "trade-hk": trade_hk}
 
 # "this (series, period) had no prior value at all" — distinct from a prior
 # value that happens to be None.
