@@ -1,0 +1,51 @@
+# Put main live on the DigitalOcean server once the checks pass.
+#
+# The site has been served from the server since 2026-10-10
+# (docs/plans/PLAN-DROPLET-ZERO-DOWNTIME.md); Railway now only keeps a quiet
+# fallback. This asks the server to run observatory/deploy/deploy.sh for the
+# exact commit the checks passed: build, start the new copy beside the old,
+# smoke-check it before any reader reaches it, switch, and roll back on any
+# failure. No outage either way.
+#
+# The key in DEPLOY_SSH_KEY can run nothing on the server but
+# observatory/deploy/gh-deploy.sh (a forced command), which accepts only
+# "deploy <sha>" or "deploy main". Re-run by hand from the Actions tab
+# ("Run workflow") to deploy main again.
+name: deploy
+
+on:
+  workflow_run:
+    workflows: [checks]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+# One deploy at a time, in order; a later push waits rather than cancels.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # only a green checks run on a push to main (or a manual run)
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Deploy to the server
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          SHA: ${{ github.event.workflow_run.head_sha || 'main' }}
+        run: |
+          set -euo pipefail
+          [ -n "$DEPLOY_SSH_KEY" ] || { echo "::error::DEPLOY_SSH_KEY secret is not set"; exit 1; }
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          # the server's own host key: refuse anything else
+          echo "206.189.209.173 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINRqOBqqkLXQtl6DHWDBHlXyPU9QaaPgHKS+Ikx7C9qh" > ~/.ssh/known_hosts
+          ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o ServerAliveInterval=30 \
+              root@206.189.209.173 "deploy $SHA"
