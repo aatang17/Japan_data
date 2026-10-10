@@ -1,0 +1,7 @@
+[Unit]
+Description=Move the Plover refresher to the last good image once it is idle
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/plover/repo/observatory/deploy/refresher-upgrade.sh

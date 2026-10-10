@@ -21,6 +21,7 @@ import duckdb
 from fastapi import APIRouter, HTTPException, Query
 
 from . import asof
+from . import db
 from . import jp_enums
 from . import plausibility
 
@@ -66,7 +67,7 @@ def _cur():
         if _READER is None or _READER_VERSION != version:
             if _READER is not None:
                 _READER.close()
-            _READER = duckdb.connect(str(DB_PATH), read_only=True)
+            _READER = db.limit_memory(duckdb.connect(str(DB_PATH), read_only=True))
             _READER_VERSION = version
         return _READER.cursor()
 

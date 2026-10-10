@@ -76,9 +76,16 @@ def _copy_sqlite(src, dst):
     return True
 
 
+def offsite_enabled():
+    """OFFSITE_BACKUPS=0 stops every upload to plover-backups/ (this module and
+    app/data_backup.py). A rehearsal copy of production sets it: its older
+    copies must never land on top of production's."""
+    return os.environ.get("OFFSITE_BACKUPS", "1").strip().lower() not in ("0", "false", "no", "off", "")
+
+
 def _s3():
     needed = ("EDINET_S3_BUCKET", "EDINET_S3_ENDPOINT", "EDINET_S3_KEY_ID", "EDINET_S3_SECRET")
-    if not all(os.environ.get(k) for k in needed):
+    if not offsite_enabled() or not all(os.environ.get(k) for k in needed):
         return None, None
     import boto3
     client = boto3.client("s3", endpoint_url=os.environ["EDINET_S3_ENDPOINT"],

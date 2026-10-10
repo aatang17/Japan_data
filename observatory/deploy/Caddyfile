@@ -1,0 +1,65 @@
+# Caddy in front of Plover on the DigitalOcean server.
+#
+# Every host is proxied through Cloudflare (orange cloud, SSL mode Full
+# strict). TLS uses a Cloudflare Origin certificate at /certs/origin.pem and
+# /certs/origin.key (/opt/plover/certs on the server, never in git), so Caddy
+# never asks Let's Encrypt for anything.
+#
+# The TCP peer is always a Cloudflare edge. Trust Cloudflare's ranges (same
+# list as the server's firewall, https://www.cloudflare.com/ips/) and take the
+# reader's address from Cf-Connecting-Ip; app/visits.py reads the first
+# X-Forwarded-For entry, which is safe only because the firewall refuses every
+# connection that is not from Cloudflare.
+{
+	auto_https disable_certs
+	servers {
+		client_ip_headers Cf-Connecting-Ip
+		trusted_proxies static \
+			173.245.48.0/20 103.21.244.0/22 103.22.200.0/22 103.31.4.0/22 \
+			141.101.64.0/18 108.162.192.0/18 190.93.240.0/20 188.114.96.0/20 \
+			197.234.240.0/22 198.41.128.0/17 162.158.0.0/15 104.16.0.0/13 \
+			104.24.0.0/14 172.64.0.0/13 131.0.72.0/22 \
+			2400:cb00::/32 2606:4700::/32 2803:f800::/32 2405:b500::/32 \
+			2405:8100::/32 2a06:98c0::/29 2c0f:f248::/32
+	}
+}
+
+(plover) {
+	tls /certs/origin.pem /certs/origin.key
+	encode zstd gzip
+	# Two named copies: web, and web-bridge (the previous image) only during a
+	# deploy. `first` sends every reader to web while it is healthy and to the
+	# bridge otherwise. Named upstreams are resolved at each dial, so a
+	# recreated container's new address is found at once. (Re-resolving a
+	# shared alias with `dynamic a` kept sending to a stopped container for 12
+	# seconds in the 2026-10-10 trial.)
+	reverse_proxy web:8080 web-bridge:8080 {
+		lb_policy first
+		# /healthz/ready answers 503 until deploy.sh has smoke-checked a new copy
+		# and released it, and again once it marks a copy as about to stop; so
+		# readers reach only checked copies. Not counted as a visit.
+		health_uri /healthz/ready
+		health_interval 1s
+		health_timeout 3s
+		health_status 2xx
+		health_fails 1
+		health_passes 2
+		# connection-level backstop, and a retry on the other copy before a
+		# reader ever sees a 502
+		fail_duration 10s
+		max_fails 1
+		lb_try_duration 8s
+		lb_try_interval 100ms
+		header_up X-Forwarded-Proto https
+	}
+}
+
+ploveranalytics.com, www.ploveranalytics.com {
+	import plover
+}
+
+# The rehearsal address: the same site, kept out of search engines.
+new.ploveranalytics.com {
+	header X-Robots-Tag "noindex, nofollow"
+	import plover
+}

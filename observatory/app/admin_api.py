@@ -43,8 +43,12 @@ AUDIT_PATH = ADMIN_DIR / "audit.jsonl"
 COOKIE = "obs_admin"            # shared-password session (per-boot signature)
 STAFF_COOKIE = "obs_staff"      # a person's session (stored, survives restarts)
 SESSION_HOURS = 12
-# Per-boot signing secret: restarting the server invalidates every session.
-_SECRET = os.urandom(32)
+# Signing secret for the shared-password cookie. Per boot unless
+# ADMIN_SESSION_SECRET is set: where a deploy runs the old and new copies of
+# the site side by side (the DigitalOcean server), both must accept the same
+# cookie, or every shared-password login ends at each deploy.
+_SECRET = (hashlib.sha256(os.environ["ADMIN_SESSION_SECRET"].encode("utf-8")).digest()
+           if os.environ.get("ADMIN_SESSION_SECRET", "").strip() else os.urandom(32))
 
 # Failed sign-ins per IP and per email, sliding window — same in-process
 # shape as the /ask rate limit: it bounds one worker, which is the whole

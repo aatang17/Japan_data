@@ -1,0 +1,9 @@
+[Unit]
+Description=Check every 5 minutes whether the Plover refresher can be upgraded
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=5min
+
+[Install]
+WantedBy=timers.target

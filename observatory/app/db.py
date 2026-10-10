@@ -6,6 +6,7 @@ semantics (which series is "headline", how a file is parsed) live in
 the per-dataset adapter, never here.
 """
 import os
+import re
 import pathlib
 import threading
 
@@ -132,9 +133,31 @@ MIGRATIONS = [
 ]
 
 
+_LIMIT_FORM = re.compile(r"^\d+(\.\d+)?\s*(KB|MB|GB|KiB|MiB|GiB)$", re.I)
+
+
+def limit_memory(con):
+    """Cap a reader's buffer at DUCKDB_MEMORY_LIMIT (e.g. 512MB), when set.
+
+    Left alone, DuckDB sizes its buffer at 80% of the machine, or of the
+    container's memory limit, as if it were the only thing running. The
+    website shares that limit with its own search index and response cache,
+    so on the DigitalOcean server it sets this instead (one budget per
+    database file; every connection to a file shares it). Measured
+    2026-10-10: capping the buffer at 256MB halved the server's memory and
+    left page times unchanged. Unset (Railway, a laptop), nothing changes.
+    """
+    limit = os.environ.get("DUCKDB_MEMORY_LIMIT", "").strip()
+    if limit and _LIMIT_FORM.match(limit):
+        con.execute("SET memory_limit = '%s'" % limit)
+    return con
+
+
 def connect(read_only=False):
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     con = duckdb.connect(str(DB_PATH), read_only=read_only)
+    if read_only:
+        limit_memory(con)
     if not read_only:
         con.execute(SCHEMA)
         for statement in MIGRATIONS:
@@ -182,6 +205,6 @@ def read_cursor():
             if _READER is not None:
                 _READER.close()
                 _READER = None
-            _READER = duckdb.connect(str(DB_PATH), read_only=True)
+            _READER = limit_memory(duckdb.connect(str(DB_PATH), read_only=True))
             _READER_VERSION = version
         return _READER.cursor()

@@ -135,6 +135,13 @@ async def lifespan(app):
     registry.bind(app)
     # The Data menu's previews too: every page header fetches them on first open.
     await cache.warm(app, api.warm_paths() + ["/api/v1/catalog/previews"])
+    # WARM_PAGES=1 also builds every page once before the port answers (the
+    # DigitalOcean server, where the previous copy serves meanwhile). The
+    # 2026-10-10 trial: a fresh copy took 1.3-8 s over the home and company
+    # pages its first readers asked for. Off on Railway, where boot time is
+    # downtime.
+    if os.environ.get("WARM_PAGES", "").strip().lower() in ("1", "true", "yes", "on"):
+        await cache.warm(app, ["/"] + sorted("/" + p.name for p in WEB_DIR.glob("*.html")))
     # The series search reads every dataset's series list; load them once in
     # the background, after the port is open, so boot is not held up.
     threading.Thread(target=tools_v2.warm_search, name="warm-search", daemon=True).start()
@@ -144,11 +151,16 @@ async def lifespan(app):
     task = asyncio.ensure_future(refresh.run())
     # Off-volume copies of the research desk and staff accounts: the only
     # data on the volume that cannot be downloaded again. See research_backup.
-    backup = asyncio.ensure_future(research_backup.loop())
+    # WEB_RUNS_BACKUPS=0 where app/refresher.py runs them instead (the
+    # DigitalOcean server), so two copies of the site overlapping during a
+    # deploy never back up twice.
+    tasks = [task]
+    if os.environ.get("WEB_RUNS_BACKUPS", "1").strip().lower() not in ("0", "false", "no", "off"):
+        tasks.append(asyncio.ensure_future(research_backup.loop()))
     try:
         yield
     finally:
-        for t in (task, backup):
+        for t in tasks:
             t.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await t
@@ -180,6 +192,35 @@ app = FastAPI(title="Plover Analytics API", version="1",
                           "no key. Human reference: /api.html",
               docs_url="/api/swagger", redoc_url=None, openapi_url="/api/openapi.json",
               openapi_tags=OPENAPI_TAGS, lifespan=lifespan)
+
+
+# Health for the DigitalOcean server (deploy/). Two questions, two answers:
+#   /healthz        is this copy running? (the container healthcheck)
+#   /healthz/ready  may Caddy send it readers? (the proxy's probe)
+# With READY_GATE=1 a new copy starts out of rotation: deploy.sh smoke-checks
+# it from inside first and only then creates RELEASE_FLAG. Before the gate,
+# the 2026-10-10 trial showed readers 42 errors from a broken release in the
+# half-minute before the smoke check rolled it back. deploy.sh creates
+# DRAIN_FLAG in a copy it is about to stop, so Caddy sends it nothing before
+# it does (without that: requests waiting up to 12 s at each stop). Neither is
+# a visit (visits._kind) or cached (cache.py stores only /api/ JSON).
+DRAIN_FLAG = pathlib.Path(os.environ.get("DRAIN_FLAG", "/tmp/plover-draining"))
+RELEASE_FLAG = pathlib.Path(os.environ.get("RELEASE_FLAG", "/tmp/plover-released"))
+
+
+@app.get("/healthz", include_in_schema=False)
+def healthz():
+    return Response("ok\n", media_type="text/plain")
+
+
+@app.get("/healthz/ready", include_in_schema=False)
+def healthz_ready():
+    held = (os.environ.get("READY_GATE", "").strip().lower() in ("1", "true", "yes", "on")
+            and not RELEASE_FLAG.exists())
+    if DRAIN_FLAG.exists() or held:
+        return Response("draining\n" if DRAIN_FLAG.exists() else "not released yet\n",
+                        status_code=503, media_type="text/plain")
+    return Response("ok\n", media_type="text/plain")
 
 
 @app.get("/api/docs", include_in_schema=False)

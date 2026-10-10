@@ -1,0 +1,13 @@
+[Unit]
+Description=Let only Cloudflare reach Plover's published web ports (Docker bypasses ufw)
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/opt/plover/repo/observatory/deploy/docker-firewall.sh
+
+[Install]
+WantedBy=multi-user.target
